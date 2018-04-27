@@ -1,4 +1,4 @@
-package tech.kzen.launcher.server
+package tech.kzen.lib.server
 
 
 fun main(args: Array<String>) {

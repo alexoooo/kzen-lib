@@ -1,10 +1,10 @@
-package tech.kzen.launcher.client
+package tech.kzen.lib.client
 
 import kotlinx.html.dom.create
 import kotlinx.html.js.div
 import kotlinx.html.p
 import org.w3c.dom.get
-import tech.kzen.launcher.common.getAnswer
+import tech.kzen.lib.common.getAnswer
 import kotlin.browser.document
 
 

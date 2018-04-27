@@ -23,7 +23,7 @@ compileKotlin2Js {
         sourceMap = true
         sourceMapEmbedSources = 'always'
         moduleKind = 'umd'
-        main = 'tech.kzen.launcher.client.Main'
+        main = 'tech.kzen.lib.client.Main'
     }
 }
 

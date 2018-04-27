@@ -1,4 +1,4 @@
-package tech.kzen.launcher.common
+package tech.kzen.lib.common
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

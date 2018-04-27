@@ -1,8 +1,8 @@
 @file:Suppress("unused")
 
-package tech.kzen.launcher.client
+package tech.kzen.lib.client
 
-import tech.kzen.launcher.common.getAnswer
+import tech.kzen.lib.common.getAnswer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
