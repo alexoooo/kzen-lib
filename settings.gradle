@@ -1,1 +1,1 @@
-include 'client', 'common', 'server'
+include 'kzen-lib-js', 'kzen-lib-common', 'kzen-lib-jvm'

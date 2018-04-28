@@ -3,12 +3,12 @@ apply plugin: 'kotlin-dce-js'
 apply plugin: 'com.moowork.node'
 
 dependencies {
-    def kotlinxHtmlVersion = "0.6.9"
+//    def kotlinxHtmlVersion = "0.6.9"
 
-    expectedBy project(':common')
+    expectedBy project(':kzen-lib-common')
 
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-js', version: kotlinVersion
-    compile "org.jetbrains.kotlinx:kotlinx-html-js:${kotlinxHtmlVersion}"
+//    compile "org.jetbrains.kotlinx:kotlinx-html-js:${kotlinxHtmlVersion}"
 
     testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test-js', version: kotlinVersion
 }
@@ -23,7 +23,8 @@ compileKotlin2Js {
         sourceMap = true
         sourceMapEmbedSources = 'always'
         moduleKind = 'umd'
-        main = 'tech.kzen.lib.client.Main'
+//        main = 'tech.kzen.lib.client.Main'
+        main = 'noCall'
     }
 }
 
@@ -35,6 +36,10 @@ compileTestKotlin2Js {
 task yarnInstall(type: YarnTask) {
     args = ['install']
 }
+
+
+runDceKotlinJs.dceOptions.devMode = true
+
 
 // Creates minified, packed main.bundle.js at build/dist:
 task bundle(type: YarnTask, dependsOn: [runDceKotlinJs, yarnInstall]) {

@@ -1,5 +1,5 @@
 {
-  "name": "client",
+  "name": "kzen-lib-client",
   "dependencies": {},
   "devDependencies": {
     "browser-sync": "2.23.6",

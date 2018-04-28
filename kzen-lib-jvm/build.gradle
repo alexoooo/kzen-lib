@@ -22,8 +22,8 @@ apply plugin: 'kotlin-platform-jvm'
 
 
 dependencies {
-    expectedBy project(':common')
-    compile project(":client")
+    expectedBy project(':kzen-lib-common')
+//    compile project(":kzen-lib-client")
 
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlinVersion
     compile("org.jetbrains.kotlin:kotlin-reflect")
