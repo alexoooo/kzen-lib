@@ -2,15 +2,28 @@
 
 package tech.kzen.lib.client
 
-import tech.kzen.lib.common.getAnswer
+import tech.kzen.lib.common.context.ObjectGraphCreator
+import tech.kzen.lib.common.context.ObjectGraphDefiner
+import tech.kzen.lib.common.metadata.model.GraphMetadata
+import tech.kzen.lib.common.notation.model.ProjectNotation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class ClientTest {
-    // JS test names cannot contain illegal characters.
 
+class ClientTest {
     @Test
-    fun the_answer_should_be_correct() {
-        assertEquals(42, getAnswer())
+    fun objectGraphCanBeEmpty() {
+        val emptyMetadata = GraphMetadata(mapOf())
+
+        val emptyDefinition = ObjectGraphDefiner.define(
+                ProjectNotation(mapOf()),
+                emptyMetadata)
+
+        val emptyGraph = ObjectGraphCreator.createGraph(
+                emptyDefinition, emptyMetadata)
+
+        assertEquals(
+                ObjectGraphDefiner.bootstrapObjects.size,
+                emptyGraph.names().size)
     }
 }

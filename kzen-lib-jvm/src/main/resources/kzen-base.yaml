@@ -1,0 +1,103 @@
+
+###########################################################
+
+# Specially handled object that can be used as a sentinel value
+# See: https://en.wikipedia.org/wiki/Sentinel_value
+Bootstrap:
+  abstract: true
+  is: Bootstrap
+  class: kotlin.Nothing
+
+
+DefaultConstructorObjectCreator:
+  is: Bootstrap
+  class: tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
+
+
+DefaultConstructorObjectDefiner:
+  is: Bootstrap
+  class: tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
+
+
+DefaultConstructorObject:
+  abstract: true
+  is: Bootstrap
+  class: kotlin.Any
+  definer: DefaultConstructorObjectDefiner
+  creator: DefaultConstructorObjectCreator
+
+###########################################################
+
+NotationParameterDefiner:
+  is: DefaultConstructorObject
+  class: tech.kzen.lib.common.objects.general.bootstrap.NotationParameterDefiner
+
+
+StructuralParameterCreator:
+  is: DefaultConstructorObject
+  class: tech.kzen.lib.common.objects.general.bootstrap.StructuralParameterCreator
+
+
+ParameterObjectDefiner:
+  is: DefaultConstructorObject
+  class: tech.kzen.lib.common.objects.general.bootstrap.ParameterObjectDefiner
+
+
+ParameterObjectCreator:
+  is: DefaultConstructorObject
+  class: tech.kzen.lib.common.objects.general.bootstrap.ParameterObjectCreator
+
+
+###########################################################
+
+# Specially handled default "is", if none is specified
+Object:
+  abstract: true
+  is: Object
+  class: kotlin.Any
+  definer: ParameterObjectDefiner
+  creator: ParameterObjectCreator
+
+
+###########################################################
+
+
+String:
+  abstract: true
+  class: kotlin.String
+
+
+Int:
+  abstract: true
+  class: kotlin.Int
+
+
+List:
+  abstract: true
+  class: kotlin.collections.List
+
+
+###########################################################
+
+
+ParentChildParameterDefiner:
+  class: tech.kzen.lib.common.objects.general.parameter.ParentChildParameterDefiner
+
+
+ParentPointer:
+  abstract: true
+  meta:
+    parent: ChildContainer
+    order:
+      is: Int
+#      default: 0
+
+
+ChildContainer:
+  abstract: true
+  meta:
+    children:
+      is: List
+      of: ParentPointer
+      by: ParentChildParameterDefiner
+

@@ -32,7 +32,7 @@ module.exports = {
     plugins: [
         new HtmlWebpackPlugin({
             // TODO: do we have to include this?
-            title: 'Kzen Launcher'
+            title: 'Kzen Library'
         }),
         new UglifyJSPlugin({
             sourceMap: false,

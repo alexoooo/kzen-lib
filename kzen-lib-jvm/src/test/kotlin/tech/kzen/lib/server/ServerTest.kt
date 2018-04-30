@@ -1,13 +1,27 @@
 package tech.kzen.lib.server
 
-import tech.kzen.lib.common.getAnswer
 import org.junit.Assert.assertEquals
-import kotlin.test.Test
+import org.junit.Test
+import tech.kzen.lib.common.context.ObjectGraphCreator
+import tech.kzen.lib.common.context.ObjectGraphDefiner
+import tech.kzen.lib.common.metadata.model.GraphMetadata
+import tech.kzen.lib.common.notation.model.ProjectNotation
 
 
 class ServerTest {
     @Test
-    fun `simple test`() {
-        assertEquals(42, getAnswer())
+    fun `ObjectGraph can be empty`() {
+        val emptyMetadata = GraphMetadata(mapOf())
+
+        val emptyDefinition = ObjectGraphDefiner.define(
+                ProjectNotation(mapOf()),
+                emptyMetadata)
+
+        val emptyGraph = ObjectGraphCreator.createGraph(
+                emptyDefinition, emptyMetadata)
+
+        assertEquals(
+                ObjectGraphDefiner.bootstrapObjects.size,
+                emptyGraph.names().size)
     }
 }
