@@ -1,13 +1,22 @@
 package tech.kzen.lib.platform
 
+import kotlin.reflect.full.primaryConstructor
+
 
 actual object Mirror {
     actual fun contains(className: String): Boolean {
-        TODO()
+        try {
+            Class.forName(className)
+            return true
+        }
+        catch (e: ClassNotFoundException) {
+            return false
+        }
     }
 
     actual fun constructorArgumentNames(className: String): List<String> {
-        TODO()
+        val type = Class.forName(className).kotlin
+        return type.primaryConstructor!!.parameters.map { it.name!! }
     }
 
 //    actual fun singletonClassNames(): List<String> {
@@ -15,6 +24,7 @@ actual object Mirror {
 //    }
 
     actual fun create(className: String, constructorArguments: List<Any?>): Any {
-        TODO()
+        val type = Class.forName(className).kotlin
+        return type.primaryConstructor!!.call(*constructorArguments.toTypedArray())
     }
 }

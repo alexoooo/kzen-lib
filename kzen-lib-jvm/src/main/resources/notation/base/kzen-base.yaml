@@ -30,22 +30,22 @@ DefaultConstructorObject:
 
 NotationParameterDefiner:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.general.bootstrap.NotationParameterDefiner
+  class: tech.kzen.lib.common.objects.base.NotationParameterDefiner
 
 
 StructuralParameterCreator:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.general.bootstrap.StructuralParameterCreator
+  class: tech.kzen.lib.common.objects.base.StructuralParameterCreator
 
 
 ParameterObjectDefiner:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.general.bootstrap.ParameterObjectDefiner
+  class: tech.kzen.lib.common.objects.base.ParameterObjectDefiner
 
 
 ParameterObjectCreator:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.general.bootstrap.ParameterObjectCreator
+  class: tech.kzen.lib.common.objects.base.ParameterObjectCreator
 
 
 ###########################################################
@@ -81,7 +81,7 @@ List:
 
 
 ParentChildParameterDefiner:
-  class: tech.kzen.lib.common.objects.general.parameter.ParentChildParameterDefiner
+  class: tech.kzen.lib.common.objects.general.ParentChildParameterDefiner
 
 
 ParentPointer:

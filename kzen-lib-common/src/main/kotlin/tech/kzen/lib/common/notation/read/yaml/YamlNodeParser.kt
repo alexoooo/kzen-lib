@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.notation.read.yaml
 
+import tech.kzen.lib.common.util.IoUtils
+
 
 object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
@@ -31,12 +33,7 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun parse(body: ByteArray): YamlNode {
-        // https://stackoverflow.com/a/49468129/1941359
-        val document = body.joinToString("") {"${it.toChar()}"}
-
-        // import kotlinx.serialization.stringFromUtf8Bytes
-        // val document = stringFromUtf8Bytes(body)
-
+        val document = IoUtils.utf8ToString(body)
         return parse(document)
     }
 

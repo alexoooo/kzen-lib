@@ -1,11 +1,26 @@
 package tech.kzen.lib.server
 
+import kotlinx.coroutines.experimental.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import tech.kzen.lib.common.context.ObjectGraphCreator
 import tech.kzen.lib.common.context.ObjectGraphDefiner
 import tech.kzen.lib.common.metadata.model.GraphMetadata
+import tech.kzen.lib.common.metadata.read.NotationMetadataReader
+import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
+import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.read.NotationReader
+import tech.kzen.lib.common.notation.read.flat.FlatNotationReader
+import tech.kzen.lib.common.notation.read.flat.parser.NotationParser
+import tech.kzen.lib.common.notation.read.flat.source.FallbackNotationSource
+import tech.kzen.lib.common.notation.read.yaml.YamlNotationParser
+import tech.kzen.lib.common.notation.scan.LiteralNotationScanner
+import tech.kzen.lib.common.notation.scan.NotationScanner
+import tech.kzen.lib.server.notation.ClasspathNotationSource
+import tech.kzen.lib.server.notation.FileNotationSource
+import tech.kzen.lib.server.notation.GradleNotationSource
+import tech.kzen.lib.server.objects.StringHolder
 
 
 class ServerTest {
@@ -23,5 +38,49 @@ class ServerTest {
         assertEquals(
                 ObjectGraphDefiner.bootstrapObjects.size,
                 emptyGraph.names().size)
+    }
+
+
+    @Test
+    fun `StringHolder can be instantiated`() {
+        val notationSource = FallbackNotationSource(listOf(
+                GradleNotationSource(FileNotationSource()),
+                ClasspathNotationSource()))
+
+        val scanner: NotationScanner = LiteralNotationScanner(listOf(
+                "notation/base/kzen-base.yaml",
+                "notation/test/kzen-test.yaml"))
+
+//        val notationPath = ProjectPath("kzen-base.yaml")
+//        val notationBytes = notationSource.read(notationPath)
+
+        val notationParser: NotationParser = YamlNotationParser()
+
+        val notationReader: NotationReader = FlatNotationReader(
+                notationSource, notationParser)
+
+        val notationProject = runBlocking {
+            val notationProjectBuilder = mutableMapOf<ProjectPath, PackageNotation>()
+            for (notationPath in scanner.scan()) {
+                val notationModule = notationReader.read(notationPath)
+                notationProjectBuilder[notationPath] = notationModule
+            }
+            ProjectNotation(notationProjectBuilder)
+        }
+
+//        val notationProject = ProjectNotation(notationProjectBuilder)
+
+        val notationMetadataReader = NotationMetadataReader()
+        val graphMetadata = notationMetadataReader.read(notationProject)
+
+        val graphDefinition = ObjectGraphDefiner.define(
+                notationProject, graphMetadata)
+
+        val objectGraph = ObjectGraphCreator
+                .createGraph(graphDefinition, graphMetadata)
+
+        val helloWorldInstance = objectGraph.get("HelloWorldHolder") as StringHolder
+
+        assertEquals("Hello, world!", helloWorldInstance.value)
     }
 }

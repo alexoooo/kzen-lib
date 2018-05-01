@@ -25,7 +25,9 @@ class NotationParameterDefiner : ParameterDefiner {
             objectGraph: ObjectGraph
     ): ParameterDefinition {
         val objectNotation = projectNotation.coalesce[objectName]!!
-        val parameterNotation = objectNotation.parameters[parameterName]!!
+
+        val parameterNotation = objectNotation.parameters[parameterName]
+                ?: throw IllegalArgumentException("Unknown parameter: $parameterName")
 
         val objectMetadata = projectMetadata.objectMetadata[objectName]!!
         val parameterMetadata = objectMetadata.parameters[parameterName]!!

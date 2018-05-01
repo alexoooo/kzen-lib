@@ -1,0 +1,12 @@
+
+StringHolder:
+  abstract: true
+  class: tech.kzen.lib.server.objects.StringHolder
+  meta:
+    value:
+      is: String
+
+
+HelloWorldHolder:
+  is: StringHolder
+  value: "Hello, world!"
