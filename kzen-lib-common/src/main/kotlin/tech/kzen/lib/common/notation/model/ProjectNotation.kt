@@ -4,6 +4,7 @@ package tech.kzen.lib.common.notation.model
 data class ProjectNotation(
         val packages: Map<ProjectPath, PackageNotation>)
 {
+    //-----------------------------------------------------------------------------------------------------------------
     val objectNames: Set<String> by lazy {
         coalesce.keys
     }
@@ -17,6 +18,7 @@ data class ProjectNotation(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun directParameter(objectName: String, notationPath: String): ParameterNotation? =
             coalesce[objectName]?.get(notationPath)
 
@@ -54,5 +56,23 @@ data class ProjectNotation(
 
 //        println("^^^^^ superName: $superName")
         return transitiveParameter(superName, notationPath)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun getString(objectName: String, notationPath: String): String {
+        val scalarParameter = transitiveParameter(objectName, notationPath)
+                ?: throw IllegalArgumentException("Not found: $objectName.$notationPath")
+
+        if (scalarParameter !is ScalarParameterNotation) {
+            throw IllegalArgumentException("Expected scalar ($objectName.$notationPath): $scalarParameter")
+        }
+
+        val stringValue = scalarParameter.value
+        if (stringValue !is String) {
+            throw IllegalArgumentException("Expected String ($objectName.$notationPath): $stringValue")
+        }
+
+        return stringValue
     }
 }

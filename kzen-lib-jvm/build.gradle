@@ -28,3 +28,11 @@ compileTestKotlin {
         jvmTarget = javaVersion
     }
 }
+
+
+////apply plugin: 'java'
+//
+//task sourcesJar(type: Jar) {
+//    classifier = 'sources'
+//    from sourceSets.main.allSource
+//}

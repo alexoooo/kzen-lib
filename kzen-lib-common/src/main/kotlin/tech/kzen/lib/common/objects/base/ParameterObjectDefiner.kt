@@ -32,19 +32,21 @@ class ParameterObjectDefiner : ObjectDefiner {
             projectDefinition: GraphDefinition,
             objectGraph: ObjectGraph
     ): ObjectDefinitionAttempt {
-        val objectMetadata = projectMetadata.objectMetadata[objectName]!!
+        val objectMetadata = projectMetadata.objectMetadata[objectName]
+                ?: throw IllegalArgumentException("Metadata not found: $objectName")
 
-        val className = (
-                projectNotation.transitiveParameter(
-                        objectName, classParameter
-                )!! as ScalarParameterNotation
-        ).value as String
+        val className = projectNotation.getString(objectName, classParameter)
 
         val constructorArguments = mutableMapOf<String, ParameterDefinition>()
         val parameterCreators = mutableSetOf<String>()
 
-        for (argumentName in Mirror.constructorArgumentNames(className)) {
-            val parameterMetadata = objectMetadata.parameters[argumentName]!!
+        val argumentNames = Mirror.constructorArgumentNames(className)
+        println("&&& class arguments ($className): $argumentNames")
+
+        for (argumentName in argumentNames) {
+            val parameterMetadata = objectMetadata.parameters[argumentName]
+                    ?: throw IllegalArgumentException(
+                            "Argument not found in metadata ($argumentName): $objectMetadata")
 
             val parameterCreatorName = parameterMetadata.creator ?: defaultParameterCreator
             parameterCreators.add(parameterCreatorName)
@@ -72,11 +74,7 @@ class ParameterObjectDefiner : ObjectDefiner {
             constructorArguments[argumentName] = parameterDefinition
         }
 
-        val creatorName = (
-                projectNotation.transitiveParameter(
-                        objectName, creatorParameter
-                )!! as ScalarParameterNotation
-        ).value as String
+        val creatorName = projectNotation.getString(objectName, creatorParameter)
 
         val objectDefinition = ObjectDefinition(
                 className,

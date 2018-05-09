@@ -17,7 +17,11 @@ object ObjectGraphDefiner {
             DefaultConstructorObjectCreator::class.simpleName!! to DefaultConstructorObjectCreator,
             DefaultConstructorObjectDefiner::class.simpleName!! to DefaultConstructorObjectDefiner)
 
+    private const val definerParameter = "definer"
+    private const val abstractParameter = "abstract"
 
+
+    //-----------------------------------------------------------------------------------------------------------------
     fun define(
             projectNotation: ProjectNotation,
             projectMetadata: GraphMetadata
@@ -138,11 +142,9 @@ object ObjectGraphDefiner {
     private fun definerName(
             objectName: String,
             projectNotation: ProjectNotation
-    ): String = (
-            projectNotation.transitiveParameter(
-                    objectName, "definer"
-            )!! as ScalarParameterNotation
-    ).value as String
+    ): String {
+        return projectNotation.getString(objectName, definerParameter)
+    }
 
 
 
@@ -151,8 +153,8 @@ object ObjectGraphDefiner {
             projectNotation: ProjectNotation
     ): Boolean {
         val abstractParameter =
-                projectNotation.directParameter(objectName, "abstract")
-                        ?: return false
+                projectNotation.directParameter(objectName, abstractParameter)
+                ?: return false
 
         return (abstractParameter as ScalarParameterNotation).value as Boolean
     }

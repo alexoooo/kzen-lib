@@ -10,7 +10,10 @@ actual object Mirror {
     }
 
     actual fun constructorArgumentNames(className: String): List<String> {
-        return reflect(className)!!.constructorArgumentNames
+        val metadata = reflect(className)
+                ?: throw IllegalArgumentException("Not found: $className")
+
+        return metadata.constructorArgumentNames
     }
 
 //    actual fun singletonClassNames(): List<String> {
@@ -18,7 +21,8 @@ actual object Mirror {
 //    }
 
     actual fun create(className: String, constructorArguments: List<Any?>): Any {
-        val metadata = reflect(className)!!
+        val metadata = reflect(className)
+                ?: throw IllegalArgumentException("Not found: $className")
 
         @Suppress("UnsafeCastFromDynamic")
         return newInstance(metadata.constructorFunction, constructorArguments)
@@ -68,16 +72,16 @@ actual object Mirror {
 
 
     private fun classForName(className: String): dynamic {
-//        var next = js("require(module)")
-
-        val webInstance = classForNameInModule(className, js("require('kzen-lib-js.js')"))
-        if (webInstance != null) {
-//            console.log("found in web", webInstance)
-            return webInstance
+        for (module in ModuleRegistry.modules) {
+            return classForNameInModule(className, module)
+                    ?: continue
         }
-
-        // TODO: add multi-module support
-        throw IllegalStateException()
+        return null
+//        val webInstance = classForNameInModule(className, js("require('kzen-lib-js.js')"))
+//        if (webInstance != null) {
+////            console.log("found in web", webInstance)
+//            return webInstance
+//        }
 
 //        val commonInstance = classForNameInModule(className, js("require('kzen-lib-common.js')"))
 //        check(commonInstance != null, {"Unable to find: $className"})
