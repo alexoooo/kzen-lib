@@ -22,7 +22,8 @@ object ObjectGraphCreator {
             val objectDefinition = graphDefinition.objectDefinitions[name]!!
             val objectMetadata = graphMetadata.objectMetadata[name]!!
 
-            val creator = objectInstances[objectDefinition.creator] as ObjectCreator
+            val creator = objectInstances[objectDefinition.creator] as? ObjectCreator
+                    ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
             val instance = creator.create(
                     objectDefinition,
