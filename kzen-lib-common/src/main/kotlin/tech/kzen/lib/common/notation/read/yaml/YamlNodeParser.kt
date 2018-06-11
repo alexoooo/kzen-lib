@@ -47,6 +47,7 @@ object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun parse(block: List<String>): YamlNode {
         val structure = identifyStructure(block)
+        println("&&&&&&&&&& structure: $structure - $block")
 
         return when (structure) {
             NotationStructure.Scalar ->
@@ -63,6 +64,10 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parseScalar(block: List<String>) : YamlScalar {
+        if (block.isEmpty()) {
+            return YamlString.empty
+        }
+
         check(block.size == 1)
         val value = block[0]
 
@@ -125,7 +130,28 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parseList(block: List<String>): YamlList {
-        TODO()
+        println("^^^ parseList: $block")
+
+        val items = splitListItems(block)
+
+        val nodes = items.map { parseListItem(it) }
+
+        return YamlList(nodes)
+    }
+
+
+    private fun parseListItem(block: List<String>): YamlNode {
+        val withoutIndent: List<String> =
+                block.map { it.substring(2) }
+
+        return parse(withoutIndent)
+    }
+
+
+    private fun splitListItems(block: List<String>): List<List<String>> {
+        return splitElements(block) {
+            Patterns.item.matches(it)
+        }
     }
 
 
@@ -144,61 +170,40 @@ object YamlNodeParser {
 
 
     private fun parseMapEntry(block: List<String>): Pair<String, YamlNode> {
-//        check(block.size == 1)
+        println("^&^&^ parseMapEntry: $block")
 
-        val match = Patterns.entry.matchEntire(block[0])!!
+        val startLife = block.find { Patterns.entry.matches(it) }
+                ?: throw IllegalArgumentException("Key-value pair not found: $block")
 
-        val key = match.groupValues[1]
+        val startMatch = Patterns.entry.matchEntire(startLife)!!
 
-        val valueBlock =
-                if (block.size == 1) {
-                    val value = match.groupValues[2]
-                    listOf(value)
-                }
-                else {
-                    val buffer = mutableListOf<String>()
-                    buffer.add(match.groupValues[2])
+        val key = startMatch.groupValues[1]
+        val startSuffix = startMatch.groupValues[2]
 
-                    for (i in 1 until block.size) {
-                        check(block[i].startsWith("  "))
-                        buffer.add(block[i].substring(2))
-                    }
+        val valueBuffer = mutableListOf<String>()
+        valueBuffer.add(startSuffix)
 
-                    buffer
-                }
+        var prefixLength = -1
+        for (i in 1 until block.size) {
+            if (prefixLength == -1) {
+                prefixLength = prefixLength(block[i])
+            }
+            else {
+                check(prefixLength(block[i]) == prefixLength)
+            }
 
-        val value = parse(valueBlock)
+            valueBuffer.add(block[i].substring(prefixLength))
+        }
+
+        val value = parse(valueBuffer)
         return key to value
     }
 
 
     private fun splitMapEntries(block: List<String>): List<List<String>> {
-        val buffer = mutableListOf<String>()
-
-        val declarations = mutableListOf<List<String>>()
-
-        for (line in block) {
-//            println("splitting: $line")
-            if (Patterns.decorator.matchEntire(line) != null) {
-//                println("skipped decorator")
-                continue
-            }
-
-            val match = Patterns.entry.matchEntire(line)
-
-            if (match != null && ! buffer.isEmpty()) {
-                declarations.add(buffer.toList())
-                buffer.clear()
-            }
-
-            buffer.add(line)
+        return splitElements(block) {
+            Patterns.entry.matchEntire(it) != null
         }
-
-        if (! buffer.isEmpty()) {
-            declarations.add(buffer.toList())
-        }
-
-        return declarations
     }
 
 
@@ -214,5 +219,45 @@ object YamlNodeParser {
         }
 
         return NotationStructure.Scalar
+    }
+
+
+    private fun prefixLength(line: String): Int {
+        return if (line.startsWith("  ")) {
+            2
+        }
+        else {
+            0
+        }
+    }
+
+
+    private fun splitElements(block: List<String>, startOfElement: (String) -> Boolean): List<List<String>> {
+        val buffer = mutableListOf<String>()
+
+        val declarations = mutableListOf<List<String>>()
+
+        for (line in block) {
+//            println("splitting: $line")
+            if (Patterns.decorator.matchEntire(line) != null) {
+//                println("skipped decorator")
+                continue
+            }
+
+            val match = startOfElement.invoke(line)
+
+            if (match && ! buffer.isEmpty()) {
+                declarations.add(buffer.toList())
+                buffer.clear()
+            }
+
+            buffer.add(line)
+        }
+
+        if (! buffer.isEmpty()) {
+            declarations.add(buffer.toList())
+        }
+
+        return declarations
     }
 }

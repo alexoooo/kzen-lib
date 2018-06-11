@@ -3,14 +3,33 @@ package tech.kzen.lib.common.notation.read.yaml
 
 import tech.kzen.lib.common.notation.model.*
 import tech.kzen.lib.common.notation.read.flat.parser.NotationParser
+import tech.kzen.lib.common.util.IoUtils
 
 
 class YamlNotationParser : NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
     override fun parse(body: ByteArray): PackageNotation {
         val node = YamlNodeParser.parse(body)
+//        println("#!@#!@#!@#!@#!@ node = $node")
 
-        val topLevelMap = node as YamlMap
+        @Suppress("IfThenToElvis")
+        val topLevelMap =
+                if (node is YamlMap) {
+                    node
+                }
+                else if (node is YamlScalar) {
+                    if (node is YamlString) {
+                        YamlMap(mapOf(
+                                "is" to node))
+                    }
+                    else {
+                        // NB: losing information
+                        YamlMap(mapOf())
+                    }
+                }
+                else {
+                    throw IllegalArgumentException("Top-level map expected: $node")
+                }
 
         val objects = mutableMapOf<String, ObjectNotation>()
         for (e in topLevelMap.values) {
@@ -48,6 +67,51 @@ class YamlNotationParser : NotationParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun deparse(notation: PackageNotation, previousBody: ByteArray): ByteArray {
-        TODO()
+        println("&%^&%^&%^ -- de-parsing - $notation")
+
+        val buffer = StringBuilder()
+
+        var first = true
+        for (entry in notation.objects) {
+            if (! first) {
+                buffer.append("\n")
+            }
+            first = false
+
+            val node = objectToYaml(entry.value)
+            val nodeLines = node.asString().split("\n")
+
+            println("&%^&%^&%^ -- de-parsing - ${entry.key} -> $node || ${node.asString()}")
+
+            buffer.append("${entry.key}:")
+            nodeLines.forEach { buffer.append("\n  $it") }
+        }
+        println("&%^&%^&%^ -- de-parsing done - $buffer")
+
+        return IoUtils.stringToUtf8(buffer.toString())
+    }
+
+
+    private fun objectToYaml(objectNotation: ObjectNotation): YamlNode {
+        return YamlMap(objectNotation.parameters.mapValues {
+            parameterToYaml(it.value)
+        })
+    }
+
+
+    private fun parameterToYaml(parameterNotation: ParameterNotation): YamlNode {
+        return when (parameterNotation) {
+            is ScalarParameterNotation ->
+                YamlNode.ofObject(parameterNotation.value)
+
+            is MapParameterNotation ->
+                YamlMap(parameterNotation.values.mapValues { parameterToYaml(it.value) })
+
+            is ListParameterNotation ->
+                YamlList(parameterNotation.values.map { parameterToYaml(it) })
+
+            else ->
+                throw UnsupportedOperationException("Unexpected type: $parameterNotation")
+        }
     }
 }

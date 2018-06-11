@@ -16,14 +16,14 @@ data class ObjectNotation(
         }
 
         val root = parameters[segments[0]]!!
-                as? MapParameterNotation
+                as? StructuredParameterNotation
                 ?: return null
 
-        var next: MapParameterNotation = root
+        var next: StructuredParameterNotation = root
 
         for (i in 1 until segments.size - 1) {
-            val sub = next.values[segments[i]]
-                    as? MapParameterNotation
+            val sub = next.get(segments[i])
+                    as? StructuredParameterNotation
                     ?: return null
 
             next = sub
@@ -31,6 +31,6 @@ data class ObjectNotation(
 
         val lastPathSegment = segments.last()
 
-        return next.values[lastPathSegment]
+        return next.get(lastPathSegment)
     }
 }

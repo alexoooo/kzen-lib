@@ -8,4 +8,17 @@ object IoUtils {
         // https://stackoverflow.com/a/49468129/1941359
         return bytes.joinToString("") {"${it.toChar()}"}
     }
+
+    fun stringToUtf8(utf8: String): ByteArray {
+        val bytes = ByteArray(utf8.length)
+
+        for (i in 0 until utf8.length) {
+            val asChar = utf8[i]
+            val asByte = asChar.toByte()
+            check(asByte.toInt() == asChar.toInt())
+            bytes[i] = asChar.toByte()
+        }
+
+        return bytes
+    }
 }

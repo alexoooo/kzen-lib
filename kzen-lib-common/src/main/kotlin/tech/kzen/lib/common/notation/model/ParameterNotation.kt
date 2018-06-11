@@ -9,12 +9,26 @@ data class ScalarParameterNotation(
 ) : ParameterNotation()
 
 
+abstract class StructuredParameterNotation : ParameterNotation() {
+    abstract fun get(key: String): ParameterNotation?
+}
+
+
 data class ListParameterNotation(
         val values: List<ParameterNotation>
-) : ParameterNotation()
+) : StructuredParameterNotation() {
+    override fun get(key: String): ParameterNotation? {
+        val index = key.toInt()
+        return values[index]
+    }
+}
 
 
 data class MapParameterNotation(
         val values: Map<String, ParameterNotation>
-) : ParameterNotation()
+) : StructuredParameterNotation() {
+    override fun get(key: String): ParameterNotation? {
+        return values[key]
+    }
+}
 

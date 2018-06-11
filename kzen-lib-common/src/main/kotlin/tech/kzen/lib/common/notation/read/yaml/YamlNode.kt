@@ -61,18 +61,34 @@ sealed class YamlNode {
                 values
         }
     }
+
+
+    abstract fun asString(): String
 }
 
 
 //-----------------------------------------------------------------------------------------------------------------
 abstract class YamlScalar : YamlNode() {
     abstract val value: Any?
+
+    override fun asString(): String {
+        return value.toString()
+    }
 }
 
 
 data class YamlString(
         override val value: String
-) : YamlScalar()
+) : YamlScalar() {
+    companion object {
+        val empty = YamlString("")
+    }
+
+    override fun asString(): String {
+        // TODO: JSON encoding, and quotation type
+        return "\"$value\""
+    }
+}
 
 
 data class YamlDouble(
@@ -101,10 +117,39 @@ object YamlNull : YamlScalar() {
 
 data class YamlList(
         val values: List<YamlNode>
-) : YamlNode()
+) : YamlNode() {
+    override fun asString(): String {
+        return values.map {
+            val lines = it.asString().split("\n")
+
+            val buffer = mutableListOf<String>()
+
+            buffer.add("- ${lines[0]}")
+
+            for (i in 1 until lines.size) {
+                buffer.add("  ${lines[i]}")
+            }
+
+            buffer.joinToString("\n")
+        }.joinToString("\n")
+    }
+}
 
 
 data class YamlMap(
         val values: Map<String, YamlNode>
-) : YamlNode()
+) : YamlNode() {
+    override fun asString(): String {
+        return values.map {
+            val lines = it.value.asString().split("\n")
+
+            if (lines.size == 1) {
+                "${it.key}: ${lines[0]}"
+            }
+            else {
+                "${it.key}:\n" + lines.map { "  $it" }.joinToString("\n")
+            }
+        }.joinToString("\n")
+    }
+}
 
