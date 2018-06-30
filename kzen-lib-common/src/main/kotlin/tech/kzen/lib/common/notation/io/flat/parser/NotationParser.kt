@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.notation.read.flat.parser
+package tech.kzen.lib.common.notation.io.flat.parser
 
 import tech.kzen.lib.common.notation.model.PackageNotation
 

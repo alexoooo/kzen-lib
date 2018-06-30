@@ -75,4 +75,38 @@ data class ProjectNotation(
 
         return stringValue
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun findPackage(objectName: String): ProjectPath {
+        for (e in packages) {
+            if (e.value.objects.containsKey(objectName)) {
+                return e.key
+            }
+        }
+        throw IllegalArgumentException("Unknown object: $objectName")
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun withPackage(
+            projectPath: ProjectPath,
+            packageNotation: PackageNotation
+    ): ProjectNotation {
+        check(packages.containsKey(projectPath), {"Not found: $projectPath"})
+
+        val buffer = mutableMapOf<ProjectPath, PackageNotation>()
+
+        for (e in packages) {
+            buffer[e.key] =
+                    if (e.key == projectPath) {
+                        packageNotation
+                    }
+                    else {
+                        e.value
+                    }
+        }
+
+        return ProjectNotation(buffer)
+    }
 }

@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.notation.read.yaml
+package tech.kzen.lib.common.notation.format
 
 import tech.kzen.lib.common.util.IoUtils
 
@@ -39,7 +39,7 @@ object YamlNodeParser {
 
 
     fun parse(document: String): YamlNode {
-        val lines = document.split(YamlNodeParser.Patterns.lineBreak)
+        val lines = document.split(Patterns.lineBreak)
         return parse(lines)
     }
 
@@ -210,10 +210,10 @@ object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun identifyStructure(block: List<String>): NotationStructure {
         for (line in block) {
-            if (YamlNodeParser.Patterns.entry.matchEntire(line) != null) {
+            if (Patterns.entry.matchEntire(line) != null) {
                 return NotationStructure.Map
             }
-            if (YamlNodeParser.Patterns.item.matchEntire(line) != null) {
+            if (Patterns.item.matchEntire(line) != null) {
                 return NotationStructure.List
             }
         }

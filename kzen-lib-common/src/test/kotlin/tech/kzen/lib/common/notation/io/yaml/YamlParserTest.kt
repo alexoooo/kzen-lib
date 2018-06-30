@@ -1,5 +1,6 @@
-package tech.kzen.lib.common.notation.read.yaml
+package tech.kzen.lib.common.notation.io.yaml
 
+import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ProjectPath

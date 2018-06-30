@@ -1,8 +1,8 @@
-package tech.kzen.lib.common.notation.read.yaml
+package tech.kzen.lib.common.notation.format
 
 
 import tech.kzen.lib.common.notation.model.*
-import tech.kzen.lib.common.notation.read.flat.parser.NotationParser
+import tech.kzen.lib.common.notation.io.flat.parser.NotationParser
 import tech.kzen.lib.common.util.IoUtils
 
 
@@ -67,7 +67,7 @@ class YamlNotationParser : NotationParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun deparse(notation: PackageNotation, previousBody: ByteArray): ByteArray {
-        println("&%^&%^&%^ -- de-parsing - $notation")
+//        println("&%^&%^&%^ -- de-parsing - $notation")
 
         val buffer = StringBuilder()
 
@@ -81,12 +81,12 @@ class YamlNotationParser : NotationParser {
             val node = objectToYaml(entry.value)
             val nodeLines = node.asString().split("\n")
 
-            println("&%^&%^&%^ -- de-parsing - ${entry.key} -> $node || ${node.asString()}")
+//            println("&%^&%^&%^ -- de-parsing - ${entry.key} -> $node || ${node.asString()}")
 
             buffer.append("${entry.key}:")
             nodeLines.forEach { buffer.append("\n  $it") }
         }
-        println("&%^&%^&%^ -- de-parsing done - $buffer")
+//        println("&%^&%^&%^ -- de-parsing done - $buffer")
 
         return IoUtils.stringToUtf8(buffer.toString())
     }

@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.notation.read.yaml
+package tech.kzen.lib.common.notation.format
 
 
 //-----------------------------------------------------------------------------------------------------------------
@@ -28,7 +28,7 @@ sealed class YamlNode {
                     if (value) YamlTrue else YamlFalse
 
                 is List<Any?> ->
-                    YamlList(value.map{ofObject(it)})
+                    YamlList(value.map { ofObject(it) })
 
                 is Map<*, Any?> ->
                     YamlMap(value.map { it.key as String to ofObject(it.value) }.toMap())

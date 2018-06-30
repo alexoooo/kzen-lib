@@ -10,11 +10,11 @@ import tech.kzen.lib.common.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ProjectPath
-import tech.kzen.lib.common.notation.read.NotationReader
-import tech.kzen.lib.common.notation.read.flat.FlatNotationReader
-import tech.kzen.lib.common.notation.read.flat.parser.NotationParser
-import tech.kzen.lib.common.notation.read.flat.source.FallbackNotationSource
-import tech.kzen.lib.common.notation.read.yaml.YamlNotationParser
+import tech.kzen.lib.common.notation.io.NotationIo
+import tech.kzen.lib.common.notation.io.flat.FlatNotationIo
+import tech.kzen.lib.common.notation.io.flat.parser.NotationParser
+import tech.kzen.lib.common.notation.io.flat.media.FallbackNotationMedia
+import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.scan.LiteralNotationScanner
 import tech.kzen.lib.common.notation.scan.NotationScanner
 import tech.kzen.lib.server.notation.ClasspathNotationSource
@@ -23,7 +23,7 @@ import tech.kzen.lib.server.notation.GradleNotationSource
 import tech.kzen.lib.server.objects.StringHolder
 
 
-class ServerTest {
+class ObjectGraphTest {
     @Test
     fun `ObjectGraph can be empty`() {
         val emptyMetadata = GraphMetadata(mapOf())
@@ -43,7 +43,7 @@ class ServerTest {
 
     @Test
     fun `StringHolder can be instantiated`() {
-        val notationSource = FallbackNotationSource(listOf(
+        val notationSource = FallbackNotationMedia(listOf(
                 GradleNotationSource(FileNotationSource()),
                 ClasspathNotationSource()))
 
@@ -56,7 +56,7 @@ class ServerTest {
 
         val notationParser: NotationParser = YamlNotationParser()
 
-        val notationReader: NotationReader = FlatNotationReader(
+        val notationReader: NotationIo = FlatNotationIo(
                 notationSource, notationParser)
 
         val notationProject = runBlocking {
