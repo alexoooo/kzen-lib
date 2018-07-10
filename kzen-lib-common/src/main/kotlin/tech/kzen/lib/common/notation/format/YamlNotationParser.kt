@@ -49,6 +49,12 @@ class YamlNotationParser : NotationParser {
     }
 
 
+    override fun parseParameter(value: String): ParameterNotation {
+        val node = YamlNodeParser.parse(value)
+        return yamlToParameter(node)
+    }
+
+
     private fun yamlToParameter(node: YamlNode): ParameterNotation {
         return when (node) {
             is YamlScalar ->

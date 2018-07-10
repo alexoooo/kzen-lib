@@ -11,7 +11,9 @@ class FallbackNotationMedia(
             try {
                 return source.read(location)
             }
-            catch (ignored: Exception) {}
+            catch (ignored: Exception) {
+                println("FallbackNotationMedia - Not found in $source - ${ignored.message}")
+            }
         }
 
         throw IllegalArgumentException("Unable to read: $location")
@@ -23,7 +25,8 @@ class FallbackNotationMedia(
             try {
                 return medium.write(location, bytes)
             }
-            catch (ignored: Exception) {}
+            catch (ignored: Exception) {
+                println("FallbackNotationMedia - Can't write in $medium - ${ignored.message}")}
         }
 
         throw IllegalArgumentException("Unable to write: $location")

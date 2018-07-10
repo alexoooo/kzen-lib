@@ -101,3 +101,7 @@ ChildContainer:
       of: ParentPointer
       by: ParentChildParameterDefiner
 
+
+
+ObjectNameParameterDefiner:
+  class: tech.kzen.lib.common.objects.general.ObjectNameParameterDefiner

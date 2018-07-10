@@ -1,11 +1,12 @@
 package tech.kzen.lib.client.notation
 
-import tech.kzen.lib.client.notation.NotationRestApi.httpGet
+//import tech.kzen.lib.client.util.ClientRestUtils.httpGet
+import tech.kzen.lib.client.util.httpGet
 import tech.kzen.lib.common.notation.model.ProjectPath
 import tech.kzen.lib.common.notation.io.flat.media.NotationMedia
 
 
-class RestNotationSource(
+class RestNotationMedia(
         private val baseUrl: String
 ) : NotationMedia {
     override suspend fun read(location: ProjectPath): ByteArray {

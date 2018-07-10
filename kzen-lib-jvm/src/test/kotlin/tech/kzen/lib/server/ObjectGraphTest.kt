@@ -17,9 +17,10 @@ import tech.kzen.lib.common.notation.io.flat.media.FallbackNotationMedia
 import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.scan.LiteralNotationScanner
 import tech.kzen.lib.common.notation.scan.NotationScanner
-import tech.kzen.lib.server.notation.ClasspathNotationSource
-import tech.kzen.lib.server.notation.FileNotationSource
-import tech.kzen.lib.server.notation.GradleNotationSource
+import tech.kzen.lib.server.notation.ClasspathNotationMedia
+import tech.kzen.lib.server.notation.FileNotationMedia
+import tech.kzen.lib.server.notation.GradleNotationMedia
+import tech.kzen.lib.server.objects.NameAware
 import tech.kzen.lib.server.objects.StringHolder
 
 
@@ -44,8 +45,8 @@ class ObjectGraphTest {
     @Test
     fun `StringHolder can be instantiated`() {
         val notationSource = FallbackNotationMedia(listOf(
-                GradleNotationSource(FileNotationSource()),
-                ClasspathNotationSource()))
+                GradleNotationMedia(FileNotationMedia()),
+                ClasspathNotationMedia()))
 
         val scanner: NotationScanner = LiteralNotationScanner(listOf(
                 "notation/base/kzen-base.yaml",
@@ -80,7 +81,9 @@ class ObjectGraphTest {
                 .createGraph(graphDefinition, graphMetadata)
 
         val helloWorldInstance = objectGraph.get("HelloWorldHolder") as StringHolder
-
         assertEquals("Hello, world!", helloWorldInstance.value)
+
+        val fooNamedInstance = objectGraph.get("FooNamed") as NameAware
+        assertEquals("FooNamed", fooNamedInstance.name)
     }
 }

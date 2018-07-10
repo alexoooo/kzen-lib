@@ -10,3 +10,17 @@ StringHolder:
 HelloWorldHolder:
   is: StringHolder
   value: "Hello, world!"
+
+
+NameAware:
+  abstract: true
+  class: tech.kzen.lib.server.objects.NameAware
+  meta:
+    name:
+      is: String
+      by: ObjectNameParameterDefiner
+
+
+FooNamed:
+  is: NameAware
+

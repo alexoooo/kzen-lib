@@ -1,6 +1,7 @@
 package tech.kzen.lib.client.notation
 
-import tech.kzen.lib.client.notation.NotationRestApi.httpGet
+//import tech.kzen.lib.client.util.ClientRestUtils.httpGet
+import tech.kzen.lib.client.util.httpGet
 import tech.kzen.lib.common.notation.model.ProjectPath
 import tech.kzen.lib.common.notation.scan.NotationScanner
 import kotlin.js.Json

@@ -4,6 +4,7 @@ import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.model.ScalarParameterNotation
 import tech.kzen.lib.common.util.IoUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,6 +14,22 @@ import kotlin.test.assertTrue
 class YamlParserTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val yamlParser = YamlNotationParser()
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun parseBareStringParameter() {
+        val notation = yamlParser.parseParameter("\"foo\"")
+        assertEquals("foo", (notation as ScalarParameterNotation).value)
+    }
+
+
+    @Test
+    fun parseQuotedStringParameter() {
+        val notation = yamlParser.parseParameter("foo")
+        assertEquals("foo", (notation as ScalarParameterNotation).value)
+    }
+
 
 
     //-----------------------------------------------------------------------------------------------------------------

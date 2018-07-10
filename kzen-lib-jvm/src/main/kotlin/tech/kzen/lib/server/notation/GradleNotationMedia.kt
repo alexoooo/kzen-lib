@@ -5,11 +5,12 @@ import tech.kzen.lib.common.notation.io.flat.media.NotationMedia
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
+import java.util.stream.Collectors
 
 
 // TODO: make less fragile
-class GradleNotationSource(
-        private val fileNotationSource: FileNotationSource
+class GradleNotationMedia(
+        private val fileNotationMedia: FileNotationMedia
 ) : NotationMedia {
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -18,10 +19,14 @@ class GradleNotationSource(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun read(location: ProjectPath): ByteArray {
+        println("GradleNotationMedia | read - moduleRoot: $moduleRoot")
+
         val candidates = candidateLocations(location)
         for (candidate in candidates) {
+            println("GradleNotationMedia - candidate: ${candidate.toAbsolutePath()}")
+
             if (Files.exists(candidate)) {
-                return fileNotationSource.read(ProjectPath(candidate.toString()))
+                return fileNotationMedia.read(ProjectPath(candidate.toString()))
             }
         }
 
@@ -32,7 +37,21 @@ class GradleNotationSource(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun write(location: ProjectPath, bytes: ByteArray) {
-        fileNotationSource.write(location, bytes)
+//        fileNotationMedia.write(location, bytes)
+
+        println("GradleNotationMedia | write - moduleRoot: $moduleRoot | ${bytes.size}")
+
+        val candidates = candidateLocations(location)
+        for (candidate in candidates) {
+            println("GradleNotationMedia - candidate: ${candidate.toAbsolutePath()}")
+
+            if (Files.exists(candidate)) {
+                fileNotationMedia.write(ProjectPath(candidate.toString()), bytes)
+                return
+            }
+        }
+
+        throw IllegalStateException("Unknown resource: ${location.relativeLocation}")
     }
 
 
@@ -42,14 +61,13 @@ class GradleNotationSource(
             "."
         }
         else {
-            Files.list(Paths.get(".")).use {
-                val jvmModule = it.filter({ it.fileName.endsWith("-jvm")}).findAny()
+            Files.list(Paths.get(".")).use { files ->
+                val list = files.collect(Collectors.toList())
 
-                if (! jvmModule.isPresent) {
-                    throw IllegalStateException("No resources")
-                }
+                val jvmModule = list.firstOrNull({ it.fileName.toString().endsWith("-jvm")})
+                        ?: throw IllegalStateException("No resources: - $list")
 
-                "${jvmModule.get()}"
+                "$jvmModule"
             }
         }
 

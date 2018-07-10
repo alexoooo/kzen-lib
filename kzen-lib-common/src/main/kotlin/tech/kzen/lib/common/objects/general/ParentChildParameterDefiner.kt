@@ -11,6 +11,7 @@ import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
 
 
+@Suppress("unused")
 class ParentChildParameterDefiner : ParameterDefiner {
     companion object {
         private const val parentParameterName = "parent"
