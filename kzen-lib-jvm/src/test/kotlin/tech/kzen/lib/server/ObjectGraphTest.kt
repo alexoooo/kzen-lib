@@ -19,7 +19,7 @@ import tech.kzen.lib.common.notation.scan.LiteralNotationScanner
 import tech.kzen.lib.common.notation.scan.NotationScanner
 import tech.kzen.lib.server.notation.ClasspathNotationMedia
 import tech.kzen.lib.server.notation.FileNotationMedia
-import tech.kzen.lib.server.notation.GradleNotationMedia
+import tech.kzen.lib.server.notation.locate.GradleLocator
 import tech.kzen.lib.server.objects.NameAware
 import tech.kzen.lib.server.objects.StringHolder
 
@@ -45,7 +45,7 @@ class ObjectGraphTest {
     @Test
     fun `StringHolder can be instantiated`() {
         val notationSource = FallbackNotationMedia(listOf(
-                GradleNotationMedia(FileNotationMedia()),
+                FileNotationMedia(GradleLocator()),
                 ClasspathNotationMedia()))
 
         val scanner: NotationScanner = LiteralNotationScanner(listOf(

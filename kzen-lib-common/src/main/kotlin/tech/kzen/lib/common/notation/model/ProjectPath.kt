@@ -3,19 +3,20 @@ package tech.kzen.lib.common.notation.model
 
 // TODO: refactor model to have uniform composable structure
 data class ProjectPath(val relativeLocation: String) {
-    private object Patterns {
-        val resource = Regex(
+    companion object {
+        private val resource = Regex(
                 "([a-zA-Z0-9_\\-]+/)*[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+")
+
+        fun matches(relativeLocation: String): Boolean {
+            return ! relativeLocation.startsWith("/") &&
+                    resource.matches(relativeLocation)
+        }
     }
 
     init {
-        if (relativeLocation.startsWith("/")) {
+        if (! matches(relativeLocation)) {
             throw IllegalArgumentException(
-                    "must be relative: $relativeLocation")
-        }
-        if (! Patterns.resource.matches(relativeLocation)) {
-            throw IllegalArgumentException(
-                    "must be slash-delimited ascii path: $relativeLocation")
+                    "Not a valid project path: $relativeLocation")
         }
     }
 }

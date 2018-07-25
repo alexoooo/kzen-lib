@@ -24,4 +24,23 @@ data class PackageNotation(
 
         return PackageNotation(buffer)
     }
+
+
+    fun withoutObject(
+            objectName: String
+    ): PackageNotation {
+        check(objects.containsKey(objectName), { "Not found: $objectName" })
+
+        val buffer = mutableMapOf<String, ObjectNotation>()
+
+        for (e in objects) {
+            if (e.key == objectName) {
+                continue
+            }
+
+            buffer[e.key] = e.value
+        }
+
+        return PackageNotation(buffer)
+    }
 }

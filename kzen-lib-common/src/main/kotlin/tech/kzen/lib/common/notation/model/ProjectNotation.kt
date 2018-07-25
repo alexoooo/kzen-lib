@@ -109,4 +109,21 @@ data class ProjectNotation(
 
         return ProjectNotation(buffer)
     }
+
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun filterPaths(predicate: (ProjectPath) -> Boolean): ProjectNotation {
+        val filteredPackages = mutableMapOf<ProjectPath, PackageNotation>()
+
+        for (e in packages) {
+            if (! predicate.invoke(e.key)) {
+                continue
+            }
+
+            filteredPackages[e.key] = e.value
+        }
+
+        return ProjectNotation(filteredPackages)
+    }
 }
