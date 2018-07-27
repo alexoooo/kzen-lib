@@ -10,24 +10,6 @@ data class PackageNotation(
     ): PackageNotation {
         check(objects.containsKey(objectName), { "Not found: $objectName" })
 
-        return withObject(objectName, objectNotation)
-    }
-
-
-    fun withNewObject(
-            objectName: String,
-            objectNotation: ObjectNotation
-    ): PackageNotation {
-        check(! objects.containsKey(objectName), { "Already exists: $objectName" })
-
-        return withObject(objectName, objectNotation)
-    }
-
-
-    private fun withObject(
-            objectName: String,
-            objectNotation: ObjectNotation
-    ): PackageNotation {
         val buffer = mutableMapOf<String, ObjectNotation>()
 
         for (e in objects) {
@@ -39,6 +21,21 @@ data class PackageNotation(
                         e.value
                     }
         }
+
+        return PackageNotation(buffer)
+    }
+
+
+    fun withNewObject(
+            objectName: String,
+            objectNotation: ObjectNotation
+    ): PackageNotation {
+        check(! objects.containsKey(objectName), { "Already exists: $objectName" })
+
+        val buffer = mutableMapOf<String, ObjectNotation>()
+        buffer.putAll(objects)
+
+        buffer[objectName] = objectNotation
 
         return PackageNotation(buffer)
     }
