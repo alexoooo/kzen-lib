@@ -45,7 +45,7 @@ class ProjectAggregate(
         val packageNotation = state.packages[projectPath]!!
 
         val modifiedProjectNotation =
-                packageNotation.withObject(objectName, body)
+                packageNotation.withNewObject(objectName, body)
 
         val nextState = state.withPackage(
                 projectPath, modifiedProjectNotation)
@@ -89,7 +89,7 @@ class ProjectAggregate(
                 objectNotation.withParameter(parameterPath, parameterValue)
 
         val modifiedProjectNotation =
-                packageNotation.withObject(objectName, modifiedObjectNotation)
+                packageNotation.withModifiedObject(objectName, modifiedObjectNotation)
 
         val nextState = state.withPackage(
                 projectPath, modifiedProjectNotation)

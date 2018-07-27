@@ -20,7 +20,7 @@ class YamlNotationParser : NotationParser {
                 else if (node is YamlScalar) {
                     if (node is YamlString) {
                         YamlMap(mapOf(
-                                "is" to node))
+                                ParameterConventions.isParameter to node))
                     }
                     else {
                         // NB: losing information

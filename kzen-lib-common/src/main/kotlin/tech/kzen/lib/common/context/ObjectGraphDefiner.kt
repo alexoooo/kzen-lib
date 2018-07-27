@@ -5,6 +5,7 @@ import tech.kzen.lib.common.api.ObjectDefiner
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
+import tech.kzen.lib.common.notation.model.ParameterConventions
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
@@ -16,9 +17,6 @@ object ObjectGraphDefiner {
     val bootstrapObjects = mapOf(
             DefaultConstructorObjectCreator::class.simpleName!! to DefaultConstructorObjectCreator,
             DefaultConstructorObjectDefiner::class.simpleName!! to DefaultConstructorObjectDefiner)
-
-    private const val definerParameter = "definer"
-    private const val abstractParameter = "abstract"
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -143,19 +141,16 @@ object ObjectGraphDefiner {
             objectName: String,
             projectNotation: ProjectNotation
     ): String {
-        return projectNotation.getString(objectName, definerParameter)
+        return projectNotation.getString(objectName, ParameterConventions.definerParameter)
     }
-
 
 
     private fun isAbstract(
             objectName: String,
             projectNotation: ProjectNotation
     ): Boolean {
-        val abstractParameter =
-                projectNotation.directParameter(objectName, abstractParameter)
-                ?: return false
-
-        return (abstractParameter as ScalarParameterNotation).value as Boolean
+        return projectNotation.directParameter(objectName, ParameterConventions.abstractParameter)
+                ?.asBoolean()
+                ?: false
     }
 }

@@ -1,9 +1,23 @@
 package tech.kzen.lib.common.notation.model
 
 
-sealed class ParameterNotation
+//---------------------------------------------------------------------------------------------------------------------
+sealed class ParameterNotation {
+    fun asString(): String? {
+        return (this as? ScalarParameterNotation)
+                ?.value
+                as? String
+    }
+
+    fun asBoolean(): Boolean? {
+        return (this as? ScalarParameterNotation)
+                ?.value
+                as? Boolean
+    }
+}
 
 
+//---------------------------------------------------------------------------------------------------------------------
 data class ScalarParameterNotation(
         val value: Any?
 ) : ParameterNotation()

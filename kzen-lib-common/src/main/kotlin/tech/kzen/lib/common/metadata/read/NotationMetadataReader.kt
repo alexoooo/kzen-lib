@@ -4,10 +4,7 @@ import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.metadata.model.ObjectMetadata
 import tech.kzen.lib.common.metadata.model.ParameterMetadata
 import tech.kzen.lib.common.metadata.model.TypeMetadata
-import tech.kzen.lib.common.notation.model.MapParameterNotation
-import tech.kzen.lib.common.notation.model.ParameterNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.common.notation.model.*
 
 
 class NotationMetadataReader(
@@ -94,13 +91,14 @@ class NotationMetadataReader(
         return when (parameterNotation) {
             is ScalarParameterNotation -> {
                 check(parameterNotation.value is String,
-                        {"'is' must be String: $parameterNotation"})
+                        {"Inline '${ParameterConventions.isParameter}' must be String: $parameterNotation"})
                 parameterNotation.value as String
             }
 
             is MapParameterNotation -> {
-                val isParam = parameterNotation.values["is"]
-                (isParam as? ScalarParameterNotation)?.value as? String
+                parameterNotation
+                        .values[ParameterConventions.isParameter]
+                        ?.asString()
             }
 
             else -> null

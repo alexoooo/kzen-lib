@@ -13,7 +13,7 @@ data class ProjectNotation(
         val buffer = mutableMapOf<String, ObjectNotation>()
         packages.values
                 .flatMap { it.objects.entries }
-                .forEach { buffer.put(it.key, it.value) }
+                .forEach { buffer[it.key] = it.value }
         buffer
     }
 
@@ -32,7 +32,7 @@ data class ProjectNotation(
             return parameter
         }
 
-        val isParameter = notation.get("is")
+        val isParameter = notation.get(ParameterConventions.isParameter)
 
         val superName: String =
                 when (isParameter) {
@@ -64,16 +64,8 @@ data class ProjectNotation(
         val scalarParameter = transitiveParameter(objectName, notationPath)
                 ?: throw IllegalArgumentException("Not found: $objectName.$notationPath")
 
-        if (scalarParameter !is ScalarParameterNotation) {
-            throw IllegalArgumentException("Expected scalar ($objectName.$notationPath): $scalarParameter")
-        }
-
-        val stringValue = scalarParameter.value
-        if (stringValue !is String) {
-            throw IllegalArgumentException("Expected String ($objectName.$notationPath): $stringValue")
-        }
-
-        return stringValue
+        return scalarParameter.asString()
+            ?: throw IllegalArgumentException("Expected string ($objectName.$notationPath): $scalarParameter")
     }
 
 
