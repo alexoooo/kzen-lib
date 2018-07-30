@@ -26,7 +26,9 @@ class NotationParameterDefiner : ParameterDefiner {
     ): ParameterDefinition {
         val objectNotation = projectNotation.coalesce[objectName]!!
 
+        // TODO: is the transitiveParameter here handled correctly? what about default values?
         val parameterNotation = objectNotation.parameters[parameterName]
+                ?: projectNotation.transitiveParameter(objectName, parameterName)
                 ?: throw IllegalArgumentException("Unknown parameter: $parameterName")
 
         val objectMetadata = projectMetadata.objectMetadata[objectName]!!

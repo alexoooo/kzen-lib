@@ -37,6 +37,25 @@ Foo:
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Edit default param`() {
+        val notation = parseProject("""
+Foo:
+  hello: "bar"
+""")
+
+        val project = ProjectAggregate(notation)
+
+        val event = project.apply(EditParameterCommand(
+                "Foo",
+                "foo",
+                ScalarParameterNotation("baz")))
+
+        val value = event.state.getString("Foo", "foo")
+        assertEquals("baz", value)
+    }
+
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parsePackage(doc: String): PackageNotation {

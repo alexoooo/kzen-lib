@@ -37,54 +37,64 @@ data class ObjectNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun withParameter(
+    fun upsertParameter(
             notationPath: String,
             parameterNotation: ParameterNotation
     ): ObjectNotation {
         val notationPathSegments = notationPath.split(".")
         val rootParameterName: String = notationPathSegments[0]
 
-        if (notationPathSegments.size == 1 &&  parameters.containsKey(rootParameterName)) {
-            return withRootParameter(rootParameterName, parameterNotation)
+        if (notationPathSegments.size == 1) {
+            return upsertRootParameter(rootParameterName, parameterNotation)
         }
 
-        if (! parameters.containsKey(rootParameterName)) {
-            throw IllegalArgumentException("Parameter not found: $notationPath")
-        }
+//        if (! parameters.containsKey(rootParameterName)) {
+//            throw IllegalArgumentException("Parameter not found: $notationPath")
+//        }
 
-        val root = parameters[rootParameterName]!!
+        val root: StructuredParameterNotation =
+                parameters[rootParameterName]
                 as? StructuredParameterNotation
-                ?: throw IllegalArgumentException(
-                        "Structured parameter expected (${notationPathSegments[0]}): $notationPath")
+                ?: MapParameterNotation(mapOf())
+//                ?: throw IllegalArgumentException(
+//                        "Structured parameter expected (${notationPathSegments[0]}): $notationPath")
 
-        val newRoot = withSubParameter(
+        val newRoot = upsertSubParameter(
                 root,
                 notationPathSegments.subList(1, notationPathSegments.size),
                 parameterNotation)
 
-        return withRootParameter(notationPath, newRoot)
+        return upsertRootParameter(notationPath, newRoot)
     }
 
 
-    private fun withRootParameter(
+    private fun upsertRootParameter(
             parameterName: String,
-            value : ParameterNotation
+            value: ParameterNotation
     ): ObjectNotation {
+        var replaced = false
+
         val buffer = mutableMapOf<String, ParameterNotation>()
         for (parameter in parameters) {
             buffer[parameter.key] =
                     if (parameter.key == parameterName) {
+                        replaced = true
                         value
                     }
                     else {
                         parameter.value
                     }
         }
+
+        if (! replaced) {
+            buffer[parameterName] = value
+        }
+
         return ObjectNotation(buffer)
     }
 
 
-    private fun withSubParameter(
+    private fun upsertSubParameter(
             next: StructuredParameterNotation,
             remainingPathSegments: List<String>,
             value: ParameterNotation
@@ -96,7 +106,7 @@ data class ObjectNotation(
                     value
                 }
                 else {
-                    withSubParameter(
+                    upsertSubParameter(
                             next.get(nextPathSegment) as StructuredParameterNotation,
                             remainingPathSegments.subList(1, remainingPathSegments.size),
                             value)

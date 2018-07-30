@@ -86,7 +86,7 @@ class ProjectAggregate(
         val objectNotation = state.coalesce[objectName]!!
 
         val modifiedObjectNotation =
-                objectNotation.withParameter(parameterPath, parameterValue)
+                objectNotation.upsertParameter(parameterPath, parameterValue)
 
         val modifiedProjectNotation =
                 packageNotation.withModifiedObject(objectName, modifiedObjectNotation)

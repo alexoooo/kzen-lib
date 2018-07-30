@@ -15,10 +15,13 @@ HelloWorldHolder:
 NameAware:
   abstract: true
   class: tech.kzen.lib.server.objects.NameAware
+  foo: ''
   meta:
     name:
       is: String
       by: ObjectNameParameterDefiner
+    foo:
+      is: String
 
 
 FooNamed:
