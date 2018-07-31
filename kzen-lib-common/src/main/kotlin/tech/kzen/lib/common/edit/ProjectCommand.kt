@@ -32,11 +32,17 @@ data class ShiftObjectCommand(
 
 
 
-//---------------------------------------------------------------------------------------------------------------------
 data class EditParameterCommand(
         val objectName: String,
         val parameterPath: String,
         val parameterValue: ParameterNotation
+): ProjectCommand()
+
+
+
+data class RenameObjectCommand(
+        val objectName: String,
+        val newName: String
 ): ProjectCommand()
 
 

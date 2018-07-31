@@ -4,6 +4,19 @@ package tech.kzen.lib.common.notation.model
 data class PackageNotation(
         val objects: Map<String, ObjectNotation>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
+    fun indexOf(objectName: String): Int {
+        return objects.keys.indexOf(objectName)
+    }
+
+
+    fun equalsInOrder(other: PackageNotation): Boolean {
+        return this == other &&
+                objects.keys.toList() == other.objects.keys.toList()
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     fun withModifiedObject(
             objectName: String,
             objectNotation: ObjectNotation
@@ -28,14 +41,33 @@ data class PackageNotation(
 
     fun withNewObject(
             objectName: String,
-            objectNotation: ObjectNotation
+            objectNotation: ObjectNotation,
+            index: Int = objects.size
     ): PackageNotation {
         check(! objects.containsKey(objectName), { "Already exists: $objectName" })
+        check(0 <= index && index <= objects.size, { "Index must be in [0, ${objects.size}]" })
 
         val buffer = mutableMapOf<String, ObjectNotation>()
-        buffer.putAll(objects)
+
+        val iterator = objects.entries.iterator()
+
+        var nextIndex = 0
+        while (true) {
+            if (nextIndex == index) {
+                break
+            }
+            nextIndex++
+
+            val entry = iterator.next()
+            buffer[entry.key] = entry.value
+        }
 
         buffer[objectName] = objectNotation
+
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            buffer[entry.key] = entry.value
+        }
 
         return PackageNotation(buffer)
     }

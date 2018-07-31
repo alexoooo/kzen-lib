@@ -22,8 +22,25 @@ data class ObjectAddedEvent(
 ) : ProjectEvent()
 
 
+
 data class ObjectRemovedEvent(
         val objectName: String,
+        override val state: ProjectNotation
+) : ProjectEvent()
+
+
+
+data class ObjectShiftedEvent(
+        val objectName: String,
+        val indexInPackage: Int,
+        override val state: ProjectNotation
+) : ProjectEvent()
+
+
+
+data class ObjectRenamedEvent(
+        val objectName: String,
+        val newName: String,
         override val state: ProjectNotation
 ) : ProjectEvent()
 
