@@ -141,4 +141,10 @@ data class ObjectNotation(
             }
         }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+//    fun digest(): Digest {
+//        val parameters: Map<String, ParameterNotation>
+//    }
 }

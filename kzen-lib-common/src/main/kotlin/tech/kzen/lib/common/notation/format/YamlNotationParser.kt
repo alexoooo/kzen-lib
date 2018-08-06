@@ -1,14 +1,14 @@
 package tech.kzen.lib.common.notation.format
 
 
+import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.model.*
-import tech.kzen.lib.common.notation.io.flat.parser.NotationParser
 import tech.kzen.lib.common.util.IoUtils
 
 
 class YamlNotationParser : NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
-    override fun parse(body: ByteArray): PackageNotation {
+    override fun parsePackage(body: ByteArray): PackageNotation {
         val node = YamlNodeParser.parse(body)
 //        println("#!@#!@#!@#!@#!@ node = $node")
 
@@ -22,9 +22,12 @@ class YamlNotationParser : NotationParser {
                         YamlMap(mapOf(
                                 ParameterConventions.isParameter to node))
                     }
-                    else {
-                        // NB: losing information
+                    else if (node.value == null) {
+                        // NB: empty document
                         YamlMap(mapOf())
+                    }
+                    else {
+                        throw IllegalArgumentException("Top-level non-string scalar: ${node.value}")
                     }
                 }
                 else {
@@ -34,18 +37,34 @@ class YamlNotationParser : NotationParser {
         val objects = mutableMapOf<String, ObjectNotation>()
         for (e in topLevelMap.values) {
             val objectMap = e.value as YamlMap
-
-            val parameters = mutableMapOf<String, ParameterNotation>()
-            for (p in objectMap.values) {
-                val parameterNode = objectMap.values[p.key]!!
-                val parameter = yamlToParameter(parameterNode)
-                parameters[p.key] = parameter
-            }
-
-            objects[e.key] = ObjectNotation(parameters)
+            objects[e.key] = parseObjectYaml(objectMap)
         }
 
         return PackageNotation(objects)
+    }
+
+
+    private fun parseObjectYaml(objectMap: YamlMap): ObjectNotation {
+        val parameters = mutableMapOf<String, ParameterNotation>()
+
+        for (p in objectMap.values) {
+            val parameterNode = objectMap.values[p.key]!!
+            val parameter = yamlToParameter(parameterNode)
+            parameters[p.key] = parameter
+        }
+
+        return ObjectNotation(parameters)
+    }
+
+
+    override fun parseObject(value: String): ObjectNotation {
+        val node = YamlNodeParser.parse(value)
+
+        if (node !is YamlMap) {
+            throw IllegalArgumentException("Map expected: $node")
+        }
+
+        return parseObjectYaml(node)
     }
 
 
@@ -72,7 +91,7 @@ class YamlNotationParser : NotationParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun deparse(notation: PackageNotation, previousBody: ByteArray): ByteArray {
+    override fun deparsePackage(notation: PackageNotation, previousBody: ByteArray): ByteArray {
 //        println("&%^&%^&%^ -- de-parsing - $notation")
 
         val buffer = StringBuilder()
@@ -119,5 +138,16 @@ class YamlNotationParser : NotationParser {
             else ->
                 throw UnsupportedOperationException("Unexpected type: $parameterNotation")
         }
+    }
+
+
+    override fun deparseObject(objectNotation: ObjectNotation): String {
+        val yaml = objectToYaml(objectNotation)
+        return yaml.asString()
+    }
+
+    override fun deparseParameter(parameterNotation: ParameterNotation): String {
+        val yaml = parameterToYaml(parameterNotation)
+        return yaml.asString()
     }
 }

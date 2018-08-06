@@ -10,15 +10,21 @@ class ProjectAggregate(
         var state: ProjectNotation
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    private data class EventAndNotation(
+            val event: ProjectEvent,
+            val notation: ProjectNotation)
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     fun apply(command: ProjectCommand): ProjectEvent {
-        val event = handle(command)
-        state = event.state
-        return event
+        val eventAndNotation = handle(command)
+        state = eventAndNotation.notation
+        return eventAndNotation.event
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun handle(command: ProjectCommand): ProjectEvent =
+    private fun handle(command: ProjectCommand): EventAndNotation =
             when (command) {
                 is EditParameterCommand ->
                     editParameter(command.objectName, command.parameterPath, command.parameterValue)
@@ -45,7 +51,7 @@ class ProjectAggregate(
             projectPath: ProjectPath,
             objectName: String,
             body: ObjectNotation
-    ): ObjectAddedEvent {
+    ): EventAndNotation {
         check(! state.coalesce.containsKey(objectName))
 
         val packageNotation = state.packages[projectPath]!!
@@ -56,13 +62,15 @@ class ProjectAggregate(
         val nextState = state.withPackage(
                 projectPath, modifiedProjectNotation)
 
-        return ObjectAddedEvent(projectPath, objectName, body, nextState)
+        return EventAndNotation(
+                ObjectAddedEvent(projectPath, objectName, body),
+                nextState)
     }
 
 
     private fun removeObject(
             objectName: String
-    ): ObjectRemovedEvent {
+    ): EventAndNotation {
         check(state.coalesce.containsKey(objectName))
 
         val projectPath = state.findPackage(objectName)
@@ -75,14 +83,16 @@ class ProjectAggregate(
         val nextState = state.withPackage(
                 projectPath, modifiedProjectNotation)
 
-        return ObjectRemovedEvent(objectName, nextState)
+        return EventAndNotation(
+                ObjectRemovedEvent(objectName),
+                nextState)
     }
 
 
     private fun shiftObject(
             objectName: String,
             indexInPackage: Int
-    ): ObjectShiftedEvent {
+    ): EventAndNotation {
         check(state.coalesce.containsKey(objectName))
 
         val projectPath = state.findPackage(objectName)
@@ -100,14 +110,16 @@ class ProjectAggregate(
         val nextState = state.withPackage(
                 projectPath, addedToNew)
 
-        return ObjectShiftedEvent(objectName, indexInPackage, nextState)
+        return EventAndNotation(
+                ObjectShiftedEvent(objectName, indexInPackage),
+                nextState)
     }
 
 
     private fun renameObject(
             objectName: String,
             newName: String
-    ): ObjectRenamedEvent {
+    ): EventAndNotation {
         check(state.coalesce.containsKey(objectName))
 
         val projectPath = state.findPackage(objectName)
@@ -126,17 +138,17 @@ class ProjectAggregate(
         val nextState = state.withPackage(
                 projectPath, addedWithNewName)
 
-        return ObjectRenamedEvent(objectName, newName, nextState)
+        return EventAndNotation(
+                ObjectRenamedEvent(objectName, newName),
+                nextState)
     }
 
 
-
-    //-----------------------------------------------------------------------------------------------------------------
     private fun editParameter(
             objectName: String,
             parameterPath: String,
             parameterValue: ParameterNotation
-    ): ParameterEditedEvent {
+    ): EventAndNotation {
         val projectPath = state.findPackage(objectName)
         val packageNotation = state.packages[projectPath]!!
 
@@ -151,6 +163,8 @@ class ProjectAggregate(
         val nextState = state.withPackage(
                 projectPath, modifiedProjectNotation)
 
-        return ParameterEditedEvent(objectName, parameterPath, parameterValue, nextState)
+        return EventAndNotation(
+                ParameterEditedEvent(objectName, parameterPath, parameterValue),
+                nextState)
     }
 }

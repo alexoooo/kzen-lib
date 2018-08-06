@@ -17,6 +17,10 @@ data class ProjectNotation(
         buffer
     }
 
+//    val digest: Digest by lazy {
+//
+//    }
+
 
     //-----------------------------------------------------------------------------------------------------------------
     fun directParameter(objectName: String, notationPath: String): ParameterNotation? =

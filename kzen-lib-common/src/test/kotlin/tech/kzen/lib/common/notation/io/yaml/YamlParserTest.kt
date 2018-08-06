@@ -26,8 +26,8 @@ class YamlParserTest {
 
     @Test
     fun parseQuotedStringParameter() {
-        val notation = yamlParser.parseParameter("foo")
-        assertEquals("foo", (notation as ScalarParameterNotation).value)
+        val notation = yamlParser.parseParameter("poop")
+        assertEquals("poop", (notation as ScalarParameterNotation).value)
     }
 
 
@@ -83,7 +83,7 @@ Foo:
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parsePackage(doc: String): PackageNotation {
-        return yamlParser.parse(IoUtils.stringToUtf8(doc))
+        return yamlParser.parsePackage(IoUtils.stringToUtf8(doc))
     }
 
 
@@ -95,8 +95,8 @@ Foo:
 
 
     private fun deparse(initial: String, expected: String): String {
-        return IoUtils.utf8ToString(yamlParser.deparse(
-                yamlParser.parse(IoUtils.stringToUtf8(expected)),
+        return IoUtils.utf8ToString(yamlParser.deparsePackage(
+                yamlParser.parsePackage(IoUtils.stringToUtf8(expected)),
                 IoUtils.stringToUtf8(initial)))
     }
 }

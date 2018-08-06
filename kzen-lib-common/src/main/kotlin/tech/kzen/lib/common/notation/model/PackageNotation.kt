@@ -5,6 +5,16 @@ data class PackageNotation(
         val objects: Map<String, ObjectNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+//    val digest: Digest by lazy {
+//        val combiner = Digest.UnorderedCombiner()
+//        for (e in objects) {
+//            combiner.add(Digest.ofXoShiRo256StarStar(e.key))
+//            combiner.add(Digest.ofXoShiRo256StarStar(e.value))
+//        }
+//        return@lazy combiner.combine()
+//    }
+
+
     fun indexOf(objectName: String): Int {
         return objects.keys.indexOf(objectName)
     }

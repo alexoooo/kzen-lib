@@ -47,7 +47,7 @@ object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun parse(block: List<String>): YamlNode {
         val structure = identifyStructure(block)
-        println("&&&&&&&&&& structure: $structure - $block")
+//        println("&&&&&&&&&& structure: $structure - $block")
 
         return when (structure) {
             NotationStructure.Scalar ->
@@ -130,7 +130,7 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parseList(block: List<String>): YamlList {
-        println("^^^ parseList: $block")
+//        println("^^^ parseList: $block")
 
         val items = splitListItems(block)
 
@@ -170,7 +170,7 @@ object YamlNodeParser {
 
 
     private fun parseMapEntry(block: List<String>): Pair<String, YamlNode> {
-        println("^&^&^ parseMapEntry: $block")
+//        println("^&^&^ parseMapEntry: $block")
 
         val startLife = block.find { Patterns.entry.matches(it) }
                 ?: throw IllegalArgumentException("Key-value pair not found: $block")

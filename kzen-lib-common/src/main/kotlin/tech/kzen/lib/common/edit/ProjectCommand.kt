@@ -1,8 +1,6 @@
 package tech.kzen.lib.common.edit
 
-import tech.kzen.lib.common.notation.model.ObjectNotation
-import tech.kzen.lib.common.notation.model.ParameterNotation
-import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.model.*
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -15,7 +13,15 @@ data class AddObjectCommand(
         val projectPath: ProjectPath,
         val objectName: String,
         val body: ObjectNotation
-): ProjectCommand()
+): ProjectCommand() {
+    companion object {
+        fun ofParent(projectPath: ProjectPath, objectName: String, parentName: String): AddObjectCommand {
+            val parentBody = ObjectNotation(mapOf(
+                    ParameterConventions.isParameter to ScalarParameterNotation(parentName)))
+            return AddObjectCommand(projectPath, objectName, parentBody)
+        }
+    }
+}
 
 
 

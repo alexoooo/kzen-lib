@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.util
 
+
 object IoUtils {
     fun utf8ToString(bytes: ByteArray): String {
         // import kotlinx.serialization.stringFromUtf8Bytes
@@ -15,7 +16,11 @@ object IoUtils {
         for (i in 0 until utf8.length) {
             val asChar = utf8[i]
             val asByte = asChar.toByte()
-            check(asByte.toInt() == asChar.toInt())
+
+            if (asByte.toInt() != asChar.toInt()) {
+                throw UnsupportedOperationException("Non-ASCII not supported (yet): $utf8")
+            }
+
             bytes[i] = asChar.toByte()
         }
 

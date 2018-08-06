@@ -1,10 +1,7 @@
 package tech.kzen.lib.server
 
 import org.junit.Test
-import tech.kzen.lib.common.edit.EditParameterCommand
-import tech.kzen.lib.common.edit.ProjectAggregate
-import tech.kzen.lib.common.edit.RenameObjectCommand
-import tech.kzen.lib.common.edit.ShiftObjectCommand
+import tech.kzen.lib.common.edit.*
 import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
@@ -12,7 +9,6 @@ import tech.kzen.lib.common.notation.model.ProjectPath
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
 import tech.kzen.lib.common.util.IoUtils
 import kotlin.test.assertEquals
-import kotlin.test.assertFails
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -33,12 +29,12 @@ Foo:
 
         val project = ProjectAggregate(notation)
 
-        val event = project.apply(EditParameterCommand(
+        project.apply(EditParameterCommand(
                 "Foo",
                 "hello",
                 ScalarParameterNotation("world")))
 
-        val value = event.state.getString("Foo", "hello")
+        val value = project.state.getString("Foo", "hello")
         assertEquals("world", value)
     }
 
@@ -52,12 +48,12 @@ Foo:
 
         val project = ProjectAggregate(notation)
 
-        val event = project.apply(EditParameterCommand(
+        project.apply(EditParameterCommand(
                 "Foo",
                 "foo",
                 ScalarParameterNotation("baz")))
 
-        val value = event.state.getString("Foo", "foo")
+        val value = project.state.getString("Foo", "foo")
         assertEquals("baz", value)
     }
 
@@ -74,10 +70,10 @@ B:
 
         val project = ProjectAggregate(notation)
 
-        val event = project.apply(ShiftObjectCommand(
+        project.apply(ShiftObjectCommand(
                 "B", 0))
 
-        val packageNotation = event.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[mainPath]!!
         assertEquals(0, packageNotation.indexOf("B"))
         assertFalse(notation.packages[mainPath]!!.equalsInOrder(packageNotation))
     }
@@ -94,10 +90,10 @@ B:
 
         val project = ProjectAggregate(notation)
 
-        val event = project.apply(ShiftObjectCommand(
+        project.apply(ShiftObjectCommand(
                 "A", 1))
 
-        val packageNotation = event.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[mainPath]!!
         assertEquals(1, packageNotation.indexOf("A"))
         assertFalse(notation.packages[mainPath]!!.equalsInOrder(packageNotation))
     }
@@ -114,10 +110,10 @@ B:
 
         val project = ProjectAggregate(notation)
 
-        val event = project.apply(ShiftObjectCommand(
+        project.apply(ShiftObjectCommand(
                 "A", 0))
 
-        val packageNotation = event.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[mainPath]!!
         assertEquals(0, packageNotation.indexOf("A"))
         assertTrue(notation.packages[mainPath]!!.equalsInOrder(packageNotation))
     }
@@ -137,20 +133,39 @@ C:
 
         val project = ProjectAggregate(notation)
 
-        val event = project.apply(RenameObjectCommand(
+        project.apply(RenameObjectCommand(
                 "B", "Foo"))
 
-        val packageNotation = event.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[mainPath]!!
         assertEquals(0, packageNotation.indexOf("A"))
         assertEquals(1, packageNotation.indexOf("Foo"))
         assertEquals(2, packageNotation.indexOf("C"))
-        assertEquals("b", event.state.getString("Foo", "hello"))
+        assertEquals("b", project.state.getString("Foo", "hello"))
+    }
+
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Remove last object`() {
+        val notation = parseProject("""
+A:
+  hello: "a"
+""")
+
+        val project = ProjectAggregate(notation)
+
+        project.apply(RemoveObjectCommand(
+                "A"))
+
+        val packageNotation = project.state.packages[mainPath]!!
+        assertEquals(0, packageNotation.objects.size)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parsePackage(doc: String): PackageNotation {
-        return yamlParser.parse(IoUtils.stringToUtf8(doc))
+        return yamlParser.parsePackage(IoUtils.stringToUtf8(doc))
     }
 
 

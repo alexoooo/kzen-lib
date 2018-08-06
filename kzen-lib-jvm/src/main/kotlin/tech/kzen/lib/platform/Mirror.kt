@@ -5,12 +5,12 @@ import kotlin.reflect.full.primaryConstructor
 
 actual object Mirror {
     actual fun contains(className: String): Boolean {
-        try {
+        return try {
             Class.forName(className)
-            return true
+            true
         }
         catch (e: ClassNotFoundException) {
-            return false
+            false
         }
     }
 

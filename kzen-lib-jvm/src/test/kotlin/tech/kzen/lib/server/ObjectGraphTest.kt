@@ -7,16 +7,12 @@ import tech.kzen.lib.common.context.ObjectGraphCreator
 import tech.kzen.lib.common.context.ObjectGraphDefiner
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.metadata.read.NotationMetadataReader
+import tech.kzen.lib.common.notation.format.YamlNotationParser
+import tech.kzen.lib.common.notation.io.NotationParser
+import tech.kzen.lib.common.notation.io.common.MultiNotationMedia
 import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ProjectPath
-import tech.kzen.lib.common.notation.io.NotationIo
-import tech.kzen.lib.common.notation.io.flat.FlatNotationIo
-import tech.kzen.lib.common.notation.io.flat.parser.NotationParser
-import tech.kzen.lib.common.notation.io.flat.media.FallbackNotationMedia
-import tech.kzen.lib.common.notation.format.YamlNotationParser
-import tech.kzen.lib.common.notation.scan.LiteralNotationScanner
-import tech.kzen.lib.common.notation.scan.NotationScanner
 import tech.kzen.lib.server.notation.ClasspathNotationMedia
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
@@ -44,27 +40,28 @@ class ObjectGraphTest {
 
     @Test
     fun `StringHolder can be instantiated`() {
-        val notationSource = FallbackNotationMedia(listOf(
+        val notationMedia = MultiNotationMedia(listOf(
                 FileNotationMedia(GradleLocator()),
                 ClasspathNotationMedia()))
 
-        val scanner: NotationScanner = LiteralNotationScanner(listOf(
-                "notation/base/kzen-base.yaml",
-                "notation/test/kzen-test.yaml"))
+//        val scanner: NotationScanner = LiteralNotationScanner(listOf(
+//                "notation/base/kzen-base.yaml",
+//                "notation/test/kzen-test.yaml"
+//        ), notationMedia)
 
 //        val notationPath = ProjectPath("kzen-base.yaml")
 //        val notationBytes = notationSource.read(notationPath)
 
         val notationParser: NotationParser = YamlNotationParser()
 
-        val notationReader: NotationIo = FlatNotationIo(
-                notationSource, notationParser)
+//        val notationReader: NotationIo = FlatNotationIo(
+//                notationMedia, notationParser)
 
         val notationProject = runBlocking {
             val notationProjectBuilder = mutableMapOf<ProjectPath, PackageNotation>()
-            for (notationPath in scanner.scan()) {
-                val notationModule = notationReader.read(notationPath)
-                notationProjectBuilder[notationPath] = notationModule
+            for (notationPath in notationMedia.scan()) {
+                val notationModule = notationMedia.read(notationPath.key)
+                notationProjectBuilder[notationPath.key] = notationParser.parsePackage(notationModule)
             }
             ProjectNotation(notationProjectBuilder)
         }
