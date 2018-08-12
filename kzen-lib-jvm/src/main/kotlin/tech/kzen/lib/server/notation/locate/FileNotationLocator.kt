@@ -5,7 +5,7 @@ import java.nio.file.Path
 
 
 interface FileNotationLocator {
-    fun primaryRoot(): Path
+    fun scanRoots(): List<Path>
 
     fun locateExisting(location: ProjectPath): Path
 }

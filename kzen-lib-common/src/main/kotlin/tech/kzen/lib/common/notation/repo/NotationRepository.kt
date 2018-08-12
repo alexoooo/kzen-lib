@@ -19,6 +19,8 @@ class NotationRepository(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     private var scanCache = mutableMapOf<ProjectPath, Digest>()
+
+    // TODO: use notation from inside ProjectAggregate?
     private var projectNotationCache: ProjectNotation? = null
     private var projectAggregateCache: ProjectAggregate? = null
     private var fileCache = Cache<ByteArray>(10)
@@ -65,7 +67,7 @@ class NotationRepository(
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun aggregate(): ProjectAggregate {
         if (projectAggregateCache == null) {
-            projectAggregateCache = ProjectAggregate(read())
+            projectAggregateCache = ProjectAggregate(notation())
         }
         return projectAggregateCache!!
     }
@@ -99,6 +101,7 @@ class NotationRepository(
         }
 
         if (writtenAny) {
+            // TODO: avoid needless clearing
             clearCache()
         }
 

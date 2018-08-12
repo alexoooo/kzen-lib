@@ -33,21 +33,12 @@ class FileNotationMedia(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun scan(): Map<ProjectPath, Digest> {
-        val root = notationLocator.primaryRoot()
-
         val locationTimes = mutableMapOf<ProjectPath, Instant>()
-        Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
-            override fun visitFile(file: Path?, attrs: BasicFileAttributes?): FileVisitResult {
-                if (file!!.fileName.toString().endsWith(".yaml")) {
-                    val path = ProjectPath(root.relativize(file).toString())
-                    val modified = attrs!!.lastModifiedTime().toInstant()
 
-                    locationTimes[path] = modified
-                }
-
-                return FileVisitResult.CONTINUE
-            }
-        })
+        val roots = notationLocator.scanRoots()
+        for (root in roots) {
+            directoryScan(root, locationTimes)
+        }
 
         val digested = mutableMapOf<ProjectPath, Digest>()
 
@@ -71,6 +62,26 @@ class FileNotationMedia(
 
         return digested
     }
+
+
+    private fun directoryScan(
+            root: Path,
+            locationTimes: MutableMap<ProjectPath, Instant>
+    ) {
+        Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
+            override fun visitFile(file: Path?, attrs: BasicFileAttributes?): FileVisitResult {
+                if (file!!.fileName.toString().endsWith(".yaml")) {
+                    val path = ProjectPath(root.relativize(file).toString())
+                    val modified = attrs!!.lastModifiedTime().toInstant()
+
+                    locationTimes[path] = modified
+                }
+
+                return FileVisitResult.CONTINUE
+            }
+        })
+    }
+
 
 
     //-----------------------------------------------------------------------------------------------------------------

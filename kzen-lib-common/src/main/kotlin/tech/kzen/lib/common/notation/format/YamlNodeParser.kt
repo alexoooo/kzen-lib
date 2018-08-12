@@ -15,8 +15,18 @@ object YamlNodeParser {
         val decorator = Regex(
                 "$|#(.*)")
 
-        val entry = Regex(
-                "([0-9a-zA-Z_-]+)\\s*:\\s*(.*)")
+        // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
+        private const val bareString = "([0-9a-zA-Z_-]+)"
+        private const val doubleQuotedString =
+                "\"((?:[^\\\"]|\\(?:[\"\\/bfnrt]|u[0-9a-fA-F]{4})*)\""
+
+        private const val entrySuffix = "\\s*:\\s*(.*)"
+
+        val entryBare = Regex(
+                "$bareString$entrySuffix")
+
+        val entryDoubleQuoted = Regex(
+                "$doubleQuotedString$entrySuffix")
 
         val item = Regex(
                 "- .*")
@@ -172,10 +182,11 @@ object YamlNodeParser {
     private fun parseMapEntry(block: List<String>): Pair<String, YamlNode> {
 //        println("^&^&^ parseMapEntry: $block")
 
-        val startLife = block.find { Patterns.entry.matches(it) }
+//        val startLife = block.find { Patterns.entry.matches(it) }
+        val startLife = block.find { matchEntireEntry(it) != null }
                 ?: throw IllegalArgumentException("Key-value pair not found: $block")
 
-        val startMatch = Patterns.entry.matchEntire(startLife)!!
+        val startMatch = matchEntireEntry(startLife)!!
 
         val key = startMatch.groupValues[1]
         val startSuffix = startMatch.groupValues[2]
@@ -202,15 +213,24 @@ object YamlNodeParser {
 
     private fun splitMapEntries(block: List<String>): List<List<String>> {
         return splitElements(block) {
-            Patterns.entry.matchEntire(it) != null
+            matchEntireEntry(it) != null
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun matchEntireEntry(line: String): MatchResult? {
+        return Patterns.entryBare.matchEntire(line)
+                ?: Patterns.entryDoubleQuoted.matchEntire(line)
+
+//        return Patterns.entryBare.matchEntire(line)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun identifyStructure(block: List<String>): NotationStructure {
         for (line in block) {
-            if (Patterns.entry.matchEntire(line) != null) {
+            if (matchEntireEntry(line) != null) {
                 return NotationStructure.Map
             }
             if (Patterns.item.matchEntire(line) != null) {

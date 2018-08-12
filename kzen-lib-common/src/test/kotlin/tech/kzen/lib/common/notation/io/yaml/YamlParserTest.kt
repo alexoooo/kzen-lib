@@ -70,12 +70,23 @@ Foo:
     }
 
 
+    @Test
+    fun parseSpaceInKey() {
+        val notation = parseProject("""
+"Foo bar":
+  bar: "baz"
+""")
+
+        assertEquals("baz", notation.getString("Foo bar", "bar"))
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun deparseSimpleAddition() {
         val initial = ""
 
-        val expected = "Foo:\n  bar: \"baz\""
+        val expected = "Foo:\n  bar: baz"
 
         assertEquals(expected, deparse(initial, expected))
     }

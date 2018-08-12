@@ -40,8 +40,9 @@ class ObjectGraphTest {
 
     @Test
     fun `StringHolder can be instantiated`() {
+        val locator = GradleLocator(true)
         val notationMedia = MultiNotationMedia(listOf(
-                FileNotationMedia(GradleLocator()),
+                FileNotationMedia(locator),
                 ClasspathNotationMedia()))
 
 //        val scanner: NotationScanner = LiteralNotationScanner(listOf(

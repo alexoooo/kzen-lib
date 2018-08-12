@@ -108,7 +108,10 @@ class YamlNotationParser : NotationParser {
 
 //            println("&%^&%^&%^ -- de-parsing - ${entry.key} -> $node || ${node.asString()}")
 
-            buffer.append("${entry.key}:")
+            // TODO: consolidate
+            val keyPrefix = YamlString(entry.key).asString()
+            buffer.append("$keyPrefix:")
+
             nodeLines.forEach { buffer.append("\n  $it") }
         }
 //        println("&%^&%^&%^ -- de-parsing done - $buffer")

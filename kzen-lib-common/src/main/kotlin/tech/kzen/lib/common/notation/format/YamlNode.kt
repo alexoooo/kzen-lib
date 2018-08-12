@@ -77,16 +77,25 @@ abstract class YamlScalar : YamlNode() {
 }
 
 
+// TODO: add |- multi-line support
 data class YamlString(
         override val value: String
 ) : YamlScalar() {
     companion object {
+        // TODO: consolidate with parser
+        private val bareString = Regex("[0-9a-zA-Z_-]+")
+
         val empty = YamlString("")
     }
 
     override fun asString(): String {
-        // TODO: JSON encoding, and quotation type
-        return "\"$value\""
+        return if (value.matches(bareString)) {
+            value
+        }
+        else {
+            // TODO: JSON encoding, and quotation type
+            "\"$value\""
+        }
     }
 }
 
@@ -143,11 +152,13 @@ data class YamlMap(
         return values.map {
             val lines = it.value.asString().split("\n")
 
+            val keyPrefix = YamlString(it.key).asString()
+
             if (lines.size == 1) {
-                "${it.key}: ${lines[0]}"
+                "$keyPrefix: ${lines[0]}"
             }
             else {
-                "${it.key}:\n" + lines.map { "  $it" }.joinToString("\n")
+                "$keyPrefix:\n" + lines.map { "  $it" }.joinToString("\n")
             }
         }.joinToString("\n")
     }

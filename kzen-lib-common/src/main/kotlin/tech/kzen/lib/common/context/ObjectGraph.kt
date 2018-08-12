@@ -7,8 +7,11 @@ data class ObjectGraph(
     fun names(): Set<String> =
             objects.keys
 
+
     fun get(name: String):Any =
-            objects[name]!!
+            objects[name]
+            ?: throw IllegalArgumentException("Not found: $name")
+
 
     fun find(name: String): Any? =
             objects[name]
