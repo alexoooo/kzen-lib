@@ -82,20 +82,11 @@ data class YamlString(
         override val value: String
 ) : YamlScalar() {
     companion object {
-        // TODO: consolidate with parser
-        private val bareString = Regex("[0-9a-zA-Z_-]+")
-
         val empty = YamlString("")
     }
 
     override fun asString(): String {
-        return if (value.matches(bareString)) {
-            value
-        }
-        else {
-            // TODO: JSON encoding, and quotation type
-            "\"$value\""
-        }
+        return YamlUtils.deparseString(value)
     }
 }
 

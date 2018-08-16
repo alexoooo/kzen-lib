@@ -103,38 +103,7 @@ object YamlNodeParser {
             return YamlDouble(asDouble)
         }
 
-        return parseString(value)
-    }
-
-
-    private fun parseString(value: String): YamlString {
-        val decoded =
-                if (value.isEmpty()) {
-                    ""
-                }
-                else if (! value.contains('"') &&
-                        ! value.contains('\'')) {
-                    value
-                }
-                else if (value.startsWith('"')) {
-                    if (! value.endsWith('"')) {
-                        throw IllegalArgumentException("Can't parse String: $value")
-                    }
-
-                    value.substring(1, value.length - 1)
-                }
-                else if (value.startsWith('\'')) {
-                    if (! value.endsWith('\'')) {
-                        throw IllegalArgumentException("Can't parse String: $value")
-                    }
-
-                    value.substring(1, value.length - 1)
-                }
-                else {
-                    throw IllegalArgumentException("Can't parse String: $value")
-                }
-
-        return YamlString(decoded)
+        return YamlUtils.parseString(value)
     }
 
 

@@ -99,7 +99,7 @@ class YamlNotationParser : NotationParser {
         var first = true
         for (entry in notation.objects) {
             if (! first) {
-                buffer.append("\n")
+                buffer.append("\n\n")
             }
             first = false
 

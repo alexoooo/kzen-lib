@@ -81,6 +81,17 @@ Foo:
     }
 
 
+    @Test
+    fun parseEscapeInDoubleQuote() {
+        val notation = parseProject("""
+Foo:
+  bar: "baz\""
+""")
+
+        assertEquals("baz\"", notation.getString("Foo", "bar"))
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun deparseSimpleAddition() {
