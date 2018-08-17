@@ -14,6 +14,10 @@ data class PackageNotation(
 //        return@lazy combiner.combine()
 //    }
 
+    fun nameAt(index: Int): String {
+        return objects.keys.toList()[index]
+    }
+
 
     fun indexOf(objectName: String): Int {
         return objects.keys.indexOf(objectName)
