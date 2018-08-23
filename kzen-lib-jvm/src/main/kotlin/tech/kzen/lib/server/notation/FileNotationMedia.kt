@@ -87,6 +87,7 @@ class FileNotationMedia(
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun read(location: ProjectPath): ByteArray {
         val path = notationLocator.locateExisting(location)
+                ?: throw IllegalArgumentException("Not found: $location")
 
         println("GradleNotationMedia | read - moduleRoot: ${path.toAbsolutePath().normalize()}")
 
@@ -95,9 +96,23 @@ class FileNotationMedia(
 
 
     override suspend fun write(location: ProjectPath, bytes: ByteArray) {
-        val path = notationLocator.locateExisting(location)
+        val existingPath = notationLocator.locateExisting(location)
 
-        println("GradleNotationMedia | write - moduleRoot: ${path.toAbsolutePath().normalize()} | ${bytes.size}")
+        val path = if (existingPath != null) {
+            existingPath
+        }
+        else {
+            val resolvedPath = notationLocator.resolveNew(location)
+                    ?: throw IllegalArgumentException("Unable to resolve: $location")
+
+            val parent = resolvedPath.parent
+            println("GradleNotationMedia | write - creating parent directory: $parent")
+            Files.createDirectories(parent)
+
+            resolvedPath
+        }
+
+        println("GradleNotationMedia | write - moduleRoot: $path | ${bytes.size}")
 
         Files.write(path, bytes)
     }
@@ -105,6 +120,8 @@ class FileNotationMedia(
 
     override suspend fun delete(location: ProjectPath) {
         val path = notationLocator.locateExisting(location)
+                ?: throw IllegalArgumentException("Not found: $location")
+
         Files.delete(path)
     }
 }

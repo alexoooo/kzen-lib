@@ -30,7 +30,7 @@ class GradleLocator(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun locateExisting(location: ProjectPath): Path {
+    override fun locateExisting(location: ProjectPath): Path? {
         for (root in scanRoots) {
             val candidate = root.resolve(location.relativeLocation)
 
@@ -41,44 +41,28 @@ class GradleLocator(
             }
         }
 
-//        val candidates = candidateLocations(location)
-//        for (candidate in candidates) {
-//            println("GradleLocator - candidate: ${candidate.toAbsolutePath()}")
-//
-//            if (Files.exists(candidate)) {
-//                return candidate
-//            }
-//        }
-
-        throw IllegalStateException("Not found: ${location.relativeLocation}")
+        return null
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    private fun candidateLocations(location: ProjectPath): List<Path> {
-//        return listOf(
-//                mainPath(location),
-//                testPath(location))
-//    }
-//
-//
-//    private fun mainPath(location: ProjectPath): Path {
-//        return Paths.get(
-//                "$moduleRoot$mainResources${location.relativeLocation}").normalize()
-//    }
-//
-//
-//    private fun testPath(location: ProjectPath): Path {
-//        return Paths.get(
-//                "$moduleRoot$testResources/${location.relativeLocation}").normalize()
-//    }
+    override fun resolveNew(location: ProjectPath): Path? {
+        return Paths.get("${mainResources()}/${location.relativeLocation}")
+                .normalize()
+                .toAbsolutePath()
+    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    private fun mainResources(): String {
+        return "$moduleRoot$mainResources"
+    }
+
+
     private fun scanRootsImpl(): List<Path> {
         val buffer = mutableListOf<String>()
 
-        buffer.add("$moduleRoot$mainResources")
+        buffer.add(mainResources())
 
         if (includeTest) {
             buffer.add("$moduleRoot$testResources")

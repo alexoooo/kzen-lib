@@ -6,9 +6,20 @@ import tech.kzen.lib.common.notation.model.ProjectPath
 
 
 //---------------------------------------------------------------------------------------------------------------------
-sealed class ProjectEvent {
-//    abstract val state: ProjectNotation
-}
+sealed class ProjectEvent
+
+
+
+//---------------------------------------------------------------------------------------------------------------------
+data class PackageCreatedEvent(
+        val projectPath: ProjectPath
+) : ProjectEvent()
+
+
+
+data class PackageDeletedEvent(
+        val projectPath: ProjectPath
+) : ProjectEvent()
 
 
 
@@ -16,31 +27,27 @@ sealed class ProjectEvent {
 data class ObjectAddedEvent(
         val projectPath: ProjectPath,
         val objectName: String,
-        val body: ObjectNotation/*,
-        override val state: ProjectNotation*/
+        val body: ObjectNotation
 ) : ProjectEvent()
 
 
 
 data class ObjectRemovedEvent(
-        val objectName: String/*,
-        override val state: ProjectNotation*/
+        val objectName: String
 ) : ProjectEvent()
 
 
 
 data class ObjectShiftedEvent(
         val objectName: String,
-        val indexInPackage: Int/*,
-        override val state: ProjectNotation*/
+        val indexInPackage: Int
 ) : ProjectEvent()
 
 
 
 data class ObjectRenamedEvent(
         val objectName: String,
-        val newName: String/*,
-        override val state: ProjectNotation*/
+        val newName: String
 ) : ProjectEvent()
 
 
@@ -48,6 +55,5 @@ data class ObjectRenamedEvent(
 data class ParameterEditedEvent(
         val objectName: String,
         val parameterPath: String,
-        val parameterValue: ParameterNotation/*,
-        override val state: ProjectNotation*/
+        val parameterValue: ParameterNotation
 ) : ProjectEvent()

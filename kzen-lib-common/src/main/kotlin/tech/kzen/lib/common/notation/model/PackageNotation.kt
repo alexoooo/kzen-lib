@@ -5,6 +5,12 @@ data class PackageNotation(
         val objects: Map<String, ObjectNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        val empty = PackageNotation(mapOf())
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
 //    val digest: Digest by lazy {
 //        val combiner = Digest.UnorderedCombiner()
 //        for (e in objects) {

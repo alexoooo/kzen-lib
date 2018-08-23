@@ -8,6 +8,19 @@ sealed class ProjectCommand
 
 
 
+
+//---------------------------------------------------------------------------------------------------------------------
+data class CreatePackageCommand(
+        val projectPath: ProjectPath
+): ProjectCommand()
+
+
+
+data class DeletePackageCommand(
+        val projectPath: ProjectPath
+): ProjectCommand()
+
+
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
         val projectPath: ProjectPath,
@@ -31,17 +44,10 @@ data class RemoveObjectCommand(
 
 
 
+
 data class ShiftObjectCommand(
         val objectName: String,
         val indexInPackage: Int
-): ProjectCommand()
-
-
-
-data class EditParameterCommand(
-        val objectName: String,
-        val parameterPath: String,
-        val parameterValue: ParameterNotation
 ): ProjectCommand()
 
 
@@ -52,14 +58,10 @@ data class RenameObjectCommand(
 ): ProjectCommand()
 
 
-
 //---------------------------------------------------------------------------------------------------------------------
-data class CreatePackageCommand(
-        val projectPath: ProjectPath
+data class EditParameterCommand(
+        val objectName: String,
+        val parameterPath: String,
+        val parameterValue: ParameterNotation
 ): ProjectCommand()
 
-
-
-data class DeletePackageCommand(
-        val projectPath: ProjectPath
-): ProjectCommand()

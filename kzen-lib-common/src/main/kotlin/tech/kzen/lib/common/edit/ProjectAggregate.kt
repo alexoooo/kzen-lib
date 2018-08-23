@@ -1,9 +1,6 @@
 package tech.kzen.lib.common.edit
 
-import tech.kzen.lib.common.notation.model.ObjectNotation
-import tech.kzen.lib.common.notation.model.ParameterNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.model.*
 
 
 class ProjectAggregate(
@@ -26,8 +23,12 @@ class ProjectAggregate(
     //-----------------------------------------------------------------------------------------------------------------
     private fun handle(command: ProjectCommand): EventAndNotation =
             when (command) {
-                is EditParameterCommand ->
-                    editParameter(command.objectName, command.parameterPath, command.parameterValue)
+                is CreatePackageCommand ->
+                    createPackage(command.projectPath)
+
+                is DeletePackageCommand ->
+                    deletePackage(command.projectPath)
+
 
                 is AddObjectCommand ->
                     addObject(command.projectPath, command.objectName, command.body)
@@ -41,9 +42,44 @@ class ProjectAggregate(
                 is RenameObjectCommand ->
                     renameObject(command.objectName, command.newName)
 
+
+                is EditParameterCommand ->
+                    editParameter(command.objectName, command.parameterPath, command.parameterValue)
+
+
                 else ->
                     throw UnsupportedOperationException("Unknown: $command")
             }
+
+
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun createPackage(
+            projectPath: ProjectPath
+    ): EventAndNotation {
+        check(! state.packages.containsKey(projectPath), {"Already exists: $projectPath"})
+
+        val nextState = state.withNewPackage(
+                projectPath, PackageNotation.empty)
+
+        return EventAndNotation(
+                PackageCreatedEvent(projectPath),
+                nextState)
+    }
+
+
+    private fun deletePackage(
+            projectPath: ProjectPath
+    ): EventAndNotation {
+        check(state.packages.containsKey(projectPath), {"Does not exist: $projectPath"})
+
+        val nextState = state.withoutPackage(projectPath)
+
+        return EventAndNotation(
+                PackageDeletedEvent(projectPath),
+                nextState)
+    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -59,7 +95,7 @@ class ProjectAggregate(
         val modifiedProjectNotation =
                 packageNotation.withNewObject(objectName, body)
 
-        val nextState = state.withPackage(
+        val nextState = state.withModifiedPackage(
                 projectPath, modifiedProjectNotation)
 
         return EventAndNotation(
@@ -80,7 +116,7 @@ class ProjectAggregate(
         val modifiedProjectNotation =
                 packageNotation.withoutObject(objectName)
 
-        val nextState = state.withPackage(
+        val nextState = state.withModifiedPackage(
                 projectPath, modifiedProjectNotation)
 
         return EventAndNotation(
@@ -107,7 +143,7 @@ class ProjectAggregate(
         val addedToNew =
                 removedFromCurrent.withNewObject(objectName, objectNotation, indexInPackage)
 
-        val nextState = state.withPackage(
+        val nextState = state.withModifiedPackage(
                 projectPath, addedToNew)
 
         return EventAndNotation(
@@ -135,7 +171,7 @@ class ProjectAggregate(
         val addedWithNewName =
                 removedCurrentName.withNewObject(newName, objectNotation, objectIndex)
 
-        val nextState = state.withPackage(
+        val nextState = state.withModifiedPackage(
                 projectPath, addedWithNewName)
 
         return EventAndNotation(
@@ -144,6 +180,7 @@ class ProjectAggregate(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     private fun editParameter(
             objectName: String,
             parameterPath: String,
@@ -160,7 +197,7 @@ class ProjectAggregate(
         val modifiedProjectNotation =
                 packageNotation.withModifiedObject(objectName, modifiedObjectNotation)
 
-        val nextState = state.withPackage(
+        val nextState = state.withModifiedPackage(
                 projectPath, modifiedProjectNotation)
 
         return EventAndNotation(

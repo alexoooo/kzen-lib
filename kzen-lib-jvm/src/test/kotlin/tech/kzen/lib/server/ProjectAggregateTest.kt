@@ -16,7 +16,7 @@ import kotlin.test.assertTrue
 class ProjectAggregateTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val yamlParser = YamlNotationParser()
-    private val mainPath = ProjectPath("main.yaml")
+    private val testPath = ProjectPath("test.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -73,9 +73,9 @@ B:
         project.apply(ShiftObjectCommand(
                 "B", 0))
 
-        val packageNotation = project.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[testPath]!!
         assertEquals(0, packageNotation.indexOf("B"))
-        assertFalse(notation.packages[mainPath]!!.equalsInOrder(packageNotation))
+        assertFalse(notation.packages[testPath]!!.equalsInOrder(packageNotation))
     }
 
 
@@ -93,9 +93,9 @@ B:
         project.apply(ShiftObjectCommand(
                 "A", 1))
 
-        val packageNotation = project.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[testPath]!!
         assertEquals(1, packageNotation.indexOf("A"))
-        assertFalse(notation.packages[mainPath]!!.equalsInOrder(packageNotation))
+        assertFalse(notation.packages[testPath]!!.equalsInOrder(packageNotation))
     }
 
 
@@ -113,9 +113,9 @@ B:
         project.apply(ShiftObjectCommand(
                 "A", 0))
 
-        val packageNotation = project.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[testPath]!!
         assertEquals(0, packageNotation.indexOf("A"))
-        assertTrue(notation.packages[mainPath]!!.equalsInOrder(packageNotation))
+        assertTrue(notation.packages[testPath]!!.equalsInOrder(packageNotation))
     }
 
 
@@ -136,7 +136,7 @@ C:
         project.apply(RenameObjectCommand(
                 "B", "Foo"))
 
-        val packageNotation = project.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[testPath]!!
         assertEquals(0, packageNotation.indexOf("A"))
         assertEquals(1, packageNotation.indexOf("Foo"))
         assertEquals(2, packageNotation.indexOf("C"))
@@ -157,8 +157,32 @@ A:
         project.apply(RemoveObjectCommand(
                 "A"))
 
-        val packageNotation = project.state.packages[mainPath]!!
+        val packageNotation = project.state.packages[testPath]!!
         assertEquals(0, packageNotation.objects.size)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Create package`() {
+        val project = ProjectAggregate(ProjectNotation.empty)
+
+        project.apply(CreatePackageCommand(testPath))
+
+        val packageNotation = project.state.packages[testPath]!!
+        assertEquals(0, packageNotation.objects.size)
+    }
+
+
+    @Test
+    fun `Delete package`() {
+        val notation = parseProject("")
+
+        val project = ProjectAggregate(notation)
+
+        project.apply(DeletePackageCommand(testPath))
+
+        assertTrue(project.state.packages.isEmpty())
     }
 
 
@@ -171,6 +195,6 @@ A:
     private fun parseProject(doc: String): ProjectNotation {
         val packageNotation = parsePackage(doc)
         return ProjectNotation(mapOf(
-                mainPath to packageNotation))
+                testPath to packageNotation))
     }
 }

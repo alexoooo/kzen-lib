@@ -5,6 +5,12 @@ data class ProjectNotation(
         val packages: Map<ProjectPath, PackageNotation>)
 {
     //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        val empty = ProjectNotation(mapOf())
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     val objectNames: Set<String> by lazy {
         coalesce.keys
     }
@@ -85,7 +91,23 @@ data class ProjectNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun withPackage(
+    fun withNewPackage(
+            projectPath: ProjectPath,
+            packageNotation: PackageNotation
+    ): ProjectNotation {
+        check(! packages.containsKey(projectPath), {"Already exists: $projectPath"})
+
+        val buffer = mutableMapOf<ProjectPath, PackageNotation>()
+
+        buffer.putAll(packages)
+
+        buffer[projectPath] = packageNotation
+
+        return ProjectNotation(buffer)
+    }
+
+
+    fun withModifiedPackage(
             projectPath: ProjectPath,
             packageNotation: PackageNotation
     ): ProjectNotation {
@@ -106,6 +128,24 @@ data class ProjectNotation(
         return ProjectNotation(buffer)
     }
 
+
+    fun withoutPackage(
+            projectPath: ProjectPath
+    ): ProjectNotation {
+        check(packages.containsKey(projectPath), {"Already absent: $projectPath"})
+
+        val buffer = mutableMapOf<ProjectPath, PackageNotation>()
+
+        for (e in packages) {
+            if (e.key == projectPath) {
+                continue
+            }
+
+            buffer[e.key] = e.value
+        }
+
+        return ProjectNotation(buffer)
+    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
