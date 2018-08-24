@@ -7,9 +7,9 @@ dependencies {
 
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jdk8', version: kotlinVersion
     compile("org.jetbrains.kotlin:kotlin-reflect")
-    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-core:0.22.5'
+    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-coroutines-core', version: kotlinxCoroutinesCoreVersion
 
-    compile group: 'com.google.guava', name: 'guava', version: '25.1-jre'
+    compile group: 'com.google.guava', name: 'guava', version: guavaVersion
 
     testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test', version: kotlinVersion
     testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit', version: kotlinVersion

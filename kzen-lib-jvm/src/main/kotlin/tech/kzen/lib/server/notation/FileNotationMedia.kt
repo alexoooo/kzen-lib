@@ -71,7 +71,10 @@ class FileNotationMedia(
         Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
             override fun visitFile(file: Path?, attrs: BasicFileAttributes?): FileVisitResult {
                 if (file!!.fileName.toString().endsWith(".yaml")) {
-                    val path = ProjectPath(root.relativize(file).toString())
+                    val relative = root.relativize(file).toString()
+                    val normalized = relative.replace('\\', '/')
+
+                    val path = ProjectPath(normalized)
                     val modified = attrs!!.lastModifiedTime().toInstant()
 
                     locationTimes[path] = modified
