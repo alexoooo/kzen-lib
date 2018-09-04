@@ -58,7 +58,7 @@ class ProjectAggregate(
     private fun createPackage(
             projectPath: ProjectPath
     ): EventAndNotation {
-        check(! state.packages.containsKey(projectPath), {"Already exists: $projectPath"})
+        check(! state.packages.containsKey(projectPath)) {"Already exists: $projectPath"}
 
         val nextState = state.withNewPackage(
                 projectPath, PackageNotation.empty)
@@ -72,7 +72,7 @@ class ProjectAggregate(
     private fun deletePackage(
             projectPath: ProjectPath
     ): EventAndNotation {
-        check(state.packages.containsKey(projectPath), {"Does not exist: $projectPath"})
+        check(state.packages.containsKey(projectPath)) {"Does not exist: $projectPath"}
 
         val nextState = state.withoutPackage(projectPath)
 
@@ -88,7 +88,7 @@ class ProjectAggregate(
             objectName: String,
             body: ObjectNotation
     ): EventAndNotation {
-        check(! state.coalesce.containsKey(objectName))
+        check(! state.coalesce.containsKey(objectName)) {"Object named '$objectName' already exists"}
 
         val packageNotation = state.packages[projectPath]!!
 

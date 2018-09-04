@@ -68,6 +68,10 @@ class FileNotationMedia(
             root: Path,
             locationTimes: MutableMap<ProjectPath, Instant>
     ) {
+        if (! Files.exists(root)) {
+            return
+        }
+
         Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
             override fun visitFile(file: Path?, attrs: BasicFileAttributes?): FileVisitResult {
                 if (file!!.fileName.toString().endsWith(".yaml")) {

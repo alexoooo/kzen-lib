@@ -80,10 +80,12 @@ class GradleLocator(
             Files.list(Paths.get(".")).use { files ->
                 val list = files.collect(Collectors.toList())
 
-                val jvmModule = list.firstOrNull({ it.fileName.toString().endsWith("-jvm")})
-                        ?: throw IllegalStateException("No resources: - $list")
 
-                "$jvmModule"
+                val jvmModule = list.firstOrNull { it.fileName.toString().endsWith("-jvm")}
+
+                // TODO: expose static/
+                jvmModule?.toString()
+                        ?: "."
             }
         }
 }
