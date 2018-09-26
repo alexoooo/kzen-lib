@@ -65,8 +65,8 @@ class NotationMetadataReader(
                 "class", inheritanceParent, parameterMap, projectMetadata)
         val className = (classNotation as? ScalarParameterNotation)?.value as? String
 
-        val valueNotation = metadataParameter(
-                "class", inheritanceParent, parameterMap, projectMetadata)
+//        val valueNotation = metadataParameter(
+//                "class", inheritanceParent, parameterMap, projectMetadata)
 
         val definerNotation = metadataParameter(
                 "by", inheritanceParent, parameterMap, projectMetadata)
@@ -81,7 +81,7 @@ class NotationMetadataReader(
                 listOf())
 
         return ParameterMetadata(
-                typeMetadata, valueNotation, definerName, creatorName)
+                typeMetadata, /*valueNotation,*/ definerName, creatorName)
     }
 
 
@@ -90,8 +90,10 @@ class NotationMetadataReader(
     ): String? {
         return when (parameterNotation) {
             is ScalarParameterNotation -> {
-                check(parameterNotation.value is String,
-                        {"Inline '${ParameterConventions.isParameter}' must be String: $parameterNotation"})
+                check(parameterNotation.value is String) {
+                    "Inline '${ParameterConventions.isParameter}' must be String: $parameterNotation"
+                }
+
                 parameterNotation.value as String
             }
 

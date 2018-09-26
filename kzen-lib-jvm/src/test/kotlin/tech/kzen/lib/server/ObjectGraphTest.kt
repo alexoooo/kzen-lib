@@ -3,6 +3,7 @@ package tech.kzen.lib.server
 import kotlinx.coroutines.experimental.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.context.ObjectGraphCreator
 import tech.kzen.lib.common.context.ObjectGraphDefiner
 import tech.kzen.lib.common.metadata.model.GraphMetadata
@@ -39,24 +40,43 @@ class ObjectGraphTest {
 
 
     @Test
+    fun `Name-aware object should know its name`() {
+        val objectGraph = testObjectGraph()
+
+        val fooNamedInstance = objectGraph.get("FooNamed") as NameAware
+        assertEquals("FooNamed", fooNamedInstance.name)
+    }
+
+
+    @Test
     fun `StringHolder can be instantiated`() {
+        val objectGraph = testObjectGraph()
+
+        val helloWorldInstance = objectGraph.get("HelloWorldHolder") as StringHolder
+        assertEquals("Hello, world!", helloWorldInstance.value)
+
+        val fooNamedInstance = objectGraph.get("FooNamed") as NameAware
+        assertEquals("FooNamed", fooNamedInstance.name)
+    }
+
+
+    @Test
+    fun `Numeric message can be used in StringHolder`() {
+        val objectGraph = testObjectGraph()
+
+        val helloWorldInstance = objectGraph.get("NumericStringHolder") as StringHolder
+        assertEquals("123", helloWorldInstance.value)
+    }
+
+
+
+    private fun testObjectGraph(): ObjectGraph {
         val locator = GradleLocator(true)
         val notationMedia = MultiNotationMedia(listOf(
                 FileNotationMedia(locator),
                 ClasspathNotationMedia()))
 
-//        val scanner: NotationScanner = LiteralNotationScanner(listOf(
-//                "notation/base/kzen-base.yaml",
-//                "notation/test/kzen-test.yaml"
-//        ), notationMedia)
-
-//        val notationPath = ProjectPath("kzen-base.yaml")
-//        val notationBytes = notationSource.read(notationPath)
-
         val notationParser: NotationParser = YamlNotationParser()
-
-//        val notationReader: NotationIo = FlatNotationIo(
-//                notationMedia, notationParser)
 
         val notationProject = runBlocking {
             val notationProjectBuilder = mutableMapOf<ProjectPath, PackageNotation>()
@@ -67,21 +87,13 @@ class ObjectGraphTest {
             ProjectNotation(notationProjectBuilder)
         }
 
-//        val notationProject = ProjectNotation(notationProjectBuilder)
-
         val notationMetadataReader = NotationMetadataReader()
         val graphMetadata = notationMetadataReader.read(notationProject)
 
         val graphDefinition = ObjectGraphDefiner.define(
                 notationProject, graphMetadata)
 
-        val objectGraph = ObjectGraphCreator
+        return ObjectGraphCreator
                 .createGraph(graphDefinition, graphMetadata)
-
-        val helloWorldInstance = objectGraph.get("HelloWorldHolder") as StringHolder
-        assertEquals("Hello, world!", helloWorldInstance.value)
-
-        val fooNamedInstance = objectGraph.get("FooNamed") as NameAware
-        assertEquals("FooNamed", fooNamedInstance.name)
     }
 }

@@ -9,13 +9,10 @@ import tech.kzen.lib.common.definition.ValueParameterDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.platform.ClassNames
 
 
 class NotationParameterDefiner : ParameterDefiner {
-    companion object {
-        private const val stringQualifiedName = "kotlin.String"
-    }
-
     override fun define(
             objectName: String,
             parameterName: String,
@@ -38,9 +35,14 @@ class NotationParameterDefiner : ParameterDefiner {
 
         // TODO: perform recursive parameterized definition
         if (parameterNotation is ScalarParameterNotation) {
-            if (parameterNotation.value is String && typeMetadata.className != stringQualifiedName) {
+            if (parameterNotation.value is String && typeMetadata.className != ClassNames.kotlinString) {
                 return ReferenceParameterDefinition(parameterNotation.value)
             }
+
+            if (typeMetadata.className == ClassNames.kotlinString && parameterNotation.value !is String) {
+                return ValueParameterDefinition(parameterNotation.value.toString())
+            }
+
             return ValueParameterDefinition(parameterNotation.value)
         }
 

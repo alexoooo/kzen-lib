@@ -15,17 +15,25 @@ class StructuralParameterCreator : ParameterCreator {
             parameterMetadata: ParameterMetadata,
             objectGraph: ObjectGraph
     ): Any? {
-        return createDefinition(parameterDefinition, objectGraph)
+        return createDefinition(parameterDefinition, /*parameterMetadata,*/ objectGraph)
     }
 
 
     private fun createDefinition(
             parameterDefinition: ParameterDefinition,
+//            parameterMetadata: ParameterMetadata,
             objectGraph: ObjectGraph
     ): Any? {
         return when (parameterDefinition) {
-            is ValueParameterDefinition ->
+            is ValueParameterDefinition -> {
+//                if (parameterMetadata.type?.className == ClassNames.kotlinString) {
+//                    parameterDefinition.value.toString()
+//                }
+//                else {
+//                    parameterDefinition.value
+//                }
                 parameterDefinition.value
+            }
 
             is ReferenceParameterDefinition ->
                 objectGraph.get(parameterDefinition.objectName!!)

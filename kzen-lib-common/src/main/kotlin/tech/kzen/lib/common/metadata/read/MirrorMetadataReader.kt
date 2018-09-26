@@ -8,7 +8,7 @@ import tech.kzen.lib.platform.Mirror
 class MirrorMetadataReader {
     private object Constants {
         val emptyParameterMetadata = ParameterMetadata(
-                null, null, null, null)
+                null, null, null)
     }
 
     fun read(className: String): ObjectMetadata {

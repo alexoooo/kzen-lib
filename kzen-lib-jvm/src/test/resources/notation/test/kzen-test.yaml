@@ -12,6 +12,11 @@ HelloWorldHolder:
   value: "Hello, world!"
 
 
+NumericStringHolder:
+  is: StringHolder
+  value: 123
+
+
 NameAware:
   abstract: true
   class: tech.kzen.lib.server.objects.NameAware
