@@ -25,13 +25,19 @@ data class DeletePackageCommand(
 data class AddObjectCommand(
         val projectPath: ProjectPath,
         val objectName: String,
-        val body: ObjectNotation
+        val body: ObjectNotation,
+        val index: Int
 ): ProjectCommand() {
     companion object {
-        fun ofParent(projectPath: ProjectPath, objectName: String, parentName: String): AddObjectCommand {
+        fun ofParent(
+                projectPath: ProjectPath,
+                objectName: String,
+                parentName: String,
+                index: Int
+        ): AddObjectCommand {
             val parentBody = ObjectNotation(mapOf(
                     ParameterConventions.isParameter to ScalarParameterNotation(parentName)))
-            return AddObjectCommand(projectPath, objectName, parentBody)
+            return AddObjectCommand(projectPath, objectName, parentBody, index)
         }
     }
 }

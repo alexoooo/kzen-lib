@@ -90,7 +90,6 @@ ParentPointer:
     parent: ChildContainer
     order:
       is: Int
-#      default: 0
 
 
 ChildContainer:

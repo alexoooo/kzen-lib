@@ -31,7 +31,7 @@ class ProjectAggregate(
 
 
                 is AddObjectCommand ->
-                    addObject(command.projectPath, command.objectName, command.body)
+                    addObject(command.projectPath, command.objectName, command.body, command.index)
 
                 is RemoveObjectCommand ->
                     removeObject(command.objectName)
@@ -47,8 +47,8 @@ class ProjectAggregate(
                     editParameter(command.objectName, command.parameterPath, command.parameterValue)
 
 
-                else ->
-                    throw UnsupportedOperationException("Unknown: $command")
+//                else ->
+//                    throw UnsupportedOperationException("Unknown: $command")
             }
 
 
@@ -86,14 +86,15 @@ class ProjectAggregate(
     private fun addObject(
             projectPath: ProjectPath,
             objectName: String,
-            body: ObjectNotation
+            body: ObjectNotation,
+            index: Int
     ): EventAndNotation {
         check(! state.coalesce.containsKey(objectName)) {"Object named '$objectName' already exists"}
 
         val packageNotation = state.packages[projectPath]!!
 
         val modifiedProjectNotation =
-                packageNotation.withNewObject(objectName, body)
+                packageNotation.withNewObject(objectName, body, index)
 
         val nextState = state.withModifiedPackage(
                 projectPath, modifiedProjectNotation)

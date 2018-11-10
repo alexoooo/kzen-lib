@@ -23,7 +23,7 @@ data class ScalarParameterNotation(
 ) : ParameterNotation()
 
 
-abstract sealed class StructuredParameterNotation : ParameterNotation() {
+sealed class StructuredParameterNotation : ParameterNotation() {
     abstract fun get(key: String): ParameterNotation?
 }
 

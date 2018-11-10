@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.util
 
-// NB: can't use Long straight JSON transmission, see:
+// NB: can't use Long in straight JSON transmission, see:
 //  https://kotlinlang.org/docs/reference/js-to-kotlin-interop.html#representing-kotlin-types-in-javascript
 data class Digest(
         val a: Int,

@@ -41,7 +41,7 @@ data class PackageNotation(
             objectName: String,
             objectNotation: ObjectNotation
     ): PackageNotation {
-        check(objects.containsKey(objectName), { "Not found: $objectName" })
+        check(objects.containsKey(objectName)) { "Not found: $objectName" }
 
         val buffer = mutableMapOf<String, ObjectNotation>()
 
@@ -64,8 +64,8 @@ data class PackageNotation(
             objectNotation: ObjectNotation,
             index: Int = objects.size
     ): PackageNotation {
-        check(! objects.containsKey(objectName), { "Already exists: $objectName" })
-        check(0 <= index && index <= objects.size, { "Index must be in [0, ${objects.size}]" })
+        check(! objects.containsKey(objectName)) { "Already exists: $objectName" }
+        check(0 <= index && index <= objects.size) { "Index must be in [0, ${objects.size}]" }
 
         val buffer = mutableMapOf<String, ObjectNotation>()
 
@@ -96,7 +96,7 @@ data class PackageNotation(
     fun withoutObject(
             objectName: String
     ): PackageNotation {
-        check(objects.containsKey(objectName), { "Not found: $objectName" })
+        check(objects.containsKey(objectName)) { "Not found: $objectName" }
 
         val buffer = mutableMapOf<String, ObjectNotation>()
 

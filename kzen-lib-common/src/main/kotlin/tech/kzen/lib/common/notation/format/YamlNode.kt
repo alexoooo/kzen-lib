@@ -49,6 +49,7 @@ sealed class YamlNode {
         }
     }
 
+
     fun toObject(): Any? {
         return when (this) {
             is YamlScalar ->

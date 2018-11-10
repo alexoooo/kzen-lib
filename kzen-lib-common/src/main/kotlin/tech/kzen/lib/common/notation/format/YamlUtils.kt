@@ -39,7 +39,7 @@ object YamlUtils {
         for (i in 0 until unescaped.length) {
             val ch = unescaped[i]
 
-            val escaped =
+            val escaped: String =
                 when (ch) {
                     0.toChar() ->
                         throw IllegalArgumentException("Zero char not allowed")
@@ -57,7 +57,7 @@ object YamlUtils {
                             "\\\""
                         }
                         else {
-                            '"'
+                            "\""
                         }
 
                     '\'' ->
@@ -65,7 +65,7 @@ object YamlUtils {
                             "\\'"
                         }
                         else {
-                            '\''
+                            "'"
                         }
 
                     in 128.toChar() .. '\uffff' -> {
@@ -77,7 +77,7 @@ object YamlUtils {
 
 
                     else ->
-                        ch
+                        "$ch"
                 }
 
             output.append(escaped)

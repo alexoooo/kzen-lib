@@ -138,8 +138,8 @@ class YamlNotationParser : NotationParser {
             is ListParameterNotation ->
                 YamlList(parameterNotation.values.map { parameterToYaml(it) })
 
-            else ->
-                throw UnsupportedOperationException("Unexpected type: $parameterNotation")
+//            else ->
+//                throw UnsupportedOperationException("Unexpected type: $parameterNotation")
         }
     }
 
