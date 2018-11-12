@@ -1,6 +1,6 @@
 package tech.kzen.lib.server
 
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.experimental.runBlocking
 import org.junit.Test
 import tech.kzen.lib.common.edit.RenameObjectCommand
 import tech.kzen.lib.common.edit.ShiftObjectCommand
