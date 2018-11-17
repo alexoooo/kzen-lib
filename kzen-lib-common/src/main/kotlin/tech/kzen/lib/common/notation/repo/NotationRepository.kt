@@ -155,7 +155,7 @@ class NotationRepository(
         val subCombiner = Digest.OrderedCombiner()
 
         for (e in scanCache) {
-            subCombiner.add(Digest.Companion.ofXoShiRo256StarStar(e.key.relativeLocation))
+            subCombiner.add(Digest.ofXoShiRo256StarStar(e.key.relativeLocation))
             subCombiner.add(e.value)
 
             combiner.add(subCombiner.combine())

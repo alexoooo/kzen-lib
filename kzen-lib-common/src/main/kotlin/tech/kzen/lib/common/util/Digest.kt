@@ -126,6 +126,79 @@ data class Digest(
     }
 
 
+    class Streaming {
+        private var s0: Int = 0
+        private var s1: Int = 0
+        private var s2: Int = 0
+        private var s3: Int = 0
+
+
+        fun clear() {
+            s0 = 0
+            s1 = 0
+            s2 = 0
+            s3 = 0
+        }
+
+
+        fun addUtf8(utf8: String) {
+            val bytes = IoUtils.stringToUtf8(utf8)
+            addBytes(bytes)
+        }
+
+        fun addBytes(bytes: ByteArray) {
+            addInt(bytes.size)
+            bytes.forEach(this@Streaming::addByte)
+        }
+
+        fun addByte(value: Byte) {
+            addInt(value.toInt())
+        }
+
+        fun addInt(value: Int) {
+            if (isZero()) {
+                init(value)
+            }
+            else {
+                s0 += guavaHashingSmear(value)
+
+                val t = s1 shl 9
+
+                s2 = s2 xor s0
+                s3 = s3 xor s1
+                s1 = s1 xor s2
+                s0 = s0 xor s3
+
+                s2 = s2 xor t
+
+                s3 = rotl(s3, 11)
+            }
+        }
+
+
+        private fun init(value: Int) {
+            s1 = murmurHash3(value)
+            s2 = hashCodeHash(value)
+            s3 = guavaHashingSmear(value)
+        }
+
+        private fun isZero(): Boolean {
+            return s0 == 0 &&
+                    s1 == 0 &&
+                    s2 == 0 &&
+                    s3 == 0
+        }
+
+
+        fun digest(): Digest =
+                if (isZero()) {
+                    Digest.empty
+                }
+                else {
+                    Digest(s0, s1, s2, s3)
+                }
+    }
+
 
     fun encode(): String {
         return "${a}_${b}_${c}_$d"
