@@ -1,5 +1,7 @@
 package tech.kzen.lib.platform
 
+import tech.kzen.lib.platform.client.ModuleRegistry
+
 
 actual object Mirror {
     private val cache: MutableMap<String, Metadata?> = mutableMapOf()

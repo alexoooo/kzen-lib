@@ -1,4 +1,4 @@
-package tech.kzen.lib.platform
+package tech.kzen.lib.platform.client
 
 object ModuleRegistry {
     private val mutableModules = mutableListOf<dynamic>()

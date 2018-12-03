@@ -8,7 +8,7 @@ import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.io.common.MapNotationMedia
 import tech.kzen.lib.common.notation.model.ProjectPath
 import tech.kzen.lib.common.notation.repo.NotationRepository
-import tech.kzen.lib.common.util.IoUtils
+import tech.kzen.lib.platform.IoUtils
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

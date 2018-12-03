@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.util
 
+import tech.kzen.lib.platform.IoUtils
+
 // NB: can't use Long in straight JSON transmission, see:
 //  https://kotlinlang.org/docs/reference/js-to-kotlin-interop.html#representing-kotlin-types-in-javascript
 data class Digest(

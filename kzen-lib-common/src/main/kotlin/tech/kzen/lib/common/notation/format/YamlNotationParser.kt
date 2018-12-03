@@ -3,7 +3,7 @@ package tech.kzen.lib.common.notation.format
 
 import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.model.*
-import tech.kzen.lib.common.util.IoUtils
+import tech.kzen.lib.platform.IoUtils
 
 
 class YamlNotationParser : NotationParser {

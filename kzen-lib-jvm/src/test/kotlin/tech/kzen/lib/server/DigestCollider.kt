@@ -2,7 +2,7 @@ package tech.kzen.lib.server
 
 import org.junit.Test
 import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.IoUtils
+import tech.kzen.lib.platform.IoUtils
 import java.util.*
 
 
@@ -17,7 +17,7 @@ class CommonTest {
         for (i in 1 .. 1_000_000) {
             val value = start + i
             val added = seen.add(digest(value.toString()))
-            check(added, {"Collision found: $i"})
+            check(added) {"Collision found: $i"}
         }
     }
 

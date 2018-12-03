@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.notation.format
 
-import tech.kzen.lib.common.util.IoUtils
+import tech.kzen.lib.platform.IoUtils
 
 
 object YamlNodeParser {

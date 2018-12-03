@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.util
 
+import tech.kzen.lib.platform.IoUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

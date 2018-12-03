@@ -5,7 +5,7 @@ import tech.kzen.lib.common.notation.model.PackageNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ProjectPath
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
-import tech.kzen.lib.common.util.IoUtils
+import tech.kzen.lib.platform.IoUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
