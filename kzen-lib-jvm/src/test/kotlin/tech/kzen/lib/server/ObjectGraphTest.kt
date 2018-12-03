@@ -1,6 +1,6 @@
 package tech.kzen.lib.server
 
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import tech.kzen.lib.common.context.ObjectGraph

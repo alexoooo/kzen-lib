@@ -94,7 +94,7 @@ class NotationMetadataReader(
                     "Inline '${ParameterConventions.isParameter}' must be String: $parameterNotation"
                 }
 
-                parameterNotation.value as String
+                parameterNotation.value
             }
 
             is MapParameterNotation -> {

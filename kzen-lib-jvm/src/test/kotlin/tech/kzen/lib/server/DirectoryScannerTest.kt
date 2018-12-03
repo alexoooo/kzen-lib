@@ -1,6 +1,6 @@
 package tech.kzen.lib.server
 
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import tech.kzen.lib.common.notation.model.ProjectPath
 import tech.kzen.lib.server.notation.FileNotationMedia

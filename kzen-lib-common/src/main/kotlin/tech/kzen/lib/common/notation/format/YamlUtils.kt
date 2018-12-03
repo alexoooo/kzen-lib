@@ -139,7 +139,7 @@ object YamlUtils {
                 // consume first after backslash
                 val ch = escaped[i++]
 
-                val decoded =
+                val decoded: Any =
                         when (ch) {
                             '\\', '/', '"', '\'' ->
                                 ch
