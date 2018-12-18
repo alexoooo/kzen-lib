@@ -30,10 +30,10 @@ class NotationMetadataReader(
 
     private fun readObject(
             objectName: String,
-            projectMetadata: ProjectNotation
+            projectNotation: ProjectNotation
     ): ObjectMetadata {
         val metaParameter =
-                projectMetadata.transitiveParameter(objectName, metadataKey)
+                projectNotation.transitiveParameter(objectName, metadataKey)
                         ?: return ObjectMetadata(mapOf())
 
         val metaMapParameter = metaParameter as MapParameterNotation
@@ -41,7 +41,7 @@ class NotationMetadataReader(
         val parameters = mutableMapOf<String, ParameterMetadata>()
 
         for (e in metaMapParameter.values) {
-            val parameterMetadata = readParameter(e.value, projectMetadata)
+            val parameterMetadata = readParameter(e.value, projectNotation)
 
             parameters[e.key] = parameterMetadata
         }
@@ -54,7 +54,7 @@ class NotationMetadataReader(
 
     private fun readParameter(
             parameterNotation: ParameterNotation,
-            projectMetadata: ProjectNotation
+            projectNotation: ProjectNotation
     ): ParameterMetadata {
         val inheritanceParent: String? =
                 parameterInheritanceParent(parameterNotation)
@@ -62,23 +62,44 @@ class NotationMetadataReader(
         val parameterMap = parameterNotation as? MapParameterNotation
 
         val classNotation = metadataParameter(
-                "class", inheritanceParent, parameterMap, projectMetadata)
+                "class", inheritanceParent, parameterMap, projectNotation)
         val className = (classNotation as? ScalarParameterNotation)?.value as? String
+//        checkNotNull(className) { "Unknown class: $parameterNotation" }
 
 //        val valueNotation = metadataParameter(
 //                "class", inheritanceParent, parameterMap, projectMetadata)
 
         val definerNotation = metadataParameter(
-                "by", inheritanceParent, parameterMap, projectMetadata)
+                "by", inheritanceParent, parameterMap, projectNotation)
         val definerName = (definerNotation as? ScalarParameterNotation)?.value as? String
 
         val creatorNotation = metadataParameter(
-                "using", inheritanceParent, parameterMap, projectMetadata)
+                "using", inheritanceParent, parameterMap, projectNotation)
         val creatorName = (creatorNotation as? ScalarParameterNotation)?.value as? String
+//        check(creatorName != null) { "Unknown creator class: $parameterNotation" }
+
+        val genericsNotation = metadataParameter(
+                "of", inheritanceParent, parameterMap, projectNotation)
+
+        val genericsNames: List<TypeMetadata> =
+                when (genericsNotation) {
+                    null ->
+                        listOf()
+
+                    is ScalarParameterNotation -> {
+                        val value = genericsNotation.value as String
+                        val genericClassName = projectNotation.getString(value, "class")
+
+                        listOf(TypeMetadata(genericClassName, listOf()))
+                    }
+
+                    else ->
+                        TODO()
+                }
 
         val typeMetadata = TypeMetadata(
                 className!!,
-                listOf())
+                genericsNames)
 
         return ParameterMetadata(
                 typeMetadata, /*valueNotation,*/ definerName, creatorName)
@@ -112,12 +133,12 @@ class NotationMetadataReader(
             parameterName: String,
             inheritanceParent: String?,
             parameterMap: MapParameterNotation?,
-            projectMetadata: ProjectNotation
+            projectNotation: ProjectNotation
     ): ParameterNotation? {
         val paramNotation = parameterMap?.values?.get(parameterName)
 
         return if (paramNotation == null && inheritanceParent != null) {
-            projectMetadata.transitiveParameter(inheritanceParent, parameterName)
+            projectNotation.transitiveParameter(inheritanceParent, parameterName)
         }
         else {
             paramNotation

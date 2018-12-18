@@ -2,11 +2,11 @@ package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.ParameterDefiner
 import tech.kzen.lib.common.context.ObjectGraph
-import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ParameterDefinition
-import tech.kzen.lib.common.definition.ReferenceParameterDefinition
-import tech.kzen.lib.common.definition.ValueParameterDefinition
+import tech.kzen.lib.common.definition.*
 import tech.kzen.lib.common.metadata.model.GraphMetadata
+import tech.kzen.lib.common.metadata.model.TypeMetadata
+import tech.kzen.lib.common.notation.model.ListParameterNotation
+import tech.kzen.lib.common.notation.model.ParameterNotation
 import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
 import tech.kzen.lib.platform.ClassNames
@@ -33,17 +33,36 @@ class NotationParameterDefiner : ParameterDefiner {
 
         val typeMetadata = parameterMetadata.type!!
 
-        // TODO: perform recursive parameterized definition
+        return defineRecursively(parameterNotation, typeMetadata)
+    }
+
+
+    private fun defineRecursively(
+            parameterNotation: ParameterNotation,
+            typeMetadata: TypeMetadata
+    ): ParameterDefinition {
         if (parameterNotation is ScalarParameterNotation) {
-            if (parameterNotation.value is String && typeMetadata.className != ClassNames.kotlinString) {
+            val className = typeMetadata.className
+
+            if (parameterNotation.value is String && className != ClassNames.kotlinString) {
                 return ReferenceParameterDefinition(parameterNotation.value)
             }
 
-            if (typeMetadata.className == ClassNames.kotlinString && parameterNotation.value !is String) {
+            if (className == ClassNames.kotlinString && parameterNotation.value !is String) {
                 return ValueParameterDefinition(parameterNotation.value.toString())
             }
 
             return ValueParameterDefinition(parameterNotation.value)
+        }
+        else if (parameterNotation is ListParameterNotation) {
+            val listGeneric = typeMetadata.generics[0]
+
+            val definitions = mutableListOf<ParameterDefinition>()
+            for (value in parameterNotation.values) {
+                val definition = defineRecursively(value, listGeneric)
+                definitions.add(definition)
+            }
+            return ListParameterDefinition(definitions)
         }
 
         TODO()

@@ -72,6 +72,11 @@ Int:
   class: kotlin.Int
 
 
+Double:
+  abstract: true
+  class: kotlin.Double
+
+
 List:
   abstract: true
   class: kotlin.collections.List
@@ -99,7 +104,6 @@ ChildContainer:
       is: List
       of: ParentPointer
       by: ParentChildParameterDefiner
-
 
 
 ObjectNameParameterDefiner:

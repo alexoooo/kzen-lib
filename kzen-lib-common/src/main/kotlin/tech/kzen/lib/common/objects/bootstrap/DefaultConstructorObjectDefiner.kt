@@ -10,7 +10,7 @@ import tech.kzen.lib.common.notation.model.ProjectNotation
 import tech.kzen.lib.common.notation.model.ScalarParameterNotation
 
 
-object DefaultConstructorObjectDefiner : ObjectDefiner {
+object DefaultConstructorObjectDefiner: ObjectDefiner {
     override fun define(
             objectName: String,
             projectNotation: ProjectNotation,

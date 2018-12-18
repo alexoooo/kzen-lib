@@ -7,7 +7,7 @@ import tech.kzen.lib.common.metadata.model.ObjectMetadata
 import tech.kzen.lib.platform.Mirror
 
 
-object DefaultConstructorObjectCreator : ObjectCreator {
+object DefaultConstructorObjectCreator: ObjectCreator {
     override fun create(
             objectDefinition: ObjectDefinition,
             objectMetadata: ObjectMetadata,

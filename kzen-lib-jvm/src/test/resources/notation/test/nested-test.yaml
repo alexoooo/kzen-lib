@@ -1,0 +1,147 @@
+
+
+################################################################
+
+DoubleExpression:
+  abstract: true
+  class: tech.kzen.lib.server.objects.ast.DoubleExpression
+
+
+
+################################################################
+
+
+DoubleValue:
+  abstract: true
+  is: DoubleExpression
+  class: tech.kzen.lib.server.objects.ast.DoubleValue
+  meta:
+    value:
+      is: Double
+
+
+PlusOperation:
+  abstract: true
+  is: DoubleExpression
+  class: tech.kzen.lib.server.objects.ast.PlusOperation
+  meta:
+    addends:
+      is: List
+      of: DoubleExpression
+
+
+#PlusOperationX:
+#  abstract: true
+#  is: DoubleExpression
+#  class: tech.kzen.lib.server.objects.ast.PlusOperation
+#  meta:
+#    addends:
+#      is: Map
+#      of:
+#        key: String
+#        value:
+#          is: List
+#          of: DoubleExpression
+
+
+################################################################
+
+
+Two:
+  is: DoubleValue
+  value: 2.0
+
+
+################################################################
+
+
+TwoPlusTwo:
+  is: PlusOperation
+  addends:
+  - Two
+  - Two
+
+
+#TwoPlusTwoInlineMap:
+#  is: PlusOperation
+#  addends:
+#    Arg1:
+#      is: DoubleValue
+#      value: 2
+#    Arg2:
+#      is: DoubleValue
+#      value: 2
+
+
+#TwoPlusTwoInline:
+#  is: PlusOperation
+#  addends:
+#  - name: Arg1
+#    is: DoubleValue
+#    value: 2
+#  - name: Arg2
+#    is: DoubleValue
+#    value: 2
+
+
+#TwoPlusTwoInlineAnonymous:
+#  is: PlusOperation
+#  addends:
+#  - is: DoubleValue
+#    value: 2
+#  - is: DoubleValue
+#    value: 2
+
+
+# TODO: if name is existing abstract object, could treat it as 'is' parameter
+# TODO: if object notation is String, could be interpreted as 'is' parameter
+
+#TwoPlusTwoInlineAnonymousShort:
+#  is: PlusOperation
+#  addends:
+#  - DoubleValue: 2
+#  - DoubleValue: 2
+
+
+#TwoPlusTwoTimesTwoInlineMapShort:
+#  is: Plus
+#  of:
+#    - 2
+#    - Times:
+#        - 2
+#        - 2
+
+
+#- Plus:
+#    as: TwoPlusTwoTimesTwoInlineMapShort
+#    of:
+#    - 2
+#    - Times:
+#      - 2
+#      - 2
+
+
+#TwoPlusTwoTimesTwoInlineMapShort:
+#- Plus
+#- 2
+#- Times:
+#  - 2
+#  - 2
+
+
+#Plus:
+#  - 2
+#  - Times:
+#      - 2
+#      - 2
+#  - as: TwoPlusTwoTimesTwoInlineMapShort
+
+
+#TwoPlusTwoInlineLiteral:
+#  is: PlusOperation
+#  addends:
+#  - 2
+#  - 2
+
+
+
