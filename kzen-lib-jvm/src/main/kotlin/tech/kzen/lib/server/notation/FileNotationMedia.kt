@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.notation
 
 import tech.kzen.lib.common.notation.io.NotationMedia
-import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.api.model.BundlePath
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
 import java.nio.file.FileVisitResult
@@ -16,7 +16,7 @@ class FileNotationMedia(
         private val notationLocator: FileNotationLocator
 ) : NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
-    private val digestCache: MutableMap<ProjectPath, TimedDigest> = mutableMapOf()
+    private val digestCache: MutableMap<BundlePath, TimedDigest> = mutableMapOf()
 
     private data class TimedDigest(
             var modified: Instant,
@@ -24,7 +24,7 @@ class FileNotationMedia(
 
 
     private suspend fun digest(
-            path: ProjectPath
+            path: BundlePath
     ): Digest {
         val bytes = read(path)
         return Digest.ofXoShiRo256StarStar(bytes)
@@ -32,15 +32,15 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): Map<ProjectPath, Digest> {
-        val locationTimes = mutableMapOf<ProjectPath, Instant>()
+    override suspend fun scan(): Map<BundlePath, Digest> {
+        val locationTimes = mutableMapOf<BundlePath, Instant>()
 
         val roots = notationLocator.scanRoots()
         for (root in roots) {
             directoryScan(root, locationTimes)
         }
 
-        val digested = mutableMapOf<ProjectPath, Digest>()
+        val digested = mutableMapOf<BundlePath, Digest>()
 
         for (e in locationTimes) {
             val timedDigest = digestCache[e.key]
@@ -66,7 +66,7 @@ class FileNotationMedia(
 
     private fun directoryScan(
             root: Path,
-            locationTimes: MutableMap<ProjectPath, Instant>
+            locationTimes: MutableMap<BundlePath, Instant>
     ) {
         if (! Files.exists(root)) {
             return
@@ -78,7 +78,7 @@ class FileNotationMedia(
                     val relative = root.relativize(file).toString()
                     val normalized = relative.replace('\\', '/')
 
-                    val path = ProjectPath(normalized)
+                    val path = BundlePath.parse(normalized)
                     val modified = attrs!!.lastModifiedTime().toInstant()
 
                     locationTimes[path] = modified
@@ -92,7 +92,7 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun read(location: ProjectPath): ByteArray {
+    override suspend fun read(location: BundlePath): ByteArray {
         val path = notationLocator.locateExisting(location)
                 ?: throw IllegalArgumentException("Not found: $location")
 
@@ -102,7 +102,7 @@ class FileNotationMedia(
     }
 
 
-    override suspend fun write(location: ProjectPath, bytes: ByteArray) {
+    override suspend fun write(location: BundlePath, bytes: ByteArray) {
         val existingPath = notationLocator.locateExisting(location)
 
         val path = if (existingPath != null) {
@@ -125,7 +125,7 @@ class FileNotationMedia(
     }
 
 
-    override suspend fun delete(location: ProjectPath) {
+    override suspend fun delete(location: BundlePath) {
         val path = notationLocator.locateExisting(location)
                 ?: throw IllegalArgumentException("Not found: $location")
 

@@ -5,31 +5,34 @@ import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.*
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.metadata.model.TypeMetadata
-import tech.kzen.lib.common.notation.model.ListParameterNotation
-import tech.kzen.lib.common.notation.model.ParameterNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.common.notation.model.ListAttributeNotation
+import tech.kzen.lib.common.notation.model.AttributeNotation
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.platform.ClassNames
 
 
-class NotationParameterDefiner : ParameterDefiner {
+class NotationParameterDefiner: ParameterDefiner {
     override fun define(
-            objectName: String,
-            parameterName: String,
-            projectNotation: ProjectNotation,
+            objectLocation: ObjectLocation,
+            attributeName: AttributeName,
+            projectNotation: NotationTree,
             projectMetadata: GraphMetadata,
             projectDefinition: GraphDefinition,
             objectGraph: ObjectGraph
-    ): ParameterDefinition {
-        val objectNotation = projectNotation.coalesce[objectName]!!
+    ): AttributeDefinition {
+        val objectNotation = projectNotation.coalesce.get(objectLocation)
 
         // TODO: is the transitiveParameter here handled correctly? what about default values?
-        val parameterNotation = objectNotation.parameters[parameterName]
-                ?: projectNotation.transitiveParameter(objectName, parameterName)
-                ?: throw IllegalArgumentException("Unknown parameter: $parameterName")
+        val parameterNotation = objectNotation.attributes[attributeName]
+                ?: projectNotation.transitiveParameter(objectLocation, attributeName.asAttributeNesting())
+                ?: throw IllegalArgumentException("Unknown parameter: $attributeName")
 
-        val objectMetadata = projectMetadata.objectMetadata[objectName]!!
-        val parameterMetadata = objectMetadata.parameters[parameterName]!!
+        val objectMetadata = projectMetadata.objectMetadata.get(objectLocation)
+        val parameterMetadata = objectMetadata.attributes[attributeName]!!
 
         val typeMetadata = parameterMetadata.type!!
 
@@ -38,31 +41,32 @@ class NotationParameterDefiner : ParameterDefiner {
 
 
     private fun defineRecursively(
-            parameterNotation: ParameterNotation,
+            parameterNotation: AttributeNotation,
             typeMetadata: TypeMetadata
-    ): ParameterDefinition {
-        if (parameterNotation is ScalarParameterNotation) {
+    ): AttributeDefinition {
+        if (parameterNotation is ScalarAttributeNotation) {
             val className = typeMetadata.className
 
             if (parameterNotation.value is String && className != ClassNames.kotlinString) {
-                return ReferenceParameterDefinition(parameterNotation.value)
+                return ReferenceAttributeDefinition(
+                        ObjectReference.parse(parameterNotation.value))
             }
 
             if (className == ClassNames.kotlinString && parameterNotation.value !is String) {
-                return ValueParameterDefinition(parameterNotation.value.toString())
+                return ValueAttributeDefinition(parameterNotation.value.toString())
             }
 
-            return ValueParameterDefinition(parameterNotation.value)
+            return ValueAttributeDefinition(parameterNotation.value)
         }
-        else if (parameterNotation is ListParameterNotation) {
+        else if (parameterNotation is ListAttributeNotation) {
             val listGeneric = typeMetadata.generics[0]
 
-            val definitions = mutableListOf<ParameterDefinition>()
+            val definitions = mutableListOf<AttributeDefinition>()
             for (value in parameterNotation.values) {
                 val definition = defineRecursively(value, listGeneric)
                 definitions.add(definition)
             }
-            return ListParameterDefinition(definitions)
+            return ListAttributeDefinition(definitions)
         }
 
         TODO()

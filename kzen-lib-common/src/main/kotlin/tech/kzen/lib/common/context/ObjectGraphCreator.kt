@@ -2,6 +2,10 @@ package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectMap
+import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 
 
@@ -11,44 +15,48 @@ object ObjectGraphCreator {
             graphDefinition: GraphDefinition,
             graphMetadata: GraphMetadata
     ): ObjectGraph {
-        val objectInstances = mutableMapOf<String, Any>()
+        val objectInstances = mutableMapOf<ObjectLocation, Any>()
         objectInstances.putAll(ObjectGraphDefiner.bootstrapObjects)
 
-        val objectGraph = ObjectGraph(objectInstances)
+        val objectGraph = ObjectGraph(ObjectMap(objectInstances))
 
         val levels = constructionLevels(graphDefinition)
 
-        for (name in levels.flatMap { it }) {
-            val objectDefinition = graphDefinition.objectDefinitions[name]!!
-            val objectMetadata = graphMetadata.objectMetadata[name]!!
+        for (objectLocation in levels.flatten()) {
+            val objectDefinition = graphDefinition.objectDefinitions.get(objectLocation)
+            val objectMetadata = graphMetadata.get(objectLocation)
 
-            val creator = objectInstances[objectDefinition.creator] as? ObjectCreator
+            val creatorPath = tryResolve(graphDefinition.objectDefinitions.values.keys, objectDefinition.creator)
+                    ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
+
+            val creator = objectInstances[creatorPath] as? ObjectCreator
                     ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
             val instance = creator.create(
+                    objectLocation,
                     objectDefinition,
                     objectMetadata,
                     objectGraph)
 
-            objectInstances[name] = instance
+            objectInstances[objectLocation] = instance
         }
 
-        return ObjectGraph(objectInstances)
+        return objectGraph
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun constructionLevels(graphDefinition: GraphDefinition): List<List<String>> {
-        val closed = mutableSetOf<String>()
+    private fun constructionLevels(graphDefinition: GraphDefinition): List<List<ObjectLocation>> {
+        val closed = mutableSetOf<ObjectLocation>()
         closed.addAll(ObjectGraphDefiner.bootstrapObjects.keys)
 
-        val open = graphDefinition.objectDefinitions.keys.toMutableSet()
+        val open = graphDefinition.objectDefinitions.values.keys.toMutableSet()
 
-        val levels = mutableListOf<List<String>>()
+        val levels = mutableListOf<List<ObjectLocation>>()
         while (! open.isEmpty()) {
             val nextLevel = findSatisfied(open, closed, graphDefinition)
 
-            check(! nextLevel.isEmpty(), {"unable to satisfy: $open"})
+            check(! nextLevel.isEmpty()) {"unable to satisfy: $open"}
 
             closed.addAll(nextLevel)
             open.removeAll(nextLevel)
@@ -61,16 +69,17 @@ object ObjectGraphCreator {
 
 
     private fun findSatisfied(
-            open: Set<String>,
-            closed: Set<String>,
-            projectDefinition: GraphDefinition): List<String> {
-        val allSatisfied = mutableListOf<String>()
+            open: Set<ObjectLocation>,
+            closed: Set<ObjectLocation>,
+            projectDefinition: GraphDefinition): List<ObjectLocation> {
+        val allSatisfied = mutableListOf<ObjectLocation>()
         for (candidate in open) {
-            val definition = projectDefinition.objectDefinitions[candidate]!!
+            val definition = projectDefinition.objectDefinitions.get(candidate)
 
             val satisfied = definition
                     .references()
-                    .all { closed.contains(it) }
+                    .map { tryResolve(closed, it) }
+                    .all { it != null && closed.contains(it) }
 
             if (! satisfied) {
                 println("not satisfied ($candidate): ${definition.references()}")
@@ -81,5 +90,34 @@ object ObjectGraphCreator {
             allSatisfied.add(candidate)
         }
         return allSatisfied
+    }
+
+
+    fun tryResolve(
+            closed: Set<ObjectLocation>,
+            reference: ObjectReference
+    ): ObjectLocation? {
+        if (reference.isAbsolute()) {
+            return ObjectLocation(
+                    reference.path!!,
+                    ObjectPath(reference.name, reference.nesting!!))
+        }
+
+        val candidates = mutableListOf<ObjectLocation>()
+        for (objectPath in closed) {
+            if (objectPath.objectPath.name == reference.name) {
+                candidates.add(objectPath)
+            }
+        }
+
+        if (candidates.isEmpty()) {
+            return null
+        }
+
+        if (candidates.size == 1) {
+            return candidates.iterator().next()
+        }
+
+        TODO("More than one candidate not supported yet")
     }
 }

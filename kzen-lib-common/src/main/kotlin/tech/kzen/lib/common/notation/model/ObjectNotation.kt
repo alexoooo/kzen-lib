@@ -1,50 +1,52 @@
 package tech.kzen.lib.common.notation.model
 
+import tech.kzen.lib.common.api.model.*
+
 
 data class ObjectNotation(
-        val parameters: Map<String, ParameterNotation>
+        val attributes: Map<AttributeName, AttributeNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    fun get(notationPath: String): ParameterNotation? {
-        if (parameters.containsKey(notationPath)) {
-            return parameters[notationPath]!!
-        }
+    fun get(notationPath: AttributeNesting): AttributeNotation? {
+//        if (parameters.containsKey(notationPath)) {
+//            return parameters[notationPath]!!
+//        }
+//
+//        val segments = notationPath.split(".")
 
-        val segments = notationPath.split(".")
-
-        if (! parameters.containsKey(segments[0])) {
+        val firstSegment = notationPath.attribute
+        if (! attributes.containsKey(firstSegment)) {
             return null
         }
 
-        val root = parameters[segments[0]]!!
-                as? StructuredParameterNotation
+        val root = attributes[firstSegment]!!
+                as? StructuredAttributeNotation
                 ?: return null
 
-        var next: StructuredParameterNotation = root
+        var next: StructuredAttributeNotation = root
 
-        for (i in 1 until segments.size - 1) {
-            val sub = next.get(segments[i])
-                    as? StructuredParameterNotation
+        for (i in 0 .. notationPath.segments.size) {
+            val sub = next.get(notationPath.segments[i].asString())
+                    as? StructuredAttributeNotation
                     ?: return null
 
             next = sub
         }
 
-        val lastPathSegment = segments.last()
+        val lastPathSegment = notationPath.segments.last()
 
-        return next.get(lastPathSegment)
+        return next.get(lastPathSegment.asString())
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun upsertParameter(
-            notationPath: String,
-            parameterNotation: ParameterNotation
+            notationPath: AttributeNesting,
+            parameterNotation: AttributeNotation
     ): ObjectNotation {
-        val notationPathSegments = notationPath.split(".")
-        val rootParameterName: String = notationPathSegments[0]
+        val rootParameterName = notationPath.attribute
 
-        if (notationPathSegments.size == 1) {
+        if (notationPath.segments.isEmpty()) {
             return upsertRootParameter(rootParameterName, parameterNotation)
         }
 
@@ -52,30 +54,30 @@ data class ObjectNotation(
 //            throw IllegalArgumentException("Parameter not found: $notationPath")
 //        }
 
-        val root: StructuredParameterNotation =
-                parameters[rootParameterName]
-                as? StructuredParameterNotation
-                ?: MapParameterNotation(mapOf())
+        val root: StructuredAttributeNotation =
+                attributes[rootParameterName]
+                as? StructuredAttributeNotation
+                ?: MapAttributeNotation(mapOf())
 //                ?: throw IllegalArgumentException(
 //                        "Structured parameter expected (${notationPathSegments[0]}): $notationPath")
 
         val newRoot = upsertSubParameter(
                 root,
-                notationPathSegments.subList(1, notationPathSegments.size),
+                notationPath.segments.subList(1, notationPath.segments.size),
                 parameterNotation)
 
-        return upsertRootParameter(notationPath, newRoot)
+        return upsertRootParameter(rootParameterName, newRoot)
     }
 
 
     private fun upsertRootParameter(
-            parameterName: String,
-            value: ParameterNotation
+            parameterName: AttributeName,
+            value: AttributeNotation
     ): ObjectNotation {
         var replaced = false
 
-        val buffer = mutableMapOf<String, ParameterNotation>()
-        for (parameter in parameters) {
+        val buffer = mutableMapOf<AttributeName, AttributeNotation>()
+        for (parameter in attributes) {
             buffer[parameter.key] =
                     if (parameter.key == parameterName) {
                         replaced = true
@@ -95,10 +97,10 @@ data class ObjectNotation(
 
 
     private fun upsertSubParameter(
-            next: StructuredParameterNotation,
-            remainingPathSegments: List<String>,
-            value: ParameterNotation
-    ): StructuredParameterNotation {
+            next: StructuredAttributeNotation,
+            remainingPathSegments: List<AttributeSegment>,
+            value: AttributeNotation
+    ): StructuredAttributeNotation {
         val nextPathSegment = remainingPathSegments[0]
 
         val nextValue =
@@ -107,25 +109,25 @@ data class ObjectNotation(
                 }
                 else {
                     upsertSubParameter(
-                            next.get(nextPathSegment) as StructuredParameterNotation,
+                            next.get(nextPathSegment.asString()) as StructuredAttributeNotation,
                             remainingPathSegments.subList(1, remainingPathSegments.size),
                             value)
                 }
 
         return when (next) {
-            is ListParameterNotation -> {
-                val index =  nextPathSegment.toInt()
+            is ListAttributeNotation -> {
+                val index = (nextPathSegment as ListIndexAttributeSegment).index
 
-                val buffer = mutableListOf<ParameterNotation>()
+                val buffer = mutableListOf<AttributeNotation>()
                 buffer.addAll(next.values)
 
                 buffer[index] = nextValue
 
-                ListParameterNotation(buffer)
+                ListAttributeNotation(buffer)
             }
 
-            is MapParameterNotation -> {
-                val buffer = mutableMapOf<String, ParameterNotation>()
+            is MapAttributeNotation -> {
+                val buffer = mutableMapOf<MapKeyAttributeSegment, AttributeNotation>()
 
                 for (e in next.values) {
                     buffer[e.key] =
@@ -137,7 +139,7 @@ data class ObjectNotation(
                             }
                 }
 
-                MapParameterNotation(buffer)
+                MapAttributeNotation(buffer)
             }
         }
     }

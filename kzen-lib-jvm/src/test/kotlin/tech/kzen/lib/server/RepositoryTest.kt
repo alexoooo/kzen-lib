@@ -2,11 +2,12 @@ package tech.kzen.lib.server
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
-import tech.kzen.lib.common.edit.RenameObjectCommand
-import tech.kzen.lib.common.edit.ShiftObjectCommand
+import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.notation.edit.RenameObjectCommand
+import tech.kzen.lib.common.notation.edit.ShiftObjectCommand
 import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.io.common.MapNotationMedia
-import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.model.PositionIndex
 import tech.kzen.lib.common.notation.repo.NotationRepository
 import tech.kzen.lib.platform.IoUtils
 import kotlin.test.assertEquals
@@ -17,7 +18,7 @@ class RepositoryTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     private val yamlParser = YamlNotationParser()
-    private val mainPath = ProjectPath("main.yaml")
+    private val mainPath = BundlePath.parse("main.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -36,14 +37,16 @@ B:
   hello: "b"
 """))
 
-            repo.apply(ShiftObjectCommand("A", 1))
+            val aLocation = location("A")
 
-            assertEquals(1, repo.notation().packages[mainPath]!!.indexOf("A"),
+            repo.apply(ShiftObjectCommand(aLocation, PositionIndex(1)))
+
+            assertEquals(1, repo.notation().files.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "First move down")
 
-            repo.apply(ShiftObjectCommand("A", 0))
+            repo.apply(ShiftObjectCommand(aLocation, PositionIndex(0)))
 
-            assertEquals(0, repo.notation().packages[mainPath]!!.indexOf("A"),
+            assertEquals(0, repo.notation().files.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "Second move back up")
         }
     }
@@ -63,12 +66,24 @@ A:
   hello: "a"
 """))
 
-            repo.apply(RenameObjectCommand("A", "Foo Bar"))
+            val aLocation = location("A")
+
+            repo.apply(RenameObjectCommand(aLocation, ObjectName("Foo Bar")))
 
             val modified = IoUtils.utf8ToString(media.read(mainPath))
 
             assertTrue(modified.startsWith("\"Foo Bar\":"),
                     "Encoded key expected: $modified")
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun location(name: String): ObjectLocation {
+        return ObjectLocation(mainPath, ObjectPath.parse(name))
+    }
+
+    private fun attribute(attribute: String): AttributeNesting {
+        return AttributeNesting.ofAttribute(AttributeName(attribute))
     }
 }

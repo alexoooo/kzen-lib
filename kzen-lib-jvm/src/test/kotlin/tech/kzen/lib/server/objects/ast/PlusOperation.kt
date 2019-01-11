@@ -1,6 +1,7 @@
 package tech.kzen.lib.server.objects.ast
 
 
+@Suppress("unused")
 class PlusOperation(
         private val addends: List<DoubleExpression>
 ): DoubleExpression {

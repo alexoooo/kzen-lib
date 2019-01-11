@@ -2,6 +2,7 @@ package tech.kzen.lib.common.util
 
 import tech.kzen.lib.platform.IoUtils
 
+
 // NB: can't use Long in straight JSON transmission, see:
 //  https://kotlinlang.org/docs/reference/js-to-kotlin-interop.html#representing-kotlin-types-in-javascript
 data class Digest(
@@ -48,6 +49,7 @@ data class Digest(
                 return empty
             }
 
+            @Suppress("RedundantExplicitType")
             var s0: Int = 0
             var s1: Int = murmurHash3(bytes.size)
             var s2: Int = hashCodeHash(bytes.size)
@@ -88,6 +90,13 @@ data class Digest(
         private var b: Int = 0
         private var c: Int = 0
         private var d: Int = 0
+
+        fun clear() {
+            a = 0
+            b = 0
+            c = 0
+            d = 0
+        }
 
         fun add(digest: Digest) {
             a += digest.a

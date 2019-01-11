@@ -1,13 +1,14 @@
 package tech.kzen.lib.common.notation.repo
 
-import tech.kzen.lib.common.edit.ProjectAggregate
-import tech.kzen.lib.common.edit.ProjectCommand
-import tech.kzen.lib.common.edit.ProjectEvent
+import tech.kzen.lib.common.notation.edit.NotationAggregate
+import tech.kzen.lib.common.notation.edit.NotationCommand
+import tech.kzen.lib.common.notation.edit.NotationEvent
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.notation.io.NotationParser
-import tech.kzen.lib.common.notation.model.PackageNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.model.BundleNotation
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
 
@@ -18,16 +19,16 @@ class NotationRepository(
         private val notationParser: NotationParser
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    private var scanCache = mutableMapOf<ProjectPath, Digest>()
+    private var scanCache = mutableMapOf<BundlePath, Digest>()
 
     // TODO: use notation from inside ProjectAggregate?
-    private var projectNotationCache: ProjectNotation? = null
-    private var projectAggregateCache: ProjectAggregate? = null
+    private var projectNotationCache: NotationTree? = null
+    private var projectAggregateCache: NotationAggregate? = null
     private var fileCache = Cache<ByteArray>(10)
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun notation(): ProjectNotation {
+    suspend fun notation(): NotationTree {
         if (projectNotationCache == null) {
             projectNotationCache = read()
         }
@@ -35,9 +36,9 @@ class NotationRepository(
     }
 
 
-    private suspend fun read(): ProjectNotation {
-        val packageBytes = mutableMapOf<ProjectPath, ByteArray>()
-        val packages = mutableMapOf<ProjectPath, PackageNotation>()
+    private suspend fun read(): NotationTree {
+        val packageBytes = mutableMapOf<BundlePath, ByteArray>()
+        val packages = mutableMapOf<BundlePath, BundleNotation>()
 
         scanCache.clear()
         scanCache.putAll(notationMedia.scan())
@@ -60,14 +61,14 @@ class NotationRepository(
             packages[projectPath] = packageNotation
         }
 
-        return ProjectNotation(packages)
+        return NotationTree(BundleTree(packages))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun aggregate(): ProjectAggregate {
+    suspend fun aggregate(): NotationAggregate {
         if (projectAggregateCache == null) {
-            projectAggregateCache = ProjectAggregate(notation())
+            projectAggregateCache = NotationAggregate(notation())
         }
         return projectAggregateCache!!
     }
@@ -83,16 +84,16 @@ class NotationRepository(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun apply(command: ProjectCommand): ProjectEvent {
-        val oldPackages = notation().packages
+    suspend fun apply(command: NotationCommand): NotationEvent {
+        val oldPackages = notation().files
 
         val event = aggregate().apply(command)
-        val newPackages = aggregate().state.packages
+        val newPackages = aggregate().state.files
 
         var writtenAny = false
-        for (updatedPackage in newPackages) {
-            if (oldPackages.containsKey(updatedPackage.key) &&
-                    updatedPackage.value.equalsInOrder(oldPackages[updatedPackage.key]!!)) {
+        for (updatedPackage in newPackages.values) {
+            if (oldPackages.values.containsKey(updatedPackage.key) &&
+                    updatedPackage.value.objects.equalsInOrder(oldPackages.values[updatedPackage.key]!!.objects)) {
                 continue
             }
 
@@ -110,8 +111,8 @@ class NotationRepository(
 
 
     private suspend fun writeIfRequired(
-            projectPath: ProjectPath,
-            packageNotation: PackageNotation
+            projectPath: BundlePath,
+            packageNotation: BundleNotation
     ): Boolean {
         val cachedDigest = scanCache[projectPath]
 
@@ -155,7 +156,7 @@ class NotationRepository(
         val subCombiner = Digest.OrderedCombiner()
 
         for (e in scanCache) {
-            subCombiner.add(Digest.ofXoShiRo256StarStar(e.key.relativeLocation))
+            subCombiner.add(Digest.ofXoShiRo256StarStar(e.key.asString()))
             subCombiner.add(e.value)
 
             combiner.add(subCombiner.combine())

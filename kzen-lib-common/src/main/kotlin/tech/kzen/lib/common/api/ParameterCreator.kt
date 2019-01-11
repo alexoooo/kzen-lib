@@ -1,14 +1,16 @@
 package tech.kzen.lib.common.api
 
 import tech.kzen.lib.common.context.ObjectGraph
-import tech.kzen.lib.common.definition.ParameterDefinition
-import tech.kzen.lib.common.metadata.model.ParameterMetadata
+import tech.kzen.lib.common.definition.AttributeDefinition
+import tech.kzen.lib.common.metadata.model.AttributeMetadata
+import tech.kzen.lib.common.api.model.ObjectLocation
 
 
 interface ParameterCreator {
     fun create(
-            parameterDefinition: ParameterDefinition,
-            parameterMetadata: ParameterMetadata,
+            objectLocation: ObjectLocation,
+            attributeDefinition: AttributeDefinition,
+            parameterMetadata: AttributeMetadata,
             objectGraph: ObjectGraph
     ): Any?
 }

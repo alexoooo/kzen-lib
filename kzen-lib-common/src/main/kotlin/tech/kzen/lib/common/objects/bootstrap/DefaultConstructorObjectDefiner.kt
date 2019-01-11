@@ -6,28 +6,31 @@ import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
 import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.common.notation.NotationConventions
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 
 
 object DefaultConstructorObjectDefiner: ObjectDefiner {
     override fun define(
-            objectName: String,
-            projectNotation: ProjectNotation,
-            projectMetadata: GraphMetadata,
-            projectDefinition: GraphDefinition,
+            objectLocation: ObjectLocation,
+            notationTree: NotationTree,
+            graphMetadata: GraphMetadata,
+            graphDefinition: GraphDefinition,
             objectGraph: ObjectGraph
     ): ObjectDefinitionAttempt {
         val className = (
-                projectNotation.transitiveParameter(
-                        objectName, "class"
-                )!! as ScalarParameterNotation
+                notationTree.transitiveParameter(
+                        objectLocation, NotationConventions.classPath
+                )!! as ScalarAttributeNotation
         ).value as String
 
         val definition = ObjectDefinition(
                 className,
                 emptyMap(),
-                DefaultConstructorObjectCreator::class.simpleName!!,
+                ObjectReference.parse(DefaultConstructorObjectCreator::class.simpleName!!),
                 setOf())
 
         return ObjectDefinitionAttempt.success(

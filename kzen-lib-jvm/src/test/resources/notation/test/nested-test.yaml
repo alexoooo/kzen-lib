@@ -62,12 +62,66 @@ TwoPlusTwo:
   - Two
 
 
+TwoPlusTwoInlineMap:
+  is: PlusOperation
+  addends:
+  - TwoPlusTwoInlineMap/addends/Arg1
+  - TwoPlusTwoInlineMap/addends/Arg2
+
+TwoPlusTwoInlineMap/addends/Arg1:
+  is: DoubleValue
+  value: 2
+
+TwoPlusTwoInlineMap/addends/Arg2:
+  is: DoubleValue
+  value: 2
+
+
 #TwoPlusTwoInlineMap:
 #  is: PlusOperation
 #  addends:
-#    Arg1:
+#    0:
 #      is: DoubleValue
 #      value: 2
+#    1:
+#      is: DoubleValue
+#      value: 2
+
+
+TwoPlusTwoPlusTwoInlineMap:
+  is: PlusOperation
+  addends:
+  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1
+  - TwoPlusTwoPlusTwoInlineMap/addends/Arg2
+
+TwoPlusTwoPlusTwoInlineMap/addends/Arg1:
+  is: PlusOperation
+  addends:
+  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg1
+  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg2
+
+TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg1:
+  is: DoubleValue
+  value: 2
+
+TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg2:
+  is: DoubleValue
+  value: 2
+
+TwoPlusTwoPlusTwoInlineMap/addends/Arg2:
+  is: DoubleValue
+  value: 2
+
+
+#TwoPlusTwoPlusTwoInlineMap:
+#  is: PlusOperation
+#  addends:
+#    Arg1:
+#      is: NegateOperation
+#      value:
+#        Arg:
+#          is: DoubleValue
+#          value: 1
 #    Arg2:
 #      is: DoubleValue
 #      value: 2

@@ -69,7 +69,7 @@ sealed class YamlNode {
 
 
 //-----------------------------------------------------------------------------------------------------------------
-abstract class YamlScalar : YamlNode() {
+abstract class YamlScalar: YamlNode() {
     abstract val value: Any?
 
     override fun asString(): String {
@@ -81,7 +81,7 @@ abstract class YamlScalar : YamlNode() {
 // TODO: add |- multi-line support
 data class YamlString(
         override val value: String
-) : YamlScalar() {
+): YamlScalar() {
     companion object {
         val empty = YamlString("")
     }
@@ -94,20 +94,20 @@ data class YamlString(
 
 data class YamlDouble(
         override val value: Double
-) : YamlScalar()
+): YamlScalar()
 
 
 data class YamlLong(
         override val value: Long
-) : YamlScalar()
+): YamlScalar()
 
 
 abstract class YamlBoolean(
         override val value: Boolean
-) : YamlScalar()
+): YamlScalar()
 
-object YamlTrue : YamlBoolean(true)
-object YamlFalse : YamlBoolean(false)
+object YamlTrue: YamlBoolean(true)
+object YamlFalse: YamlBoolean(false)
 
 
 
@@ -118,7 +118,7 @@ object YamlNull : YamlScalar() {
 
 data class YamlList(
         val values: List<YamlNode>
-) : YamlNode() {
+): YamlNode() {
     override fun asString(): String {
         return values.map {
             val lines = it.asString().split("\n")
@@ -139,7 +139,7 @@ data class YamlList(
 
 data class YamlMap(
         val values: Map<String, YamlNode>
-) : YamlNode() {
+): YamlNode() {
     override fun asString(): String {
         return values.map {
             val lines = it.value.asString().split("\n")
@@ -150,7 +150,7 @@ data class YamlMap(
                 "$keyPrefix: ${lines[0]}"
             }
             else {
-                "$keyPrefix:\n" + lines.map { "  $it" }.joinToString("\n")
+                "$keyPrefix:\n" + lines.joinToString("\n") { "  $it" }
             }
         }.joinToString("\n")
     }

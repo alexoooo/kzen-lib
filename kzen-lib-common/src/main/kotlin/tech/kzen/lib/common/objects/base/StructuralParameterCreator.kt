@@ -2,30 +2,34 @@ package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.ParameterCreator
 import tech.kzen.lib.common.context.ObjectGraph
-import tech.kzen.lib.common.definition.ListParameterDefinition
-import tech.kzen.lib.common.definition.ParameterDefinition
-import tech.kzen.lib.common.definition.ReferenceParameterDefinition
-import tech.kzen.lib.common.definition.ValueParameterDefinition
-import tech.kzen.lib.common.metadata.model.ParameterMetadata
+import tech.kzen.lib.common.definition.ListAttributeDefinition
+import tech.kzen.lib.common.definition.AttributeDefinition
+import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
+import tech.kzen.lib.common.definition.ValueAttributeDefinition
+import tech.kzen.lib.common.metadata.model.AttributeMetadata
+import tech.kzen.lib.common.api.model.ObjectLocation
 
 
-class StructuralParameterCreator : ParameterCreator {
+class StructuralParameterCreator: ParameterCreator {
     override fun create(
-            parameterDefinition: ParameterDefinition,
-            parameterMetadata: ParameterMetadata,
+            objectLocation: ObjectLocation,
+            attributeDefinition: AttributeDefinition,
+            parameterMetadata: AttributeMetadata,
             objectGraph: ObjectGraph
     ): Any? {
-        return createDefinition(parameterDefinition, /*parameterMetadata,*/ objectGraph)
+        return createDefinition(
+                objectLocation, attributeDefinition, /*parameterMetadata,*/ objectGraph)
     }
 
 
     private fun createDefinition(
-            parameterDefinition: ParameterDefinition,
+            objectLocation: ObjectLocation,
+            parameterDefinition: AttributeDefinition,
 //            parameterMetadata: ParameterMetadata,
             objectGraph: ObjectGraph
     ): Any? {
         return when (parameterDefinition) {
-            is ValueParameterDefinition -> {
+            is ValueAttributeDefinition -> {
 //                if (parameterMetadata.type?.className == ClassNames.kotlinString) {
 //                    parameterDefinition.value.toString()
 //                }
@@ -35,11 +39,17 @@ class StructuralParameterCreator : ParameterCreator {
                 parameterDefinition.value
             }
 
-            is ReferenceParameterDefinition ->
-                objectGraph.get(parameterDefinition.objectName!!)
+            is ReferenceAttributeDefinition -> {
+                val location = objectGraph.objects.locate(
+                        objectLocation, parameterDefinition.objectReference!!)
+                objectGraph.objects.get(location)
+            }
 
-            is ListParameterDefinition ->
-                parameterDefinition.values.map { createDefinition(it, objectGraph) }
+
+            is ListAttributeDefinition ->
+                parameterDefinition.values.map {
+                    createDefinition(objectLocation, it, objectGraph)
+                }
 
             else ->
                 TODO("Not supported (yet): $parameterDefinition")

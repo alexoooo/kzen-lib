@@ -2,10 +2,12 @@
 
 package tech.kzen.lib.client
 
+import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.ObjectMap
 import tech.kzen.lib.common.context.ObjectGraphCreator
 import tech.kzen.lib.common.context.ObjectGraphDefiner
 import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.ProjectNotation
+import tech.kzen.lib.common.notation.model.NotationTree
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -13,10 +15,10 @@ import kotlin.test.assertEquals
 class ClientTest {
     @Test
     fun objectGraphCanBeEmpty() {
-        val emptyMetadata = GraphMetadata(mapOf())
+        val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
         val emptyDefinition = ObjectGraphDefiner.define(
-                ProjectNotation(mapOf()),
+                NotationTree(BundleTree(mapOf())),
                 emptyMetadata)
 
         val emptyGraph = ObjectGraphCreator.createGraph(
@@ -24,6 +26,6 @@ class ClientTest {
 
         assertEquals(
                 ObjectGraphDefiner.bootstrapObjects.size,
-                emptyGraph.names().size)
+                emptyGraph.objects.values.size)
     }
 }

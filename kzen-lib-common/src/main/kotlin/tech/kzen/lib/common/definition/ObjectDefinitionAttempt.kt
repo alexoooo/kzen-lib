@@ -1,10 +1,12 @@
 package tech.kzen.lib.common.definition
 
+import tech.kzen.lib.common.api.model.ObjectLocation
+
 
 data class ObjectDefinitionAttempt(
 //        val project: ObjectGraphDefinition,
         val value: ObjectDefinition?,
-        val missingObjects: Set<String>,
+        val missingObjects: Set<ObjectLocation>,
         val errorMessage: String?
 ) {
     companion object {
@@ -14,7 +16,7 @@ data class ObjectDefinitionAttempt(
                         setOf(),
                         null)
 
-        fun missingObjectsFailure(missingObjects: Set<String>) =
+        fun missingObjectsFailure(missingObjects: Set<ObjectLocation>) =
                 ObjectDefinitionAttempt(
                         null,
                         missingObjects,

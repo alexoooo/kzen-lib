@@ -11,9 +11,12 @@ import tech.kzen.lib.common.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.io.common.MultiNotationMedia
-import tech.kzen.lib.common.notation.model.PackageNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ProjectPath
+import tech.kzen.lib.common.notation.model.BundleNotation
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectPath
 import tech.kzen.lib.server.notation.ClasspathNotationMedia
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
@@ -25,7 +28,11 @@ class AstGraphTest {
     fun `2 + 2 = 4`() {
         val objectGraph = astObjectGraph()
 
-        val fooNamedInstance = objectGraph.get("TwoPlusTwo") as DoubleExpression
+        val twoPlusTwoLocation = ObjectLocation(
+                BundlePath.parse("nested-test.yaml"),
+                ObjectPath.parse("TwoPlusTwo"))
+
+        val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
         assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
     }
 
@@ -39,12 +46,12 @@ class AstGraphTest {
         val notationParser: NotationParser = YamlNotationParser()
 
         val notationProject = runBlocking {
-            val notationProjectBuilder = mutableMapOf<ProjectPath, PackageNotation>()
+            val notationProjectBuilder = mutableMapOf<BundlePath, BundleNotation>()
             for (notationPath in notationMedia.scan()) {
                 val notationModule = notationMedia.read(notationPath.key)
                 notationProjectBuilder[notationPath.key] = notationParser.parsePackage(notationModule)
             }
-            ProjectNotation(notationProjectBuilder)
+            NotationTree(BundleTree(notationProjectBuilder))
         }
 
         val notationMetadataReader = NotationMetadataReader()

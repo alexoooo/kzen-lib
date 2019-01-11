@@ -3,47 +3,53 @@ package tech.kzen.lib.common.objects.general
 import tech.kzen.lib.common.api.ParameterDefiner
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ListParameterDefinition
-import tech.kzen.lib.common.definition.ParameterDefinition
-import tech.kzen.lib.common.definition.ReferenceParameterDefinition
+import tech.kzen.lib.common.definition.ListAttributeDefinition
+import tech.kzen.lib.common.definition.AttributeDefinition
+import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.api.model.AttributeNesting
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 
 
 @Suppress("unused")
-class ParentChildParameterDefiner : ParameterDefiner {
+class ParentChildParameterDefiner: ParameterDefiner {
     companion object {
-        private const val parentParameterName = "parent"
+        private val parentPath = AttributeNesting.ofAttribute(
+                AttributeName("parent"))
     }
 
+
     override fun define(
-            objectName: String,
-            parameterName: String,
-            projectNotation: ProjectNotation,
+            objectLocation: ObjectLocation,
+            attributeName: AttributeName,
+            projectNotation: NotationTree,
             projectMetadata: GraphMetadata,
             projectDefinition: GraphDefinition,
             objectGraph: ObjectGraph
-    ): ParameterDefinition {
-        val children = mutableListOf<String>()
+    ): AttributeDefinition {
+        val children = mutableListOf<ObjectReference>()
 
-        for (e in projectNotation.coalesce) {
+        for (e in projectNotation.coalesce.values) {
             val parentNotation = projectNotation
-                    .transitiveParameter(e.key, parentParameterName)
+                    .transitiveParameter(e.key, parentPath)
                     ?: continue
 
             val parentName =
-                    (parentNotation as? ScalarParameterNotation)?.value
+                    (parentNotation as? ScalarAttributeNotation)?.value
                     ?: continue
 
-            if (parentName != objectName) {
+            if (parentName != objectLocation.objectPath.name.value) {
                 continue
             }
 
-            children.add(e.key)
+            children.add(e.key.toReference())
         }
 
-        return ListParameterDefinition(
-                children.map { ReferenceParameterDefinition(it) })
+        return ListAttributeDefinition(
+                children.map { ReferenceAttributeDefinition(it) })
     }
 }

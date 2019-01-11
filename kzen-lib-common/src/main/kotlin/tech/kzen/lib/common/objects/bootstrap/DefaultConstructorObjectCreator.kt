@@ -4,11 +4,13 @@ import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.metadata.model.ObjectMetadata
+import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.platform.Mirror
 
 
 object DefaultConstructorObjectCreator: ObjectCreator {
     override fun create(
+            objectLocation: ObjectLocation,
             objectDefinition: ObjectDefinition,
             objectMetadata: ObjectMetadata,
             objectGraph: ObjectGraph

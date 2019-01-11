@@ -2,48 +2,49 @@ package tech.kzen.lib.common.metadata.read
 
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.metadata.model.ObjectMetadata
-import tech.kzen.lib.common.metadata.model.ParameterMetadata
+import tech.kzen.lib.common.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.metadata.model.TypeMetadata
+import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.model.*
+import tech.kzen.lib.common.api.model.*
 
 
 class NotationMetadataReader(
 //        private val mirrorMetadataReader: MirrorMetadataReader
 ) {
-    companion object {
-        private const val metadataKey = "meta"
-    }
+    fun read(projectMetadata: NotationTree): GraphMetadata {
+        val builder = mutableMapOf<ObjectLocation, ObjectMetadata>()
 
+        for (e in projectMetadata.files.values) {
+            e.value.objects.values
+        }
 
-    fun read(projectMetadata: ProjectNotation): GraphMetadata {
-        val builder = mutableMapOf<String, ObjectMetadata>()
-
-        for (objectName in projectMetadata.objectNames) {
+        for (objectName in projectMetadata.objectPaths) {
             val objectMetadata = readObject(objectName, projectMetadata)
 
             builder[objectName] = objectMetadata
         }
 
-        return GraphMetadata(builder)
+        return GraphMetadata(ObjectMap(builder))
     }
 
 
     private fun readObject(
-            objectName: String,
-            projectNotation: ProjectNotation
+            objectLocation: ObjectLocation,
+            projectNotation: NotationTree
     ): ObjectMetadata {
         val metaParameter =
-                projectNotation.transitiveParameter(objectName, metadataKey)
-                        ?: return ObjectMetadata(mapOf())
+                projectNotation.transitiveParameter(objectLocation, NotationConventions.metadataPath)
+                ?: return ObjectMetadata(mapOf())
 
-        val metaMapParameter = metaParameter as MapParameterNotation
+        val metaMapParameter = metaParameter as MapAttributeNotation
 
-        val parameters = mutableMapOf<String, ParameterMetadata>()
+        val parameters = mutableMapOf<AttributeName, AttributeMetadata>()
 
         for (e in metaMapParameter.values) {
-            val parameterMetadata = readParameter(e.value, projectNotation)
+            val parameterMetadata = readParameter(objectLocation, e.value, projectNotation)
 
-            parameters[e.key] = parameterMetadata
+            parameters[AttributeName(e.key.asString())] = parameterMetadata
         }
 
         return ObjectMetadata(
@@ -53,42 +54,53 @@ class NotationMetadataReader(
 
 
     private fun readParameter(
-            parameterNotation: ParameterNotation,
-            projectNotation: ProjectNotation
-    ): ParameterMetadata {
+            host: ObjectLocation,
+            parameterNotation: AttributeNotation,
+            projectNotation: NotationTree
+    ): AttributeMetadata {
         val inheritanceParent: String? =
                 parameterInheritanceParent(parameterNotation)
 
-        val parameterMap = parameterNotation as? MapParameterNotation
+        val inheritanceParentLocation =
+                if (inheritanceParent == null) {
+                    null
+                }
+                else {
+                    projectNotation.coalesce.locate(host, ObjectReference.parse(inheritanceParent))
+                }
+
+        val parameterMap = parameterNotation as? MapAttributeNotation
 
         val classNotation = metadataParameter(
-                "class", inheritanceParent, parameterMap, projectNotation)
-        val className = (classNotation as? ScalarParameterNotation)?.value as? String
+                NotationConventions.classPath, inheritanceParentLocation, parameterMap, projectNotation)
+        val className = (classNotation as? ScalarAttributeNotation)?.value as? String
 //        checkNotNull(className) { "Unknown class: $parameterNotation" }
 
 //        val valueNotation = metadataParameter(
 //                "class", inheritanceParent, parameterMap, projectMetadata)
 
         val definerNotation = metadataParameter(
-                "by", inheritanceParent, parameterMap, projectNotation)
-        val definerName = (definerNotation as? ScalarParameterNotation)?.value as? String
+                NotationConventions.byPath, inheritanceParentLocation, parameterMap, projectNotation)
+        val definerName = (definerNotation as? ScalarAttributeNotation)?.value as? String
 
         val creatorNotation = metadataParameter(
-                "using", inheritanceParent, parameterMap, projectNotation)
-        val creatorName = (creatorNotation as? ScalarParameterNotation)?.value as? String
+                NotationConventions.usingPath, inheritanceParentLocation, parameterMap, projectNotation)
+        val creatorName = (creatorNotation as? ScalarAttributeNotation)?.value as? String
 //        check(creatorName != null) { "Unknown creator class: $parameterNotation" }
 
         val genericsNotation = metadataParameter(
-                "of", inheritanceParent, parameterMap, projectNotation)
+                NotationConventions.ofPath, inheritanceParentLocation, parameterMap, projectNotation)
 
         val genericsNames: List<TypeMetadata> =
                 when (genericsNotation) {
                     null ->
                         listOf()
 
-                    is ScalarParameterNotation -> {
+                    is ScalarAttributeNotation -> {
                         val value = genericsNotation.value as String
-                        val genericClassName = projectNotation.getString(value, "class")
+                        val reference = ObjectReference.parse(value)
+                        val objectLocation = projectNotation.coalesce.locate(host, reference)
+                        val genericClassName = projectNotation.getString(objectLocation, NotationConventions.classPath)
 
                         listOf(TypeMetadata(genericClassName, listOf()))
                     }
@@ -101,26 +113,26 @@ class NotationMetadataReader(
                 className!!,
                 genericsNames)
 
-        return ParameterMetadata(
+        return AttributeMetadata(
                 typeMetadata, /*valueNotation,*/ definerName, creatorName)
     }
 
 
     private fun parameterInheritanceParent(
-            parameterNotation: ParameterNotation
+            parameterNotation: AttributeNotation
     ): String? {
         return when (parameterNotation) {
-            is ScalarParameterNotation -> {
+            is ScalarAttributeNotation -> {
                 check(parameterNotation.value is String) {
-                    "Inline '${ParameterConventions.isParameter}' must be String: $parameterNotation"
+                    "Inline '${NotationConventions.isAttribute}' must be String: $parameterNotation"
                 }
 
                 parameterNotation.value
             }
 
-            is MapParameterNotation -> {
+            is MapAttributeNotation -> {
                 parameterNotation
-                        .values[ParameterConventions.isParameter]
+                        .values[NotationConventions.isSegment]
                         ?.asString()
             }
 
@@ -130,15 +142,16 @@ class NotationMetadataReader(
 
 
     private fun metadataParameter(
-            parameterName: String,
-            inheritanceParent: String?,
-            parameterMap: MapParameterNotation?,
-            projectNotation: ProjectNotation
-    ): ParameterNotation? {
-        val paramNotation = parameterMap?.values?.get(parameterName)
+            notationPath: AttributeNesting,
+            inheritanceParent: ObjectLocation?,
+            parameterMap: MapAttributeNotation?,
+            projectNotation: NotationTree
+    ): AttributeNotation? {
+        val paramNotation = parameterMap?.get(notationPath)
 
         return if (paramNotation == null && inheritanceParent != null) {
-            projectNotation.transitiveParameter(inheritanceParent, parameterName)
+            projectNotation.transitiveParameter(
+                    inheritanceParent, notationPath)
         }
         else {
             paramNotation

@@ -1,18 +1,21 @@
 package tech.kzen.lib.common.context
 
+import tech.kzen.lib.common.api.model.ObjectMap
+
 
 data class ObjectGraph(
-        private val objects: Map<String, Any>)
+        val objects: ObjectMap<Any>)
 {
-    fun names(): Set<String> =
-            objects.keys
-
-
-    fun get(name: String):Any =
-            objects[name]
-            ?: throw IllegalArgumentException("Not found: $name")
-
-
-    fun find(name: String): Any? =
-            objects[name]
+//    fun names(): Set<ObjectName> =
+//            objects.names()
+//
+//
+//    fun get(name: ObjectName): Any {
+//        return objects.get(name)
+//    }
+//
+//
+//    fun find(name: ObjectName): Any? {
+//        return objects.find(name)
+//    }
 }

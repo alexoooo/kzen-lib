@@ -1,12 +1,13 @@
 package tech.kzen.lib.server
 
 import org.junit.Test
-import tech.kzen.lib.common.edit.*
+import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.notation.edit.*
 import tech.kzen.lib.common.notation.format.YamlNotationParser
-import tech.kzen.lib.common.notation.model.PackageNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ProjectPath
-import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.common.notation.model.BundleNotation
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.PositionIndex
+import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.IoUtils
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -16,7 +17,7 @@ import kotlin.test.assertTrue
 class ProjectAggregateTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val yamlParser = YamlNotationParser()
-    private val testPath = ProjectPath("test.yaml")
+    private val testPath = BundlePath.parse("test.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -27,14 +28,14 @@ Foo:
   hello: "bar"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
-        project.apply(EditParameterCommand(
-                "Foo",
-                "hello",
-                ScalarParameterNotation("world")))
+        project.apply(UpsertAttributeCommand(
+                location("Foo"),
+                AttributeName("hello"),
+                ScalarAttributeNotation("world")))
 
-        val value = project.state.getString("Foo", "hello")
+        val value = project.state.getString(location("Foo"), attribute("hello"))
         assertEquals("world", value)
     }
 
@@ -46,14 +47,14 @@ Foo:
   hello: "bar"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
-        project.apply(EditParameterCommand(
-                "Foo",
-                "foo",
-                ScalarParameterNotation("baz")))
+        project.apply(UpsertAttributeCommand(
+                location("Foo"),
+                AttributeName("foo"),
+                ScalarAttributeNotation("baz")))
 
-        val value = project.state.getString("Foo", "foo")
+        val value = project.state.getString(location("Foo"), attribute("foo"))
         assertEquals("baz", value)
     }
 
@@ -68,14 +69,14 @@ B:
   hello: "b"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
         project.apply(ShiftObjectCommand(
-                "B", 0))
+                location("B"), PositionIndex(0)))
 
-        val packageNotation = project.state.packages[testPath]!!
-        assertEquals(0, packageNotation.indexOf("B"))
-        assertFalse(notation.packages[testPath]!!.equalsInOrder(packageNotation))
+        val packageNotation = project.state.files.values[testPath]!!
+        assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
+        assertFalse(notation.files.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -88,14 +89,14 @@ B:
   hello: "b"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
         project.apply(ShiftObjectCommand(
-                "A", 1))
+                location("A"), PositionIndex(1)))
 
-        val packageNotation = project.state.packages[testPath]!!
-        assertEquals(1, packageNotation.indexOf("A"))
-        assertFalse(notation.packages[testPath]!!.equalsInOrder(packageNotation))
+        val packageNotation = project.state.files.values[testPath]!!
+        assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
+        assertFalse(notation.files.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -108,14 +109,14 @@ B:
   hello: "b"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
         project.apply(ShiftObjectCommand(
-                "A", 0))
+                location("A"), PositionIndex(0)))
 
-        val packageNotation = project.state.packages[testPath]!!
-        assertEquals(0, packageNotation.indexOf("A"))
-        assertTrue(notation.packages[testPath]!!.equalsInOrder(packageNotation))
+        val packageNotation = project.state.files.values[testPath]!!
+        assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
+        assertTrue(notation.files.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -131,16 +132,16 @@ C:
   hello: "C"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
         project.apply(RenameObjectCommand(
-                "B", "Foo"))
+                location("B"), ObjectName("Foo")))
 
-        val packageNotation = project.state.packages[testPath]!!
-        assertEquals(0, packageNotation.indexOf("A"))
-        assertEquals(1, packageNotation.indexOf("Foo"))
-        assertEquals(2, packageNotation.indexOf("C"))
-        assertEquals("b", project.state.getString("Foo", "hello"))
+        val packageNotation = project.state.files.values[testPath]!!
+        assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
+        assertEquals(1, packageNotation.indexOf(ObjectPath.parse("Foo")).value)
+        assertEquals(2, packageNotation.indexOf(ObjectPath.parse("C")).value)
+        assertEquals("b", project.state.getString(location("Foo"), attribute("hello")))
     }
 
 
@@ -152,25 +153,25 @@ A:
   hello: "a"
 """)
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
         project.apply(RemoveObjectCommand(
-                "A"))
+                location("A")))
 
-        val packageNotation = project.state.packages[testPath]!!
-        assertEquals(0, packageNotation.objects.size)
+        val packageNotation = project.state.files.values[testPath]!!
+        assertEquals(0, packageNotation.objects.values.size)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Create package`() {
-        val project = ProjectAggregate(ProjectNotation.empty)
+        val project = NotationAggregate(NotationTree.empty)
 
-        project.apply(CreatePackageCommand(testPath))
+        project.apply(CreateBundleCommand(testPath))
 
-        val packageNotation = project.state.packages[testPath]!!
-        assertEquals(0, packageNotation.objects.size)
+        val packageNotation = project.state.files.values[testPath]!!
+        assertEquals(0, packageNotation.objects.values.size)
     }
 
 
@@ -178,23 +179,32 @@ A:
     fun `Delete package`() {
         val notation = parseProject("")
 
-        val project = ProjectAggregate(notation)
+        val project = NotationAggregate(notation)
 
         project.apply(DeletePackageCommand(testPath))
 
-        assertTrue(project.state.packages.isEmpty())
+        assertTrue(project.state.files.values.isEmpty())
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parsePackage(doc: String): PackageNotation {
+    private fun parsePackage(doc: String): BundleNotation {
         return yamlParser.parsePackage(IoUtils.stringToUtf8(doc))
     }
 
 
-    private fun parseProject(doc: String): ProjectNotation {
+    private fun parseProject(doc: String): NotationTree {
         val packageNotation = parsePackage(doc)
-        return ProjectNotation(mapOf(
-                testPath to packageNotation))
+        return NotationTree(BundleTree(mapOf(
+                testPath to packageNotation)))
+    }
+
+
+    private fun location(name: String): ObjectLocation {
+        return ObjectLocation(testPath, ObjectPath.parse(name))
+    }
+
+    private fun attribute(attribute: String): AttributeNesting {
+        return AttributeNesting.ofAttribute(AttributeName(attribute))
     }
 }

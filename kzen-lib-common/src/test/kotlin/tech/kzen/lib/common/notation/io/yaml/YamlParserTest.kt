@@ -1,10 +1,10 @@
 package tech.kzen.lib.common.notation.io.yaml
 
+import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.format.YamlNotationParser
-import tech.kzen.lib.common.notation.model.PackageNotation
-import tech.kzen.lib.common.notation.model.ProjectNotation
-import tech.kzen.lib.common.notation.model.ProjectPath
-import tech.kzen.lib.common.notation.model.ScalarParameterNotation
+import tech.kzen.lib.common.notation.model.BundleNotation
+import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.IoUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,6 +13,7 @@ import kotlin.test.assertTrue
 
 class YamlParserTest {
     //-----------------------------------------------------------------------------------------------------------------
+    private val mainPath = BundlePath.parse("main.yaml")
     private val yamlParser = YamlNotationParser()
 
 
@@ -20,14 +21,14 @@ class YamlParserTest {
     @Test
     fun parseBareStringParameter() {
         val notation = yamlParser.parseParameter("\"foo\"")
-        assertEquals("foo", (notation as ScalarParameterNotation).value)
+        assertEquals("foo", (notation as ScalarAttributeNotation).value)
     }
 
 
     @Test
     fun parseQuotedStringParameter() {
         val notation = yamlParser.parseParameter("poop")
-        assertEquals("poop", (notation as ScalarParameterNotation).value)
+        assertEquals("poop", (notation as ScalarAttributeNotation).value)
     }
 
 
@@ -37,7 +38,7 @@ class YamlParserTest {
     fun parseEmptyYaml() {
         val notation = parseProject("")
 
-        assertTrue(notation.coalesce.isEmpty())
+        assertTrue(notation.coalesce.values.isEmpty())
     }
 
 
@@ -48,7 +49,7 @@ Foo:
   bar: "baz"
 """)
 
-        assertEquals("baz", notation.getString("Foo", "bar"))
+        assertEquals("baz", notation.getString(location("Foo"), attribute("bar")))
     }
 
 
@@ -64,9 +65,9 @@ Foo:
     hello: 'world'
 """)
 
-        assertEquals("hello", notation.getString("Foo", "bar.0"))
-        assertEquals("world", notation.getString("Foo", "bar.1"))
-        assertEquals("world", notation.getString("Foo", "baz.hello"))
+        assertEquals("hello", notation.getString(location("Foo"), attribute("bar.0")))
+        assertEquals("world", notation.getString(location("Foo"), attribute("bar.1")))
+        assertEquals("world", notation.getString(location("Foo"), attribute("baz.hello")))
     }
 
 
@@ -77,7 +78,7 @@ Foo:
   bar: "baz"
 """)
 
-        assertEquals("baz", notation.getString("Foo bar", "bar"))
+        assertEquals("baz", notation.getString(location("Foo bar"), attribute("bar")))
     }
 
 
@@ -88,7 +89,7 @@ Foo:
   bar: "baz\""
 """)
 
-        assertEquals("baz\"", notation.getString("Foo", "bar"))
+        assertEquals("baz\"", notation.getString(location("Foo"), attribute("bar")))
     }
 
 
@@ -104,15 +105,15 @@ Foo:
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parsePackage(doc: String): PackageNotation {
+    private fun parsePackage(doc: String): BundleNotation {
         return yamlParser.parsePackage(IoUtils.stringToUtf8(doc))
     }
 
 
-    private fun parseProject(doc: String): ProjectNotation {
+    private fun parseProject(doc: String): NotationTree {
         val packageNotation = parsePackage(doc)
-        return ProjectNotation(mapOf(
-                ProjectPath("main.yaml") to packageNotation))
+        return NotationTree(BundleTree(mapOf(
+                mainPath to packageNotation)))
     }
 
 
@@ -120,5 +121,14 @@ Foo:
         return IoUtils.utf8ToString(yamlParser.deparsePackage(
                 yamlParser.parsePackage(IoUtils.stringToUtf8(expected)),
                 IoUtils.stringToUtf8(initial)))
+    }
+
+
+    private fun location(name: String): ObjectLocation {
+        return ObjectLocation(mainPath, ObjectPath.parse(name))
+    }
+
+    private fun attribute(attribute: String): AttributeNesting {
+        return AttributeNesting.ofAttribute(AttributeName(attribute))
     }
 }
