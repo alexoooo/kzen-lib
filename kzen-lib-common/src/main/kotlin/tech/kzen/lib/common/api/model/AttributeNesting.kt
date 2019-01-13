@@ -26,23 +26,14 @@ data class AttributeNesting(
             return AttributeNesting(attribute, listOf())
         }
 
-//        fun parse(asString: String): AttributeNesting {
-//            val parts = asString.split(delimiter)
-//
-//            val attribute = AttributeName(parts[0])
-//
-//            parts.subList(1, parts.size).map {  }
-//
-//            if (parts.size == 1) {
-//                return AttributeNesting(
-//                        ,
-//                        listOf())
-//            }
-//
-//            for (i in 1 until parts.size) {
-//
-//            }
-//        }
+        fun parse(asString: String): AttributeNesting {
+            val parts = asString.split(delimiter)
+
+            val attribute = AttributeName(parts[0])
+            val segments = parts.subList(1, parts.size).map { AttributeSegment.parse(it) }
+
+            return AttributeNesting(attribute, segments)
+        }
     }
 
 
@@ -52,9 +43,14 @@ data class AttributeNesting(
                     ""
                 }
                 else {
-                    delimiter + segments.map { it.asString() }.joinToString { delimiter }
+                    delimiter + segments.map { it.asString() }.joinToString(delimiter)
                 }
 
         return attribute.value + segmentSuffix
+    }
+
+
+    override fun toString(): String {
+        return asString()
     }
 }

@@ -49,7 +49,7 @@ object ObjectGraphDefiner {
         definerAndRelatedInstances.putAll(bootstrapObjects)
 
         val openDefinitions = projectNotation
-                .objectPaths
+                .objectLocations
                 .filter {
                     ! bootstrapObjects.containsKey(it) &&
                             ! isAbstract(it, projectNotation)

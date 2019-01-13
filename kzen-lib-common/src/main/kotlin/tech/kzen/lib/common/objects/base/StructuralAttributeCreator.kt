@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.objects.base
 
-import tech.kzen.lib.common.api.ParameterCreator
+import tech.kzen.lib.common.api.AttributeCreator
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.ListAttributeDefinition
 import tech.kzen.lib.common.definition.AttributeDefinition
@@ -10,7 +10,7 @@ import tech.kzen.lib.common.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.api.model.ObjectLocation
 
 
-class StructuralParameterCreator: ParameterCreator {
+class StructuralAttributeCreator: AttributeCreator {
     override fun create(
             objectLocation: ObjectLocation,
             attributeDefinition: AttributeDefinition,

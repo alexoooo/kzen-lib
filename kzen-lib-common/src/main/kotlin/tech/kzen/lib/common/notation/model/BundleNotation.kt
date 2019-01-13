@@ -73,4 +73,10 @@ data class BundleNotation(
     ): BundleNotation {
         return BundleNotation(objects.removeKey(objectPath))
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun toString(): String {
+        return objects.toString()
+    }
 }

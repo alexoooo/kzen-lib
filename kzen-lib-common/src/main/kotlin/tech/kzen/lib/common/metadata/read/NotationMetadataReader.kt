@@ -12,17 +12,13 @@ import tech.kzen.lib.common.api.model.*
 class NotationMetadataReader(
 //        private val mirrorMetadataReader: MirrorMetadataReader
 ) {
-    fun read(projectMetadata: NotationTree): GraphMetadata {
+    fun read(notationTree: NotationTree): GraphMetadata {
         val builder = mutableMapOf<ObjectLocation, ObjectMetadata>()
 
-        for (e in projectMetadata.files.values) {
-            e.value.objects.values
-        }
+        for (objectLocation in notationTree.objectLocations) {
+            val objectMetadata = readObject(objectLocation, notationTree)
 
-        for (objectName in projectMetadata.objectPaths) {
-            val objectMetadata = readObject(objectName, projectMetadata)
-
-            builder[objectName] = objectMetadata
+            builder[objectLocation] = objectMetadata
         }
 
         return GraphMetadata(ObjectMap(builder))
@@ -55,41 +51,41 @@ class NotationMetadataReader(
 
     private fun readParameter(
             host: ObjectLocation,
-            parameterNotation: AttributeNotation,
-            projectNotation: NotationTree
+            attributeNotation: AttributeNotation,
+            notationTree: NotationTree
     ): AttributeMetadata {
         val inheritanceParent: String? =
-                parameterInheritanceParent(parameterNotation)
+                parameterInheritanceParent(attributeNotation)
 
         val inheritanceParentLocation =
                 if (inheritanceParent == null) {
                     null
                 }
                 else {
-                    projectNotation.coalesce.locate(host, ObjectReference.parse(inheritanceParent))
+                    notationTree.coalesce.locate(host, ObjectReference.parse(inheritanceParent))
                 }
 
-        val parameterMap = parameterNotation as? MapAttributeNotation
+        val parameterMap = attributeNotation as? MapAttributeNotation
 
         val classNotation = metadataParameter(
-                NotationConventions.classPath, inheritanceParentLocation, parameterMap, projectNotation)
+                NotationConventions.classPath, inheritanceParentLocation, parameterMap, notationTree)
         val className = (classNotation as? ScalarAttributeNotation)?.value as? String
-//        checkNotNull(className) { "Unknown class: $parameterNotation" }
+        checkNotNull(className) { "Unknown class: $host - $attributeNotation" }
 
 //        val valueNotation = metadataParameter(
 //                "class", inheritanceParent, parameterMap, projectMetadata)
 
         val definerNotation = metadataParameter(
-                NotationConventions.byPath, inheritanceParentLocation, parameterMap, projectNotation)
+                NotationConventions.byPath, inheritanceParentLocation, parameterMap, notationTree)
         val definerName = (definerNotation as? ScalarAttributeNotation)?.value as? String
 
         val creatorNotation = metadataParameter(
-                NotationConventions.usingPath, inheritanceParentLocation, parameterMap, projectNotation)
+                NotationConventions.usingPath, inheritanceParentLocation, parameterMap, notationTree)
         val creatorName = (creatorNotation as? ScalarAttributeNotation)?.value as? String
 //        check(creatorName != null) { "Unknown creator class: $parameterNotation" }
 
         val genericsNotation = metadataParameter(
-                NotationConventions.ofPath, inheritanceParentLocation, parameterMap, projectNotation)
+                NotationConventions.ofPath, inheritanceParentLocation, parameterMap, notationTree)
 
         val genericsNames: List<TypeMetadata> =
                 when (genericsNotation) {
@@ -99,8 +95,8 @@ class NotationMetadataReader(
                     is ScalarAttributeNotation -> {
                         val value = genericsNotation.value as String
                         val reference = ObjectReference.parse(value)
-                        val objectLocation = projectNotation.coalesce.locate(host, reference)
-                        val genericClassName = projectNotation.getString(objectLocation, NotationConventions.classPath)
+                        val objectLocation = notationTree.coalesce.locate(host, reference)
+                        val genericClassName = notationTree.getString(objectLocation, NotationConventions.classPath)
 
                         listOf(TypeMetadata(genericClassName, listOf()))
                     }
@@ -110,7 +106,7 @@ class NotationMetadataReader(
                 }
 
         val typeMetadata = TypeMetadata(
-                className!!,
+                className,
                 genericsNames)
 
         return AttributeMetadata(

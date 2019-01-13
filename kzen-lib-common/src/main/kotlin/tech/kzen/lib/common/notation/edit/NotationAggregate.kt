@@ -1,10 +1,7 @@
 package tech.kzen.lib.common.notation.edit
 
+import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.model.*
-import tech.kzen.lib.common.api.model.AttributeNesting
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectName
 
 
 class NotationAggregate(
@@ -47,8 +44,8 @@ class NotationAggregate(
                     renameObject(command.location, command.newName)
 
 
-//                is EditParameterCommand ->
-//                    editParameter(command.objectLocation, command.attributeNesting, command.attributeNotation)
+                is UpsertAttributeCommand ->
+                    upsertAttribute(command.objectLocation, command.attributeName, command.attributeNotation)
 
 
                 else ->
@@ -62,7 +59,7 @@ class NotationAggregate(
     private fun createPackage(
             projectPath: BundlePath
     ): EventAndNotation {
-        check(! state.files.values.containsKey(projectPath)) {"Already exists: $projectPath"}
+        check(! state.bundleNotations.values.containsKey(projectPath)) {"Already exists: $projectPath"}
 
         val nextState = state.withNewPackage(
                 projectPath, BundleNotation.empty)
@@ -76,7 +73,7 @@ class NotationAggregate(
     private fun deletePackage(
             projectPath: BundlePath
     ): EventAndNotation {
-        check(state.files.values.containsKey(projectPath)) {"Does not exist: $projectPath"}
+        check(state.bundleNotations.values.containsKey(projectPath)) {"Does not exist: $projectPath"}
 
         val nextState = state.withoutPackage(projectPath)
 
@@ -94,7 +91,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(objectLocation !in state.coalesce.values) {"Object named '$objectLocation' already exists"}
 
-        val packageNotation = state.files.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
 
         val modifiedProjectNotation =
                 packageNotation.withNewObject(
@@ -115,7 +112,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(objectLocation in state.coalesce.values)
 
-        val packageNotation = state.files.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
 
         val modifiedProjectNotation =
                 packageNotation.withoutObject(objectLocation.objectPath)
@@ -135,7 +132,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(objectLocation in state.coalesce.values)
 
-        val packageNotation = state.files.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(objectLocation)
 
@@ -162,7 +159,7 @@ class NotationAggregate(
 
 //        val projectPath = state.findPackage(objectName)
 
-        val packageNotation = state.files.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(objectLocation)
         val objectIndex = packageNotation.indexOf(objectLocation.objectPath)
@@ -170,8 +167,10 @@ class NotationAggregate(
         val removedCurrentName =
                 packageNotation.withoutObject(objectLocation.objectPath)
 
+        val newObjectPath = objectLocation.objectPath.copy(name = newName)
+
         val addedWithNewName = removedCurrentName.withNewObject(
-                PositionedObjectPath(objectLocation.objectPath, objectIndex),
+                PositionedObjectPath(newObjectPath, objectIndex),
                 objectNotation)
 
         val nextState = state.withModifiedPackage(
@@ -184,27 +183,51 @@ class NotationAggregate(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun editParameter(
+    private fun upsertAttribute(
             objectLocation: ObjectLocation,
-            attributeNesting: AttributeNesting,
+            attributeName: AttributeName,
             attributeNotation: AttributeNotation
     ): EventAndNotation {
-//        val projectPath = state.findPackage(objectName)
-        val packageNotation = state.files.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(objectLocation)
 
-        val modifiedObjectNotation =
-                objectNotation.upsertParameter(attributeNesting, attributeNotation)
+        val modifiedObjectNotation = objectNotation.upsertAttribute(
+                AttributeNesting.ofAttribute(attributeName), attributeNotation)
 
-        val modifiedProjectNotation =
-                packageNotation.withModifiedObject(objectLocation.objectPath, modifiedObjectNotation)
+        val modifiedProjectNotation = packageNotation.withModifiedObject(
+                objectLocation.objectPath, modifiedObjectNotation)
 
         val nextState = state.withModifiedPackage(
                 objectLocation.bundlePath, modifiedProjectNotation)
 
         return EventAndNotation(
-                ParameterEditedEvent(objectLocation, attributeNesting, attributeNotation),
+                AttributeUpsertedEvent(objectLocation, attributeName, attributeNotation),
                 nextState)
     }
+
+
+//    private fun upsertAttribute(
+//            objectLocation: ObjectLocation,
+//            attributeNesting: AttributeNesting,
+//            attributeNotation: AttributeNotation
+//    ): EventAndNotation {
+////        val projectPath = state.findPackage(objectName)
+//        val packageNotation = state.files.values[objectLocation.bundlePath]!!
+//
+//        val objectNotation = state.coalesce.get(objectLocation)
+//
+//        val modifiedObjectNotation =
+//                objectNotation.upsertParameter(attributeNesting, attributeNotation)
+//
+//        val modifiedProjectNotation =
+//                packageNotation.withModifiedObject(objectLocation.objectPath, modifiedObjectNotation)
+//
+//        val nextState = state.withModifiedPackage(
+//                objectLocation.bundlePath, modifiedProjectNotation)
+//
+//        return EventAndNotation(
+//                ParameterEditedEvent(objectLocation, attributeNesting, attributeNotation),
+//                nextState)
+//    }
 }

@@ -11,4 +11,9 @@ data class ObjectLocation(
                 objectPath.nesting,
                 bundlePath)
     }
+
+
+    override fun toString(): String {
+        return toReference().asString()
+    }
 }

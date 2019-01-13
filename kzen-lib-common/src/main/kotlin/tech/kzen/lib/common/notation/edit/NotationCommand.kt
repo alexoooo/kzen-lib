@@ -95,7 +95,7 @@ data class InsertListItemInAttributeCommand(
 data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingMap: PositionedAttributeNesting,
-        val key: MapKeyAttributeSegment,
+        val key: AttributeSegment,
         val value: AttributeNotation
 ): NotationCommand()
 

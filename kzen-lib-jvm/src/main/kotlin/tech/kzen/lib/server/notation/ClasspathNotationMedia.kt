@@ -1,9 +1,11 @@
 package tech.kzen.lib.server.notation
 
 import com.google.common.reflect.ClassPath
+import tech.kzen.lib.common.api.model.BundleMap
 import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.util.Digest
 
 
@@ -17,7 +19,7 @@ class ClasspathNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): Map<BundlePath, Digest> {
+    override suspend fun scan(): BundleTree<Digest> {
         if (cache.isEmpty()) {
             val paths = scanPaths()
 
@@ -27,7 +29,7 @@ class ClasspathNotationMedia(
                 cache[path] = digest
             }
         }
-        return cache
+        return BundleTree(cache)
     }
 
 
@@ -40,14 +42,19 @@ class ClasspathNotationMedia(
                             it.resourceName.endsWith(suffix) &&
                             BundlePath.matches(it.resourceName)
                 }
-                .map{ BundlePath.parse(it.resourceName) }
+                .map{
+                    BundlePath.parse(
+                            it.resourceName.substring(prefix.length)
+                    )
+                }
                 .toList()
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun read(location: BundlePath): ByteArray {
-        val bytes = loader.getResource(location.asRelativeFile()).readBytes()
+        val resourcePath = prefix + "/" + location.asRelativeFile()
+        val bytes = loader.getResource(resourcePath).readBytes()
         println("ClasspathNotationMedia - read ${bytes.size}")
         return bytes
     }

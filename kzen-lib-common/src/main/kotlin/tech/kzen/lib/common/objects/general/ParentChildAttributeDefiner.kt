@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.objects.general
 
-import tech.kzen.lib.common.api.ParameterDefiner
+import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ListAttributeDefinition
@@ -16,7 +16,7 @@ import tech.kzen.lib.common.api.model.ObjectReference
 
 
 @Suppress("unused")
-class ParentChildParameterDefiner: ParameterDefiner {
+class ParentChildAttributeDefiner: AttributeDefiner {
     companion object {
         private val parentPath = AttributeNesting.ofAttribute(
                 AttributeName("parent"))

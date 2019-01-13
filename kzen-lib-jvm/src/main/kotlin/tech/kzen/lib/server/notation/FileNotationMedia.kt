@@ -2,6 +2,7 @@ package tech.kzen.lib.server.notation
 
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
 import java.nio.file.FileVisitResult
@@ -32,7 +33,7 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): Map<BundlePath, Digest> {
+    override suspend fun scan(): BundleTree<Digest> {
         val locationTimes = mutableMapOf<BundlePath, Instant>()
 
         val roots = notationLocator.scanRoots()
@@ -60,7 +61,7 @@ class FileNotationMedia(
             }
         }
 
-        return digested
+        return BundleTree(digested)
     }
 
 

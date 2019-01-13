@@ -5,6 +5,7 @@ data class ObjectPath(
         val name: ObjectName,
         val nesting: BundleNesting
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): ObjectPath {
             val nameSuffix = BundleNesting.extractNameSuffix(asString)
@@ -21,5 +22,16 @@ data class ObjectPath(
 
             return ObjectPath(name, nesting)
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun asString(): String {
+        return nesting.asString() + BundleNesting.delimiter + name.value
+    }
+
+
+    override fun toString(): String {
+        return asString()
     }
 }

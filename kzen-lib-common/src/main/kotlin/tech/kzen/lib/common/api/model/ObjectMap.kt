@@ -7,7 +7,9 @@ class ObjectMap<T>(
     //-----------------------------------------------------------------------------------------------------------------
     fun locate(host: ObjectLocation, reference: ObjectReference): ObjectLocation {
         val match = locateOptional(host, reference)
-        check(match != null) { "Missing: $host - $reference" }
+        check(match != null) {
+            "Missing: $host - $reference"
+        }
         return match
     }
 

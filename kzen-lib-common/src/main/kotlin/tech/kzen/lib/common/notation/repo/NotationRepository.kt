@@ -41,7 +41,7 @@ class NotationRepository(
         val packages = mutableMapOf<BundlePath, BundleNotation>()
 
         scanCache.clear()
-        scanCache.putAll(notationMedia.scan())
+        scanCache.putAll(notationMedia.scan().values)
 
         if (scanCache.size * 2 > fileCache.size) {
             fileCache.size = scanCache.size * 2
@@ -85,10 +85,10 @@ class NotationRepository(
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun apply(command: NotationCommand): NotationEvent {
-        val oldPackages = notation().files
+        val oldPackages = notation().bundleNotations
 
         val event = aggregate().apply(command)
-        val newPackages = aggregate().state.files
+        val newPackages = aggregate().state.bundleNotations
 
         var writtenAny = false
         for (updatedPackage in newPackages.values) {

@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.ObjectDefiner
-import tech.kzen.lib.common.api.ParameterDefiner
+import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
@@ -22,10 +22,10 @@ class AttributeObjectDefiner: ObjectDefiner {
 //                NotationParameterDefiner::class.simpleName!!
 
         private val defaultParameterDefiner =
-                NotationParameterDefiner::class.simpleName!!
+                NotationAttributeDefiner::class.simpleName!!
 
         private val defaultParameterCreator =
-                StructuralParameterCreator::class.simpleName!!
+                StructuralAttributeCreator::class.simpleName!!
     }
 
 
@@ -45,7 +45,7 @@ class AttributeObjectDefiner: ObjectDefiner {
         val parameterCreators = mutableSetOf<ObjectReference>()
 
         val argumentNames = Mirror.constructorArgumentNames(className)
-        println("&&& class arguments ($className): $argumentNames")
+//        println("&&& class arguments ($className): $argumentNames")
 
         for (arg in argumentNames) {
             val attributeName = AttributeName(arg)
@@ -58,17 +58,17 @@ class AttributeObjectDefiner: ObjectDefiner {
             parameterCreators.add(ObjectReference.parse(parameterCreatorReference))
 
             val parameterDefinerName = parameterMetadata.definer ?: defaultParameterDefiner
-            val parameterDefinerLocation = objectGraph.objects.locate(
-                    objectLocation, ObjectReference.parse(parameterDefinerName))
+            val parameterDefinerLocation = objectGraph.objects
+                    .locateOptional(objectLocation, ObjectReference.parse(parameterDefinerName))
+                    ?: return ObjectDefinitionAttempt.missingObjectsFailure(setOf()) // TODO: missingReferences?
 
-            val definerInstance = objectGraph
-                    .objects
+            val definerInstance = objectGraph.objects
                     .find(parameterDefinerLocation)
                     ?: return ObjectDefinitionAttempt.missingObjectsFailure(
                             setOf(parameterDefinerLocation))
 
             val parameterDefiner = definerInstance
-                    as? ParameterDefiner
+                    as? AttributeDefiner
                     ?: return ObjectDefinitionAttempt.failure(
                             "Parameter Definer expected: $parameterDefinerName")
 

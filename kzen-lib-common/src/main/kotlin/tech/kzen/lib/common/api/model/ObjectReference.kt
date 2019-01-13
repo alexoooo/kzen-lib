@@ -6,6 +6,7 @@ data class ObjectReference(
         val nesting: BundleNesting?,
         val path: BundlePath?
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         private const val nestingSeparator = "#"
 
@@ -24,8 +25,6 @@ data class ObjectReference(
                 nestingAsString = asString.substring(endOfPath + nestingSeparator.length)
             }
 
-//            val name: ObjectName
-
             val nameSegment: String = BundleNesting.extractNameSuffix(nestingAsString)
 
             val nesting: BundleNesting? = BundleNesting.extractSegments(nestingAsString)
@@ -36,6 +35,7 @@ data class ObjectReference(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun isAbsolute(): Boolean {
         return path != null &&
                 nesting != null
@@ -60,6 +60,12 @@ data class ObjectReference(
                 }
 
         return pathPrefix + nestingInfix + name.value
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun toString(): String {
+        return asString()
     }
 }
 

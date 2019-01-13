@@ -1,8 +1,7 @@
 package tech.kzen.lib.common.notation.model
 
 import tech.kzen.lib.common.api.model.AttributeNesting
-import tech.kzen.lib.common.api.model.ListIndexAttributeSegment
-import tech.kzen.lib.common.api.model.MapKeyAttributeSegment
+import tech.kzen.lib.common.api.model.AttributeSegment
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -24,23 +23,22 @@ sealed class AttributeNotation {
 //---------------------------------------------------------------------------------------------------------------------
 data class ScalarAttributeNotation(
         val value: Any?
-): AttributeNotation()
+): AttributeNotation() {
+    override fun toString(): String {
+        return value.toString()
+    }
+}
 
 
 sealed class StructuredAttributeNotation: AttributeNotation() {
     abstract fun get(key: String): AttributeNotation?
 
 
-    fun get(key: MapKeyAttributeSegment): AttributeNotation? =
-        get(key.key)
-
-    fun get(index: ListIndexAttributeSegment): AttributeNotation? =
-        get(index.index.toString())
+    fun get(key: AttributeSegment): AttributeNotation? =
+        get(key.asKey())
 
 
     fun get(notationPath: AttributeNesting): AttributeNotation? {
-        check(! notationPath.segments.isEmpty())
-
         var cursor = get(notationPath.attribute.value)
 
         var index = 0
@@ -66,14 +64,22 @@ data class ListAttributeNotation(
         val index = key.toInt()
         return values[index]
     }
+
+    override fun toString(): String {
+        return values.toString()
+    }
 }
 
 
 data class MapAttributeNotation(
-        val values: Map<MapKeyAttributeSegment, AttributeNotation>
+        val values: Map<AttributeSegment, AttributeNotation>
 ): StructuredAttributeNotation() {
     override fun get(key: String): AttributeNotation? {
-        return values[MapKeyAttributeSegment(key)]
+        return values[AttributeSegment.ofKey(key)]
+    }
+
+    override fun toString(): String {
+        return values.toString()
     }
 }
 

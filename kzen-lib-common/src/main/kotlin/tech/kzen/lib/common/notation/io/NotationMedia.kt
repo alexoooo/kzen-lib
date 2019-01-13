@@ -1,16 +1,12 @@
 package tech.kzen.lib.common.notation.io
 
 import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.util.Digest
 
 
 interface NotationMedia {
-//    suspend fun digest(location: ProjectPath): Digest {
-//        val bytes = read(location)
-//        return Digest.ofXoShiRo256StarStar(bytes)
-//    }
-
-    suspend fun scan(): Map<BundlePath, Digest>
+    suspend fun scan(): BundleTree<Digest>
 
     /**
      * Must exist

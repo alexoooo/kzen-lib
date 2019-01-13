@@ -1,11 +1,8 @@
 package tech.kzen.lib.common.notation.edit
 
+import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.model.ObjectNotation
 import tech.kzen.lib.common.notation.model.AttributeNotation
-import tech.kzen.lib.common.api.model.AttributeNesting
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectName
 import tech.kzen.lib.common.notation.model.PositionIndex
 
 
@@ -55,8 +52,14 @@ data class ObjectRenamedEvent(
 
 
 //---------------------------------------------------------------------------------------------------------------------
-data class ParameterEditedEvent(
+data class AttributeUpsertedEvent(
         val objectLocation: ObjectLocation,
-        val attributeNesting: AttributeNesting,
+        val attributeName: AttributeName,
         val attributeValue: AttributeNotation
 ): NotationEvent()
+
+//data class ParameterEditedEvent(
+//        val objectLocation: ObjectLocation,
+//        val attributeNesting: AttributeNesting,
+//        val attributeValue: AttributeNotation
+//): NotationEvent()

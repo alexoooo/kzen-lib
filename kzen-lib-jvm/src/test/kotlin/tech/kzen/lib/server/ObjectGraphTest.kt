@@ -78,9 +78,9 @@ class ObjectGraphTest {
 
         val notationParser: NotationParser = YamlNotationParser()
 
-        val notationProject = runBlocking {
+        val notationTree = runBlocking {
             val notationProjectBuilder = mutableMapOf<BundlePath, BundleNotation>()
-            for (notationPath in notationMedia.scan()) {
+            for (notationPath in notationMedia.scan().values) {
                 val notationModule = notationMedia.read(notationPath.key)
                 notationProjectBuilder[notationPath.key] = notationParser.parsePackage(notationModule)
             }
@@ -88,10 +88,10 @@ class ObjectGraphTest {
         }
 
         val notationMetadataReader = NotationMetadataReader()
-        val graphMetadata = notationMetadataReader.read(notationProject)
+        val graphMetadata = notationMetadataReader.read(notationTree)
 
         val graphDefinition = ObjectGraphDefiner.define(
-                notationProject, graphMetadata)
+                notationTree, graphMetadata)
 
         return ObjectGraphCreator
                 .createGraph(graphDefinition, graphMetadata)

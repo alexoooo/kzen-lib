@@ -2,18 +2,19 @@ package tech.kzen.lib.common.notation.io.common
 
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.util.Digest
 
 
 class MultiNotationMedia(
         private val media: List<NotationMedia>
 ) : NotationMedia {
-    override suspend fun scan(): Map<BundlePath, Digest> {
+    override suspend fun scan(): BundleTree<Digest> {
         val all = mutableMapOf<BundlePath, Digest>()
         for (delegate in media) {
-            all.putAll(delegate.scan())
+            all.putAll(delegate.scan().values)
         }
-        return all
+        return BundleTree(all)
     }
 
 

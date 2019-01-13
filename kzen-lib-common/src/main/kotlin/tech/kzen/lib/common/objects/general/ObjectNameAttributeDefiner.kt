@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.objects.general
 
-import tech.kzen.lib.common.api.ParameterDefiner
+import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.AttributeDefinition
@@ -12,7 +12,7 @@ import tech.kzen.lib.common.api.model.ObjectLocation
 
 
 @Suppress("unused")
-class ObjectNameParameterDefiner: ParameterDefiner {
+class ObjectNameAttributeDefiner: AttributeDefiner {
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -22,6 +22,6 @@ class ObjectNameParameterDefiner: ParameterDefiner {
             objectGraph: ObjectGraph
     ): AttributeDefinition {
         return ValueAttributeDefinition(
-                objectLocation.objectPath.name.value)
+                objectLocation.objectPath.name)
     }
 }

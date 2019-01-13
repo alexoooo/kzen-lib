@@ -19,16 +19,16 @@ class YamlParserTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     @Test
-    fun parseBareStringParameter() {
+    fun parseQuotedStringParameter() {
         val notation = yamlParser.parseParameter("\"foo\"")
         assertEquals("foo", (notation as ScalarAttributeNotation).value)
     }
 
 
     @Test
-    fun parseQuotedStringParameter() {
-        val notation = yamlParser.parseParameter("poop")
-        assertEquals("poop", (notation as ScalarAttributeNotation).value)
+    fun parseBareStringParameter() {
+        val notation = yamlParser.parseParameter("bar")
+        assertEquals("bar", (notation as ScalarAttributeNotation).value)
     }
 
 
@@ -129,6 +129,6 @@ Foo:
     }
 
     private fun attribute(attribute: String): AttributeNesting {
-        return AttributeNesting.ofAttribute(AttributeName(attribute))
+        return AttributeNesting.parse(attribute)
     }
 }

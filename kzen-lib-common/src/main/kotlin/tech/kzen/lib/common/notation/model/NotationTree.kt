@@ -7,7 +7,7 @@ import tech.kzen.lib.common.api.model.*
 
 // TODO: factor out Map<BundlePath, T> as BundleTree?
 data class NotationTree(
-        val files: BundleTree<BundleNotation>)
+        val bundleNotations: BundleTree<BundleNotation>)
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -16,13 +16,13 @@ data class NotationTree(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    val objectPaths: Set<ObjectLocation> by lazy {
+    val objectLocations: Set<ObjectLocation> by lazy {
         coalesce.values.keys
     }
 
     val coalesce: ObjectMap<ObjectNotation> by lazy {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
-        files.values.entries
+        bundleNotations.values.entries
                 .flatMap { it.value.expand(it.key).values.entries }
                 .forEach { buffer[it.key] = it.value }
         ObjectMap(buffer)
@@ -64,7 +64,8 @@ data class NotationTree(
             objectLocation: ObjectLocation,
             notationPath: AttributeNesting
     ): AttributeNotation? {
-        val notation = coalesce.values[objectLocation] ?: return null
+        val notation = coalesce.values[objectLocation]
+                ?: return null
 
         val parameter = notation.get(notationPath)
         if (parameter != null) {
@@ -76,8 +77,12 @@ data class NotationTree(
 
         val superReference =
                 when (isParameter) {
-                    null -> ObjectReference(ObjectName("Object"), null, null)
-                    !is ScalarAttributeNotation -> TODO()
+                    null ->
+                        BootstrapConventions.rootObjectReference
+
+                    !is ScalarAttributeNotation ->
+                        TODO()
+
                     else -> {
                         val isValue = isParameter.value
 
@@ -90,10 +95,11 @@ data class NotationTree(
                     }
                 }
 
+        println("coalesce keys ($objectLocation - $notationPath - $superReference): " + coalesce.values.keys)
         val superLocation = coalesce.locate(objectLocation, superReference)
 
-        if (superLocation == BootstrapConventions.rootObjectLocation ||
-                superLocation == BootstrapConventions.bootstrapLocation) {
+        if (objectLocation == BootstrapConventions.rootObjectLocation ||
+                objectLocation == BootstrapConventions.bootstrapLocation) {
             return null
         }
 
@@ -130,11 +136,11 @@ data class NotationTree(
             projectPath: BundlePath,
             packageNotation: BundleNotation
     ): NotationTree {
-        check(! files.values.containsKey(projectPath)) {"Already exists: $projectPath"}
+        check(! bundleNotations.values.containsKey(projectPath)) {"Already exists: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
-        buffer.putAll(files.values)
+        buffer.putAll(bundleNotations.values)
 
         buffer[projectPath] = packageNotation
 
@@ -146,11 +152,11 @@ data class NotationTree(
             projectPath: BundlePath,
             packageNotation: BundleNotation
     ): NotationTree {
-        check(files.values.containsKey(projectPath)) {"Not found: $projectPath"}
+        check(bundleNotations.values.containsKey(projectPath)) {"Not found: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
-        for (e in files.values) {
+        for (e in bundleNotations.values) {
             buffer[e.key] =
                     if (e.key == projectPath) {
                         packageNotation
@@ -167,11 +173,11 @@ data class NotationTree(
     fun withoutPackage(
             projectPath: BundlePath
     ): NotationTree {
-        check(files.values.containsKey(projectPath)) {"Already absent: $projectPath"}
+        check(bundleNotations.values.containsKey(projectPath)) {"Already absent: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
-        for (e in files.values) {
+        for (e in bundleNotations.values) {
             if (e.key == projectPath) {
                 continue
             }
@@ -187,7 +193,7 @@ data class NotationTree(
     fun filterPaths(predicate: (BundlePath) -> Boolean): NotationTree {
         val filteredPackages = mutableMapOf<BundlePath, BundleNotation>()
 
-        for (e in files.values) {
+        for (e in bundleNotations.values) {
             if (! predicate.invoke(e.key)) {
                 continue
             }

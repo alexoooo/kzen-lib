@@ -90,7 +90,7 @@ class YamlNotationParser: NotationParser {
             is YamlMap ->
                 MapAttributeNotation(
                         node.values.map { e ->
-                            MapKeyAttributeSegment(e.key) to yamlToParameter(e.value)
+                            AttributeSegment.ofKey(e.key) to yamlToParameter(e.value)
                         }.toMap())
         }
     }
@@ -143,7 +143,7 @@ class YamlNotationParser: NotationParser {
 
             is MapAttributeNotation ->
                 YamlMap(parameterNotation.values.map { e ->
-                    e.key.key to parameterToYaml(e.value)
+                    e.key.asKey() to parameterToYaml(e.value)
                 }.toMap())
 
 //            else ->

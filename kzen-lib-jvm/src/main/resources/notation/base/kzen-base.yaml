@@ -28,24 +28,24 @@ DefaultConstructorObject:
 
 ###########################################################
 
-NotationParameterDefiner:
+NotationAttributeDefiner:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.base.NotationParameterDefiner
+  class: tech.kzen.lib.common.objects.base.NotationAttributeDefiner
 
 
-StructuralParameterCreator:
+StructuralAttributeCreator:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.base.StructuralParameterCreator
+  class: tech.kzen.lib.common.objects.base.StructuralAttributeCreator
 
 
-ParameterObjectDefiner:
+AttributeObjectDefiner:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.base.ParameterObjectDefiner
+  class: tech.kzen.lib.common.objects.base.AttributeObjectDefiner
 
 
-ParameterObjectCreator:
+AttributeObjectCreator:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.base.ParameterObjectCreator
+  class: tech.kzen.lib.common.objects.base.AttributeObjectCreator
 
 
 ###########################################################
@@ -55,8 +55,8 @@ Object:
   abstract: true
   is: Object
   class: kotlin.Any
-  definer: ParameterObjectDefiner
-  creator: ParameterObjectCreator
+  definer: AttributeObjectDefiner
+  creator: AttributeObjectCreator
 
 
 ###########################################################
@@ -86,15 +86,14 @@ List:
 
 
 ParentChildParameterDefiner:
-  class: tech.kzen.lib.common.objects.general.ParentChildParameterDefiner
+  class: tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner
 
 
 ParentPointer:
   abstract: true
   meta:
     parent: ChildContainer
-    order:
-      is: Int
+    order: Int
 
 
 ChildContainer:
@@ -103,8 +102,16 @@ ChildContainer:
     children:
       is: List
       of: ParentPointer
-      by: ParentChildParameterDefiner
+      by: ParentChildAttributeDefiner
 
 
 ObjectNameParameterDefiner:
-  class: tech.kzen.lib.common.objects.general.ObjectNameParameterDefiner
+  class: tech.kzen.lib.common.objects.general.ObjectNameAttributeDefiner
+
+
+###########################################################
+
+
+ObjectName:
+  abstract: true
+  class: tech.kzen.lib.common.api.model.ObjectName

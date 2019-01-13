@@ -23,8 +23,8 @@ NameAware:
   foo: ''
   meta:
     name:
-      is: String
-      by: ObjectNameParameterDefiner
+      is: ObjectName
+      by: ObjectNameAttributeDefiner
     foo:
       is: String
 

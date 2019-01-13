@@ -3,6 +3,9 @@ package tech.kzen.lib.common.notation.format
 import tech.kzen.lib.platform.IoUtils
 
 
+/**
+ * Similar to: https://github.com/crdoconnor/strictyaml/
+ */
 object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
     private object Patterns {
@@ -30,7 +33,6 @@ object YamlNodeParser {
 
         val item = Regex(
                 "- .*")
-
     }
 
 
@@ -169,7 +171,9 @@ object YamlNodeParser {
                 prefixLength = prefixLength(block[i])
             }
             else {
-                check(prefixLength(block[i]) == prefixLength)
+                check(prefixLength(block[i]) == prefixLength) {
+                    "Prefix mis-match ($prefixLength): ${block[i]}"
+                }
             }
 
             valueBuffer.add(block[i].substring(prefixLength))

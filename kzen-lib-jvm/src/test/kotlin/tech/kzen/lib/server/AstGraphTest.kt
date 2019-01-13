@@ -47,7 +47,7 @@ class AstGraphTest {
 
         val notationProject = runBlocking {
             val notationProjectBuilder = mutableMapOf<BundlePath, BundleNotation>()
-            for (notationPath in notationMedia.scan()) {
+            for (notationPath in notationMedia.scan().values) {
                 val notationModule = notationMedia.read(notationPath.key)
                 notationProjectBuilder[notationPath.key] = notationParser.parsePackage(notationModule)
             }

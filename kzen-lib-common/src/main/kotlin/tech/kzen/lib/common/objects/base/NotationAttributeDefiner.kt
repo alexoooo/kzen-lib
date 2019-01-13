@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.objects.base
 
-import tech.kzen.lib.common.api.ParameterDefiner
+import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.*
 import tech.kzen.lib.common.metadata.model.GraphMetadata
@@ -15,7 +15,7 @@ import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.platform.ClassNames
 
 
-class NotationParameterDefiner: ParameterDefiner {
+class NotationAttributeDefiner: AttributeDefiner {
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,

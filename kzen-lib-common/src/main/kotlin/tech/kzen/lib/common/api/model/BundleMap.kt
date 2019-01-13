@@ -100,4 +100,9 @@ data class BundleMap<T>(
 
         return BundleMap(buffer)
     }
+
+
+    override fun toString(): String {
+        return values.toString()
+    }
 }

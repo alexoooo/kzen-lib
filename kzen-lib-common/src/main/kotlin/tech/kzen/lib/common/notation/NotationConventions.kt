@@ -1,15 +1,12 @@
 package tech.kzen.lib.common.notation
 
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributeNesting
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.MapKeyAttributeSegment
+import tech.kzen.lib.common.api.model.*
 
 
 object NotationConventions {
     const val isAttribute = "is"
 
-    val isSegment = MapKeyAttributeSegment(isAttribute)
+    val isSegment = AttributeSegment.ofKey(isAttribute)
 
     val isPath       = AttributeNesting.ofAttribute(AttributeName(isAttribute))
     val classPath    = AttributeNesting.ofAttribute(AttributeName("class"))
@@ -21,9 +18,9 @@ object NotationConventions {
     val abstractPath  = AttributeNesting.ofAttribute(AttributeName("abstract"))
 
 
-    const val prefix: String = "attributeNotation/"
+    const val prefix: String = "notation/"
     const val suffix: String = ".yaml"
 
-    val kzenBasePath = BundlePath.parse("attributeNotation/base/kzen-base.yaml")
-    val mainPath = BundlePath.parse("attributeNotation/main/main.yaml")
+    val kzenBasePath = BundlePath.parse("base/kzen-base.yaml")
+    val mainPath = BundlePath.parse("main/main.yaml")
 }

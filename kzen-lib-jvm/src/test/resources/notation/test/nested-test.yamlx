@@ -62,19 +62,19 @@ TwoPlusTwo:
   - Two
 
 
-TwoPlusTwoInlineMap:
-  is: PlusOperation
-  addends:
-  - TwoPlusTwoInlineMap/addends/Arg1
-  - TwoPlusTwoInlineMap/addends/Arg2
-
-TwoPlusTwoInlineMap/addends/Arg1:
-  is: DoubleValue
-  value: 2
-
-TwoPlusTwoInlineMap/addends/Arg2:
-  is: DoubleValue
-  value: 2
+#TwoPlusTwoInlineMap:
+#  is: PlusOperation
+#  addends:
+#  - TwoPlusTwoInlineMap/addends/Arg1
+#  - TwoPlusTwoInlineMap/addends/Arg2
+#
+#TwoPlusTwoInlineMap/addends/Arg1:
+#  is: DoubleValue
+#  value: 2
+#
+#TwoPlusTwoInlineMap/addends/Arg2:
+#  is: DoubleValue
+#  value: 2
 
 
 #TwoPlusTwoInlineMap:
@@ -88,29 +88,29 @@ TwoPlusTwoInlineMap/addends/Arg2:
 #      value: 2
 
 
-TwoPlusTwoPlusTwoInlineMap:
-  is: PlusOperation
-  addends:
-  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1
-  - TwoPlusTwoPlusTwoInlineMap/addends/Arg2
-
-TwoPlusTwoPlusTwoInlineMap/addends/Arg1:
-  is: PlusOperation
-  addends:
-  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg1
-  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg2
-
-TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg1:
-  is: DoubleValue
-  value: 2
-
-TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg2:
-  is: DoubleValue
-  value: 2
-
-TwoPlusTwoPlusTwoInlineMap/addends/Arg2:
-  is: DoubleValue
-  value: 2
+#TwoPlusTwoPlusTwoInlineMap:
+#  is: PlusOperation
+#  addends:
+#  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1
+#  - TwoPlusTwoPlusTwoInlineMap/addends/Arg2
+#
+#TwoPlusTwoPlusTwoInlineMap/addends/Arg1:
+#  is: PlusOperation
+#  addends:
+#  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg1
+#  - TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg2
+#
+#TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg1:
+#  is: DoubleValue
+#  value: 2
+#
+#TwoPlusTwoPlusTwoInlineMap/addends/Arg1/addends/Arg2:
+#  is: DoubleValue
+#  value: 2
+#
+#TwoPlusTwoPlusTwoInlineMap/addends/Arg2:
+#  is: DoubleValue
+#  value: 2
 
 
 #TwoPlusTwoPlusTwoInlineMap:

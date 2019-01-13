@@ -74,9 +74,9 @@ B:
         project.apply(ShiftObjectCommand(
                 location("B"), PositionIndex(0)))
 
-        val packageNotation = project.state.files.values[testPath]!!
+        val packageNotation = project.state.bundleNotations.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
-        assertFalse(notation.files.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertFalse(notation.bundleNotations.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -94,9 +94,9 @@ B:
         project.apply(ShiftObjectCommand(
                 location("A"), PositionIndex(1)))
 
-        val packageNotation = project.state.files.values[testPath]!!
+        val packageNotation = project.state.bundleNotations.values[testPath]!!
         assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertFalse(notation.files.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertFalse(notation.bundleNotations.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -114,9 +114,9 @@ B:
         project.apply(ShiftObjectCommand(
                 location("A"), PositionIndex(0)))
 
-        val packageNotation = project.state.files.values[testPath]!!
+        val packageNotation = project.state.bundleNotations.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertTrue(notation.files.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertTrue(notation.bundleNotations.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -137,10 +137,11 @@ C:
         project.apply(RenameObjectCommand(
                 location("B"), ObjectName("Foo")))
 
-        val packageNotation = project.state.files.values[testPath]!!
-        assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertEquals(1, packageNotation.indexOf(ObjectPath.parse("Foo")).value)
-        assertEquals(2, packageNotation.indexOf(ObjectPath.parse("C")).value)
+        val bundleNotation = project.state.bundleNotations.values[testPath]!!
+
+        assertEquals(0, bundleNotation.indexOf(ObjectPath.parse("A")).value)
+        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("Foo")).value)
+        assertEquals(2, bundleNotation.indexOf(ObjectPath.parse("C")).value)
         assertEquals("b", project.state.getString(location("Foo"), attribute("hello")))
     }
 
@@ -158,7 +159,7 @@ A:
         project.apply(RemoveObjectCommand(
                 location("A")))
 
-        val packageNotation = project.state.files.values[testPath]!!
+        val packageNotation = project.state.bundleNotations.values[testPath]!!
         assertEquals(0, packageNotation.objects.values.size)
     }
 
@@ -170,7 +171,7 @@ A:
 
         project.apply(CreateBundleCommand(testPath))
 
-        val packageNotation = project.state.files.values[testPath]!!
+        val packageNotation = project.state.bundleNotations.values[testPath]!!
         assertEquals(0, packageNotation.objects.values.size)
     }
 
@@ -183,7 +184,7 @@ A:
 
         project.apply(DeletePackageCommand(testPath))
 
-        assertTrue(project.state.files.values.isEmpty())
+        assertTrue(project.state.bundleNotations.values.isEmpty())
     }
 
 

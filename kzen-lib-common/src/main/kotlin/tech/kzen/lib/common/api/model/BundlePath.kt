@@ -5,6 +5,7 @@ data class BundlePath(
 //        val relativeLocation: String
         val segments: List<String>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         private val delimiter = "/"
 
@@ -27,6 +28,7 @@ data class BundlePath(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun asString(): String {
         return asRelativeFile()
     }
@@ -36,15 +38,8 @@ data class BundlePath(
     }
 
 
-//    init {
-//        if (!matches(relativeLocation)) {
-//            throw IllegalArgumentException(
-//                    "Not a valid project path: $relativeLocation")
-//        }
-//    }
-
-
-//    fun segments(): List<String> {
-//        return relativeLocation.split("/")
-//    }
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun toString(): String {
+        return asString()
+    }
 }

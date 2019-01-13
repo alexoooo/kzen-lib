@@ -7,4 +7,9 @@ data class AttributeName(
     fun asAttributeNesting(): AttributeNesting {
         return AttributeNesting.ofAttribute(this)
     }
+
+
+    override fun toString(): String {
+        return value
+    }
 }

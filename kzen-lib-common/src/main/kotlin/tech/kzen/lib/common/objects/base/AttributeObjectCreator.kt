@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.api.ParameterCreator
+import tech.kzen.lib.common.api.AttributeCreator
 import tech.kzen.lib.common.context.ObjectGraph
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.metadata.model.ObjectMetadata
@@ -10,10 +10,10 @@ import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.platform.Mirror
 
 
-class ParameterObjectCreator: ObjectCreator {
+class AttributeObjectCreator: ObjectCreator {
     companion object {
         private val defaultParameterCreator =
-                StructuralParameterCreator::class.simpleName!!
+                StructuralAttributeCreator::class.simpleName!!
     }
 
     override fun create(
@@ -29,7 +29,7 @@ class ParameterObjectCreator: ObjectCreator {
             val parameterCreatorLocation = objectGraph.objects.locate(
                     objectLocation, ObjectReference.parse(parameterCreatorReference))
 
-            val parameterCreator = objectGraph.objects.get(parameterCreatorLocation) as ParameterCreator
+            val parameterCreator = objectGraph.objects.get(parameterCreatorLocation) as AttributeCreator
 
             val parameterInstance = parameterCreator.create(
                     objectLocation, constructorArg.value, parameterMetadata, objectGraph)

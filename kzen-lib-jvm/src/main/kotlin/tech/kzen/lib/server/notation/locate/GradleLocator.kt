@@ -1,6 +1,7 @@
 package tech.kzen.lib.server.notation.locate
 
 import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.notation.NotationConventions
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
@@ -12,8 +13,8 @@ class GradleLocator(
 ): FileNotationLocator {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        private const val mainResources = "/src/main/resources/"
-        private const val testResources = "/src/test/resources/"
+        private const val mainResources = "/src/main/resources/" + NotationConventions.prefix
+        private const val testResources = "/src/test/resources/" + NotationConventions.prefix
     }
 
 

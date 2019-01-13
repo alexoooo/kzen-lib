@@ -9,7 +9,7 @@ import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.ObjectLocation
 
 
-interface ParameterDefiner {
+interface AttributeDefiner {
     fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,

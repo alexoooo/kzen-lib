@@ -6,7 +6,7 @@ import tech.kzen.lib.common.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.api.model.ObjectLocation
 
 
-interface ParameterCreator {
+interface AttributeCreator {
     fun create(
             objectLocation: ObjectLocation,
             attributeDefinition: AttributeDefinition,
