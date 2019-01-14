@@ -105,7 +105,7 @@ ChildContainer:
       by: ParentChildAttributeDefiner
 
 
-ObjectNameParameterDefiner:
+ObjectNameAttributeDefiner:
   class: tech.kzen.lib.common.objects.general.ObjectNameAttributeDefiner
 
 

@@ -26,7 +26,7 @@ object ObjectGraphCreator {
             val objectDefinition = graphDefinition.objectDefinitions.get(objectLocation)
             val objectMetadata = graphMetadata.get(objectLocation)
 
-            val creatorPath = tryResolve(graphDefinition.objectDefinitions.values.keys, objectDefinition.creator)
+            val creatorPath = tryLocate(graphMetadata.objectMetadata.values.keys, objectDefinition.creator)
                     ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
 
             val creator = objectInstances[creatorPath] as? ObjectCreator
@@ -78,7 +78,7 @@ object ObjectGraphCreator {
 
             val satisfied = definition
                     .references()
-                    .map { tryResolve(closed, it) }
+                    .map { tryLocate(closed, it) }
                     .all { it != null && closed.contains(it) }
 
             if (! satisfied) {
@@ -93,7 +93,7 @@ object ObjectGraphCreator {
     }
 
 
-    fun tryResolve(
+    private fun tryLocate(
             closed: Set<ObjectLocation>,
             reference: ObjectReference
     ): ObjectLocation? {

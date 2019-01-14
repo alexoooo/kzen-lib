@@ -56,6 +56,7 @@ object ObjectGraphDefiner {
                 }.toMutableSet()
 
         val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
+
         val missingInstances = mutableSetOf<ObjectLocation>()
 
         val levelClosed = mutableSetOf<ObjectLocation>()
@@ -150,7 +151,9 @@ object ObjectGraphDefiner {
             missingInstances.addAll(missingCreatorInstances)
             missingInstances.removeAll(levelCreated)
 
-            check(levelClosed.isNotEmpty() || levelCreated.isNotEmpty()) { "Graph cycle?" }
+            check(levelClosed.isNotEmpty() || levelCreated.isNotEmpty()) {
+                "Graph cycle?"
+            }
 
             openDefinitions.removeAll(levelClosed)
 

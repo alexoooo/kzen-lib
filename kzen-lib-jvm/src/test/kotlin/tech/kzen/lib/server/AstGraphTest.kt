@@ -25,16 +25,29 @@ import tech.kzen.lib.server.objects.ast.DoubleExpression
 
 class AstGraphTest {
     @Test
-    fun `2 + 2 = 4`() {
+    fun `literal 2 + 2 = 4`() {
         val objectGraph = astObjectGraph()
 
         val twoPlusTwoLocation = ObjectLocation(
-                BundlePath.parse("nested-test.yaml"),
+                BundlePath.parse("test/nested-test.yaml"),
                 ObjectPath.parse("TwoPlusTwo"))
 
         val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
         assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
     }
+
+
+//    @Test
+//    fun `inline 2 + 2 = 4`() {
+//        val objectGraph = astObjectGraph()
+//
+//        val twoPlusTwoLocation = ObjectLocation(
+//                BundlePath.parse("test/nested-test.yaml"),
+//                ObjectPath.parse("TwoPlusTwoInlineMap"))
+//
+//        val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
+//        assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
+//    }
 
 
     private fun astObjectGraph(): ObjectGraph {

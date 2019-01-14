@@ -44,7 +44,7 @@ class ObjectGraphTest {
         val objectGraph = testObjectGraph()
 
         val fooNamedInstance = objectGraph.objects.get(location("FooNamed")) as NameAware
-        assertEquals("FooNamed", fooNamedInstance.name)
+        assertEquals(ObjectName("FooNamed"), fooNamedInstance.name)
     }
 
 
@@ -54,9 +54,6 @@ class ObjectGraphTest {
 
         val helloWorldInstance = objectGraph.objects.get(location("HelloWorldHolder")) as StringHolder
         assertEquals("Hello, world!", helloWorldInstance.value)
-
-        val fooNamedInstance = objectGraph.objects.get(location("FooNamed")) as NameAware
-        assertEquals("FooNamed", fooNamedInstance.name)
     }
 
 
@@ -100,7 +97,7 @@ class ObjectGraphTest {
 
     private fun location(name: String): ObjectLocation {
         return ObjectLocation(
-                BundlePath.parse("kzen-test.yaml"),
+                BundlePath.parse("test/kzen-test.yaml"),
                 ObjectPath.parse(name))
     }
 }

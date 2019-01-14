@@ -21,10 +21,10 @@ class AttributeObjectDefiner: ObjectDefiner {
 //        private val defaultParameterDefiner =
 //                NotationParameterDefiner::class.simpleName!!
 
-        private val defaultParameterDefiner =
+        private val defaultAttributeDefiner =
                 NotationAttributeDefiner::class.simpleName!!
 
-        private val defaultParameterCreator =
+        private val defaultAttributeCreator =
                 StructuralAttributeCreator::class.simpleName!!
     }
 
@@ -54,13 +54,13 @@ class AttributeObjectDefiner: ObjectDefiner {
                     ?: throw IllegalArgumentException(
                             "Argument not found in metadata ($attributeName): $objectMetadata")
 
-            val parameterCreatorReference = parameterMetadata.creator ?: defaultParameterCreator
+            val parameterCreatorReference = parameterMetadata.creator ?: defaultAttributeCreator
             parameterCreators.add(ObjectReference.parse(parameterCreatorReference))
 
-            val parameterDefinerName = parameterMetadata.definer ?: defaultParameterDefiner
-            val parameterDefinerLocation = objectGraph.objects
-                    .locateOptional(objectLocation, ObjectReference.parse(parameterDefinerName))
-                    ?: return ObjectDefinitionAttempt.missingObjectsFailure(setOf()) // TODO: missingReferences?
+            val parameterDefinerRef = parameterMetadata.definer ?: defaultAttributeDefiner
+            val parameterDefinerLocation = notationTree.coalesce
+                    .locateOptional(objectLocation, ObjectReference.parse(parameterDefinerRef))
+                    ?: return ObjectDefinitionAttempt.failure("Unknown parameter definer: $parameterDefinerRef")
 
             val definerInstance = objectGraph.objects
                     .find(parameterDefinerLocation)
@@ -70,7 +70,7 @@ class AttributeObjectDefiner: ObjectDefiner {
             val parameterDefiner = definerInstance
                     as? AttributeDefiner
                     ?: return ObjectDefinitionAttempt.failure(
-                            "Parameter Definer expected: $parameterDefinerName")
+                            "Parameter Definer expected: $parameterDefinerRef")
 
             val parameterDefinition = parameterDefiner.define(
                     objectLocation,
