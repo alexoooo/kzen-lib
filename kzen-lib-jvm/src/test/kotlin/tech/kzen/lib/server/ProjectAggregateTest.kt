@@ -190,7 +190,7 @@ A:
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parsePackage(doc: String): BundleNotation {
-        return yamlParser.parsePackage(IoUtils.stringToUtf8(doc))
+        return yamlParser.parseBundle(IoUtils.stringToUtf8(doc))
     }
 
 

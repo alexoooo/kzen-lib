@@ -57,7 +57,7 @@ class NotationRepository(
 
             packageBytes[projectPath] = body
 
-            val packageNotation = notationParser.parsePackage(body)
+            val packageNotation = notationParser.parseBundle(body)
             packages[projectPath] = packageNotation
         }
 

@@ -12,14 +12,11 @@ object YamlNodeParser {
         val lineBreak = Regex(
                 "\r\n|\n")
 
-//        val entryName = Regex(
-//                "(\\w+):\\s*")
-
         val decorator = Regex(
                 "$|#(.*)")
 
         // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
-        private const val bareString = "([0-9a-zA-Z_-]+)"
+        private const val bareString = "([0-9a-zA-Z_\\-/]+)"
         private const val doubleQuotedString =
                 "\"((?:[^\\\"]|\\(?:[\"\\/bfnrt]|u[0-9a-fA-F]{4})*)\""
 

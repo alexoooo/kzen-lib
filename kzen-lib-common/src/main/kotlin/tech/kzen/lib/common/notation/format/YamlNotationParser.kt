@@ -10,7 +10,7 @@ import tech.kzen.lib.platform.IoUtils
 
 class YamlNotationParser: NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
-    override fun parsePackage(body: ByteArray): BundleNotation {
+    override fun parseBundle(body: ByteArray): BundleNotation {
         val node = YamlNodeParser.parse(body)
 //        println("#!@#!@#!@#!@#!@ node = $node")
 

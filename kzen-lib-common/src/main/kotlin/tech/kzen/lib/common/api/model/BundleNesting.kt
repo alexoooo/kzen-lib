@@ -38,20 +38,16 @@ data class BundleNesting(
                 return root
             }
 
-            throw UnsupportedOperationException("Not implemented (yet)")
+            val parts = asString.split(delimiter)
+            check(parts.size % 2 == 0) { "Name/nesting segment mis-match: $asString" }
 
-//            val parts = asString.split(delimiter)
-//
-//            val segments: List<BundleNestingSegment> =
-//                    if (parts.isEmpty()) {
-//                        listOf()
-//                    }
-//                    else {
-////                        parts.subList(0, parts.size).map { BundleNestingSegment(it) }
-//                        throw UnsupportedOperationException("Not implemented (yet)")
-//                    }
-//
-//            return BundleNesting(segments)
+            val builder = mutableListOf<BundleNestingSegment>()
+            for (i in 0 until parts.size step 2) {
+                builder.add(BundleNestingSegment(
+                        ObjectName(parts[i]),
+                        AttributeNesting.parse(parts[i + 1])))
+            }
+            return BundleNesting(builder)
         }
     }
 

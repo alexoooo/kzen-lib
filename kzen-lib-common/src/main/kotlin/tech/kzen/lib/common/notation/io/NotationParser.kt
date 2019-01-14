@@ -6,7 +6,7 @@ import tech.kzen.lib.common.notation.model.AttributeNotation
 
 
 interface NotationParser {
-    fun parsePackage(body: ByteArray): BundleNotation
+    fun parseBundle(body: ByteArray): BundleNotation
 
     fun parseObject(value: String): ObjectNotation
 

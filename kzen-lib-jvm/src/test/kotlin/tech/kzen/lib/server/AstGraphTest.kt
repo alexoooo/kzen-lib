@@ -37,17 +37,17 @@ class AstGraphTest {
     }
 
 
-//    @Test
-//    fun `inline 2 + 2 = 4`() {
-//        val objectGraph = astObjectGraph()
-//
-//        val twoPlusTwoLocation = ObjectLocation(
-//                BundlePath.parse("test/nested-test.yaml"),
-//                ObjectPath.parse("TwoPlusTwoInlineMap"))
-//
-//        val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
-//        assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
-//    }
+    @Test
+    fun `inline 2 + 2 = 4`() {
+        val objectGraph = astObjectGraph()
+
+        val twoPlusTwoLocation = ObjectLocation(
+                BundlePath.parse("test/nested-test.yaml"),
+                ObjectPath.parse("TwoPlusTwoInlineMap"))
+
+        val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
+        assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
+    }
 
 
     private fun astObjectGraph(): ObjectGraph {
@@ -62,7 +62,7 @@ class AstGraphTest {
             val notationProjectBuilder = mutableMapOf<BundlePath, BundleNotation>()
             for (notationPath in notationMedia.scan().values) {
                 val notationModule = notationMedia.read(notationPath.key)
-                notationProjectBuilder[notationPath.key] = notationParser.parsePackage(notationModule)
+                notationProjectBuilder[notationPath.key] = notationParser.parseBundle(notationModule)
             }
             NotationTree(BundleTree(notationProjectBuilder))
         }
