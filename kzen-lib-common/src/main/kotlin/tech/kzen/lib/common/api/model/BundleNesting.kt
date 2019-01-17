@@ -52,10 +52,15 @@ data class BundleNesting(
     }
 
 
+    fun append(segment: BundleNestingSegment): BundleNesting {
+        return BundleNesting(segments.plus(segment))
+    }
+
+
     fun asString(): String {
         if (segments.isEmpty()) {
             return ""
         }
-        return segments.map { it.asString() }.joinToString { delimiter }
+        return segments.joinToString(delimiter) { it.asString() }
     }
 }

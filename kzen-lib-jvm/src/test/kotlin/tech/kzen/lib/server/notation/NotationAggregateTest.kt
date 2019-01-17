@@ -30,7 +30,7 @@ abstract class NotationAggregateTest {
         return ObjectLocation(testPath, ObjectPath.parse(name))
     }
 
-    fun attribute(attribute: String): AttributePath {
-        return AttributePath.parse(attribute)
+    fun attribute(attributePath: String): AttributePath {
+        return AttributePath.parse(attributePath)
     }
 }

@@ -24,6 +24,20 @@ sealed class AttributeNotation {
 data class ScalarAttributeNotation(
         val value: Any?
 ): AttributeNotation() {
+    init {
+        // TODO: rename to OpaqueAttributeNotation and allow any type?
+        when (value) {
+            null,
+            is String,
+            is Boolean,
+            is Number
+            -> Unit
+
+            else ->
+                throw IllegalArgumentException("Scalar value expected: $value")
+        }
+    }
+
     override fun toString(): String {
         return value.toString()
     }
@@ -64,6 +78,17 @@ data class ListAttributeNotation(
         val index = key.toInt()
         return values[index]
     }
+
+
+    fun insert(
+            attributeNotation: AttributeNotation,
+            positionIndex: PositionIndex
+    ): ListAttributeNotation {
+        val builder = values.toMutableList()
+        builder.add(positionIndex.value, attributeNotation)
+        return ListAttributeNotation(builder)
+    }
+
 
     override fun toString(): String {
         return values.toString()

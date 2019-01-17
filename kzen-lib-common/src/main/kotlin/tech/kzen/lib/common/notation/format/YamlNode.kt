@@ -111,7 +111,7 @@ object YamlFalse: YamlBoolean(false)
 
 
 
-object YamlNull : YamlScalar() {
+object YamlNull: YamlScalar() {
     override val value: Any? = null
 }
 

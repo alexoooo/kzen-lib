@@ -1,7 +1,6 @@
 package tech.kzen.lib.common.notation.edit
 
 import tech.kzen.lib.common.api.model.*
-import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.model.*
 
 
@@ -35,9 +34,14 @@ data class AddObjectCommand(
                 location: PositionedObjectLocation,
                 parentName: ObjectName
         ): AddObjectCommand {
-            val parentBody = ObjectNotation(mapOf(
-                    AttributeName(NotationConventions.isKey)
-                            to ScalarAttributeNotation(parentName)))
+            return ofParent(location, ObjectReference(parentName, null, null))
+        }
+
+        fun ofParent(
+                location: PositionedObjectLocation,
+                parentReference: ObjectReference
+        ): AddObjectCommand {
+            val parentBody = ObjectNotation.ofParent(parentReference.asString())
             return AddObjectCommand(location, parentBody)
         }
     }
@@ -114,7 +118,9 @@ data class ShiftInAttributeCommand(
 data class InsertObjectInListAttributeCommand(
         val containingObjectLocation: ObjectLocation,
         val containingListPosition: PositionedAttributeNesting,
-        val objectLocation: PositionedObjectLocation,
+//        val objectLocation: PositionedObjectLocation,
+        val objectName: ObjectName,
+        val positionInBundle: PositionIndex,
         val body: ObjectNotation
 ): StructuralNotationCommand()
 

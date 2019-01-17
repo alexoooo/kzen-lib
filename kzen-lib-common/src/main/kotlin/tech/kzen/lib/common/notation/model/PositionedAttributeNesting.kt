@@ -4,6 +4,6 @@ import tech.kzen.lib.common.api.model.AttributePath
 
 
 data class PositionedAttributeNesting(
-        val attributeNesting: AttributePath,
+        val attributePath: AttributePath,
         val positionIndex: PositionIndex
 )

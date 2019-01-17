@@ -27,10 +27,21 @@ data class ObjectPath(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun asString(): String {
+        if (nesting.segments.isEmpty()) {
+            return name.value
+        }
         return nesting.asString() + BundleNesting.delimiter + name.value
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
+    fun nest(attributePath: AttributePath, nestedName: ObjectName): ObjectPath {
+        val nestSegment = nesting.append(BundleNestingSegment(name, attributePath))
+        return ObjectPath(nestedName, nestSegment)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
         return asString()
     }

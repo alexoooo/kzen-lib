@@ -8,6 +8,7 @@ import tech.kzen.lib.common.notation.model.NotationTree
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+
 class EditBundleTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test

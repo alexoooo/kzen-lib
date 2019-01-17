@@ -1,14 +1,24 @@
 package tech.kzen.lib.common.notation.model
 
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributeNesting
-import tech.kzen.lib.common.api.model.AttributePath
-import tech.kzen.lib.common.api.model.AttributeSegment
+import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.notation.NotationConventions
 
 
 data class ObjectNotation(
         val attributes: Map<AttributeName, AttributeNotation>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        fun ofParent(parentRef: String): ObjectNotation {
+            val reference = ObjectReference.parse(parentRef)
+            val attributeNotation = ScalarAttributeNotation(reference.asString())
+
+            return ObjectNotation(mapOf(
+                    NotationConventions.isAttribute.attribute to attributeNotation))
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     fun get(notationPath: AttributePath): AttributeNotation? {
 //        if (parameters.containsKey(notationPath)) {
@@ -53,13 +63,13 @@ data class ObjectNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun upsertAttribute(
-            notationPath: AttributePath,
-            parameterNotation: AttributeNotation
+            attributePath: AttributePath,
+            attributeNotation: AttributeNotation
     ): ObjectNotation {
-        val rootParameterName = notationPath.attribute
+        val rootParameterName = attributePath.attribute
 
-        if (notationPath.nesting.segments.isEmpty()) {
-            return upsertRootParameter(rootParameterName, parameterNotation)
+        if (attributePath.nesting.segments.isEmpty()) {
+            return upsertRootParameter(rootParameterName, attributeNotation)
         }
 
 //        if (! parameters.containsKey(rootParameterName)) {
@@ -75,8 +85,8 @@ data class ObjectNotation(
 
         val newRoot = upsertSubParameter(
                 root,
-                notationPath.nesting,
-                parameterNotation)
+                attributePath.nesting,
+                attributeNotation)
 
         return upsertRootParameter(rootParameterName, newRoot)
     }

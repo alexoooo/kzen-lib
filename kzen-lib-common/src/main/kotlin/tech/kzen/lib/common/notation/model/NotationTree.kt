@@ -87,6 +87,10 @@ data class NotationTree(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun getString(attributeLocation: AttributeLocation): String {
+        return getString(attributeLocation.objectLocation, attributeLocation.attributePath)
+    }
+
     fun getString(objectLocation: ObjectLocation, attributeNesting: AttributePath): String {
         val scalarParameter = transitiveParameter(objectLocation, attributeNesting)
                 ?: throw IllegalArgumentException("Not found: $objectLocation.$attributeNesting")
@@ -97,7 +101,7 @@ data class NotationTree(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun withNewPackage(
+    fun withNewBundle(
             projectPath: BundlePath,
             packageNotation: BundleNotation
     ): NotationTree {
@@ -113,7 +117,7 @@ data class NotationTree(
     }
 
 
-    fun withModifiedPackage(
+    fun withModifiedBundle(
             projectPath: BundlePath,
             packageNotation: BundleNotation
     ): NotationTree {
@@ -135,7 +139,7 @@ data class NotationTree(
     }
 
 
-    fun withoutPackage(
+    fun withoutBundle(
             projectPath: BundlePath
     ): NotationTree {
         check(bundleNotations.values.containsKey(projectPath)) {"Already absent: $projectPath"}
