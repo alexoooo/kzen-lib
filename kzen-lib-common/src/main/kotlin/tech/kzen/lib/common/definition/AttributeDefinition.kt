@@ -4,26 +4,31 @@ import tech.kzen.lib.common.api.model.ObjectReference
 
 
 sealed class AttributeDefinition {
-    abstract fun references(): Set<ObjectReference>
+//    abstract fun references(): Map<AttributeNesting, ObjectReference>
+
+
 }
 
 
 data class ValueAttributeDefinition(
         val value: Any?
 ): AttributeDefinition() {
-    override fun references(): Set<ObjectReference> = setOf()
+//    override fun references(): Map<AttributePath, ObjectReference> {
+//        return mapOf()
+//    }
 }
 
 
 data class ReferenceAttributeDefinition(
         val objectReference: ObjectReference?
 ): AttributeDefinition() {
-    override fun references(): Set<ObjectReference> =
-            if (objectReference == null) {
-                setOf()
-            } else {
-                setOf(objectReference)
-            }
+//    override fun references(): Map<AttributePath, ObjectReference> {
+//        return if (objectReference == null) {
+//            mapOf()
+//        } else {
+//            setOf(objectReference)
+//        }
+//    }
 }
 
 
@@ -31,24 +36,24 @@ data class ReferenceAttributeDefinition(
 data class ListAttributeDefinition(
         val values: List<AttributeDefinition>
 ): AttributeDefinition() {
-    override fun references(): Set<ObjectReference> {
-        val builder = mutableSetOf<ObjectReference>()
-        for (value in values) {
-            builder.addAll(value.references())
-        }
-        return builder
-    }
+//    override fun references(): Set<ObjectReference> {
+//        val builder = mutableSetOf<ObjectReference>()
+//        for (value in values) {
+//            builder.addAll(value.references())
+//        }
+//        return builder
+//    }
 }
 
 
 data class MapAttributeDefinition(
         val values: Map<String, AttributeDefinition>
 ): AttributeDefinition() {
-    override fun references(): Set<ObjectReference> {
-        val builder = mutableSetOf<ObjectReference>()
-        for (value in values.values) {
-            builder.addAll(value.references())
-        }
-        return builder
-    }
+//    override fun references(): Set<ObjectReference> {
+//        val builder = mutableSetOf<ObjectReference>()
+//        for (value in values.values) {
+//            builder.addAll(value.references())
+//        }
+//        return builder
+//    }
 }

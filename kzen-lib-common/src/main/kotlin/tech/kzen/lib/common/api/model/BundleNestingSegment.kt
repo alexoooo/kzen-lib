@@ -3,11 +3,11 @@ package tech.kzen.lib.common.api.model
 
 data class BundleNestingSegment(
         val name: ObjectName,
-        val nesting: AttributeNesting
+        val nesting: AttributePath
 ) {
     fun asString(): String {
         return name.value +
-                AttributeNesting.delimiter +
+                AttributePath.delimiter +
                 nesting.asString()
     }
 }

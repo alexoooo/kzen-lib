@@ -16,7 +16,7 @@ import tech.kzen.lib.platform.Mirror
 
 class AttributeObjectDefiner: ObjectDefiner {
     companion object {
-        private val creatorParameter = AttributeNesting.ofAttribute(AttributeName("creator"))
+        private val creatorParameter = AttributePath.ofAttribute(AttributeName("creator"))
 
 //        private val defaultParameterDefiner =
 //                NotationParameterDefiner::class.simpleName!!
@@ -39,7 +39,7 @@ class AttributeObjectDefiner: ObjectDefiner {
         val objectMetadata = graphMetadata.objectMetadata.get(objectLocation)
 //                ?: throw IllegalArgumentException("Metadata not found: $objectName")
 
-        val className = notationTree.getString(objectLocation, NotationConventions.classPath)
+        val className = notationTree.getString(objectLocation, NotationConventions.classAttribute)
 
         val constructorArguments = mutableMapOf<AttributeName, AttributeDefinition>()
         val parameterCreators = mutableSetOf<ObjectReference>()

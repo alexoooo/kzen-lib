@@ -83,7 +83,7 @@ A:
         return ObjectLocation(mainPath, ObjectPath.parse(name))
     }
 
-    private fun attribute(attribute: String): AttributeNesting {
-        return AttributeNesting.ofAttribute(AttributeName(attribute))
+    private fun attribute(attribute: String): AttributePath {
+        return AttributePath.ofAttribute(AttributeName(attribute))
     }
 }

@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.notation.model
 
-import tech.kzen.lib.common.api.model.AttributeNesting
+import tech.kzen.lib.common.api.model.AttributePath
 import tech.kzen.lib.common.api.model.AttributeSegment
 
 
@@ -38,16 +38,16 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
         get(key.asKey())
 
 
-    fun get(notationPath: AttributeNesting): AttributeNotation? {
+    fun get(notationPath: AttributePath): AttributeNotation? {
         var cursor = get(notationPath.attribute.value)
 
         var index = 0
-        while (cursor != null && index < notationPath.segments.size) {
+        while (cursor != null && index < notationPath.nesting.segments.size) {
             if (cursor !is StructuredAttributeNotation) {
                 return null
             }
 
-            cursor = cursor.get(notationPath.segments[index].asString())
+            cursor = cursor.get(notationPath.nesting.segments[index].asString())
 
             index++
         }

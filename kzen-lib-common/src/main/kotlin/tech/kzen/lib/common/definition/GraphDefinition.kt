@@ -1,11 +1,18 @@
 package tech.kzen.lib.common.definition
 
+import tech.kzen.lib.common.api.model.AttributeLocation
 import tech.kzen.lib.common.api.model.ObjectMap
 
 
 data class GraphDefinition(
         val objectDefinitions: ObjectMap<ObjectDefinition>
 ) {
+    fun get(attributeLocation: AttributeLocation): AttributeDefinition {
+        val objectDefinition = objectDefinitions.get(attributeLocation.objectLocation)
+        return objectDefinition.get(attributeLocation.attributePath)
+    }
+
+
 //    fun get(objectPath: ObjectLocation): ObjectDefinition {
 //        return objectDefinitions.get(objectPath)
 //    }

@@ -1,13 +1,16 @@
 package tech.kzen.lib.common.notation.model
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.api.model.AttributeNesting
+import tech.kzen.lib.common.api.model.AttributePath
+import tech.kzen.lib.common.api.model.AttributeSegment
 
 
 data class ObjectNotation(
         val attributes: Map<AttributeName, AttributeNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    fun get(notationPath: AttributeNesting): AttributeNotation? {
+    fun get(notationPath: AttributePath): AttributeNotation? {
 //        if (parameters.containsKey(notationPath)) {
 //            return parameters[notationPath]!!
 //        }
@@ -24,7 +27,7 @@ data class ObjectNotation(
 //        println("first segment: $firstSegment")
 
         val root = attributes[firstSegment]!!
-        if (notationPath.segments.isEmpty()) {
+        if (notationPath.nesting.segments.isEmpty()) {
             return root
         }
 
@@ -32,7 +35,7 @@ data class ObjectNotation(
                 as? StructuredAttributeNotation
                 ?: return null
 
-        for (segment in notationPath.segments.dropLast(1)) {
+        for (segment in notationPath.nesting.segments.dropLast(1)) {
             println("get - next: $next - $segment")
 
             val sub = next.get(segment.asString())
@@ -42,7 +45,7 @@ data class ObjectNotation(
             next = sub
         }
 
-        val lastPathSegment = notationPath.segments.last()
+        val lastPathSegment = notationPath.nesting.segments.last()
 
         return next.get(lastPathSegment.asString())
     }
@@ -50,12 +53,12 @@ data class ObjectNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun upsertAttribute(
-            notationPath: AttributeNesting,
+            notationPath: AttributePath,
             parameterNotation: AttributeNotation
     ): ObjectNotation {
         val rootParameterName = notationPath.attribute
 
-        if (notationPath.segments.isEmpty()) {
+        if (notationPath.nesting.segments.isEmpty()) {
             return upsertRootParameter(rootParameterName, parameterNotation)
         }
 
@@ -72,7 +75,7 @@ data class ObjectNotation(
 
         val newRoot = upsertSubParameter(
                 root,
-                notationPath.segments.subList(1, notationPath.segments.size),
+                notationPath.nesting,
                 parameterNotation)
 
         return upsertRootParameter(rootParameterName, newRoot)
@@ -107,19 +110,19 @@ data class ObjectNotation(
 
     private fun upsertSubParameter(
             next: StructuredAttributeNotation,
-            remainingPathSegments: List<AttributeSegment>,
+            remainingPathSegments: AttributeNesting,
             value: AttributeNotation
     ): StructuredAttributeNotation {
-        val nextPathSegment = remainingPathSegments[0]
+        val nextPathSegment = remainingPathSegments.segments[0]
 
         val nextValue =
-                if (remainingPathSegments.size == 1) {
+                if (remainingPathSegments.segments.size == 1) {
                     value
                 }
                 else {
                     upsertSubParameter(
                             next.get(nextPathSegment.asString()) as StructuredAttributeNotation,
-                            remainingPathSegments.subList(1, remainingPathSegments.size),
+                            remainingPathSegments.shift(),
                             value)
                 }
 

@@ -1,6 +1,8 @@
 package tech.kzen.lib.common.notation.edit
 
 import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
 import tech.kzen.lib.common.notation.model.*
 
 
@@ -14,45 +16,64 @@ class NotationAggregate(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun apply(command: NotationCommand): NotationEvent {
+    fun apply(command: StructuralNotationCommand): NotationEvent {
         val eventAndNotation = handle(command)
+        state = eventAndNotation.notation
+        return eventAndNotation.event
+    }
+
+    fun apply(command: SemanticNotationCommand, graphDefinition: GraphDefinition): NotationEvent {
+        val eventAndNotation = handle(command, graphDefinition)
         state = eventAndNotation.notation
         return eventAndNotation.event
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun handle(command: NotationCommand): EventAndNotation =
-            when (command) {
-                is CreateBundleCommand ->
-                    createPackage(command.bundlePath)
+    private fun handle(command: StructuralNotationCommand): EventAndNotation {
+        return when (command) {
+            is CreateBundleCommand ->
+                createPackage(command.bundlePath)
 
-                is DeletePackageCommand ->
-                    deletePackage(command.filePath)
-
-
-                is AddObjectCommand ->
-                    addObject(command.location.objectLocation, command.location.positionIndex, command.body)
-
-                is RemoveObjectCommand ->
-                    removeObject(command.location)
-
-                is ShiftObjectCommand ->
-                    shiftObject(command.location, command.newPositionInBundle)
-
-                is RenameObjectCommand ->
-                    renameObject(command.location, command.newName)
+            is DeletePackageCommand ->
+                deletePackage(command.filePath)
 
 
-                is UpsertAttributeCommand ->
-                    upsertAttribute(command.objectLocation, command.attributeName, command.attributeNotation)
+            is AddObjectCommand ->
+                addObject(command.location.objectLocation, command.location.positionIndex, command.body)
+
+            is RemoveObjectCommand ->
+                removeObject(command.location)
+
+            is ShiftObjectCommand ->
+                shiftObject(command.location, command.newPositionInBundle)
+
+            is RenameObjectCommand ->
+                renameObject(command.location, command.newName)
 
 
-                else ->
-                    throw UnsupportedOperationException("Unknown: $command")
-            }
+            is UpsertAttributeCommand ->
+                upsertAttribute(command.objectLocation, command.attributeName, command.attributeNotation)
+
+            is UpdateInAttributeCommand ->
+                updateInAttribute(command.objectLocation, command.attributeNesting, command.attributeNotation)
 
 
+            else ->
+                throw UnsupportedOperationException("Unknown: $command")
+        }
+    }
+
+
+    private fun handle(
+            command: SemanticNotationCommand,
+            graphDefinition: GraphDefinition
+    ): EventAndNotation {
+        return when (command) {
+            is RenameRefactorCommand ->
+                renameRefactor(command.objectLocation, command.newName, graphDefinition)
+        }
+    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -193,7 +214,7 @@ class NotationAggregate(
         val objectNotation = state.coalesce.get(objectLocation)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
-                AttributeNesting.ofAttribute(attributeName), attributeNotation)
+                AttributePath.ofAttribute(attributeName), attributeNotation)
 
         val modifiedProjectNotation = packageNotation.withModifiedObject(
                 objectLocation.objectPath, modifiedObjectNotation)
@@ -207,27 +228,126 @@ class NotationAggregate(
     }
 
 
-//    private fun upsertAttribute(
-//            objectLocation: ObjectLocation,
-//            attributeNesting: AttributeNesting,
-//            attributeNotation: AttributeNotation
-//    ): EventAndNotation {
-////        val projectPath = state.findPackage(objectName)
-//        val packageNotation = state.files.values[objectLocation.bundlePath]!!
-//
-//        val objectNotation = state.coalesce.get(objectLocation)
-//
-//        val modifiedObjectNotation =
-//                objectNotation.upsertParameter(attributeNesting, attributeNotation)
-//
-//        val modifiedProjectNotation =
-//                packageNotation.withModifiedObject(objectLocation.objectPath, modifiedObjectNotation)
-//
-//        val nextState = state.withModifiedPackage(
-//                objectLocation.bundlePath, modifiedProjectNotation)
-//
-//        return EventAndNotation(
-//                ParameterEditedEvent(objectLocation, attributeNesting, attributeNotation),
-//                nextState)
-//    }
+    private fun updateInAttribute(
+            objectLocation: ObjectLocation,
+            attributeNesting: AttributePath,
+            attributeNotation: AttributeNotation
+    ): EventAndNotation {
+        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+
+        val objectNotation = state.coalesce.get(objectLocation)
+
+        val modifiedObjectNotation = objectNotation.upsertAttribute(
+                attributeNesting, attributeNotation)
+
+        val modifiedProjectNotation = packageNotation.withModifiedObject(
+                objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedPackage(
+                objectLocation.bundlePath, modifiedProjectNotation)
+
+        return EventAndNotation(
+                UpdatedInAttributeEvent(objectLocation, attributeNesting, attributeNotation),
+                nextState)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun renameRefactor(
+            objectLocation: ObjectLocation,
+            newName: ObjectName,
+            graphDefinition: GraphDefinition
+    ): EventAndNotation {
+        check(objectLocation in state.coalesce.values)
+
+        val builder = NotationAggregate(state)
+
+        val renamedObject = builder
+                .apply(RenameObjectCommand(objectLocation, newName))
+                as ObjectRenamedEvent
+
+        val adjustedReferenceCommands = adjustReferenceCommands(
+                objectLocation, newName, graphDefinition)
+
+        val adjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
+        adjustedReferenceCommands.forEach {
+            adjustedReferenceEvents.add(builder.apply(it) as UpdatedInAttributeEvent)
+        }
+
+        return EventAndNotation(
+                RenameRefactoredEvent(renamedObject, adjustedReferenceEvents),
+                builder.state)
+    }
+
+
+    private fun adjustReferenceCommands(
+            objectLocation: ObjectLocation,
+            newName: ObjectName,
+            graphDefinition: GraphDefinition
+    ): List<UpdateInAttributeCommand> {
+        val newObjectPath = objectLocation.objectPath.copy(name = newName)
+        val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
+        val newFullReference = newObjectLocation.toReference()
+
+        val commands = mutableListOf<UpdateInAttributeCommand>()
+
+        val referenceLocations = locateReferences(objectLocation, graphDefinition)
+
+        for (referenceLocation in referenceLocations) {
+            val existingReferenceDefinition = graphDefinition.get(referenceLocation)
+            val existingReference = (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
+
+            val newReference = newFullReference.crop(
+                    existingReference.hasNesting(), existingReference.hasPath())
+            val newReferenceNotation = ScalarAttributeNotation(newReference.asString())
+
+            commands.add(UpdateInAttributeCommand(
+                    referenceLocation.objectLocation,
+                    referenceLocation.attributePath,
+                    newReferenceNotation
+            ))
+        }
+
+        return commands
+    }
+
+
+    private fun locateReferences(
+            objectLocation: ObjectLocation,
+            graphDefinition: GraphDefinition
+    ): Set<AttributeLocation> {
+        val referenceLocations = mutableSetOf<AttributeLocation>()
+
+        for (e in graphDefinition.objectDefinitions.values) {
+            for (attributeReference in e.value.attributeReferences()) {
+
+                if (! isReferenced(
+                                objectLocation,
+                                e.key,
+                                attributeReference.value,
+                                graphDefinition)) {
+                    continue
+                }
+
+                val referencingAttribute = AttributeLocation(attributeReference.key, e.key)
+                referenceLocations.add(referencingAttribute)
+            }
+        }
+
+        return referenceLocations
+    }
+
+
+    private fun isReferenced(
+            targetLocation: ObjectLocation,
+            host: ObjectLocation,
+            reference: ObjectReference,
+            graphDefinition: GraphDefinition
+    ): Boolean {
+        val referencedLocation = graphDefinition
+                .objectDefinitions
+                .locateOptional(host, reference)
+
+        return referencedLocation == targetLocation
+    }
 }

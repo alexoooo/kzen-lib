@@ -1,39 +1,42 @@
 package tech.kzen.lib.common.notation.edit
 
+import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.model.*
-import tech.kzen.lib.common.api.model.*
 
 
 //---------------------------------------------------------------------------------------------------------------------
 sealed class NotationCommand
 
 
+sealed class StructuralNotationCommand: NotationCommand()
+sealed class SemanticNotationCommand: NotationCommand()
+
 
 //---------------------------------------------------------------------------------------------------------------------
 data class CreateBundleCommand(
         val bundlePath: BundlePath
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 
 data class DeletePackageCommand(
         val filePath: BundlePath
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
         val location: PositionedObjectLocation,
         val body: ObjectNotation
-): NotationCommand() {
+): StructuralNotationCommand() {
     companion object {
         fun ofParent(
                 location: PositionedObjectLocation,
                 parentName: ObjectName
         ): AddObjectCommand {
             val parentBody = ObjectNotation(mapOf(
-                    AttributeName(NotationConventions.isAttribute)
+                    AttributeName(NotationConventions.isKey)
                             to ScalarAttributeNotation(parentName)))
             return AddObjectCommand(location, parentBody)
         }
@@ -43,25 +46,25 @@ data class AddObjectCommand(
 
 data class RemoveObjectCommand(
         val location: ObjectLocation
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class ShiftObjectCommand(
         val location: ObjectLocation,
         val newPositionInBundle: PositionIndex
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class RenameObjectCommand(
         val location: ObjectLocation,
         val newName: ObjectName
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class RelocateObjectCommand(
         val location: ObjectLocation,
         val newObjectPath: PositionedObjectPath
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -69,27 +72,27 @@ data class UpsertAttributeCommand(
         val objectLocation: ObjectLocation,
         val attributeName: AttributeName,
         val attributeNotation: AttributeNotation
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class ClearAttributeCommand(
         val objectLocation: ObjectLocation,
         val attributeName: AttributeName
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class UpdateInAttributeCommand(
         val objectLocation: ObjectLocation,
-        val attributeNesting: AttributeNesting,
+        val attributeNesting: AttributePath,
         val attributeNotation: AttributeNotation
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class InsertListItemInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingList: PositionedAttributeNesting,
         val item: AttributeNotation
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class InsertMapEntryInAttributeCommand(
@@ -97,13 +100,13 @@ data class InsertMapEntryInAttributeCommand(
         val containingMap: PositionedAttributeNesting,
         val key: AttributeSegment,
         val value: AttributeNotation
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 data class ShiftInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingStructure: PositionedAttributeNesting
-): NotationCommand()
+): StructuralNotationCommand()
 
 
 
@@ -113,10 +116,10 @@ data class InsertObjectInListAttributeCommand(
         val containingListPosition: PositionedAttributeNesting,
         val objectLocation: PositionedObjectLocation,
         val body: ObjectNotation
-): NotationCommand()
+): StructuralNotationCommand()
 
 
-// TODO: could use __REF__ or inline object definition
+// TODO: could use __REF__ or inline object definition?
 //data class InsertObjectInMapAttributeCommand(
 //        val objectLocation: PositionedObjectLocation,
 //        val containingMapPosition: PositionedAttributeNesting,
@@ -128,7 +131,7 @@ data class InsertObjectInListAttributeCommand(
 data class RenameRefactorCommand(
         val objectLocation: ObjectLocation,
         val newName: ObjectName
-): NotationCommand()
+): SemanticNotationCommand()
 
 
 //data class MoveRefactorCommand(

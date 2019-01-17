@@ -22,7 +22,7 @@ class YamlNotationParser: NotationParser {
 
                     is YamlScalar -> when {
                         node is YamlString ->
-                            YamlMap(mapOf(NotationConventions.isAttribute to node))
+                            YamlMap(mapOf(NotationConventions.isKey to node))
 
                         // NB: empty document
                         node.value == null ->

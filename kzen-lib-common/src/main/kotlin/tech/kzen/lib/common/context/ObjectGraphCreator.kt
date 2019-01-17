@@ -1,11 +1,11 @@
 package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.api.model.ObjectMap
 import tech.kzen.lib.common.api.model.ObjectPath
 import tech.kzen.lib.common.api.model.ObjectReference
+import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 
 

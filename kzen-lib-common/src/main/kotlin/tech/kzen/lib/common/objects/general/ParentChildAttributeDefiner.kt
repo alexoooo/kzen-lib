@@ -10,7 +10,7 @@ import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.notation.model.NotationTree
 import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributeNesting
+import tech.kzen.lib.common.api.model.AttributePath
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.api.model.ObjectReference
 
@@ -18,7 +18,7 @@ import tech.kzen.lib.common.api.model.ObjectReference
 @Suppress("unused")
 class ParentChildAttributeDefiner: AttributeDefiner {
     companion object {
-        private val parentPath = AttributeNesting.ofAttribute(
+        private val parentPath = AttributePath.ofAttribute(
                 AttributeName("parent"))
     }
 

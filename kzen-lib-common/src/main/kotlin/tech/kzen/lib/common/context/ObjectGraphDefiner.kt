@@ -2,6 +2,7 @@ package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.api.ObjectDefiner
+import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
@@ -9,7 +10,6 @@ import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.model.NotationTree
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
-import tech.kzen.lib.common.api.model.*
 import kotlin.reflect.KClass
 
 
@@ -170,7 +170,7 @@ object ObjectGraphDefiner {
             objectName: ObjectLocation,
             projectNotation: NotationTree
     ): String {
-        return projectNotation.getString(objectName, NotationConventions.definerPath)
+        return projectNotation.getString(objectName, NotationConventions.definerAttribute)
     }
 
 
@@ -178,7 +178,8 @@ object ObjectGraphDefiner {
             objectName: ObjectLocation,
             projectNotation: NotationTree
     ): Boolean {
-        return projectNotation.directParameter(objectName, NotationConventions.abstractPath)
+        print("NotationConventions.abstractPath: " + NotationConventions.abstractAttribute)
+        return projectNotation.directParameter(objectName, NotationConventions.abstractAttribute)
                 ?.asBoolean()
                 ?: false
     }

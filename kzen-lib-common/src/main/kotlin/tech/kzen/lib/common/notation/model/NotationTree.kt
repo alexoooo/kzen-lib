@@ -1,8 +1,8 @@
 package tech.kzen.lib.common.notation.model
 
+import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
-import tech.kzen.lib.common.api.model.*
 
 
 // TODO: factor out Map<BundlePath, T> as BundleTree?
@@ -28,52 +28,29 @@ data class NotationTree(
         ObjectMap(buffer)
     }
 
-//    val digest: Digest by lazy {
-//
-//    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    // TODO: locate ObjectReference relative to some ObjectFilePath/ObjectFileNesting?
-//    fun locate(objectName: ObjectName): ObjectLocation {
-//        val candidates = mutableListOf<ObjectLocation>()
-//        for (candidate in coalesce.values.keys) {
-//            if (candidate != objectName) {
-//                continue
-//            }
-//
-//            candidates.add(candidate)
-//        }
-//
-//        check(! candidates.isEmpty()) { "Missing: $objectName" }
-//        check(candidates.size == 1) { "Ambiguous: $objectName - $candidates" }
-//
-//        return candidates[0]
-//    }
-
 
     //-----------------------------------------------------------------------------------------------------------------
     fun directParameter(
             objectLocation: ObjectLocation,
-            notationPath: AttributeNesting
+            attributeNesting: AttributePath
     ): AttributeNotation? =
-            coalesce.values[objectLocation]?.get(notationPath)
+            coalesce.values[objectLocation]?.get(attributeNesting)
 
 
     fun transitiveParameter(
             objectLocation: ObjectLocation,
-            notationPath: AttributeNesting
+            attributeNesting: AttributePath
     ): AttributeNotation? {
         val notation = coalesce.values[objectLocation]
                 ?: return null
 
-        val parameter = notation.get(notationPath)
+        val parameter = notation.get(attributeNesting)
         if (parameter != null) {
 //            println("== parameter - $objectName - $notationPath: $parameter")
             return parameter
         }
 
-        val isParameter = notation.get(NotationConventions.isPath)
+        val isParameter = notation.get(NotationConventions.isAttribute)
 
         val superReference =
                 when (isParameter) {
@@ -95,7 +72,7 @@ data class NotationTree(
                     }
                 }
 
-        println("coalesce keys ($objectLocation - $notationPath - $superReference): " + coalesce.values.keys)
+        println("coalesce keys ($objectLocation - $attributeNesting - $superReference): " + coalesce.values.keys)
         val superLocation = coalesce.locate(objectLocation, superReference)
 
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
@@ -105,30 +82,18 @@ data class NotationTree(
 
 //        println("^^^^^ superName: $superName")
 
-        return transitiveParameter(superLocation, notationPath)
+        return transitiveParameter(superLocation, attributeNesting)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    fun getString(objectName: ObjectName, notationPath: ObjectNotationPath): String {
-    fun getString(objectLocation: ObjectLocation, notationPath: AttributeNesting): String {
-        val scalarParameter = transitiveParameter(objectLocation, notationPath)
-                ?: throw IllegalArgumentException("Not found: $objectLocation.$notationPath")
+    fun getString(objectLocation: ObjectLocation, attributeNesting: AttributePath): String {
+        val scalarParameter = transitiveParameter(objectLocation, attributeNesting)
+                ?: throw IllegalArgumentException("Not found: $objectLocation.$attributeNesting")
 
         return scalarParameter.asString()
-            ?: throw IllegalArgumentException("Expected string ($objectLocation.$notationPath): $scalarParameter")
+            ?: throw IllegalArgumentException("Expected string ($objectLocation.$attributeNesting): $scalarParameter")
     }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-//    fun findPackage(objectPath: ObjectPath): BundlePath {
-//        for (e in files) {
-//            if (e.value.objects.values.containsKey(objectPath)) {
-//                return e.key
-//            }
-//        }
-//        throw IllegalArgumentException("Unknown object: $objectPath")
-//    }
 
 
     //-----------------------------------------------------------------------------------------------------------------

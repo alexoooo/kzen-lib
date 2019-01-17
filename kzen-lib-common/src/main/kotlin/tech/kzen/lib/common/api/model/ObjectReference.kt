@@ -37,8 +37,43 @@ data class ObjectReference(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun isAbsolute(): Boolean {
-        return path != null &&
-                nesting != null
+        return hasNesting() &&
+                hasPath()
+    }
+
+    fun hasPath(): Boolean {
+        return path != null
+    }
+
+    fun hasNesting(): Boolean {
+        return nesting != null
+    }
+
+
+    fun crop(retainNesting: Boolean, retainPath: Boolean): ObjectReference {
+        if (hasNesting() == retainNesting &&
+                hasPath() == retainPath) {
+            return this
+        }
+
+        val croppedNesting =
+                if (retainNesting) {
+                    nesting
+                }
+                else {
+                    null
+                }
+
+        val croppedPath =
+                if (retainPath) {
+                    path
+                }
+                else {
+                    null
+                }
+
+
+        return ObjectReference(name, croppedNesting, croppedPath)
     }
 
 

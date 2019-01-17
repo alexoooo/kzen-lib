@@ -1,14 +1,14 @@
 package tech.kzen.lib.common.notation.repo
 
+import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.edit.NotationCommand
 import tech.kzen.lib.common.notation.edit.NotationEvent
+import tech.kzen.lib.common.notation.edit.StructuralNotationCommand
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.model.BundleNotation
 import tech.kzen.lib.common.notation.model.NotationTree
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
 
@@ -84,7 +84,7 @@ class NotationRepository(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun apply(command: NotationCommand): NotationEvent {
+    suspend fun apply(command: StructuralNotationCommand): NotationEvent {
         val oldPackages = notation().bundleNotations
 
         val event = aggregate().apply(command)

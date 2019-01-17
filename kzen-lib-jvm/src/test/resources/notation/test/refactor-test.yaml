@@ -1,0 +1,12 @@
+
+
+RefactorObject:
+  is: PlusOperation
+  addends:
+  - Two
+  - OldName
+
+OldName:
+  is: DoubleValue
+  value: 2
+

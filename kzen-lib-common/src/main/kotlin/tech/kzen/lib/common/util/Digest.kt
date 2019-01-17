@@ -31,7 +31,7 @@ data class Digest(
             return x
         }
 
-        private fun hashCodeHash(value: Int): Int {
+        private fun hashMapHash(value: Int): Int {
             return value xor value.ushr(16)
         }
 
@@ -53,7 +53,7 @@ data class Digest(
             @Suppress("RedundantExplicitType")
             var s0: Int = 0
             var s1: Int = murmurHash3(bytes.size)
-            var s2: Int = hashCodeHash(bytes.size)
+            var s2: Int = hashMapHash(bytes.size)
             var s3: Int = guavaHashingSmear(bytes.size)
 
             for (b in bytes) {
@@ -191,7 +191,7 @@ data class Digest(
 
         private fun init(value: Int) {
             s1 = murmurHash3(value)
-            s2 = hashCodeHash(value)
+            s2 = hashMapHash(value)
             s3 = guavaHashingSmear(value)
         }
 

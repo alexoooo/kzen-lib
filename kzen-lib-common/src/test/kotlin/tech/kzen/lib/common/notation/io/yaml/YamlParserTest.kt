@@ -128,7 +128,7 @@ Foo:
         return ObjectLocation(mainPath, ObjectPath.parse(name))
     }
 
-    private fun attribute(attribute: String): AttributeNesting {
-        return AttributeNesting.parse(attribute)
+    private fun attribute(attribute: String): AttributePath {
+        return AttributePath.parse(attribute)
     }
 }

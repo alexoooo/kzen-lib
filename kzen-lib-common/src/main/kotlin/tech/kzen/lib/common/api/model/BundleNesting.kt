@@ -45,7 +45,7 @@ data class BundleNesting(
             for (i in 0 until parts.size step 2) {
                 builder.add(BundleNestingSegment(
                         ObjectName(parts[i]),
-                        AttributeNesting.parse(parts[i + 1])))
+                        AttributePath.parse(parts[i + 1])))
             }
             return BundleNesting(builder)
         }
