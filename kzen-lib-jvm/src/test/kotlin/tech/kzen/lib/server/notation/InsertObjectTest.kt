@@ -8,7 +8,6 @@ import tech.kzen.lib.common.notation.edit.InsertObjectInListAttributeCommand
 import tech.kzen.lib.common.notation.edit.NotationAggregate
 import tech.kzen.lib.common.notation.model.ObjectNotation
 import tech.kzen.lib.common.notation.model.PositionIndex
-import tech.kzen.lib.common.notation.model.PositionedAttributeNesting
 import kotlin.test.assertEquals
 
 
@@ -26,9 +25,8 @@ InsertInto:
 
         project.apply(InsertObjectInListAttributeCommand(
                 location("InsertInto"),
-                PositionedAttributeNesting(
-                        AttributePath.parse("foo"),
-                        PositionIndex(1)),
+                AttributePath.parse("foo"),
+                PositionIndex(1),
                 ObjectName("Inserted"),
                 PositionIndex(1),
                 ObjectNotation.ofParent("DoubleValue")
@@ -36,7 +34,7 @@ InsertInto:
 
         val bundleNotation = project.state.bundleNotations.values[testPath]!!
 
-        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("InsertInto/foo/Inserted")).value)
+        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("InsertInto.foo/Inserted")).value)
 
         assertEquals("InsertInto.foo/Inserted",
                 project.state.getString(

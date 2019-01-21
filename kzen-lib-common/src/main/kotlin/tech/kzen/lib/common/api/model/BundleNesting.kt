@@ -5,31 +5,98 @@ data class BundleNesting(
         val segments: List<BundleNestingSegment>
 ) {
     companion object {
-        const val delimiter = "/"
+        val delimiter = "/"
+//        val delimiterRegex = Regex("[^\\\\]/")
 
         val root = BundleNesting(listOf())
 
 
-        private fun containsSegments(objectPathAsString: String): Boolean {
-            return objectPathAsString.contains(delimiter)
-        }
-
-
-        fun extractNameSuffix(objectPathAsString: String): String {
-            if (! containsSegments(objectPathAsString)) {
-                return objectPathAsString
+        private fun containsSegments(encodedObjectPath: String): Boolean {
+            for (i in 1 until encodedObjectPath.length) {
+                if (encodedObjectPath[i] == '/' &&
+                        encodedObjectPath[i - 1] != '\\') {
+                    return true
+                }
             }
-            val startOfSuffix = objectPathAsString.lastIndexOf(delimiter)
-            return objectPathAsString.substring(startOfSuffix + delimiter.length)
+            return false
         }
 
 
-        fun extractSegments(objectPathAsString: String): String? {
-            if (! containsSegments(objectPathAsString)) {
+        private fun lastIndexOfDelimiter(encodedObjectPath: String): Int {
+            for (i in encodedObjectPath.length - 1 downTo 1) {
+                if (encodedObjectPath[i] == '/' &&
+                        encodedObjectPath[i - 1] != '\\') {
+                    return i
+                }
+            }
+            if (! encodedObjectPath.isEmpty() && encodedObjectPath[0] == '/') {
+                return 0
+            }
+            return -1
+        }
+
+
+        private fun indexOfDelimiter(encodedObjectPath: String): Int {
+            for (i in 1 until encodedObjectPath.length) {
+                if (encodedObjectPath[i] == '/' &&
+                        encodedObjectPath[i - 1] != '\\') {
+                    return i
+                }
+            }
+            if (! encodedObjectPath.isEmpty() && encodedObjectPath[0] == '/') {
+                return 0
+            }
+            return -1
+        }
+
+
+        private fun splitOnDelimiter(encodedObjectPath: String): List<String> {
+            val segments = mutableListOf<String>()
+
+            var remaining = encodedObjectPath
+
+            while (true) {
+                val nextIndex = indexOfDelimiter(remaining)
+                if (nextIndex == -1) {
+                    segments.add(remaining)
+                    break
+                }
+
+                segments.add(remaining.substring(0, nextIndex))
+
+                remaining = remaining.substring(nextIndex + 1)
+            }
+
+            return segments
+        }
+
+
+        fun encodeDelimiter(value: String): String {
+            return value.replace("/", "\\/")
+        }
+
+
+        fun decodeDelimiter(value: String): String {
+            return value.replace("\\/", "/")
+        }
+
+
+        fun extractNameSuffix(encodedObjectPath: String): String {
+            if (! containsSegments(encodedObjectPath)) {
+                return decodeDelimiter(encodedObjectPath)
+            }
+            val startOfSuffix = lastIndexOfDelimiter(encodedObjectPath)
+            val encodedName = encodedObjectPath.substring(startOfSuffix + delimiter.length)
+            return decodeDelimiter(encodedName)
+        }
+
+
+        fun extractSegments(encodedObjectPath: String): String? {
+            if (! containsSegments(encodedObjectPath)) {
                 return null
             }
-            val startOfSuffix = objectPathAsString.lastIndexOf(delimiter)
-            return objectPathAsString.substring(0, startOfSuffix)
+            val startOfSuffix = lastIndexOfDelimiter(encodedObjectPath)
+            return encodedObjectPath.substring(0, startOfSuffix)
         }
 
 
@@ -38,14 +105,12 @@ data class BundleNesting(
                 return root
             }
 
-            val parts = asString.split(delimiter)
-            check(parts.size % 2 == 0) { "Name/nesting segment mis-match: $asString" }
+            val parts = splitOnDelimiter(asString)
+//            check(parts.size % 2 == 0) { "Name/nesting segment mis-match: $asString" }
 
             val builder = mutableListOf<BundleNestingSegment>()
-            for (i in 0 until parts.size step 2) {
-                builder.add(BundleNestingSegment(
-                        ObjectName(parts[i]),
-                        AttributePath.parse(parts[i + 1])))
+            for (part in parts) {
+                builder.add(BundleNestingSegment.parse(part))
             }
             return BundleNesting(builder)
         }

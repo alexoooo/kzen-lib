@@ -4,7 +4,6 @@ import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.model.AttributeNotation
 import tech.kzen.lib.common.notation.model.ObjectNotation
 import tech.kzen.lib.common.notation.model.PositionIndex
-import tech.kzen.lib.common.notation.model.PositionedAttributeNesting
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -12,6 +11,7 @@ sealed class NotationEvent
 
 
 sealed class SingularNotationEvent: NotationEvent()
+
 
 sealed class CompoundNotationEvent(
         val singularEvents: List<SingularNotationEvent>
@@ -65,11 +65,6 @@ data class UpsertedAttributeEvent(
         val attributeValue: AttributeNotation
 ): SingularNotationEvent()
 
-//data class ParameterEditedEvent(
-//        val objectLocation: ObjectLocation,
-//        val attributeNesting: AttributeNesting,
-//        val attributeValue: AttributeNotation
-//): NotationEvent()
 
 data class UpdatedInAttributeEvent(
         val objectLocation: ObjectLocation,
@@ -78,11 +73,41 @@ data class UpdatedInAttributeEvent(
 ): SingularNotationEvent()
 
 
+data class RemovedInAttributeEvent(
+        val objectLocation: ObjectLocation,
+        val attributePath: AttributePath
+): SingularNotationEvent()
+
+
+//--------------------------------------------------------------
+sealed class InsertedInAttributeEvent: SingularNotationEvent()
+
+
 data class InsertedListItemInAttributeEvent(
         val objectLocation: ObjectLocation,
-        val containingList: PositionedAttributeNesting,
+        val containingList: AttributePath,
+        val indexInList: PositionIndex,
         val item: AttributeNotation
-): SingularNotationEvent()
+): InsertedInAttributeEvent()
+
+
+data class InsertedMapEntryInAttributeEvent(
+        val objectLocation: ObjectLocation,
+        val containingMap: AttributePath,
+        val indexInMap: PositionIndex,
+        val key: AttributeSegment,
+        val item: AttributeNotation
+): InsertedInAttributeEvent()
+
+
+
+//--------------------------------------------------------------
+data class ShiftedInAttributeEvent(
+        val removedInAttribute: RemovedInAttributeEvent,
+        val reinsertedInAttribute: InsertedInAttributeEvent
+): CompoundNotationEvent(
+        listOf(removedInAttribute, reinsertedInAttribute)
+)
 
 
 data class InsertedObjectListItemInAttributeEvent(

@@ -33,41 +33,46 @@ class NotationAggregate(
     private fun handle(command: StructuralNotationCommand): EventAndNotation {
         return when (command) {
             is CreateBundleCommand ->
-                createPackage(command.bundlePath)
+                createPackage(command)
 
             is DeletePackageCommand ->
-                deletePackage(command.filePath)
+                deletePackage(command)
 
 
             is AddObjectCommand ->
-                addObject(command.location.objectLocation, command.location.positionIndex, command.body)
+                addObject(command)
 
             is RemoveObjectCommand ->
-                removeObject(command.location)
+                removeObject(command)
 
             is ShiftObjectCommand ->
-                shiftObject(command.location, command.newPositionInBundle)
+                shiftObject(command)
 
             is RenameObjectCommand ->
-                renameObject(command.location, command.newName)
+                renameObject(command)
 
 
             is UpsertAttributeCommand ->
-                upsertAttribute(command.objectLocation, command.attributeName, command.attributeNotation)
+                upsertAttribute(command)
 
             is UpdateInAttributeCommand ->
-                updateInAttribute(command.objectLocation, command.attributeNesting, command.attributeNotation)
+                updateInAttribute(command)
 
             is InsertListItemInAttributeCommand ->
-                insertListItemInAttribute(command.objectLocation, command.containingList, command.item)
+                insertListItemInAttribute(command)
+
+            is InsertMapEntryInAttributeCommand ->
+                insertMapEntryInAttribute(command)
+
+            is RemoveInAttributeCommand ->
+                removeInAttribute(command)
+
+
+            is ShiftInAttributeCommand ->
+                shiftInAttribute(command)
 
             is InsertObjectInListAttributeCommand ->
-                insertObjectInListAttribute(
-                        command.containingObjectLocation,
-                        command.containingListPosition,
-                        command.objectName,
-                        command.positionInBundle,
-                        command.body)
+                insertObjectInListAttribute(command)
 
 
             else ->
@@ -89,229 +94,342 @@ class NotationAggregate(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun createPackage(
-            projectPath: BundlePath
+            command: CreateBundleCommand
     ): EventAndNotation {
-        check(! state.bundleNotations.values.containsKey(projectPath)) {"Already exists: $projectPath"}
+        check(! state.bundleNotations.values.containsKey(command.bundlePath)) {
+            "Already exists: ${command.bundlePath}"
+        }
 
         val nextState = state.withNewBundle(
-                projectPath, BundleNotation.empty)
+                command.bundlePath, BundleNotation.empty)
 
         return EventAndNotation(
-                CreatedBundleEvent(projectPath),
+                CreatedBundleEvent(command.bundlePath),
                 nextState)
     }
 
 
     private fun deletePackage(
-            projectPath: BundlePath
+            command: DeletePackageCommand
     ): EventAndNotation {
-        check(state.bundleNotations.values.containsKey(projectPath)) {"Does not exist: $projectPath"}
+        check(state.bundleNotations.values.containsKey(command.bundlePath)) {
+            "Does not exist: ${command.bundlePath}"
+        }
 
-        val nextState = state.withoutBundle(projectPath)
+        val nextState = state.withoutBundle(command.bundlePath)
 
         return EventAndNotation(
-                DeletedBundleEvent(projectPath),
+                DeletedBundleEvent(command.bundlePath),
                 nextState)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun addObject(
-            objectLocation: ObjectLocation,
-            indexInBundle: PositionIndex,
-            body: ObjectNotation
+            command: AddObjectCommand
     ): EventAndNotation {
-        check(objectLocation !in state.coalesce.values) {"Object named '$objectLocation' already exists"}
+        check(command.objectLocation !in state.coalesce.values) {
+            "Object named '${command.objectLocation}' already exists"
+        }
 
-        val bundleNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
         val modifiedProjectNotation =
                 bundleNotation.withNewObject(
-                        PositionedObjectPath(objectLocation.objectPath, indexInBundle),
-                        body)
+                        PositionedObjectPath(command.objectLocation.objectPath, command.indexInBundle),
+                        command.body)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, modifiedProjectNotation)
+                command.objectLocation.bundlePath, modifiedProjectNotation)
 
         return EventAndNotation(
-                AddedObjectEvent(objectLocation, body),
+                AddedObjectEvent(command.objectLocation, command.body),
                 nextState)
     }
 
 
     private fun removeObject(
-            objectLocation: ObjectLocation
+            command: RemoveObjectCommand
     ): EventAndNotation {
-        check(objectLocation in state.coalesce.values)
+        check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
         val modifiedProjectNotation =
-                packageNotation.withoutObject(objectLocation.objectPath)
+                packageNotation.withoutObject(command.objectLocation.objectPath)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, modifiedProjectNotation)
+                command.objectLocation.bundlePath, modifiedProjectNotation)
 
         return EventAndNotation(
-                RemovedObjectEvent(objectLocation),
+                RemovedObjectEvent(command.objectLocation),
                 nextState)
     }
 
 
     private fun shiftObject(
-            objectLocation: ObjectLocation,
-            newPositionInBundle: PositionIndex
+            command: ShiftObjectCommand
     ): EventAndNotation {
-        check(objectLocation in state.coalesce.values)
+        check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
-        val objectNotation = state.coalesce.get(objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)
 
-        val removedFromCurrent = packageNotation.withoutObject(objectLocation.objectPath)
+        val removedFromCurrent = packageNotation.withoutObject(command.objectLocation.objectPath)
 
         val addedToNew = removedFromCurrent.withNewObject(
-                PositionedObjectPath(objectLocation.objectPath, newPositionInBundle),
+                PositionedObjectPath(command.objectLocation.objectPath, command.newPositionInBundle),
                 objectNotation)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, addedToNew)
+                command.objectLocation.bundlePath, addedToNew)
 
         return EventAndNotation(
-                ShiftedObjectEvent(objectLocation, newPositionInBundle),
+                ShiftedObjectEvent(command.objectLocation, command.newPositionInBundle),
                 nextState)
     }
 
 
     private fun renameObject(
-            objectLocation: ObjectLocation,
-            newName: ObjectName
+            command: RenameObjectCommand
     ): EventAndNotation {
-        check(objectLocation in state.coalesce.values)
+        check(command.objectLocation in state.coalesce.values)
 
 //        val projectPath = state.findPackage(objectName)
 
-        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
-        val objectNotation = state.coalesce.get(objectLocation)
-        val objectIndex = packageNotation.indexOf(objectLocation.objectPath)
+        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectIndex = packageNotation.indexOf(command.objectLocation.objectPath)
 
         val removedCurrentName =
-                packageNotation.withoutObject(objectLocation.objectPath)
+                packageNotation.withoutObject(command.objectLocation.objectPath)
 
-        val newObjectPath = objectLocation.objectPath.copy(name = newName)
+        val newObjectPath = command.objectLocation.objectPath.copy(name = command.newName)
 
         val addedWithNewName = removedCurrentName.withNewObject(
                 PositionedObjectPath(newObjectPath, objectIndex),
                 objectNotation)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, addedWithNewName)
+                command.objectLocation.bundlePath, addedWithNewName)
 
         return EventAndNotation(
-                RenamedObjectEvent(objectLocation, newName),
+                RenamedObjectEvent(command.objectLocation, command.newName),
                 nextState)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun upsertAttribute(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            attributeNotation: AttributeNotation
+            command: UpsertAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
-        val objectNotation = state.coalesce.get(objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
-                AttributePath.ofAttribute(attributeName), attributeNotation)
+                AttributePath.ofAttribute(command.attributeName), command.attributeNotation)
 
         val modifiedProjectNotation = packageNotation.withModifiedObject(
-                objectLocation.objectPath, modifiedObjectNotation)
+                command.objectLocation.objectPath, modifiedObjectNotation)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, modifiedProjectNotation)
+                command.objectLocation.bundlePath, modifiedProjectNotation)
 
         return EventAndNotation(
-                UpsertedAttributeEvent(objectLocation, attributeName, attributeNotation),
+                UpsertedAttributeEvent(
+                        command.objectLocation, command.attributeName, command.attributeNotation),
                 nextState)
     }
 
 
     private fun updateInAttribute(
-            objectLocation: ObjectLocation,
-            attributeNesting: AttributePath,
-            attributeNotation: AttributeNotation
+            command: UpdateInAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
-        val objectNotation = state.coalesce.get(objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
-                attributeNesting, attributeNotation)
+                command.attributePath, command.attributeNotation)
 
         val modifiedProjectNotation = packageNotation.withModifiedObject(
-                objectLocation.objectPath, modifiedObjectNotation)
+                command.objectLocation.objectPath, modifiedObjectNotation)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, modifiedProjectNotation)
+                command.objectLocation.bundlePath, modifiedProjectNotation)
 
         return EventAndNotation(
-                UpdatedInAttributeEvent(objectLocation, attributeNesting, attributeNotation),
+                UpdatedInAttributeEvent(
+                        command.objectLocation, command.attributePath, command.attributeNotation),
                 nextState)
     }
 
 
     private fun insertListItemInAttribute(
-            objectLocation: ObjectLocation,
-            containingList: PositionedAttributeNesting,
-            item: AttributeNotation
+            command: InsertListItemInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundleNotations.values[objectLocation.bundlePath]!!
+        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 
-        val objectNotation = state.coalesce.get(objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)
 
-        val listInAttribute = objectNotation.get(containingList.attributePath) as ListAttributeNotation
-        val listWithInsert = listInAttribute.insert(item, containingList.positionIndex)
+        val listInAttribute = objectNotation.get(command.containingList) as ListAttributeNotation
+        val listWithInsert = listInAttribute.insert(command.item, command.indexInList)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
-                containingList.attributePath, listWithInsert)
+                command.containingList, listWithInsert)
 
         val modifiedBundleNotation = bundleNotation.withModifiedObject(
-                objectLocation.objectPath, modifiedObjectNotation)
+                command.objectLocation.objectPath, modifiedObjectNotation)
 
         val nextState = state.withModifiedBundle(
-                objectLocation.bundlePath, modifiedBundleNotation)
+                command.objectLocation.bundlePath, modifiedBundleNotation)
+
+        val event = InsertedListItemInAttributeEvent(
+                command.objectLocation, command.containingList, command.indexInList, listInAttribute)
+
+        return EventAndNotation(event, nextState)
+    }
+
+
+    private fun insertMapEntryInAttribute(
+            command: InsertMapEntryInAttributeCommand
+    ): EventAndNotation {
+        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+
+        val objectNotation = state.coalesce.get(command.objectLocation)
+
+        val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
+        val mapWithInsert = mapInAttribute.insert(command.value, command.key, command.indexInMap)
+
+        val modifiedObjectNotation = objectNotation.upsertAttribute(
+                command.containingMap, mapWithInsert)
+
+        val modifiedBundleNotation = bundleNotation.withModifiedObject(
+                command.objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedBundle(
+                command.objectLocation.bundlePath, modifiedBundleNotation)
+
+        val event = InsertedMapEntryInAttributeEvent(
+                command.objectLocation,
+                command.containingMap,
+                command.indexInMap,
+                command.key,
+                command.value)
+
+        return EventAndNotation(event, nextState)
+    }
+
+
+    private fun removeInAttribute(
+            command: RemoveInAttributeCommand
+    ): EventAndNotation {
+        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+
+        val objectNotation = state.coalesce.get(command.objectLocation)
+
+        val containerPath = command.attributePath.parent()
+        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
+
+        val lastSegment = command.attributePath.nesting.segments.last()
+
+        val containerWithoutElement =
+                when (containerNotation) {
+                    is ListAttributeNotation -> {
+                        val parsedIndex = PositionIndex(lastSegment.asIndex()!!)
+                        containerNotation.remove(parsedIndex)
+                    }
+
+                    is MapAttributeNotation -> {
+                        containerNotation.remove(lastSegment)
+                    }
+                }
+
+        val modifiedObjectNotation = objectNotation.upsertAttribute(
+                containerPath, containerWithoutElement)
+
+        val modifiedBundleNotation = bundleNotation.withModifiedObject(
+                command.objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedBundle(
+                command.objectLocation.bundlePath, modifiedBundleNotation)
+
+        val event = RemovedInAttributeEvent(
+                command.objectLocation, command.attributePath)
+
+        return EventAndNotation(event, nextState)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun shiftInAttribute(
+            command: ShiftInAttributeCommand
+    ): EventAndNotation {
+        val objectNotation = state.coalesce.get(command.objectLocation)
+
+        val containerPath = command.attributePath.parent()
+        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
+
+        val attributeNotation = objectNotation.get(command.attributePath)!!
+
+        val builder = NotationAggregate(state)
+
+        val removedInAttribute = builder
+                .apply(RemoveInAttributeCommand(command.objectLocation, command.attributePath))
+                as RemovedInAttributeEvent
+
+        val insertCommand = when (containerNotation) {
+            is ListAttributeNotation ->
+                InsertListItemInAttributeCommand(
+                        command.objectLocation,
+                        containerPath,
+                        command.newPosition,
+                        attributeNotation)
+
+            is MapAttributeNotation ->
+                InsertMapEntryInAttributeCommand(
+                        command.objectLocation,
+                        containerPath,
+                        command.newPosition,
+                        command.attributePath.nesting.segments.last(),
+                        attributeNotation)
+        }
+
+        val reinsertedInAttribute = builder
+                .apply(insertCommand)
+                as InsertedInAttributeEvent
 
         return EventAndNotation(
-                InsertedListItemInAttributeEvent(objectLocation, containingList, item),
-                nextState)
+                ShiftedInAttributeEvent(removedInAttribute, reinsertedInAttribute),
+                builder.state)
     }
 
 
     private fun insertObjectInListAttribute(
-            containingObjectLocation: ObjectLocation,
-            containingListPosition: PositionedAttributeNesting,
-            objectName: ObjectName,
-            positionInBundle: PositionIndex,
-            body: ObjectNotation
+            command: InsertObjectInListAttributeCommand
     ): EventAndNotation {
         val builder = NotationAggregate(state)
 
-        val objectPath = containingObjectLocation.objectPath.nest(
-                containingListPosition.attributePath, objectName)
+        val objectPath = command.containingObjectLocation.objectPath.nest(
+                command.containingList, command.objectName)
 
-        val objectLocation = ObjectLocation(containingObjectLocation.bundlePath, objectPath)
+        val objectLocation = ObjectLocation(command.containingObjectLocation.bundlePath, objectPath)
 
         val objectAdded = builder
-                .apply(AddObjectCommand(PositionedObjectLocation(objectLocation, positionInBundle), body))
+                .apply(AddObjectCommand(
+                        objectLocation,
+                        command.positionInBundle,
+                        command.body))
                 as AddedObjectEvent
 
         val addendReference = objectLocation.toReference().crop(true, false)
         val insertInAttributeCommand = InsertListItemInAttributeCommand(
-                containingObjectLocation,
-                containingListPosition,
+                command.containingObjectLocation,
+                command.containingList,
+                command.indexInList,
                 ScalarAttributeNotation(addendReference.asString()))
 
         val insertedInAttribute = builder

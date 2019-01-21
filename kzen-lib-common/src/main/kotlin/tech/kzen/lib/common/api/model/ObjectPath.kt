@@ -28,9 +28,11 @@ data class ObjectPath(
     //-----------------------------------------------------------------------------------------------------------------
     fun asString(): String {
         if (nesting.segments.isEmpty()) {
-            return name.value
+            return BundleNesting.encodeDelimiter(name.value)
         }
-        return nesting.asString() + BundleNesting.delimiter + name.value
+        return nesting.asString() +
+                BundleNesting.delimiter +
+                BundleNesting.encodeDelimiter(name.value)
     }
 
 

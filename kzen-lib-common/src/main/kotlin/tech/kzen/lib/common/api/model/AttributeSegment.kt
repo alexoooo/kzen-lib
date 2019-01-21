@@ -7,7 +7,7 @@ data class AttributeSegment private constructor(
 ) {
     companion object {
         fun parse(asString: String): AttributeSegment {
-            return ofKey(asString)
+            return ofKey(AttributePath.decodeDelimiter(asString))
         }
 
         fun ofKey(key: String): AttributeSegment {
@@ -31,7 +31,7 @@ data class AttributeSegment private constructor(
 
 
     fun asString(): String {
-        return asString
+        return AttributePath.encodeDelimiter(asString)
     }
 
 
@@ -39,29 +39,3 @@ data class AttributeSegment private constructor(
         return asString
     }
 }
-
-
-//data class ListIndexAttributeSegment(
-//        val index: Int
-//): AttributeSegment() {
-//    override fun asString(): String {
-//        return index.toString()
-//    }
-//
-//    override fun toString(): String {
-//        return asString()
-//    }
-//}
-//
-//
-//data class MapKeyAttributeSegment(
-//        val key: String
-//): AttributeSegment() {
-//    override fun asString(): String {
-//        return key
-//    }
-//
-//    override fun toString(): String {
-//        return asString()
-//    }
-//}

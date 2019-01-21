@@ -1,7 +1,10 @@
 package tech.kzen.lib.common.notation.edit
 
 import tech.kzen.lib.common.api.model.*
-import tech.kzen.lib.common.notation.model.*
+import tech.kzen.lib.common.notation.model.AttributeNotation
+import tech.kzen.lib.common.notation.model.ObjectNotation
+import tech.kzen.lib.common.notation.model.PositionIndex
+import tech.kzen.lib.common.notation.model.PositionedObjectPath
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -20,47 +23,54 @@ data class CreateBundleCommand(
 
 
 data class DeletePackageCommand(
-        val filePath: BundlePath
+        val bundlePath: BundlePath
 ): StructuralNotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
-        val location: PositionedObjectLocation,
+        val objectLocation: ObjectLocation,
+        val indexInBundle: PositionIndex,
         val body: ObjectNotation
 ): StructuralNotationCommand() {
     companion object {
         fun ofParent(
-                location: PositionedObjectLocation,
+                objectLocation: ObjectLocation,
+                indexInBundle: PositionIndex,
                 parentName: ObjectName
         ): AddObjectCommand {
-            return ofParent(location, ObjectReference(parentName, null, null))
+            return ofParent(
+                    objectLocation,
+                    indexInBundle,
+                    ObjectReference.ofName(parentName))
         }
 
+
         fun ofParent(
-                location: PositionedObjectLocation,
+                objectLocation: ObjectLocation,
+                indexInBundle: PositionIndex,
                 parentReference: ObjectReference
         ): AddObjectCommand {
             val parentBody = ObjectNotation.ofParent(parentReference.asString())
-            return AddObjectCommand(location, parentBody)
+            return AddObjectCommand(objectLocation, indexInBundle, parentBody)
         }
     }
 }
 
 
 data class RemoveObjectCommand(
-        val location: ObjectLocation
+        val objectLocation: ObjectLocation
 ): StructuralNotationCommand()
 
 
 data class ShiftObjectCommand(
-        val location: ObjectLocation,
+        val objectLocation: ObjectLocation,
         val newPositionInBundle: PositionIndex
 ): StructuralNotationCommand()
 
 
 data class RenameObjectCommand(
-        val location: ObjectLocation,
+        val objectLocation: ObjectLocation,
         val newName: ObjectName
 ): StructuralNotationCommand()
 
@@ -87,29 +97,38 @@ data class ClearAttributeCommand(
 
 data class UpdateInAttributeCommand(
         val objectLocation: ObjectLocation,
-        val attributeNesting: AttributePath,
+        val attributePath: AttributePath,
         val attributeNotation: AttributeNotation
 ): StructuralNotationCommand()
 
 
 data class InsertListItemInAttributeCommand(
         val objectLocation: ObjectLocation,
-        val containingList: PositionedAttributeNesting,
+        val containingList: AttributePath,
+        val indexInList: PositionIndex,
         val item: AttributeNotation
 ): StructuralNotationCommand()
 
 
 data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
-        val containingMap: PositionedAttributeNesting,
+        val containingMap: AttributePath,
+        val indexInMap: PositionIndex,
         val key: AttributeSegment,
         val value: AttributeNotation
 ): StructuralNotationCommand()
 
 
+data class RemoveInAttributeCommand(
+        val objectLocation: ObjectLocation,
+        val attributePath: AttributePath
+): StructuralNotationCommand()
+
+
 data class ShiftInAttributeCommand(
         val objectLocation: ObjectLocation,
-        val containingStructure: PositionedAttributeNesting
+        val attributePath: AttributePath,
+        val newPosition: PositionIndex
 ): StructuralNotationCommand()
 
 
@@ -117,8 +136,8 @@ data class ShiftInAttributeCommand(
 //---------------------------------------------------------------------------------------------------------------------
 data class InsertObjectInListAttributeCommand(
         val containingObjectLocation: ObjectLocation,
-        val containingListPosition: PositionedAttributeNesting,
-//        val objectLocation: PositionedObjectLocation,
+        val containingList: AttributePath,
+        val indexInList: PositionIndex,
         val objectName: ObjectName,
         val positionInBundle: PositionIndex,
         val body: ObjectNotation

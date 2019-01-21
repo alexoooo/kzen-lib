@@ -10,6 +10,12 @@ data class ObjectReference(
     companion object {
         private const val nestingSeparator = "#"
 
+
+        fun ofName(name: ObjectName): ObjectReference {
+            return ObjectReference(name, null, null)
+        }
+
+
         fun parse(asString: String): ObjectReference {
             val endOfPath = asString.indexOf(nestingSeparator)
 

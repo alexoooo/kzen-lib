@@ -26,6 +26,17 @@ abstract class NotationAggregateTest {
     }
 
 
+    fun deparseBundle(notationTree: NotationTree): String {
+        return deparseBundle(notationTree.bundleNotations.values[testPath]!!)
+    }
+
+
+    fun deparseBundle(bundleNotation: BundleNotation): String {
+        return IoUtils.utf8ToString(
+                YamlNotationParser().deparsePackage(bundleNotation, ByteArray(0)))
+    }
+
+
     fun location(name: String): ObjectLocation {
         return ObjectLocation(testPath, ObjectPath.parse(name))
     }

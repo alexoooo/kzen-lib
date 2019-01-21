@@ -16,7 +16,8 @@ object YamlNodeParser {
                 "$|#(.*)")
 
         // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
-        private const val bareString = "([0-9a-zA-Z_\\-/]+)"
+        // https://stackoverflow.com/questions/4264877/why-is-the-slash-an-escapable-character-in-json
+        private const val bareString = "([0-9a-zA-Z_\\-/.]+)"
         private const val doubleQuotedString =
                 "\"((?:[^\\\"]|\\(?:[\"\\/bfnrt]|u[0-9a-fA-F]{4})*)\""
 
@@ -30,6 +31,9 @@ object YamlNodeParser {
 
         val item = Regex(
                 "- .*")
+
+        const val emptyListJson = "[]"
+        const val emptyMapJson = "{}"
     }
 
 
@@ -110,6 +114,10 @@ object YamlNodeParser {
     private fun parseList(block: List<String>): YamlList {
 //        println("^^^ parseList: $block")
 
+        if (block.size == 1 && block[0] == Patterns.emptyListJson) {
+            return YamlList(listOf())
+        }
+
         val items = splitListItems(block)
 
         val nodes = items.map { parseListItem(it) }
@@ -135,6 +143,10 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parseMap(block: List<String>): YamlMap {
+        if (block.size == 1 && block[0] == Patterns.emptyMapJson) {
+            return YamlMap(mapOf())
+        }
+
         val entries = splitMapEntries(block)
 
         val values = mutableMapOf<String, YamlNode>()
@@ -200,10 +212,10 @@ object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun identifyStructure(block: List<String>): NotationStructure {
         for (line in block) {
-            if (matchEntireEntry(line) != null) {
+            if (matchEntireEntry(line) != null || line == Patterns.emptyMapJson) {
                 return NotationStructure.Map
             }
-            if (Patterns.item.matchEntire(line) != null) {
+            if (Patterns.item.matchEntire(line) != null || line == Patterns.emptyListJson) {
                 return NotationStructure.List
             }
         }

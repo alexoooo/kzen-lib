@@ -120,7 +120,11 @@ data class YamlList(
         val values: List<YamlNode>
 ): YamlNode() {
     override fun asString(): String {
-        return values.map {
+        if (values.isEmpty()) {
+            return "[]"
+        }
+
+        return values.joinToString("\n") {
             val lines = it.asString().split("\n")
 
             val buffer = mutableListOf<String>()
@@ -132,7 +136,7 @@ data class YamlList(
             }
 
             buffer.joinToString("\n")
-        }.joinToString("\n")
+        }
     }
 }
 
@@ -141,6 +145,10 @@ data class YamlMap(
         val values: Map<String, YamlNode>
 ): YamlNode() {
     override fun asString(): String {
+        if (values.isEmpty()) {
+            return "{}"
+        }
+
         return values.map {
             val lines = it.value.asString().split("\n")
 
