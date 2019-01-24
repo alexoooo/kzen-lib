@@ -5,12 +5,26 @@ class ObjectMap<T>(
         val values: Map<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    fun locate(reference: ObjectReference): ObjectLocation {
+        return locateOptional(reference)
+                ?: throw IllegalArgumentException("Missing: $reference")
+    }
+
+
     fun locate(host: ObjectLocation, reference: ObjectReference): ObjectLocation {
-        val match = locateOptional(host, reference)
-        check(match != null) {
-            "Missing: $host - $reference"
+        return locateOptional(host, reference)
+                ?: throw IllegalArgumentException("Missing: $host - $reference")
+    }
+
+
+    fun locateOptional(reference: ObjectReference): ObjectLocation? {
+        val matches = locateAll(reference)
+        check(matches.size <= 1) { "Ambiguous: $reference - $matches" }
+
+        if (matches.isEmpty()) {
+            return null
         }
-        return match
+        return matches.iterator().next()
     }
 
 
@@ -26,9 +40,7 @@ class ObjectMap<T>(
     }
 
 
-    fun locateAll(host: ObjectLocation, reference: ObjectReference): Set<ObjectLocation> {
-        // TODO: breadth-first-search from host
-
+    fun locateAll(reference: ObjectReference): Set<ObjectLocation> {
         val candidates = mutableSetOf<ObjectLocation>()
         for (candidate in values.keys) {
             if (reference.name != candidate.objectPath.name ||
@@ -40,6 +52,12 @@ class ObjectMap<T>(
             candidates.add(candidate)
         }
         return candidates
+    }
+
+
+    fun locateAll(host: ObjectLocation, reference: ObjectReference): Set<ObjectLocation> {
+        // TODO: breadth-first-search from host
+        return locateAll(reference)
     }
 
 

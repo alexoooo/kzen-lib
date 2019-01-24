@@ -7,13 +7,13 @@ import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.GraphNotation
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
 import kotlin.reflect.KClass
 
 
-object ObjectGraphDefiner {
+object GraphDefiner {
     //-----------------------------------------------------------------------------------------------------------------
     val bootstrapObjects = mapOf(
             bootstrapEntry(DefaultConstructorObjectCreator),
@@ -41,7 +41,7 @@ object ObjectGraphDefiner {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun define(
-            projectNotation: NotationTree,
+            projectNotation: GraphNotation,
             projectMetadata: GraphMetadata
     ): GraphDefinition {
         val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
@@ -86,7 +86,7 @@ object ObjectGraphDefiner {
                         projectNotation,
                         projectMetadata,
                         GraphDefinition(ObjectMap(closedDefinitions)),
-                        ObjectGraph(ObjectMap(definerAndRelatedInstances)))
+                        GraphInstance(ObjectMap(definerAndRelatedInstances)))
                 println("  >> definition: $definition")
 
                 if (definition.isError()) {
@@ -140,7 +140,7 @@ object ObjectGraphDefiner {
                         missingName,
                         definition,
                         projectMetadata.objectMetadata.get(missingName),
-                        ObjectGraph(ObjectMap(definerAndRelatedInstances)))
+                        GraphInstance(ObjectMap(definerAndRelatedInstances)))
 
                 println("  $$ created: $missingName")
 
@@ -168,7 +168,7 @@ object ObjectGraphDefiner {
 
     private fun definerName(
             objectName: ObjectLocation,
-            projectNotation: NotationTree
+            projectNotation: GraphNotation
     ): String {
         return projectNotation.getString(objectName, NotationConventions.definerAttribute)
     }
@@ -176,7 +176,7 @@ object ObjectGraphDefiner {
 
     private fun isAbstract(
             objectName: ObjectLocation,
-            projectNotation: NotationTree
+            projectNotation: GraphNotation
     ): Boolean {
         print("NotationConventions.abstractPath: " + NotationConventions.abstractAttribute)
         return projectNotation.directParameter(objectName, NotationConventions.abstractAttribute)

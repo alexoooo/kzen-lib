@@ -5,13 +5,12 @@ import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 
 
-// TODO: factor out Map<BundlePath, T> as BundleTree?
-data class NotationTree(
+data class GraphNotation(
         val bundleNotations: BundleTree<BundleNotation>)
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = NotationTree(BundleTree(mapOf()))
+        val empty = GraphNotation(BundleTree(mapOf()))
     }
 
 
@@ -104,7 +103,7 @@ data class NotationTree(
     fun withNewBundle(
             projectPath: BundlePath,
             packageNotation: BundleNotation
-    ): NotationTree {
+    ): GraphNotation {
         check(! bundleNotations.values.containsKey(projectPath)) {"Already exists: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
@@ -113,14 +112,14 @@ data class NotationTree(
 
         buffer[projectPath] = packageNotation
 
-        return NotationTree(BundleTree(buffer))
+        return GraphNotation(BundleTree(buffer))
     }
 
 
     fun withModifiedBundle(
             projectPath: BundlePath,
             packageNotation: BundleNotation
-    ): NotationTree {
+    ): GraphNotation {
         check(bundleNotations.values.containsKey(projectPath)) {"Not found: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
@@ -135,13 +134,13 @@ data class NotationTree(
                     }
         }
 
-        return NotationTree(BundleTree(buffer))
+        return GraphNotation(BundleTree(buffer))
     }
 
 
     fun withoutBundle(
             projectPath: BundlePath
-    ): NotationTree {
+    ): GraphNotation {
         check(bundleNotations.values.containsKey(projectPath)) {"Already absent: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
@@ -154,22 +153,22 @@ data class NotationTree(
             buffer[e.key] = e.value
         }
 
-        return NotationTree(BundleTree(buffer))
+        return GraphNotation(BundleTree(buffer))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun filterPaths(predicate: (BundlePath) -> Boolean): NotationTree {
-        val filteredPackages = mutableMapOf<BundlePath, BundleNotation>()
+    fun filterPaths(predicate: (BundlePath) -> Boolean): GraphNotation {
+        val filteredBundle = mutableMapOf<BundlePath, BundleNotation>()
 
         for (e in bundleNotations.values) {
             if (! predicate.invoke(e.key)) {
                 continue
             }
 
-            filteredPackages[e.key] = e.value
+            filteredBundle[e.key] = e.value
         }
 
-        return NotationTree(BundleTree(filteredPackages))
+        return GraphNotation(BundleTree(filteredBundle))
     }
 }

@@ -12,7 +12,7 @@ import tech.kzen.lib.common.api.model.*
 class NotationMetadataReader(
 //        private val mirrorMetadataReader: MirrorMetadataReader
 ) {
-    fun read(notationTree: NotationTree): GraphMetadata {
+    fun read(notationTree: GraphNotation): GraphMetadata {
         val builder = mutableMapOf<ObjectLocation, ObjectMetadata>()
 
         for (objectLocation in notationTree.objectLocations) {
@@ -27,7 +27,7 @@ class NotationMetadataReader(
 
     private fun readObject(
             objectLocation: ObjectLocation,
-            projectNotation: NotationTree
+            projectNotation: GraphNotation
     ): ObjectMetadata {
         val metaParameter =
                 projectNotation.transitiveParameter(objectLocation, NotationConventions.metaAttribute)
@@ -52,7 +52,7 @@ class NotationMetadataReader(
     private fun readParameter(
             host: ObjectLocation,
             attributeNotation: AttributeNotation,
-            notationTree: NotationTree
+            notationTree: GraphNotation
     ): AttributeMetadata {
         val inheritanceParent: String? =
                 parameterInheritanceParent(attributeNotation)
@@ -141,7 +141,7 @@ class NotationMetadataReader(
             notationPath: AttributePath,
             inheritanceParent: ObjectLocation?,
             parameterMap: MapAttributeNotation?,
-            projectNotation: NotationTree
+            projectNotation: GraphNotation
     ): AttributeNotation? {
         val paramNotation = parameterMap?.get(notationPath)
 

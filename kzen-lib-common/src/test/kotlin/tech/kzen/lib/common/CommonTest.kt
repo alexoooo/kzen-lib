@@ -2,10 +2,10 @@ package tech.kzen.lib.common
 
 import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.api.model.ObjectMap
-import tech.kzen.lib.common.context.ObjectGraphCreator
-import tech.kzen.lib.common.context.ObjectGraphDefiner
+import tech.kzen.lib.common.context.GraphCreator
+import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.GraphNotation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -14,15 +14,15 @@ class CommonTest {
     fun objectGraphCanBeEmpty() {
         val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
-        val emptyDefinition = ObjectGraphDefiner.define(
-                NotationTree(BundleTree(mapOf())),
+        val emptyDefinition = GraphDefiner.define(
+                GraphNotation(BundleTree(mapOf())),
                 emptyMetadata)
 
-        val emptyGraph = ObjectGraphCreator.createGraph(
+        val emptyGraph = GraphCreator.createGraph(
                 emptyDefinition, emptyMetadata)
 
         assertEquals(
-                ObjectGraphDefiner.bootstrapObjects.size,
+                GraphDefiner.bootstrapObjects.size,
                 emptyGraph.objects.values.size)
     }
 }

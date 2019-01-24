@@ -3,7 +3,7 @@ package tech.kzen.lib.common.context
 import tech.kzen.lib.common.api.model.ObjectMap
 
 
-data class ObjectGraph(
+data class GraphInstance(
         val objects: ObjectMap<Any>)
 {
 //    fun names(): Set<ObjectName> =

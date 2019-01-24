@@ -9,16 +9,16 @@ import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 
 
-object ObjectGraphCreator {
+object GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
             graphDefinition: GraphDefinition,
             graphMetadata: GraphMetadata
-    ): ObjectGraph {
+    ): GraphInstance {
         val objectInstances = mutableMapOf<ObjectLocation, Any>()
-        objectInstances.putAll(ObjectGraphDefiner.bootstrapObjects)
+        objectInstances.putAll(GraphDefiner.bootstrapObjects)
 
-        val objectGraph = ObjectGraph(ObjectMap(objectInstances))
+        val objectGraph = GraphInstance(ObjectMap(objectInstances))
 
         val levels = constructionLevels(graphDefinition)
 
@@ -48,7 +48,7 @@ object ObjectGraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     private fun constructionLevels(graphDefinition: GraphDefinition): List<List<ObjectLocation>> {
         val closed = mutableSetOf<ObjectLocation>()
-        closed.addAll(ObjectGraphDefiner.bootstrapObjects.keys)
+        closed.addAll(GraphDefiner.bootstrapObjects.keys)
 
         val open = graphDefinition.objectDefinitions.values.keys.toMutableSet()
 

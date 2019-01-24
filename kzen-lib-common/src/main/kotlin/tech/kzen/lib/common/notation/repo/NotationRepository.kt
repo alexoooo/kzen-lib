@@ -8,7 +8,7 @@ import tech.kzen.lib.common.notation.edit.StructuralNotationCommand
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.model.BundleNotation
-import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.GraphNotation
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
 
@@ -22,13 +22,13 @@ class NotationRepository(
     private var scanCache = mutableMapOf<BundlePath, Digest>()
 
     // TODO: use notation from inside ProjectAggregate?
-    private var projectNotationCache: NotationTree? = null
+    private var projectNotationCache: GraphNotation? = null
     private var projectAggregateCache: NotationAggregate? = null
     private var fileCache = Cache<ByteArray>(10)
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun notation(): NotationTree {
+    suspend fun notation(): GraphNotation {
         if (projectNotationCache == null) {
             projectNotationCache = read()
         }
@@ -36,7 +36,7 @@ class NotationRepository(
     }
 
 
-    private suspend fun read(): NotationTree {
+    private suspend fun read(): GraphNotation {
         val packageBytes = mutableMapOf<BundlePath, ByteArray>()
         val packages = mutableMapOf<BundlePath, BundleNotation>()
 
@@ -61,7 +61,7 @@ class NotationRepository(
             packages[projectPath] = packageNotation
         }
 
-        return NotationTree(BundleTree(packages))
+        return GraphNotation(BundleTree(packages))
     }
 
 
@@ -85,19 +85,19 @@ class NotationRepository(
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun apply(command: StructuralNotationCommand): NotationEvent {
-        val oldPackages = notation().bundleNotations
+        val oldBundles = notation().bundleNotations
 
         val event = aggregate().apply(command)
-        val newPackages = aggregate().state.bundleNotations
+        val newBundles = aggregate().state.bundleNotations
 
         var writtenAny = false
-        for (updatedPackage in newPackages.values) {
-            if (oldPackages.values.containsKey(updatedPackage.key) &&
-                    updatedPackage.value.objects.equalsInOrder(oldPackages.values[updatedPackage.key]!!.objects)) {
+        for (updatedBundle in newBundles.values) {
+            if (oldBundles.values.containsKey(updatedBundle.key) &&
+                    updatedBundle.value.objects.equalsInOrder(oldBundles.values[updatedBundle.key]!!.objects)) {
                 continue
             }
 
-            val written = writeIfRequired(updatedPackage.key, updatedPackage.value)
+            val written = writeIfRequired(updatedBundle.key, updatedBundle.value)
             writtenAny = writtenAny || written
         }
 
@@ -133,7 +133,7 @@ class NotationRepository(
                     }
                 }
 
-        val updatedBody = notationParser.deparsePackage(packageNotation, previousBody)
+        val updatedBody = notationParser.deparseBundle(packageNotation, previousBody)
 
         if (updatedBody.contentEquals(previousBody) && ! previousMissing) {
             return false

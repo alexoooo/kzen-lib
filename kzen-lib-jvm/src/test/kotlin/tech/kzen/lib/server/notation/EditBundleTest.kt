@@ -2,9 +2,9 @@ package tech.kzen.lib.server.notation
 
 import org.junit.Test
 import tech.kzen.lib.common.notation.edit.CreateBundleCommand
-import tech.kzen.lib.common.notation.edit.DeletePackageCommand
+import tech.kzen.lib.common.notation.edit.DeleteBundleCommand
 import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.GraphNotation
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -13,7 +13,7 @@ class EditBundleTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Create bundle`() {
-        val project = NotationAggregate(NotationTree.empty)
+        val project = NotationAggregate(GraphNotation.empty)
 
         project.apply(CreateBundleCommand(testPath))
 
@@ -28,7 +28,7 @@ class EditBundleTest: NotationAggregateTest() {
 
         val project = NotationAggregate(notation)
 
-        project.apply(DeletePackageCommand(testPath))
+        project.apply(DeleteBundleCommand(testPath))
 
         assertTrue(project.state.bundleNotations.values.isEmpty())
     }

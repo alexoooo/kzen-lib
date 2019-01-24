@@ -7,12 +7,12 @@ import tech.kzen.lib.common.notation.model.*
 
 
 class NotationAggregate(
-        var state: NotationTree
+        var state: GraphNotation
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     private data class EventAndNotation(
             val event: NotationEvent,
-            val notation: NotationTree)
+            val notation: GraphNotation)
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -33,10 +33,10 @@ class NotationAggregate(
     private fun handle(command: StructuralNotationCommand): EventAndNotation {
         return when (command) {
             is CreateBundleCommand ->
-                createPackage(command)
+                createBundle(command)
 
-            is DeletePackageCommand ->
-                deletePackage(command)
+            is DeleteBundleCommand ->
+                deleteBundle(command)
 
 
             is AddObjectCommand ->
@@ -93,7 +93,7 @@ class NotationAggregate(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun createPackage(
+    private fun createBundle(
             command: CreateBundleCommand
     ): EventAndNotation {
         check(! state.bundleNotations.values.containsKey(command.bundlePath)) {
@@ -109,8 +109,8 @@ class NotationAggregate(
     }
 
 
-    private fun deletePackage(
-            command: DeletePackageCommand
+    private fun deleteBundle(
+            command: DeleteBundleCommand
     ): EventAndNotation {
         check(state.bundleNotations.values.containsKey(command.bundlePath)) {
             "Does not exist: ${command.bundlePath}"
@@ -195,8 +195,6 @@ class NotationAggregate(
             command: RenameObjectCommand
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
-
-//        val projectPath = state.findPackage(objectName)
 
         val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
 

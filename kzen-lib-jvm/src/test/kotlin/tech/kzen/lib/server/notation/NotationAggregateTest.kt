@@ -3,7 +3,7 @@ package tech.kzen.lib.server.notation
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.model.BundleNotation
-import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.GraphNotation
 import tech.kzen.lib.platform.IoUtils
 
 
@@ -19,21 +19,21 @@ abstract class NotationAggregateTest {
     }
 
 
-    fun parseTree(doc: String): NotationTree {
+    fun parseTree(doc: String): GraphNotation {
         val packageNotation = parseBundle(doc)
-        return NotationTree(BundleTree(mapOf(
+        return GraphNotation(BundleTree(mapOf(
                 testPath to packageNotation)))
     }
 
 
-    fun deparseBundle(notationTree: NotationTree): String {
+    fun deparseBundle(notationTree: GraphNotation): String {
         return deparseBundle(notationTree.bundleNotations.values[testPath]!!)
     }
 
 
     fun deparseBundle(bundleNotation: BundleNotation): String {
         return IoUtils.utf8ToString(
-                YamlNotationParser().deparsePackage(bundleNotation, ByteArray(0)))
+                YamlNotationParser().deparseBundle(bundleNotation, ByteArray(0)))
     }
 
 

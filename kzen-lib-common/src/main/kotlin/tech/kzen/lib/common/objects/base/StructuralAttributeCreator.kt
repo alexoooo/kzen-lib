@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeCreator
-import tech.kzen.lib.common.context.ObjectGraph
+import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.ListAttributeDefinition
 import tech.kzen.lib.common.definition.AttributeDefinition
 import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
@@ -15,7 +15,7 @@ class StructuralAttributeCreator: AttributeCreator {
             objectLocation: ObjectLocation,
             attributeDefinition: AttributeDefinition,
             parameterMetadata: AttributeMetadata,
-            objectGraph: ObjectGraph
+            objectGraph: GraphInstance
     ): Any? {
         return createDefinition(
                 objectLocation, attributeDefinition, /*parameterMetadata,*/ objectGraph)
@@ -26,7 +26,7 @@ class StructuralAttributeCreator: AttributeCreator {
             objectLocation: ObjectLocation,
             parameterDefinition: AttributeDefinition,
 //            parameterMetadata: ParameterMetadata,
-            objectGraph: ObjectGraph
+            objectGraph: GraphInstance
     ): Any? {
         return when (parameterDefinition) {
             is ValueAttributeDefinition -> {

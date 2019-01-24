@@ -13,7 +13,7 @@ interface NotationParser {
     fun parseParameter(value: String): AttributeNotation
 
 
-    fun deparsePackage(notation: BundleNotation, previousBody: ByteArray): ByteArray
+    fun deparseBundle(notation: BundleNotation, previousBody: ByteArray): ByteArray
 
     fun deparseObject(objectNotation: ObjectNotation): String
 

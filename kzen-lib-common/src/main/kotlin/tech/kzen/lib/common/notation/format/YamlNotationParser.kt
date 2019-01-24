@@ -1,10 +1,13 @@
 package tech.kzen.lib.common.notation.format
 
 
+import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.api.model.AttributeSegment
+import tech.kzen.lib.common.api.model.BundleMap
+import tech.kzen.lib.common.api.model.ObjectPath
 import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.model.*
-import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.platform.IoUtils
 
 
@@ -97,7 +100,7 @@ class YamlNotationParser: NotationParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun deparsePackage(notation: BundleNotation, previousBody: ByteArray): ByteArray {
+    override fun deparseBundle(notation: BundleNotation, previousBody: ByteArray): ByteArray {
 //        println("&%^&%^&%^ -- de-parsing - $notation")
 
         val buffer = StringBuilder()

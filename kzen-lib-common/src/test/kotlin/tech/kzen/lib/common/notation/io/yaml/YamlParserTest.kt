@@ -3,7 +3,7 @@ package tech.kzen.lib.common.notation.io.yaml
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.notation.format.YamlNotationParser
 import tech.kzen.lib.common.notation.model.BundleNotation
-import tech.kzen.lib.common.notation.model.NotationTree
+import tech.kzen.lib.common.notation.model.GraphNotation
 import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.IoUtils
 import kotlin.test.Test
@@ -105,20 +105,20 @@ Foo:
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parsePackage(doc: String): BundleNotation {
+    private fun parseBundle(doc: String): BundleNotation {
         return yamlParser.parseBundle(IoUtils.stringToUtf8(doc))
     }
 
 
-    private fun parseProject(doc: String): NotationTree {
-        val packageNotation = parsePackage(doc)
-        return NotationTree(BundleTree(mapOf(
-                mainPath to packageNotation)))
+    private fun parseProject(doc: String): GraphNotation {
+        val bundleNotation = parseBundle(doc)
+        return GraphNotation(BundleTree(mapOf(
+                mainPath to bundleNotation)))
     }
 
 
     private fun deparse(initial: String, expected: String): String {
-        return IoUtils.utf8ToString(yamlParser.deparsePackage(
+        return IoUtils.utf8ToString(yamlParser.deparseBundle(
                 yamlParser.parseBundle(IoUtils.stringToUtf8(expected)),
                 IoUtils.stringToUtf8(initial)))
     }

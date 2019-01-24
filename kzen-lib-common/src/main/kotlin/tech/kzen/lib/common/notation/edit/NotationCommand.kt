@@ -22,7 +22,7 @@ data class CreateBundleCommand(
 
 
 
-data class DeletePackageCommand(
+data class DeleteBundleCommand(
         val bundlePath: BundlePath
 ): StructuralNotationCommand()
 
