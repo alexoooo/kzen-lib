@@ -19,15 +19,15 @@ class YamlParserTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     @Test
-    fun parseQuotedStringParameter() {
-        val notation = yamlParser.parseParameter("\"foo\"")
+    fun parseQuotedStringAttribute() {
+        val notation = yamlParser.parseAttribute("\"foo\"")
         assertEquals("foo", (notation as ScalarAttributeNotation).value)
     }
 
 
     @Test
-    fun parseBareStringParameter() {
-        val notation = yamlParser.parseParameter("bar")
+    fun parseBareStringAttribute() {
+        val notation = yamlParser.parseAttribute("bar")
         assertEquals("bar", (notation as ScalarAttributeNotation).value)
     }
 

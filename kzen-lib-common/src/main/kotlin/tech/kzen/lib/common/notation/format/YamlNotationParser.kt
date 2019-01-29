@@ -50,17 +50,17 @@ class YamlNotationParser: NotationParser {
 
 
     private fun parseObjectYaml(objectMap: YamlMap): ObjectNotation {
-        val parameters = mutableMapOf<AttributeName, AttributeNotation>()
+        val attributes = mutableMapOf<AttributeName, AttributeNotation>()
 
         for (p in objectMap.values) {
-            val parameterNode = objectMap.values[p.key]!!
-            val parameter = yamlToParameter(parameterNode)
+            val attributeNode = objectMap.values[p.key]!!
+            val attribute = yamlToAttribute(attributeNode)
 
             val attributeName = AttributeName(p.key)
-            parameters[attributeName] = parameter
+            attributes[attributeName] = attribute
         }
 
-        return ObjectNotation(parameters)
+        return ObjectNotation(attributes)
     }
 
 
@@ -75,25 +75,25 @@ class YamlNotationParser: NotationParser {
     }
 
 
-    override fun parseParameter(value: String): AttributeNotation {
+    override fun parseAttribute(value: String): AttributeNotation {
         val node = YamlNodeParser.parse(value)
-        return yamlToParameter(node)
+        return yamlToAttribute(node)
     }
 
 
-    private fun yamlToParameter(node: YamlNode): AttributeNotation {
+    private fun yamlToAttribute(node: YamlNode): AttributeNotation {
         return when (node) {
             is YamlScalar ->
                 ScalarAttributeNotation(node.value)
 
             is YamlList ->
                 ListAttributeNotation(
-                        node.values.map { i -> yamlToParameter(i) })
+                        node.values.map { i -> yamlToAttribute(i) })
 
             is YamlMap ->
                 MapAttributeNotation(
                         node.values.map { e ->
-                            AttributeSegment.ofKey(e.key) to yamlToParameter(e.value)
+                            AttributeSegment.ofKey(e.key) to yamlToAttribute(e.value)
                         }.toMap())
         }
     }
@@ -131,22 +131,22 @@ class YamlNotationParser: NotationParser {
 
     private fun objectToYaml(objectNotation: ObjectNotation): YamlNode {
         return YamlMap(objectNotation.attributes.map {
-            it.key.value to parameterToYaml(it.value)
+            it.key.value to attributeToYaml(it.value)
         }.toMap())
     }
 
 
-    private fun parameterToYaml(parameterNotation: AttributeNotation): YamlNode {
-        return when (parameterNotation) {
+    private fun attributeToYaml(attributeNotation: AttributeNotation): YamlNode {
+        return when (attributeNotation) {
             is ScalarAttributeNotation ->
-                YamlNode.ofObject(parameterNotation.value)
+                YamlNode.ofObject(attributeNotation.value)
 
             is ListAttributeNotation ->
-                YamlList(parameterNotation.values.map { parameterToYaml(it) })
+                YamlList(attributeNotation.values.map { attributeToYaml(it) })
 
             is MapAttributeNotation ->
-                YamlMap(parameterNotation.values.map { e ->
-                    e.key.asKey() to parameterToYaml(e.value)
+                YamlMap(attributeNotation.values.map { e ->
+                    e.key.asKey() to attributeToYaml(e.value)
                 }.toMap())
 
 //            else ->
@@ -160,8 +160,8 @@ class YamlNotationParser: NotationParser {
         return yaml.asString()
     }
 
-    override fun deparseParameter(parameterNotation: AttributeNotation): String {
-        val yaml = parameterToYaml(parameterNotation)
+    override fun deparseAttribute(attributeNotation: AttributeNotation): String {
+        val yaml = attributeToYaml(attributeNotation)
         return yaml.asString()
     }
 }

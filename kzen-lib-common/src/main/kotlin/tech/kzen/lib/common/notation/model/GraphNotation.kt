@@ -29,30 +29,30 @@ data class GraphNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun directParameter(
+    fun directAttribute(
             objectLocation: ObjectLocation,
-            attributeNesting: AttributePath
+            attributePath: AttributePath
     ): AttributeNotation? =
-            coalesce.values[objectLocation]?.get(attributeNesting)
+            coalesce.values[objectLocation]?.get(attributePath)
 
 
-    fun transitiveParameter(
+    fun transitiveAttribute(
             objectLocation: ObjectLocation,
-            attributeNesting: AttributePath
+            attributePath: AttributePath
     ): AttributeNotation? {
         val notation = coalesce.values[objectLocation]
                 ?: return null
 
-        val parameter = notation.get(attributeNesting)
+        val parameter = notation.get(attributePath)
         if (parameter != null) {
 //            println("== parameter - $objectName - $notationPath: $parameter")
             return parameter
         }
 
-        val isParameter = notation.get(NotationConventions.isAttribute)
+        val isAttribute = notation.get(NotationConventions.isAttribute)
 
         val superReference =
-                when (isParameter) {
+                when (isAttribute) {
                     null ->
                         BootstrapConventions.rootObjectReference
 
@@ -60,7 +60,7 @@ data class GraphNotation(
                         TODO()
 
                     else -> {
-                        val isValue = isParameter.value
+                        val isValue = isAttribute.value
 
                         @Suppress("FoldInitializerAndIfToElvis")
                         if (isValue !is String) {
@@ -71,7 +71,7 @@ data class GraphNotation(
                     }
                 }
 
-        println("coalesce keys ($objectLocation - $attributeNesting - $superReference): " + coalesce.values.keys)
+        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
         val superLocation = coalesce.locate(objectLocation, superReference)
 
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
@@ -81,7 +81,7 @@ data class GraphNotation(
 
 //        println("^^^^^ superName: $superName")
 
-        return transitiveParameter(superLocation, attributeNesting)
+        return transitiveAttribute(superLocation, attributePath)
     }
 
 
@@ -90,8 +90,9 @@ data class GraphNotation(
         return getString(attributeLocation.objectLocation, attributeLocation.attributePath)
     }
 
+
     fun getString(objectLocation: ObjectLocation, attributeNesting: AttributePath): String {
-        val scalarParameter = transitiveParameter(objectLocation, attributeNesting)
+        val scalarParameter = transitiveAttribute(objectLocation, attributeNesting)
                 ?: throw IllegalArgumentException("Not found: $objectLocation.$attributeNesting")
 
         return scalarParameter.asString()

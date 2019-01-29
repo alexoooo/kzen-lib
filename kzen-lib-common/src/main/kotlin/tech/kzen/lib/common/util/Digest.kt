@@ -75,8 +75,8 @@ data class Digest(
         }
 
 
-        fun decode(encoded: String): Digest {
-            val parts = encoded.split('_')
+        fun parse(asString: String): Digest {
+            val parts = asString.split('_')
             return Digest(
                     parts[0].toInt(),
                     parts[1].toInt(),
@@ -214,13 +214,13 @@ data class Digest(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun encode(): String {
+    fun asString(): String {
         return "${a}_${b}_${c}_$d"
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
-        return encode()
+        return asString()
     }
 }

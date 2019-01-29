@@ -31,8 +31,8 @@ class DigestTest {
     @Test
     fun encodeDecode() {
         val digest = digest("foo")
-        val encoding = digest.encode()
-        val decoded = Digest.decode(encoding)
+        val encoding = digest.asString()
+        val decoded = Digest.parse(encoding)
         assertEquals(digest, decoded)
     }
 

@@ -22,6 +22,7 @@ class NotationAggregate(
         return eventAndNotation.event
     }
 
+
     fun apply(command: SemanticNotationCommand, graphDefinition: GraphDefinition): NotationEvent {
         val eventAndNotation = handle(command, graphDefinition)
         state = eventAndNotation.notation
@@ -300,7 +301,7 @@ class NotationAggregate(
         val objectNotation = state.coalesce.get(command.objectLocation)
 
         val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
-        val mapWithInsert = mapInAttribute.insert(command.value, command.key, command.indexInMap)
+        val mapWithInsert = mapInAttribute.insert(command.value, command.mapKey, command.indexInMap)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.containingMap, mapWithInsert)
@@ -315,7 +316,7 @@ class NotationAggregate(
                 command.objectLocation,
                 command.containingMap,
                 command.indexInMap,
-                command.key,
+                command.mapKey,
                 command.value)
 
         return EventAndNotation(event, nextState)

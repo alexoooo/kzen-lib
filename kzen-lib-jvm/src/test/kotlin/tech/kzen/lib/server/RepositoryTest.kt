@@ -3,6 +3,7 @@ package tech.kzen.lib.server
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.notation.edit.RenameObjectCommand
 import tech.kzen.lib.common.notation.edit.ShiftObjectCommand
 import tech.kzen.lib.common.notation.format.YamlNotationParser
@@ -18,6 +19,7 @@ class RepositoryTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     private val yamlParser = YamlNotationParser()
+    private val metadataReader = NotationMetadataReader()
     private val mainPath = BundlePath.parse("main.yaml")
 
 
@@ -27,7 +29,7 @@ class RepositoryTest {
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser)
+                media, yamlParser, metadataReader)
 
         runBlocking {
             media.write(mainPath, IoUtils.stringToUtf8("""
@@ -58,7 +60,7 @@ B:
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser)
+                media, yamlParser, metadataReader)
 
         runBlocking {
             media.write(mainPath, IoUtils.stringToUtf8("""

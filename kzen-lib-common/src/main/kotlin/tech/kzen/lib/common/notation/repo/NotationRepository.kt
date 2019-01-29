@@ -2,9 +2,9 @@ package tech.kzen.lib.common.notation.repo
 
 import tech.kzen.lib.common.api.model.BundlePath
 import tech.kzen.lib.common.api.model.BundleTree
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.edit.NotationEvent
-import tech.kzen.lib.common.notation.edit.StructuralNotationCommand
+import tech.kzen.lib.common.context.GraphDefiner
+import tech.kzen.lib.common.metadata.read.NotationMetadataReader
+import tech.kzen.lib.common.notation.edit.*
 import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.notation.io.NotationParser
 import tech.kzen.lib.common.notation.model.BundleNotation
@@ -16,7 +16,8 @@ import tech.kzen.lib.common.util.Digest
 // TODO: threadsafe?
 class NotationRepository(
         private val notationMedia: NotationMedia,
-        private val notationParser: NotationParser
+        private val notationParser: NotationParser,
+        private val metadataReader: NotationMetadataReader
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     private var scanCache = mutableMapOf<BundlePath, Digest>()
@@ -84,11 +85,26 @@ class NotationRepository(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun apply(command: StructuralNotationCommand): NotationEvent {
-        val oldBundles = notation().bundleNotations
+    suspend fun apply(command: NotationCommand): NotationEvent {
+        val notation = notation()
+        val aggregate = aggregate()
 
-        val event = aggregate().apply(command)
-        val newBundles = aggregate().state.bundleNotations
+        val oldBundles = notation.bundleNotations
+
+        val event =
+                when (command) {
+                    is StructuralNotationCommand ->
+                        aggregate.apply(command)
+
+                    is SemanticNotationCommand -> {
+                        val graphMetadata = metadataReader.read(notation)
+                        val graphDefinition = GraphDefiner.define(notation, graphMetadata)
+                        aggregate.apply(command, graphDefinition)
+                    }
+                }
+
+
+        val newBundles = aggregate.state.bundleNotations
 
         var writtenAny = false
         for (updatedBundle in newBundles.values) {

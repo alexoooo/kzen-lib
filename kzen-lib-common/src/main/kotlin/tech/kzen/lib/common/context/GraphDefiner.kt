@@ -41,18 +41,18 @@ object GraphDefiner {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun define(
-            projectNotation: GraphNotation,
-            projectMetadata: GraphMetadata
+            graphNotation: GraphNotation,
+            graphMetadata: GraphMetadata
     ): GraphDefinition {
         val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
 
         definerAndRelatedInstances.putAll(bootstrapObjects)
 
-        val openDefinitions = projectNotation
+        val openDefinitions = graphNotation
                 .objectLocations
                 .filter {
                     ! bootstrapObjects.containsKey(it) &&
-                            ! isAbstract(it, projectNotation)
+                            ! isAbstract(it, graphNotation)
                 }.toMutableSet()
 
         val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
@@ -72,8 +72,8 @@ object GraphDefiner {
             for (objectLocation in openDefinitions) {
                 println("^^^^^ objectName: $objectLocation")
 
-                val definerReference = ObjectReference.parse(definerName(objectLocation, projectNotation))
-                val definerLocation = projectNotation.coalesce.locate(objectLocation, definerReference)
+                val definerReference = ObjectReference.parse(definerName(objectLocation, graphNotation))
+                val definerLocation = graphNotation.coalesce.locate(objectLocation, definerReference)
                 val definer = definerAndRelatedInstances[definerLocation] as? ObjectDefiner
 
                 if (definer == null) {
@@ -83,8 +83,8 @@ object GraphDefiner {
 
                 val definition = definer.define(
                         objectLocation,
-                        projectNotation,
-                        projectMetadata,
+                        graphNotation,
+                        graphMetadata,
                         GraphDefinition(ObjectMap(closedDefinitions)),
                         GraphInstance(ObjectMap(definerAndRelatedInstances)))
                 println("  >> definition: $definition")
@@ -107,7 +107,7 @@ object GraphDefiner {
                         ?: continue
 
                 println("  $$ got definition for: $missingName")
-                val creatorLocation = projectNotation.coalesce.locate(missingName, definition.creator)
+                val creatorLocation = graphNotation.coalesce.locate(missingName, definition.creator)
 
                 var hasMissingCreatorInstances = false
                 if (! definerAndRelatedInstances.containsKey(creatorLocation)) {
@@ -119,7 +119,7 @@ object GraphDefiner {
 
                 for (creatorReference in definition.creatorReferences) {
                     val creatorReferenceLocation =
-                            projectNotation.coalesce.locate(missingName, creatorReference)
+                            graphNotation.coalesce.locate(missingName, creatorReference)
 
                     if (! definerAndRelatedInstances.containsKey(creatorReferenceLocation)) {
                         missingCreatorInstances.add(creatorReferenceLocation)
@@ -139,7 +139,7 @@ object GraphDefiner {
                 val newInstance = creator.create(
                         missingName,
                         definition,
-                        projectMetadata.objectMetadata.get(missingName),
+                        graphMetadata.objectMetadata.get(missingName),
                         GraphInstance(ObjectMap(definerAndRelatedInstances)))
 
                 println("  $$ created: $missingName")
@@ -179,7 +179,7 @@ object GraphDefiner {
             projectNotation: GraphNotation
     ): Boolean {
         print("NotationConventions.abstractPath: " + NotationConventions.abstractAttribute)
-        return projectNotation.directParameter(objectName, NotationConventions.abstractAttribute)
+        return projectNotation.directAttribute(objectName, NotationConventions.abstractAttribute)
                 ?.asBoolean()
                 ?: false
     }

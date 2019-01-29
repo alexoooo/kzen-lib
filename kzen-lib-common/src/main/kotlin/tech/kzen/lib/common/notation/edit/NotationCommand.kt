@@ -114,7 +114,7 @@ data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingMap: AttributePath,
         val indexInMap: PositionIndex,
-        val key: AttributeSegment,
+        val mapKey: AttributeSegment,
         val value: AttributeNotation
 ): StructuralNotationCommand()
 

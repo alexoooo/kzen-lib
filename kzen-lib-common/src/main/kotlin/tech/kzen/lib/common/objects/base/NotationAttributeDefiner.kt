@@ -28,7 +28,7 @@ class NotationAttributeDefiner: AttributeDefiner {
 
         // TODO: is the transitiveParameter here handled correctly? what about default values?
         val parameterNotation = objectNotation.attributes[attributeName]
-                ?: projectNotation.transitiveParameter(objectLocation, attributeName.asAttributeNesting())
+                ?: projectNotation.transitiveAttribute(objectLocation, attributeName.asAttributeNesting())
                 ?: throw IllegalArgumentException("Unknown parameter: $attributeName")
 
         val objectMetadata = projectMetadata.objectMetadata.get(objectLocation)

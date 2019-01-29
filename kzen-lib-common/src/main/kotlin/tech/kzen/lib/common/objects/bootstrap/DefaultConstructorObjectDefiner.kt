@@ -22,7 +22,7 @@ object DefaultConstructorObjectDefiner: ObjectDefiner {
             objectGraph: GraphInstance
     ): ObjectDefinitionAttempt {
         val className = (
-                notationTree.transitiveParameter(
+                notationTree.transitiveAttribute(
                         objectLocation, NotationConventions.classAttribute
                 )!! as ScalarAttributeNotation
         ).value as String

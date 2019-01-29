@@ -35,7 +35,7 @@ class ParentChildAttributeDefiner: AttributeDefiner {
 
         for (e in projectNotation.coalesce.values) {
             val parentNotation = projectNotation
-                    .transitiveParameter(e.key, parentPath)
+                    .transitiveAttribute(e.key, parentPath)
                     ?: continue
 
             val parentName =
