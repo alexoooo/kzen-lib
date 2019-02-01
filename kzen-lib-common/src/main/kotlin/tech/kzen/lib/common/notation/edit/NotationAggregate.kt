@@ -97,7 +97,7 @@ class NotationAggregate(
     private fun createBundle(
             command: CreateBundleCommand
     ): EventAndNotation {
-        check(! state.bundleNotations.values.containsKey(command.bundlePath)) {
+        check(! state.bundles.values.containsKey(command.bundlePath)) {
             "Already exists: ${command.bundlePath}"
         }
 
@@ -113,7 +113,7 @@ class NotationAggregate(
     private fun deleteBundle(
             command: DeleteBundleCommand
     ): EventAndNotation {
-        check(state.bundleNotations.values.containsKey(command.bundlePath)) {
+        check(state.bundles.values.containsKey(command.bundlePath)) {
             "Does not exist: ${command.bundlePath}"
         }
 
@@ -133,7 +133,7 @@ class NotationAggregate(
             "Object named '${command.objectLocation}' already exists"
         }
 
-        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val modifiedProjectNotation =
                 bundleNotation.withNewObject(
@@ -154,7 +154,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val modifiedProjectNotation =
                 packageNotation.withoutObject(command.objectLocation.objectPath)
@@ -173,7 +173,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -197,7 +197,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
         val objectIndex = packageNotation.indexOf(command.objectLocation.objectPath)
@@ -224,7 +224,7 @@ class NotationAggregate(
     private fun upsertAttribute(
             command: UpsertAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -247,7 +247,7 @@ class NotationAggregate(
     private fun updateInAttribute(
             command: UpdateInAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -270,7 +270,7 @@ class NotationAggregate(
     private fun insertListItemInAttribute(
             command: InsertListItemInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -296,7 +296,7 @@ class NotationAggregate(
     private fun insertMapEntryInAttribute(
             command: InsertMapEntryInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -326,7 +326,7 @@ class NotationAggregate(
     private fun removeInAttribute(
             command: RemoveInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundleNotations.values[command.objectLocation.bundlePath]!!
+        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 

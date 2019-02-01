@@ -10,7 +10,7 @@ class RemoveObjectTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Remove last object`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 A:
   hello: "a"
 """)
@@ -20,7 +20,7 @@ A:
         project.apply(RemoveObjectCommand(
                 location("A")))
 
-        val packageNotation = project.state.bundleNotations.values[testPath]!!
+        val packageNotation = project.state.bundles.values[testPath]!!
         assertEquals(0, packageNotation.objects.values.size)
     }
 }

@@ -1,11 +1,10 @@
 package tech.kzen.lib.server.notation
 
 import com.google.common.reflect.ClassPath
-import tech.kzen.lib.common.api.model.BundleMap
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.api.model.BundlePath
 import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.notation.NotationConventions
+import tech.kzen.lib.common.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
 
 
@@ -13,7 +12,7 @@ class ClasspathNotationMedia(
         private val prefix: String = NotationConventions.prefix,
         private val suffix: String = NotationConventions.suffix,
         private val loader: ClassLoader = Thread.currentThread().contextClassLoader
-) : NotationMedia {
+): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
     private val cache: MutableMap<BundlePath, Digest> = mutableMapOf()
 

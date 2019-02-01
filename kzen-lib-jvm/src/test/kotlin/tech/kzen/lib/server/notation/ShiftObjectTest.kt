@@ -14,7 +14,7 @@ class ShiftObjectTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Shift up`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 A:
   hello: "a"
 B:
@@ -26,15 +26,15 @@ B:
         project.apply(ShiftObjectCommand(
                 location("B"), PositionIndex(0)))
 
-        val packageNotation = project.state.bundleNotations.values[testPath]!!
+        val packageNotation = project.state.bundles.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
-        assertFalse(notation.bundleNotations.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertFalse(notation.bundles.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
     @Test
     fun `Shift down`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 A:
   hello: "a"
 B:
@@ -46,15 +46,15 @@ B:
         project.apply(ShiftObjectCommand(
                 location("A"), PositionIndex(1)))
 
-        val packageNotation = project.state.bundleNotations.values[testPath]!!
+        val packageNotation = project.state.bundles.values[testPath]!!
         assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertFalse(notation.bundleNotations.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertFalse(notation.bundles.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
     @Test
     fun `Shift in place`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 A:
   hello: "a"
 B:
@@ -66,8 +66,8 @@ B:
         project.apply(ShiftObjectCommand(
                 location("A"), PositionIndex(0)))
 
-        val packageNotation = project.state.bundleNotations.values[testPath]!!
+        val packageNotation = project.state.bundles.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertTrue(notation.bundleNotations.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertTrue(notation.bundles.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 }

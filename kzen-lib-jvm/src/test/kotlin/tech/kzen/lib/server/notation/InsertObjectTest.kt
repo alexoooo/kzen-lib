@@ -15,7 +15,7 @@ class InsertObjectTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Insert into existing list`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 InsertInto:
   foo:
   - Bar
@@ -32,7 +32,7 @@ InsertInto:
                 ObjectNotation.ofParent("DoubleValue")
         ))
 
-        val bundleNotation = project.state.bundleNotations.values[testPath]!!
+        val bundleNotation = project.state.bundles.values[testPath]!!
 
         assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("InsertInto.foo/Inserted")).value)
 

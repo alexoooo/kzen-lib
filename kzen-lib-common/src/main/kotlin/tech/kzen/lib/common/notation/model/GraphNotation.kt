@@ -6,7 +6,7 @@ import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 
 
 data class GraphNotation(
-        val bundleNotations: BundleTree<BundleNotation>)
+        val bundles: BundleTree<BundleNotation>)
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -21,7 +21,7 @@ data class GraphNotation(
 
     val coalesce: ObjectMap<ObjectNotation> by lazy {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
-        bundleNotations.values.entries
+        bundles.values.entries
                 .flatMap { it.value.expand(it.key).values.entries }
                 .forEach { buffer[it.key] = it.value }
         ObjectMap(buffer)
@@ -71,7 +71,7 @@ data class GraphNotation(
                     }
                 }
 
-        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
+//        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
         val superLocation = coalesce.locate(objectLocation, superReference)
 
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
@@ -105,11 +105,11 @@ data class GraphNotation(
             projectPath: BundlePath,
             packageNotation: BundleNotation
     ): GraphNotation {
-        check(! bundleNotations.values.containsKey(projectPath)) {"Already exists: $projectPath"}
+        check(! bundles.values.containsKey(projectPath)) {"Already exists: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
-        buffer.putAll(bundleNotations.values)
+        buffer.putAll(bundles.values)
 
         buffer[projectPath] = packageNotation
 
@@ -121,11 +121,11 @@ data class GraphNotation(
             projectPath: BundlePath,
             packageNotation: BundleNotation
     ): GraphNotation {
-        check(bundleNotations.values.containsKey(projectPath)) {"Not found: $projectPath"}
+        check(bundles.values.containsKey(projectPath)) {"Not found: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
-        for (e in bundleNotations.values) {
+        for (e in bundles.values) {
             buffer[e.key] =
                     if (e.key == projectPath) {
                         packageNotation
@@ -142,11 +142,11 @@ data class GraphNotation(
     fun withoutBundle(
             projectPath: BundlePath
     ): GraphNotation {
-        check(bundleNotations.values.containsKey(projectPath)) {"Already absent: $projectPath"}
+        check(bundles.values.containsKey(projectPath)) {"Already absent: $projectPath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
-        for (e in bundleNotations.values) {
+        for (e in bundles.values) {
             if (e.key == projectPath) {
                 continue
             }
@@ -162,7 +162,7 @@ data class GraphNotation(
     fun filterPaths(predicate: (BundlePath) -> Boolean): GraphNotation {
         val filteredBundle = mutableMapOf<BundlePath, BundleNotation>()
 
-        for (e in bundleNotations.values) {
+        for (e in bundles.values) {
             if (! predicate.invoke(e.key)) {
                 continue
             }

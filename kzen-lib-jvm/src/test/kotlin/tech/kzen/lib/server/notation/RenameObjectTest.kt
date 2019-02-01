@@ -12,7 +12,7 @@ class RenameObjectTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Rename between two objects`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 A:
   hello: "a"
 B:
@@ -26,7 +26,7 @@ C:
         project.apply(RenameObjectCommand(
                 location("B"), ObjectName("Foo")))
 
-        val bundleNotation = project.state.bundleNotations.values[testPath]!!
+        val bundleNotation = project.state.bundles.values[testPath]!!
 
         assertEquals(0, bundleNotation.indexOf(ObjectPath.parse("A")).value)
         assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("Foo")).value)

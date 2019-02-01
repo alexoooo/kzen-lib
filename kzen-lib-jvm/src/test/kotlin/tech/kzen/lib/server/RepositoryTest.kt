@@ -43,12 +43,12 @@ B:
 
             repo.apply(ShiftObjectCommand(aLocation, PositionIndex(1)))
 
-            assertEquals(1, repo.notation().bundleNotations.values[mainPath]!!.indexOf(aLocation.objectPath).value,
+            assertEquals(1, repo.notation().bundles.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "First move down")
 
             repo.apply(ShiftObjectCommand(aLocation, PositionIndex(0)))
 
-            assertEquals(0, repo.notation().bundleNotations.values[mainPath]!!.indexOf(aLocation.objectPath).value,
+            assertEquals(0, repo.notation().bundles.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "Second move back up")
         }
     }

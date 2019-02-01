@@ -19,7 +19,7 @@ abstract class NotationAggregateTest {
     }
 
 
-    fun parseTree(doc: String): GraphNotation {
+    fun parseGraph(doc: String): GraphNotation {
         val packageNotation = parseBundle(doc)
         return GraphNotation(BundleTree(mapOf(
                 testPath to packageNotation)))
@@ -27,13 +27,13 @@ abstract class NotationAggregateTest {
 
 
     fun deparseBundle(notationTree: GraphNotation): String {
-        return deparseBundle(notationTree.bundleNotations.values[testPath]!!)
+        return deparseBundle(notationTree.bundles.values[testPath]!!)
     }
 
 
     fun deparseBundle(bundleNotation: BundleNotation): String {
         return IoUtils.utf8ToString(
-                YamlNotationParser().deparseBundle(bundleNotation, ByteArray(0)))
+                yamlParser.deparseBundle(bundleNotation, ByteArray(0)))
     }
 
 

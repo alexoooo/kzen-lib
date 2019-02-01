@@ -40,7 +40,9 @@ class YamlNotationParser: NotationParser {
 
         val objects = mutableMapOf<ObjectPath, ObjectNotation>()
         for (e in topLevelMap.values) {
-            val objectMap = e.value as YamlMap
+            val objectMap = e.value
+                    as? YamlMap
+                    ?: throw IllegalArgumentException("Sub-map expected: ${e.key} - ${e.value.asString()}")
             val objectPath = ObjectPath.parse(e.key)
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation

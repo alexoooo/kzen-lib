@@ -17,19 +17,19 @@ class EditBundleTest: NotationAggregateTest() {
 
         project.apply(CreateBundleCommand(testPath))
 
-        val packageNotation = project.state.bundleNotations.values[testPath]!!
+        val packageNotation = project.state.bundles.values[testPath]!!
         assertEquals(0, packageNotation.objects.values.size)
     }
 
 
     @Test
     fun `Delete bundle`() {
-        val notation = parseTree("")
+        val notation = parseGraph("")
 
         val project = NotationAggregate(notation)
 
         project.apply(DeleteBundleCommand(testPath))
 
-        assertTrue(project.state.bundleNotations.values.isEmpty())
+        assertTrue(project.state.bundles.values.isEmpty())
     }
 }

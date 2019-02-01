@@ -36,7 +36,7 @@ class YamlParserTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun parseEmptyYaml() {
-        val notation = parseProject("")
+        val notation = parseGraph("")
 
         assertTrue(notation.coalesce.values.isEmpty())
     }
@@ -44,7 +44,7 @@ class YamlParserTest {
 
     @Test
     fun parseSimpleYaml() {
-        val notation = parseProject("""
+        val notation = parseGraph("""
 Foo:
   bar: "baz"
 """)
@@ -55,7 +55,7 @@ Foo:
 
     @Test
     fun parseComplexYaml() {
-        val notation = parseProject("""
+        val notation = parseGraph("""
 # Hello
 Foo:
   bar:
@@ -73,7 +73,7 @@ Foo:
 
     @Test
     fun parseSpaceInKey() {
-        val notation = parseProject("""
+        val notation = parseGraph("""
 "Foo bar":
   bar: "baz"
 """)
@@ -84,13 +84,25 @@ Foo:
 
     @Test
     fun parseEscapeInDoubleQuote() {
-        val notation = parseProject("""
+        val notation = parseGraph("""
 Foo:
   bar: "baz\""
 """)
 
         assertEquals("baz\"", notation.getString(location("Foo"), attribute("bar")))
     }
+
+
+//    @Test
+//    fun parseComplicatedYaml() {
+//        val notation = parseGraph("""
+//"__ANON__20190131T143114_226Z":
+//  is: "action/action-browser.yaml#/OpenBrowser"
+//""")
+//
+//        assertEquals("action/action-browser.yaml#/OpenBrowser",
+//                notation.getString(location("__ANON__20190131T143114_226Z"), attribute("is")))
+//    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -110,7 +122,7 @@ Foo:
     }
 
 
-    private fun parseProject(doc: String): GraphNotation {
+    private fun parseGraph(doc: String): GraphNotation {
         val bundleNotation = parseBundle(doc)
         return GraphNotation(BundleTree(mapOf(
                 mainPath to bundleNotation)))

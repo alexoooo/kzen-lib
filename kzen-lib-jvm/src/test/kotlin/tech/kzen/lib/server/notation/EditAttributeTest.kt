@@ -17,7 +17,7 @@ class EditAttributeTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Edit simple attribute`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello: "bar"
 """)
@@ -36,7 +36,7 @@ Foo:
 
     @Test
     fun `Edit default attribute`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello: "bar"
 """)
@@ -55,7 +55,7 @@ Foo:
 
     @Test
     fun `Edit in map attribute`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello:
     world: bar
@@ -75,7 +75,7 @@ Foo:
 
     @Test
     fun `Update in list attribute`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello:
   - bar
@@ -95,7 +95,7 @@ Foo:
 
     @Test
     fun `Shift in list`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello:
   - bar
@@ -117,7 +117,7 @@ Foo:
 
     @Test
     fun `Shift in map`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello:
     foo: 1
@@ -142,7 +142,7 @@ Foo:
 
     @Test
     fun `Remove last remaining in list`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
 Foo:
   hello:
   - baz
@@ -171,7 +171,7 @@ Foo:
 
     @Test
     fun `Remove last remaining in map`() {
-        val notation = parseTree("""
+        val notation = parseGraph("""
             Foo:
               hello:
                 foo: 1

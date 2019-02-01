@@ -58,8 +58,8 @@ class NotationRepository(
 
             packageBytes[projectPath] = body
 
-            val packageNotation = notationParser.parseBundle(body)
-            packages[projectPath] = packageNotation
+            val bundleNotation = notationParser.parseBundle(body)
+            packages[projectPath] = bundleNotation
         }
 
         return GraphNotation(BundleTree(packages))
@@ -89,7 +89,7 @@ class NotationRepository(
         val notation = notation()
         val aggregate = aggregate()
 
-        val oldBundles = notation.bundleNotations
+        val oldBundles = notation.bundles
 
         val event =
                 when (command) {
@@ -104,7 +104,7 @@ class NotationRepository(
                 }
 
 
-        val newBundles = aggregate.state.bundleNotations
+        val newBundles = aggregate.state.bundles
 
         var writtenAny = false
         for (updatedBundle in newBundles.values) {
@@ -150,6 +150,7 @@ class NotationRepository(
                 }
 
         val updatedBody = notationParser.deparseBundle(packageNotation, previousBody)
+//        println("!!! updatedBody: ${IoUtils.utf8ToString(updatedBody)}")
 
         if (updatedBody.contentEquals(previousBody) && ! previousMissing) {
             return false

@@ -1,8 +1,11 @@
 package tech.kzen.lib.common.notation.io.yaml
 
+import tech.kzen.lib.common.notation.format.YamlMap
+import tech.kzen.lib.common.notation.format.YamlNodeParser
 import tech.kzen.lib.common.notation.format.YamlString
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 
 class YamlNodeTest {
@@ -40,4 +43,16 @@ class YamlNodeTest {
         val node = YamlString("foo'bar\"")
         assertEquals("\"foo'bar\\\"\"", node.asString())
     }
+
+
+    @Test
+    fun parseNestedMapWithPound() {
+        val node = YamlNodeParser.parse("""
+Foo:
+  is: "#"
+""") as YamlMap
+
+        assertTrue(node.values["Foo"] is YamlMap)
+    }
+
 }

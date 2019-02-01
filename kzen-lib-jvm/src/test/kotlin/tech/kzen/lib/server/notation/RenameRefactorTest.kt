@@ -26,7 +26,7 @@ class RenameRefactorTest {
                         location("OldName"), ObjectName("NewName")),
                 graphDefinition)
 
-        val bundleNotation = aggregate.state.bundleNotations.values[testPath]!!
+        val bundleNotation = aggregate.state.bundles.values[testPath]!!
 
         assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("NewName")).value)
 

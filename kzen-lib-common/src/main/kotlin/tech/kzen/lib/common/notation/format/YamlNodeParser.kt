@@ -13,7 +13,7 @@ object YamlNodeParser {
                 "\r\n|\n")
 
         val decorator = Regex(
-                "$|#(.*)")
+                "#(.*)")
 
         // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
         // https://stackoverflow.com/questions/4264877/why-is-the-slash-an-escapable-character-in-json
@@ -148,6 +148,7 @@ object YamlNodeParser {
         }
 
         val entries = splitMapEntries(block)
+//        println("parseMap - entries: $entries")
 
         val values = mutableMapOf<String, YamlNode>()
         for (entry in entries) {
@@ -241,7 +242,7 @@ object YamlNodeParser {
 
         for (line in block) {
 //            println("splitting: $line")
-            if (Patterns.decorator.matchEntire(line) != null) {
+            if (line.isEmpty() || Patterns.decorator.matchEntire(line) != null) {
 //                println("skipped decorator")
                 continue
             }
