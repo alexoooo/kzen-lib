@@ -51,7 +51,7 @@ data class AddObjectCommand(
                 indexInBundle: PositionIndex,
                 parentReference: ObjectReference
         ): AddObjectCommand {
-            val parentBody = ObjectNotation.ofParent(parentReference.asString())
+            val parentBody = ObjectNotation.ofParent(parentReference)
             return AddObjectCommand(objectLocation, indexInBundle, parentBody)
         }
     }

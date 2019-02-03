@@ -34,6 +34,7 @@ data class DeletedBundleEvent(
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedObjectEvent(
         val objectLocation: ObjectLocation,
+        val indexInBundle: PositionIndex,
         val objectNotation: ObjectNotation
 ): SingularNotationEvent()
 

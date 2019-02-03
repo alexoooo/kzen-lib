@@ -18,7 +18,7 @@ data class BundleNesting(
                     return true
                 }
             }
-            return false
+            return encodedObjectPath[0] == '/'
         }
 
 

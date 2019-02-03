@@ -144,7 +144,10 @@ class NotationAggregate(
                 command.objectLocation.bundlePath, modifiedProjectNotation)
 
         return EventAndNotation(
-                AddedObjectEvent(command.objectLocation, command.body),
+                AddedObjectEvent(
+                        command.objectLocation,
+                        command.indexInBundle,
+                        command.body),
                 nextState)
     }
 

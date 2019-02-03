@@ -29,10 +29,10 @@ InsertInto:
                 PositionIndex(1),
                 ObjectName("Inserted"),
                 PositionIndex(1),
-                ObjectNotation.ofParent("DoubleValue")
+                ObjectNotation.ofParent(ObjectName("DoubleValue"))
         ))
 
-        val bundleNotation = project.state.bundles.values[testPath]!!
+        val bundleNotation = project.state.bundles.get(testPath)
 
         assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("InsertInto.foo/Inserted")).value)
 

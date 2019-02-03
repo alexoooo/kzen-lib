@@ -9,8 +9,12 @@ data class ObjectNotation(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        fun ofParent(parentRef: String): ObjectNotation {
-            val reference = ObjectReference.parse(parentRef)
+        fun ofParent(name: ObjectName): ObjectNotation {
+            return ofParent(ObjectReference.ofName(name))
+        }
+
+
+        fun ofParent(reference: ObjectReference): ObjectNotation {
             val attributeNotation = ScalarAttributeNotation(reference.asString())
 
             return ObjectNotation(mapOf(
