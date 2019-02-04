@@ -14,11 +14,11 @@ class StructuralAttributeCreator: AttributeCreator {
     override fun create(
             objectLocation: ObjectLocation,
             attributeDefinition: AttributeDefinition,
-            parameterMetadata: AttributeMetadata,
-            objectGraph: GraphInstance
+            attributeMetadata: AttributeMetadata,
+            graphInstance: GraphInstance
     ): Any? {
         return createDefinition(
-                objectLocation, attributeDefinition, /*parameterMetadata,*/ objectGraph)
+                objectLocation, attributeDefinition, /*parameterMetadata,*/ graphInstance)
     }
 
 

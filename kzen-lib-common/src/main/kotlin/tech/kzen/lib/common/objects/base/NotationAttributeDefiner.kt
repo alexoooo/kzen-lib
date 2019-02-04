@@ -1,17 +1,17 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeDefiner
+import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.*
 import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.metadata.model.TypeMetadata
-import tech.kzen.lib.common.notation.model.ListAttributeNotation
 import tech.kzen.lib.common.notation.model.AttributeNotation
 import tech.kzen.lib.common.notation.model.GraphNotation
+import tech.kzen.lib.common.notation.model.ListAttributeNotation
 import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.platform.ClassNames
 
 
@@ -29,7 +29,7 @@ class NotationAttributeDefiner: AttributeDefiner {
         // TODO: is the transitiveParameter here handled correctly? what about default values?
         val parameterNotation = objectNotation.attributes[attributeName]
                 ?: projectNotation.transitiveAttribute(objectLocation, attributeName.asAttributeNesting())
-                ?: throw IllegalArgumentException("Unknown parameter: $attributeName")
+                ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
 
         val objectMetadata = projectMetadata.objectMetadata.get(objectLocation)
         val parameterMetadata = objectMetadata.attributes[attributeName]!!

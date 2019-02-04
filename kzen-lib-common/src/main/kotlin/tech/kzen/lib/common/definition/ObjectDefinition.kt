@@ -3,15 +3,17 @@ package tech.kzen.lib.common.definition
 import tech.kzen.lib.common.api.model.*
 
 
+// TODO: is creatorReferences necessary?
+// TODO: should creator be ObjectLocation?
 data class ObjectDefinition(
         val className: String,
-        val constructorArguments: Map<AttributeName, AttributeDefinition>,
+        val attributeDefinitions: Map<AttributeName, AttributeDefinition>,
         val creator: ObjectReference,
         val creatorReferences: Set<ObjectReference>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributePath: AttributePath): AttributeDefinition {
-        val root = constructorArguments[attributePath.attribute]!!
+        val root = attributeDefinitions[attributePath.attribute]!!
 
         if (attributePath.nesting.segments.isEmpty()) {
             return root
@@ -53,7 +55,7 @@ data class ObjectDefinition(
     fun attributeReferences(): Map<AttributePath, ObjectReference> {
         val builder = mutableMapOf<AttributePath, ObjectReference>()
 
-        for (e in constructorArguments) {
+        for (e in attributeDefinitions) {
             val attributeReferences = attributeReferences(e.value)
 
             for (attributeReference in attributeReferences) {

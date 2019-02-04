@@ -1,15 +1,17 @@
 package tech.kzen.lib.common.objects.base
 
-import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.api.AttributeCreator
+import tech.kzen.lib.common.api.ObjectCreator
+import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.metadata.model.ObjectMetadata
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.platform.Mirror
 
 
+@Suppress("unused")
 class AttributeObjectCreator: ObjectCreator {
     companion object {
         private val defaultParameterCreator =
@@ -23,18 +25,27 @@ class AttributeObjectCreator: ObjectCreator {
             objectGraph: GraphInstance
     ): Any {
         val constructorArguments = mutableListOf<Any?>()
-        for (constructorArg in objectDefinition.constructorArguments) {
-            val parameterMetadata = objectMetadata.attributes[constructorArg.key]!!
-            val parameterCreatorReference = parameterMetadata.creator ?: defaultParameterCreator
-            val parameterCreatorLocation = objectGraph.objects.locate(
-                    objectLocation, ObjectReference.parse(parameterCreatorReference))
 
-            val parameterCreator = objectGraph.objects.get(parameterCreatorLocation) as AttributeCreator
+        val constructorArgumentNames =
+                Mirror.constructorArgumentNames(objectDefinition.className)
 
-            val parameterInstance = parameterCreator.create(
-                    objectLocation, constructorArg.value, parameterMetadata, objectGraph)
+        for (argumentName in constructorArgumentNames) {
+            val argumentAttribute = AttributeName(argumentName)
 
-            constructorArguments.add(parameterInstance)
+            val argumentDefinition = objectDefinition.attributeDefinitions[argumentAttribute]!!
+            val attributeMetadata = objectMetadata.attributes[argumentAttribute]!!
+
+            val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultParameterCreator
+            val attributeCreatorLocation = objectGraph.objects.locate(
+                    objectLocation, ObjectReference.parse(attributeCreatorReference))
+
+            val attributeCreator = objectGraph.objects.get(attributeCreatorLocation) as AttributeCreator
+
+
+            val attributeInstance = attributeCreator.create(
+                    objectLocation, argumentDefinition, attributeMetadata, objectGraph)
+
+            constructorArguments.add(attributeInstance)
         }
 
         return Mirror.create(objectDefinition.className, constructorArguments)

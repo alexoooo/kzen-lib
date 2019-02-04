@@ -1,6 +1,8 @@
 package tech.kzen.lib.common.objects.bootstrap
 
 import tech.kzen.lib.common.api.ObjectDefiner
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
@@ -9,20 +11,18 @@ import tech.kzen.lib.common.metadata.model.GraphMetadata
 import tech.kzen.lib.common.notation.NotationConventions
 import tech.kzen.lib.common.notation.model.GraphNotation
 import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 
 
 object DefaultConstructorObjectDefiner: ObjectDefiner {
     override fun define(
             objectLocation: ObjectLocation,
-            notationTree: GraphNotation,
+            graphNotation: GraphNotation,
             graphMetadata: GraphMetadata,
             graphDefinition: GraphDefinition,
-            objectGraph: GraphInstance
+            graphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
         val className = (
-                notationTree.transitiveAttribute(
+                graphNotation.transitiveAttribute(
                         objectLocation, NotationConventions.classAttribute
                 )!! as ScalarAttributeNotation
         ).value as String
