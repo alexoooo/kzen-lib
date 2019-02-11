@@ -15,7 +15,7 @@ abstract class NotationAggregateTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun parseBundle(doc: String): BundleNotation {
-        return yamlParser.parseBundle(IoUtils.stringToUtf8(doc))
+        return yamlParser.parseBundle(IoUtils.utf8Encode(doc))
     }
 
 
@@ -32,7 +32,7 @@ abstract class NotationAggregateTest {
 
 
     fun deparseBundle(bundleNotation: BundleNotation): String {
-        return IoUtils.utf8ToString(
+        return IoUtils.utf8Decode(
                 yamlParser.deparseBundle(bundleNotation, ByteArray(0)))
     }
 

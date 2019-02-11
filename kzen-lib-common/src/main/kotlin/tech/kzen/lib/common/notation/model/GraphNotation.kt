@@ -91,44 +91,44 @@ data class GraphNotation(
     }
 
 
-    fun getString(objectLocation: ObjectLocation, attributeNesting: AttributePath): String {
-        val scalarParameter = transitiveAttribute(objectLocation, attributeNesting)
-                ?: throw IllegalArgumentException("Not found: $objectLocation.$attributeNesting")
+    fun getString(objectLocation: ObjectLocation, attributePath: AttributePath): String {
+        val scalarParameter = transitiveAttribute(objectLocation, attributePath)
+                ?: throw IllegalArgumentException("Not found: $objectLocation.$attributePath")
 
         return scalarParameter.asString()
-            ?: throw IllegalArgumentException("Expected string ($objectLocation.$attributeNesting): $scalarParameter")
+            ?: throw IllegalArgumentException("Expected string ($objectLocation.$attributePath): $scalarParameter")
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun withNewBundle(
-            projectPath: BundlePath,
-            packageNotation: BundleNotation
+            bundlePath: BundlePath,
+            bundleNotation: BundleNotation
     ): GraphNotation {
-        check(! bundles.values.containsKey(projectPath)) {"Already exists: $projectPath"}
+        check(! bundles.values.containsKey(bundlePath)) {"Already exists: $bundlePath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
         buffer.putAll(bundles.values)
 
-        buffer[projectPath] = packageNotation
+        buffer[bundlePath] = bundleNotation
 
         return GraphNotation(BundleTree(buffer))
     }
 
 
     fun withModifiedBundle(
-            projectPath: BundlePath,
-            packageNotation: BundleNotation
+            bundlePath: BundlePath,
+            bundleNotation: BundleNotation
     ): GraphNotation {
-        check(bundles.values.containsKey(projectPath)) {"Not found: $projectPath"}
+        check(bundles.values.containsKey(bundlePath)) {"Not found: $bundlePath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
         for (e in bundles.values) {
             buffer[e.key] =
-                    if (e.key == projectPath) {
-                        packageNotation
+                    if (e.key == bundlePath) {
+                        bundleNotation
                     }
                     else {
                         e.value
@@ -140,14 +140,14 @@ data class GraphNotation(
 
 
     fun withoutBundle(
-            projectPath: BundlePath
+            bundlePath: BundlePath
     ): GraphNotation {
-        check(bundles.values.containsKey(projectPath)) {"Already absent: $projectPath"}
+        check(bundles.values.containsKey(bundlePath)) {"Already absent: $bundlePath"}
 
         val buffer = mutableMapOf<BundlePath, BundleNotation>()
 
         for (e in bundles.values) {
-            if (e.key == projectPath) {
+            if (e.key == bundlePath) {
                 continue
             }
 

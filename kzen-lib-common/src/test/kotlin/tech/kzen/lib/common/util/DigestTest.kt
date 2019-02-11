@@ -38,5 +38,5 @@ class DigestTest {
 
 
     private fun digest(value: String): Digest =
-            Digest.ofXoShiRo256StarStar(IoUtils.stringToUtf8(value))
+            Digest.ofXoShiRo256StarStar(IoUtils.utf8Encode(value))
 }

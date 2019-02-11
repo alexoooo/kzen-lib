@@ -3,57 +3,24 @@ package tech.kzen.lib.common.definition
 import tech.kzen.lib.common.api.model.ObjectReference
 
 
-sealed class AttributeDefinition {
-//    abstract fun references(): Map<AttributeNesting, ObjectReference>
-
-
-}
+sealed class AttributeDefinition
 
 
 data class ValueAttributeDefinition(
         val value: Any?
-): AttributeDefinition() {
-//    override fun references(): Map<AttributePath, ObjectReference> {
-//        return mapOf()
-//    }
-}
+): AttributeDefinition()
 
 
 data class ReferenceAttributeDefinition(
         val objectReference: ObjectReference?
-): AttributeDefinition() {
-//    override fun references(): Map<AttributePath, ObjectReference> {
-//        return if (objectReference == null) {
-//            mapOf()
-//        } else {
-//            setOf(objectReference)
-//        }
-//    }
-}
+): AttributeDefinition()
 
 
-// TODO: should this be CollectionParameterDefinition or something else that's more generic?
 data class ListAttributeDefinition(
         val values: List<AttributeDefinition>
-): AttributeDefinition() {
-//    override fun references(): Set<ObjectReference> {
-//        val builder = mutableSetOf<ObjectReference>()
-//        for (value in values) {
-//            builder.addAll(value.references())
-//        }
-//        return builder
-//    }
-}
+): AttributeDefinition()
 
 
 data class MapAttributeDefinition(
         val values: Map<String, AttributeDefinition>
-): AttributeDefinition() {
-//    override fun references(): Set<ObjectReference> {
-//        val builder = mutableSetOf<ObjectReference>()
-//        for (value in values.values) {
-//            builder.addAll(value.references())
-//        }
-//        return builder
-//    }
-}
+): AttributeDefinition()

@@ -13,7 +13,7 @@ object DefaultConstructorObjectCreator: ObjectCreator {
             objectLocation: ObjectLocation,
             objectDefinition: ObjectDefinition,
             objectMetadata: ObjectMetadata,
-            objectGraph: GraphInstance
+            graphInstance: GraphInstance
     ): Any {
 //        check(objectDefinition.attributeDefinitions.isEmpty())
         return Mirror

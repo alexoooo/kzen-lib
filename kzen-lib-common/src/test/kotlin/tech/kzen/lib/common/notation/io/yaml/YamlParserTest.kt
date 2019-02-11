@@ -118,7 +118,7 @@ Foo:
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parseBundle(doc: String): BundleNotation {
-        return yamlParser.parseBundle(IoUtils.stringToUtf8(doc))
+        return yamlParser.parseBundle(IoUtils.utf8Encode(doc))
     }
 
 
@@ -130,9 +130,9 @@ Foo:
 
 
     private fun deparse(initial: String, expected: String): String {
-        return IoUtils.utf8ToString(yamlParser.deparseBundle(
-                yamlParser.parseBundle(IoUtils.stringToUtf8(expected)),
-                IoUtils.stringToUtf8(initial)))
+        return IoUtils.utf8Decode(yamlParser.deparseBundle(
+                yamlParser.parseBundle(IoUtils.utf8Encode(expected)),
+                IoUtils.utf8Encode(initial)))
     }
 
 

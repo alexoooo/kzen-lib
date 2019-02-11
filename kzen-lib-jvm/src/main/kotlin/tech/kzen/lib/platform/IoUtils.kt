@@ -1,14 +1,24 @@
 package tech.kzen.lib.platform
 
 import java.nio.charset.StandardCharsets
+import java.util.*
+
 
 actual object IoUtils {
-    actual fun utf8ToString(bytes: ByteArray): String {
+    actual fun utf8Decode(bytes: ByteArray): String {
         return String(bytes, StandardCharsets.UTF_8)
     }
 
-
-    actual fun stringToUtf8(utf8: String): ByteArray {
+    actual fun utf8Encode(utf8: String): ByteArray {
         return utf8.toByteArray(StandardCharsets.UTF_8)
+    }
+
+
+    actual fun base64Encode(bytes: ByteArray): String {
+        return Base64.getEncoder().encodeToString(bytes)
+    }
+
+    actual fun base64Decode(base64: String): ByteArray {
+        return Base64.getDecoder().decode(base64)
     }
 }

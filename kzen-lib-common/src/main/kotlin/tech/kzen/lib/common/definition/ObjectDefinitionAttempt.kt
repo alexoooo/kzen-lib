@@ -4,7 +4,6 @@ import tech.kzen.lib.common.api.model.ObjectLocation
 
 
 data class ObjectDefinitionAttempt(
-//        val project: ObjectGraphDefinition,
         val value: ObjectDefinition?,
         val missingObjects: Set<ObjectLocation>,
         val errorMessage: String?

@@ -22,7 +22,7 @@ class AttributeObjectCreator: ObjectCreator {
             objectLocation: ObjectLocation,
             objectDefinition: ObjectDefinition,
             objectMetadata: ObjectMetadata,
-            objectGraph: GraphInstance
+            graphInstance: GraphInstance
     ): Any {
         val constructorArguments = mutableListOf<Any?>()
 
@@ -36,14 +36,14 @@ class AttributeObjectCreator: ObjectCreator {
             val attributeMetadata = objectMetadata.attributes[argumentAttribute]!!
 
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultParameterCreator
-            val attributeCreatorLocation = objectGraph.objects.locate(
+            val attributeCreatorLocation = graphInstance.objects.locate(
                     objectLocation, ObjectReference.parse(attributeCreatorReference))
 
-            val attributeCreator = objectGraph.objects.get(attributeCreatorLocation) as AttributeCreator
+            val attributeCreator = graphInstance.objects.get(attributeCreatorLocation) as AttributeCreator
 
 
             val attributeInstance = attributeCreator.create(
-                    objectLocation, argumentDefinition, attributeMetadata, objectGraph)
+                    objectLocation, argumentDefinition, attributeMetadata, graphInstance)
 
             constructorArguments.add(attributeInstance)
         }

@@ -46,7 +46,7 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun parse(body: ByteArray): YamlNode {
-        val document = IoUtils.utf8ToString(body)
+        val document = IoUtils.utf8Decode(body)
         return parse(document)
     }
 

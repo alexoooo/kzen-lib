@@ -127,7 +127,7 @@ class YamlNotationParser: NotationParser {
         }
 //        println("&%^&%^&%^ -- de-parsing done - $buffer")
 
-        return IoUtils.stringToUtf8(buffer.toString())
+        return IoUtils.utf8Encode(buffer.toString())
     }
 
 

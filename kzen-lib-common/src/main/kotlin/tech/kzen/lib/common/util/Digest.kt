@@ -15,6 +15,7 @@ data class Digest(
     companion object {
         val zero = Digest(0, 0, 0, 0)
         val empty = Digest(1, 0, 0, 0)
+        val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
 
 
         private fun rotl(x: Int, k: Int): Int {
@@ -40,12 +41,19 @@ data class Digest(
         }
 
 
-        fun ofXoShiRo256StarStar(utf8: String): Digest {
-            val bytes = IoUtils.stringToUtf8(utf8)
+        fun ofXoShiRo256StarStar(utf8: String?): Digest {
+            if (utf8 == null) {
+                return missing
+            }
+
+            val bytes = IoUtils.utf8Encode(utf8)
             return ofXoShiRo256StarStar(bytes)
         }
 
-        fun ofXoShiRo256StarStar(bytes: ByteArray): Digest {
+        fun ofXoShiRo256StarStar(bytes: ByteArray?): Digest {
+            if (bytes == null) {
+                return missing
+            }
             if (bytes.isEmpty()) {
                 return empty
             }
@@ -113,6 +121,7 @@ data class Digest(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     class OrderedCombiner {
         private var a: Int = 0
         private var b: Int = 0
@@ -139,6 +148,7 @@ data class Digest(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     class Streaming {
         private var s0: Int = 0
         private var s1: Int = 0
@@ -154,18 +164,48 @@ data class Digest(
         }
 
 
-        fun addUtf8(utf8: String) {
-            val bytes = IoUtils.stringToUtf8(utf8)
-            addBytes(bytes)
+        fun addMissing() {
+            addDigest(missing)
         }
 
-        fun addBytes(bytes: ByteArray) {
-            addInt(bytes.size)
-            bytes.forEach(this@Streaming::addByte)
+        fun addBoolean(value: Boolean) {
+            if (value) {
+                addInt(1)
+            }
+            else {
+                addInt(-1)
+            }
         }
 
         fun addByte(value: Byte) {
             addInt(value.toInt())
+        }
+
+        fun addDigest(digest: Digest) {
+            addInt(digest.a)
+            addInt(digest.b)
+            addInt(digest.c)
+            addInt(digest.d)
+        }
+
+        fun addUtf8(utf8: String?) {
+            if (utf8 == null) {
+                addMissing()
+            }
+            else {
+                val bytes = IoUtils.utf8Encode(utf8)
+                addBytes(bytes)
+            }
+        }
+
+        fun addBytes(bytes: ByteArray?) {
+            if (bytes == null) {
+                addMissing()
+            }
+            else {
+                addInt(bytes.size)
+                bytes.forEach(this@Streaming::addByte)
+            }
         }
 
         fun addInt(value: Int) {

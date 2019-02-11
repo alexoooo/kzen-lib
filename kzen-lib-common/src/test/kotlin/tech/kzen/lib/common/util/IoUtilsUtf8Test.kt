@@ -5,7 +5,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 
-class IoUtilsTest {
+class IoUtilsUtf8Test {
+    //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun emptyString() {
         encodeAndDecode("")
@@ -30,9 +31,10 @@ class IoUtilsTest {
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     private fun encodeAndDecode(value: String) {
         assertEquals(
                 value,
-                IoUtils.utf8ToString(IoUtils.stringToUtf8(value)))
+                IoUtils.utf8Decode(IoUtils.utf8Encode(value)))
     }
 }

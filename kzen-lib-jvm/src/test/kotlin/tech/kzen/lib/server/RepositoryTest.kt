@@ -32,7 +32,7 @@ class RepositoryTest {
                 media, yamlParser, metadataReader)
 
         runBlocking {
-            media.write(mainPath, IoUtils.stringToUtf8("""
+            media.write(mainPath, IoUtils.utf8Encode("""
 A:
   hello: "a"
 B:
@@ -63,7 +63,7 @@ B:
                 media, yamlParser, metadataReader)
 
         runBlocking {
-            media.write(mainPath, IoUtils.stringToUtf8("""
+            media.write(mainPath, IoUtils.utf8Encode("""
 A:
   hello: "a"
 """))
@@ -72,7 +72,7 @@ A:
 
             repo.apply(RenameObjectCommand(aLocation, ObjectName("Foo Bar")))
 
-            val modified = IoUtils.utf8ToString(media.read(mainPath))
+            val modified = IoUtils.utf8Decode(media.read(mainPath))
 
             assertTrue(modified.startsWith("\"Foo Bar\":"),
                     "Encoded key expected: $modified")

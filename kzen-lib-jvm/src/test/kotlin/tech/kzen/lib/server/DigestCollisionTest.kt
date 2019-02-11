@@ -2,12 +2,10 @@ package tech.kzen.lib.server
 
 import org.junit.Test
 import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.platform.IoUtils
 import java.util.*
 
 
-class CommonTest {
-
+class DigestCollisionTest {
     @Test
     fun collisionDetector() {
         val seen = mutableSetOf<Digest>()
@@ -22,7 +20,6 @@ class CommonTest {
     }
 
 
-
     private fun digest(value: String): Digest =
-            Digest.ofXoShiRo256StarStar(IoUtils.stringToUtf8(value))
+            Digest.ofXoShiRo256StarStar(value)
 }
