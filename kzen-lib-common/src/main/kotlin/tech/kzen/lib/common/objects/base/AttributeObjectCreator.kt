@@ -32,8 +32,11 @@ class AttributeObjectCreator: ObjectCreator {
         for (argumentName in constructorArgumentNames) {
             val argumentAttribute = AttributeName(argumentName)
 
-            val argumentDefinition = objectDefinition.attributeDefinitions[argumentAttribute]!!
-            val attributeMetadata = objectMetadata.attributes[argumentAttribute]!!
+            val argumentDefinition = objectDefinition.attributeDefinitions[argumentAttribute]
+                    ?: throw IllegalArgumentException("Attribute definition not found: $argumentAttribute")
+
+            val attributeMetadata = objectMetadata.attributes[argumentAttribute]
+                    ?: throw IllegalArgumentException("Attribute metadata not found: $argumentAttribute")
 
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultParameterCreator
             val attributeCreatorLocation = graphInstance.objects.locate(

@@ -10,10 +10,13 @@ class DigestCollisionTest {
     fun collisionDetector() {
         val seen = mutableSetOf<Digest>()
 
-        val start = Random().nextInt()
+        val random = Random()
+        val start = random.nextInt()
 
         for (i in 1 .. 1_000_000) {
             val value = start + i
+//            val value = random.nextDouble()
+
             val added = seen.add(digest(value.toString()))
             check(added) {"Collision found: $i"}
         }

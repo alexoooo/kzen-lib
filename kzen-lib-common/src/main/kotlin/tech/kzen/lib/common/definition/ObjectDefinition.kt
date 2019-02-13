@@ -13,7 +13,8 @@ data class ObjectDefinition(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributePath: AttributePath): AttributeDefinition {
-        val root = attributeDefinitions[attributePath.attribute]!!
+        val root = attributeDefinitions[attributePath.attribute]
+                ?: throw IllegalArgumentException("Missing attribute definition: ${attributePath.attribute}")
 
         if (attributePath.nesting.segments.isEmpty()) {
             return root
@@ -27,7 +28,8 @@ data class ObjectDefinition(
                     cursor.values[attributeSegment.asIndex()!!]
 
                 is MapAttributeDefinition ->
-                    cursor.values[attributeSegment.asKey()]!!
+                    cursor.values[attributeSegment.asKey()]
+                            ?: throw IllegalArgumentException("Missing key: ${attributeSegment.asKey()}")
 
                 else ->
                     throw IllegalStateException()

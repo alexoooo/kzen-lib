@@ -181,11 +181,34 @@ data class Digest(
             addInt(value.toInt())
         }
 
-        fun addDigest(digest: Digest) {
-            addInt(digest.a)
-            addInt(digest.b)
-            addInt(digest.c)
-            addInt(digest.d)
+        fun addChar(value: Char) {
+            addInt(value.toInt())
+        }
+
+        fun addShort(value: Short) {
+            addInt(value.toInt())
+        }
+
+        fun addDouble(value: Double) {
+            addLong(value.toBits())
+        }
+
+        fun addLong(value: Long) {
+            // https://stackoverflow.com/a/12772968/1941359
+            addInt(value.toInt())
+            addInt((value shr Int.SIZE_BITS).toInt())
+        }
+
+        fun addDigest(digest: Digest?) {
+            if (digest == null) {
+                addMissing()
+            }
+            else {
+                addInt(digest.a)
+                addInt(digest.b)
+                addInt(digest.c)
+                addInt(digest.d)
+            }
         }
 
         fun addUtf8(utf8: String?) {
