@@ -59,7 +59,7 @@ data class Digest(
             }
 
             @Suppress("RedundantExplicitType")
-            var s0: Int = 0
+            var s0: Int = Int.MAX_VALUE
             var s1: Int = murmurHash3(bytes.size)
             var s2: Int = hashMapHash(bytes.size)
             var s3: Int = guavaHashingSmear(bytes.size)
@@ -164,42 +164,49 @@ data class Digest(
         }
 
 
-        fun addMissing() {
+        fun addMissing(): Streaming {
             addDigest(missing)
+            return this
         }
 
-        fun addBoolean(value: Boolean) {
+        fun addBoolean(value: Boolean): Streaming {
             if (value) {
                 addInt(1)
             }
             else {
                 addInt(-1)
             }
+            return this
         }
 
-        fun addByte(value: Byte) {
+        fun addByte(value: Byte): Streaming {
             addInt(value.toInt())
+            return this
         }
 
-        fun addChar(value: Char) {
+        fun addChar(value: Char): Streaming {
             addInt(value.toInt())
+            return this
         }
 
-        fun addShort(value: Short) {
+        fun addShort(value: Short): Streaming {
             addInt(value.toInt())
+            return this
         }
 
-        fun addDouble(value: Double) {
+        fun addDouble(value: Double): Streaming {
             addLong(value.toBits())
+            return this
         }
 
-        fun addLong(value: Long) {
+        fun addLong(value: Long): Streaming {
             // https://stackoverflow.com/a/12772968/1941359
             addInt(value.toInt())
             addInt((value shr Int.SIZE_BITS).toInt())
+            return this
         }
 
-        fun addDigest(digest: Digest?) {
+        fun addDigest(digest: Digest?): Streaming {
             if (digest == null) {
                 addMissing()
             }
@@ -209,9 +216,10 @@ data class Digest(
                 addInt(digest.c)
                 addInt(digest.d)
             }
+            return this
         }
 
-        fun addUtf8(utf8: String?) {
+        fun addUtf8(utf8: String?): Streaming {
             if (utf8 == null) {
                 addMissing()
             }
@@ -219,19 +227,21 @@ data class Digest(
                 val bytes = IoUtils.utf8Encode(utf8)
                 addBytes(bytes)
             }
+            return this
         }
 
-        fun addBytes(bytes: ByteArray?) {
+        fun addBytes(bytes: ByteArray?): Streaming {
             if (bytes == null) {
                 addMissing()
             }
             else {
                 addInt(bytes.size)
-                bytes.forEach(this@Streaming::addByte)
+                bytes.forEach { addByte(it) }
             }
+            return this
         }
 
-        fun addInt(value: Int) {
+        fun addInt(value: Int): Streaming {
             if (isZero()) {
                 init(value)
             }
@@ -249,10 +259,12 @@ data class Digest(
 
                 s3 = rotl(s3, 11)
             }
+            return this
         }
 
 
         private fun init(value: Int) {
+            s0 = Int.MAX_VALUE
             s1 = murmurHash3(value)
             s2 = hashMapHash(value)
             s3 = guavaHashingSmear(value)

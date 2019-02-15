@@ -35,7 +35,7 @@ class IoUtilsBase64Test {
 
     @Test
     fun randomString() {
-        val random = Random.nextBytes(16)
+        val random = Random.nextBytes(Random.nextInt(0, 128))
         encodeAndDecode(random)
     }
 
@@ -49,7 +49,6 @@ class IoUtilsBase64Test {
     //-----------------------------------------------------------------------------------------------------------------
     private fun encodeAndDecode(byteArray: ByteArray) {
         val base64Encoded = IoUtils.base64Encode(byteArray)
-        println("^^ base64Encoded: $base64Encoded")
 
         val decodedBack = IoUtils.base64Decode(base64Encoded)
         assertTrue(byteArray contentEquals decodedBack,

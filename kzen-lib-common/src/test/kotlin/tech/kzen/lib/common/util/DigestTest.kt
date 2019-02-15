@@ -3,13 +3,40 @@ package tech.kzen.lib.common.util
 import tech.kzen.lib.platform.IoUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 
 class DigestTest {
     @Test
+    fun emptyDigest() {
+        assertNotEquals(
+                Digest.Streaming().addInt(0).digest(),
+                Digest.Streaming().digest()
+        )
+    }
+
+    @Test
+    fun zeroIsDistinctFromEmpty() {
+        assertNotEquals(
+                Digest.zero,
+                Digest.Streaming().digest()
+        )
+    }
+
+
+    @Test
+    fun zeroIsDistinctFromZeroDigest() {
+        assertNotEquals(
+                Digest.zero,
+                Digest.Streaming().addInt(0).digest()
+        )
+    }
+
+
+    @Test
     fun digestSimpleValue() {
         assertEquals(
-                Digest(557618767, -406919543, 714421289, -1863393420),
+                Digest(-1589863858, 1740563592, 714421289, -1869687948),
                 digest("foo"))
     }
 

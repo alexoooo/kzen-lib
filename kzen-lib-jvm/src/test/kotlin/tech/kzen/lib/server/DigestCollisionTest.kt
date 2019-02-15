@@ -7,7 +7,45 @@ import java.util.*
 
 class DigestCollisionTest {
     @Test
-    fun collisionDetector() {
+    fun streamRepeatedIntegers() {
+        val seen = mutableSetOf<Digest>()
+
+        val value = Random().nextInt()
+//        val value = 0
+
+        val digest = Digest.Streaming()
+
+        for (i in 1 .. 1_000_000) {
+            val current = digest.addInt(value).digest()
+//            println(current)
+
+            val added = seen.add(current)
+            check(added) {"Collision found: $i"}
+        }
+    }
+
+
+    @Test
+    fun consecutiveNumbers() {
+        val seen = mutableSetOf<Digest>()
+
+        val random = Random()
+        val start = random.nextInt()
+        val digest = Digest.Streaming()
+
+        for (i in 1 .. 1_000_000) {
+            val value = start + i
+
+            val added = seen.add(digest.addInt(value).digest())
+            check(added) {"Collision found: $i"}
+
+            digest.clear()
+        }
+    }
+
+
+    @Test
+    fun consecutiveAsciiNumbers() {
         val seen = mutableSetOf<Digest>()
 
         val random = Random()
@@ -15,7 +53,6 @@ class DigestCollisionTest {
 
         for (i in 1 .. 1_000_000) {
             val value = start + i
-//            val value = random.nextDouble()
 
             val added = seen.add(digest(value.toString()))
             check(added) {"Collision found: $i"}
