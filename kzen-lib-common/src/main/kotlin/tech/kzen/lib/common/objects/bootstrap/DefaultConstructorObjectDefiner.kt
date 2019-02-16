@@ -10,6 +10,7 @@ import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.platform.ClassName
 
 
 object DefaultConstructorObjectDefiner: ObjectDefiner {
@@ -19,11 +20,11 @@ object DefaultConstructorObjectDefiner: ObjectDefiner {
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
-        val className = (
+        val className = ClassName((
                 graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, NotationConventions.classAttribute
                 )!! as ScalarAttributeNotation
-        ).value as String
+        ).value as String)
 
         val definition = ObjectDefinition(
                 className,

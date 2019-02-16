@@ -2,11 +2,11 @@ package tech.kzen.lib.platform
 
 
 expect object Mirror {
-    fun contains(className: String): Boolean
+    fun contains(className: ClassName): Boolean
 
-    fun constructorArgumentNames(className: String): List<String>
+    fun constructorArgumentNames(className: ClassName): List<String>
 
-//    fun singletonClassNames(): List<String>
+    fun create(className: ClassName, constructorArguments: List<Any?>): Any
 
-    fun create(className: String, constructorArguments: List<Any?>): Any
+//    fun scan(): List<String>
 }

@@ -1,12 +1,13 @@
 package tech.kzen.lib.common.definition
 
 import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.platform.ClassName
 
 
 // TODO: is creatorReferences necessary?
 // TODO: should creator be ObjectLocation?
 data class ObjectDefinition(
-        val className: String,
+        val className: ClassName,
         val attributeDefinitions: Map<AttributeName, AttributeDefinition>,
         val creator: ObjectReference,
         val creatorReferences: Set<ObjectReference>

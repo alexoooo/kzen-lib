@@ -10,6 +10,7 @@ import tech.kzen.lib.common.structure.notation.model.AttributeNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.platform.ClassName
 
 
 class NotationMetadataReader(
@@ -72,8 +73,9 @@ class NotationMetadataReader(
 
         val classNotation = metadataAttribute(
                 NotationConventions.classAttribute, inheritanceParentLocation, attributeMap, notationTree)
-        val className = (classNotation as? ScalarAttributeNotation)?.value as? String
-        checkNotNull(className) { "Unknown class: $host - $attributeNotation" }
+        val className = ((classNotation as? ScalarAttributeNotation)?.value as? String)
+                ?.let { ClassName(it) }
+                ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
 
         val definerNotation = metadataAttribute(
                 NotationConventions.byAttribute, inheritanceParentLocation, attributeMap, notationTree)
@@ -95,7 +97,8 @@ class NotationMetadataReader(
                         val value = genericsNotation.value as String
                         val reference = ObjectReference.parse(value)
                         val objectLocation = notationTree.coalesce.locate(host, reference)
-                        val genericClassName = notationTree.getString(objectLocation, NotationConventions.classAttribute)
+                        val genericClassName = ClassName(
+                                notationTree.getString(objectLocation, NotationConventions.classAttribute))
 
                         listOf(TypeMetadata(genericClassName, listOf()))
                     }

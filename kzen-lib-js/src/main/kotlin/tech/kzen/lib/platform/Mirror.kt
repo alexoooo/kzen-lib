@@ -7,12 +7,12 @@ actual object Mirror {
     private val cache: MutableMap<String, Metadata?> = mutableMapOf()
 
 
-    actual fun contains(className: String): Boolean {
-        return reflect(className) != null
+    actual fun contains(className: ClassName): Boolean {
+        return reflect(className.get()) != null
     }
 
-    actual fun constructorArgumentNames(className: String): List<String> {
-        val metadata = reflect(className)
+    actual fun constructorArgumentNames(className: ClassName): List<String> {
+        val metadata = reflect(className.get())
                 ?: throw IllegalArgumentException("Not found: $className")
 
         return metadata.constructorArgumentNames
@@ -22,8 +22,8 @@ actual object Mirror {
 //        return emptyList()
 //    }
 
-    actual fun create(className: String, constructorArguments: List<Any?>): Any {
-        val metadata = reflect(className)
+    actual fun create(className: ClassName, constructorArguments: List<Any?>): Any {
+        val metadata = reflect(className.get())
                 ?: throw IllegalArgumentException("Not found: $className")
 
         @Suppress("UnsafeCastFromDynamic")

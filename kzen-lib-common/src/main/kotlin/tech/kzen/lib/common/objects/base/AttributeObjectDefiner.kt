@@ -13,6 +13,7 @@ import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.platform.ClassName
 
 
 @Suppress("unused")
@@ -40,7 +41,8 @@ class AttributeObjectDefiner: ObjectDefiner {
         val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
 //                ?: throw IllegalArgumentException("Metadata not found: $objectName")
 
-        val className = graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttribute)
+        val className = ClassName(
+                graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttribute))
 
         val constructorArguments = mutableMapOf<AttributeName, AttributeDefinition>()
         val parameterCreators = mutableSetOf<ObjectReference>()

@@ -4,9 +4,9 @@ import kotlin.reflect.full.primaryConstructor
 
 
 actual object Mirror {
-    actual fun contains(className: String): Boolean {
+    actual fun contains(className: ClassName): Boolean {
         return try {
-            Class.forName(className)
+            Class.forName(className.get())
             true
         }
         catch (e: ClassNotFoundException) {
@@ -14,17 +14,15 @@ actual object Mirror {
         }
     }
 
-    actual fun constructorArgumentNames(className: String): List<String> {
-        val type = Class.forName(className).kotlin
+
+    actual fun constructorArgumentNames(className: ClassName): List<String> {
+        val type = Class.forName(className.get()).kotlin
         return type.primaryConstructor!!.parameters.map { it.name!! }
     }
 
-//    actual fun singletonClassNames(): List<String> {
-//        TODO()
-//    }
 
-    actual fun create(className: String, constructorArguments: List<Any?>): Any {
-        val type = Class.forName(className).kotlin
+    actual fun create(className: ClassName, constructorArguments: List<Any?>): Any {
+        val type = Class.forName(className.get()).kotlin
         return type.primaryConstructor!!.call(*constructorArguments.toTypedArray())
     }
 }
