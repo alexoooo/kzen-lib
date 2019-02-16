@@ -24,11 +24,11 @@ class AttributeObjectDefiner: ObjectDefiner {
 //        private val defaultParameterDefiner =
 //                NotationParameterDefiner::class.simpleName!!
 
-        private val defaultAttributeDefiner =
-                NotationAttributeDefiner::class.simpleName!!
+        private val defaultAttributeDefiner = ObjectReference.parse(
+                NotationAttributeDefiner::class.simpleName!!)
 
-        private val defaultAttributeCreator =
-                StructuralAttributeCreator::class.simpleName!!
+        private val defaultAttributeCreator = ObjectReference.parse(
+                StructuralAttributeCreator::class.simpleName!!)
     }
 
 
@@ -52,11 +52,11 @@ class AttributeObjectDefiner: ObjectDefiner {
 
         for ((attributeName, attributeMetadata) in objectMetadata.attributes) {
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultAttributeCreator
-            parameterCreators.add(ObjectReference.parse(attributeCreatorReference))
+            parameterCreators.add(attributeCreatorReference)
 
             val attributeDefinerRef = attributeMetadata.definerReference ?: defaultAttributeDefiner
             val attributeDefinerLocation = graphNotation.coalesce
-                    .locateOptional(objectLocation, ObjectReference.parse(attributeDefinerRef))
+                    .locateOptional(objectLocation, attributeDefinerRef)
                     ?: return ObjectDefinitionAttempt.failure("Unknown parameter definer: $attributeDefinerRef")
 
             val definerInstance = graphInstance.objects

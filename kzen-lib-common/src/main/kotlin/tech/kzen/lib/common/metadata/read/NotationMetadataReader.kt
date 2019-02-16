@@ -75,17 +75,13 @@ class NotationMetadataReader(
         val className = (classNotation as? ScalarAttributeNotation)?.value as? String
         checkNotNull(className) { "Unknown class: $host - $attributeNotation" }
 
-//        val valueNotation = metadataParameter(
-//                "class", inheritanceParent, parameterMap, projectMetadata)
-
         val definerNotation = metadataAttribute(
                 NotationConventions.byAttribute, inheritanceParentLocation, attributeMap, notationTree)
-        val definerName = (definerNotation as? ScalarAttributeNotation)?.value as? String
+        val definerReference = (definerNotation as? ScalarAttributeNotation)?.value as? String
 
         val creatorNotation = metadataAttribute(
                 NotationConventions.usingAttribute, inheritanceParentLocation, attributeMap, notationTree)
-        val creatorName = (creatorNotation as? ScalarAttributeNotation)?.value as? String
-//        check(creatorName != null) { "Unknown creator class: $parameterNotation" }
+        val creatorReference = (creatorNotation as? ScalarAttributeNotation)?.value as? String
 
         val genericsNotation = metadataAttribute(
                 NotationConventions.ofAttribute, inheritanceParentLocation, attributeMap, notationTree)
@@ -113,7 +109,9 @@ class NotationMetadataReader(
                 genericsNames)
 
         return AttributeMetadata(
-                typeMetadata, /*valueNotation,*/ definerName, creatorName)
+                typeMetadata,
+                definerReference?.let { ObjectReference.parse(it) },
+                creatorReference?.let { ObjectReference.parse(it) })
     }
 
 

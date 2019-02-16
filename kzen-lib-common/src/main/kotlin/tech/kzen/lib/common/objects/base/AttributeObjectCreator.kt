@@ -14,8 +14,8 @@ import tech.kzen.lib.platform.Mirror
 @Suppress("unused")
 class AttributeObjectCreator: ObjectCreator {
     companion object {
-        private val defaultParameterCreator =
-                StructuralAttributeCreator::class.simpleName!!
+        private val defaultParameterCreator = ObjectReference.parse(
+                StructuralAttributeCreator::class.simpleName!!)
     }
 
     override fun create(
@@ -40,7 +40,7 @@ class AttributeObjectCreator: ObjectCreator {
 
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultParameterCreator
             val attributeCreatorLocation = graphInstance.objects.locate(
-                    objectLocation, ObjectReference.parse(attributeCreatorReference))
+                    objectLocation, attributeCreatorReference)
 
             val attributeCreator = graphInstance.objects.get(attributeCreatorLocation) as AttributeCreator
 
