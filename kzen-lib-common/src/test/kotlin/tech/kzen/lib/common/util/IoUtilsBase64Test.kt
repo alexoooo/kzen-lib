@@ -41,8 +41,15 @@ class IoUtilsBase64Test {
 
 
     @Test
-    fun testEncodeToString() {
+    fun encodeSpecificText() {
         checkEncodeToString("Kotlin is awesome", "S290bGluIGlzIGF3ZXNvbWU=")
+    }
+
+
+    @Test
+    fun encodeLargeBlob() {
+        val blob = Random.nextBytes(1_000_000)
+        encodeAndDecode(blob)
     }
 
 
