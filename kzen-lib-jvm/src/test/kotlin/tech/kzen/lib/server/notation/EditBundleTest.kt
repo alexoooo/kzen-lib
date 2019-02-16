@@ -1,10 +1,10 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.notation.edit.CreateBundleCommand
-import tech.kzen.lib.common.notation.edit.DeleteBundleCommand
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.notation.edit.CreateBundleCommand
+import tech.kzen.lib.common.structure.notation.edit.DeleteBundleCommand
+import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
+import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

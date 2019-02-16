@@ -2,8 +2,8 @@ package tech.kzen.lib.server.notation
 
 import org.junit.Test
 import tech.kzen.lib.common.api.model.*
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.edit.RenameRefactorCommand
+import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
+import tech.kzen.lib.common.structure.notation.edit.RenameRefactorCommand
 import tech.kzen.lib.server.util.GraphTestUtils
 import kotlin.test.assertEquals
 

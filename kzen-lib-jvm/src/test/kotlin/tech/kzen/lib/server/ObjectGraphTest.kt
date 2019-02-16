@@ -5,8 +5,9 @@ import org.junit.Test
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
-import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
+import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.server.objects.NameAware
 import tech.kzen.lib.server.objects.StringHolder
 import tech.kzen.lib.server.util.GraphTestUtils
@@ -17,12 +18,14 @@ class ObjectGraphTest {
     fun `ObjectGraph can be empty`() {
         val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
-        val emptyDefinition = GraphDefiner.define(
+        val emptyStructure = GraphStructure(
                 GraphNotation(BundleTree(mapOf())),
                 emptyMetadata)
 
+        val emptyDefinition = GraphDefiner.define(emptyStructure)
+
         val emptyGraph = GraphCreator.createGraph(
-                emptyDefinition, emptyMetadata)
+                emptyStructure, emptyDefinition)
 
         assertEquals(
                 GraphDefiner.bootstrapObjects.size,

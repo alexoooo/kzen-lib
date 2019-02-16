@@ -2,11 +2,11 @@ package tech.kzen.lib.server.notation
 
 import org.junit.Test
 import tech.kzen.lib.common.api.model.ObjectName
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.edit.AddObjectCommand
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.model.PositionIndex
-import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.common.structure.notation.edit.AddObjectCommand
+import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
+import tech.kzen.lib.common.structure.notation.model.PositionIndex
+import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import kotlin.test.assertEquals
 
 

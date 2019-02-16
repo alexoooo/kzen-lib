@@ -3,8 +3,8 @@ package tech.kzen.lib.server.notation
 import com.google.common.reflect.ClassPath
 import tech.kzen.lib.common.api.model.BundlePath
 import tech.kzen.lib.common.api.model.BundleTree
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.io.NotationMedia
+import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
 
 

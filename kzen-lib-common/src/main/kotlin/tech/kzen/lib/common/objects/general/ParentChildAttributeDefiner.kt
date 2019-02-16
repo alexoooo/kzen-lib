@@ -1,18 +1,17 @@
 package tech.kzen.lib.common.objects.general
 
 import tech.kzen.lib.common.api.AttributeDefiner
-import tech.kzen.lib.common.context.GraphInstance
-import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ListAttributeDefinition
-import tech.kzen.lib.common.definition.AttributeDefinition
-import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
-import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.GraphNotation
-import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.AttributePath
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.api.model.ObjectReference
+import tech.kzen.lib.common.context.GraphInstance
+import tech.kzen.lib.common.definition.AttributeDefinition
+import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.definition.ListAttributeDefinition
+import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
+import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
 
 @Suppress("unused")
@@ -26,15 +25,14 @@ class ParentChildAttributeDefiner: AttributeDefiner {
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
-            projectNotation: GraphNotation,
-            projectMetadata: GraphMetadata,
-            projectDefinition: GraphDefinition,
-            objectGraph: GraphInstance
+            graphStructure: GraphStructure,
+            partialGraphDefinition: GraphDefinition,
+            partialGraphInstance: GraphInstance
     ): AttributeDefinition {
         val children = mutableListOf<ObjectReference>()
 
-        for (e in projectNotation.coalesce.values) {
-            val parentNotation = projectNotation
+        for (e in graphStructure.graphNotation.coalesce.values) {
+            val parentNotation = graphStructure.graphNotation
                     .transitiveAttribute(e.key, parentPath)
                     ?: continue
 

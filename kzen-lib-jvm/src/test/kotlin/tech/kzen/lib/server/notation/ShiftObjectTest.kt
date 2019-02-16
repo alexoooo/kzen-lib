@@ -2,9 +2,9 @@ package tech.kzen.lib.server.notation
 
 import org.junit.Test
 import tech.kzen.lib.common.api.model.ObjectPath
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.edit.ShiftObjectCommand
-import tech.kzen.lib.common.notation.model.PositionIndex
+import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
+import tech.kzen.lib.common.structure.notation.edit.ShiftObjectCommand
+import tech.kzen.lib.common.structure.notation.model.PositionIndex
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

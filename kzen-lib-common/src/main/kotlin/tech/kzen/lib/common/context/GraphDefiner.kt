@@ -5,11 +5,11 @@ import tech.kzen.lib.common.api.ObjectDefiner
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
-import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.model.GraphNotation
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
+import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import kotlin.reflect.KClass
 
 
@@ -41,18 +41,18 @@ object GraphDefiner {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun define(
-            graphNotation: GraphNotation,
-            graphMetadata: GraphMetadata
+            graphStructure: GraphStructure
     ): GraphDefinition {
         val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
 
         definerAndRelatedInstances.putAll(bootstrapObjects)
 
-        val openDefinitions = graphNotation
+        val openDefinitions = graphStructure
+                .graphNotation
                 .objectLocations
                 .filter {
                     ! bootstrapObjects.containsKey(it) &&
-                            ! isAbstract(it, graphNotation)
+                            ! isAbstract(it, graphStructure.graphNotation)
                 }.toMutableSet()
 
         val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
@@ -72,8 +72,8 @@ object GraphDefiner {
             for (objectLocation in openDefinitions) {
 //                println("^^^^^ objectName: $objectLocation")
 
-                val definerReference = ObjectReference.parse(definerName(objectLocation, graphNotation))
-                val definerLocation = graphNotation.coalesce.locate(objectLocation, definerReference)
+                val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
+                val definerLocation = graphStructure.graphNotation.coalesce.locate(objectLocation, definerReference)
                 val definer = definerAndRelatedInstances[definerLocation] as? ObjectDefiner
 
                 if (definer == null) {
@@ -83,8 +83,7 @@ object GraphDefiner {
 
                 val definition = definer.define(
                         objectLocation,
-                        graphNotation,
-                        graphMetadata,
+                        graphStructure,
                         GraphDefinition(ObjectMap(closedDefinitions)),
                         GraphInstance(ObjectMap(definerAndRelatedInstances)))
 //                println("  >> definition: $definition")
@@ -107,7 +106,7 @@ object GraphDefiner {
                         ?: continue
 
 //                println("  $$ got definition for: $missingName")
-                val creatorLocation = graphNotation.coalesce.locate(missingName, definition.creator)
+                val creatorLocation = graphStructure.graphNotation.coalesce.locate(missingName, definition.creator)
 
                 var hasMissingCreatorInstances = false
                 if (! definerAndRelatedInstances.containsKey(creatorLocation)) {
@@ -119,7 +118,7 @@ object GraphDefiner {
 
                 for (creatorReference in definition.creatorReferences) {
                     val creatorReferenceLocation =
-                            graphNotation.coalesce.locate(missingName, creatorReference)
+                            graphStructure.graphNotation.coalesce.locate(missingName, creatorReference)
 
                     if (! definerAndRelatedInstances.containsKey(creatorReferenceLocation)) {
                         missingCreatorInstances.add(creatorReferenceLocation)
@@ -138,8 +137,8 @@ object GraphDefiner {
 
                 val newInstance = creator.create(
                         missingName,
+                        graphStructure,
                         definition,
-                        graphMetadata.objectMetadata.get(missingName),
                         GraphInstance(ObjectMap(definerAndRelatedInstances)))
 
 //                println("  $$ created: $missingName")
@@ -166,11 +165,12 @@ object GraphDefiner {
 
 
 
-    private fun definerName(
+    private fun definerReference(
             objectName: ObjectLocation,
             projectNotation: GraphNotation
-    ): String {
-        return projectNotation.getString(objectName, NotationConventions.definerAttribute)
+    ): ObjectReference {
+        return ObjectReference.parse(
+                projectNotation.getString(objectName, NotationConventions.definerAttribute))
     }
 
 
@@ -178,7 +178,6 @@ object GraphDefiner {
             objectName: ObjectLocation,
             projectNotation: GraphNotation
     ): Boolean {
-//        print("NotationConventions.abstractPath: " + NotationConventions.abstractAttribute)
         return projectNotation.directAttribute(objectName, NotationConventions.abstractAttribute)
                 ?.asBoolean()
                 ?: false

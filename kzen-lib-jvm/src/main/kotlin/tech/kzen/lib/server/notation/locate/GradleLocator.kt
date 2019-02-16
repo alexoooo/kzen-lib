@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.notation.locate
 
 import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.notation.NotationConventions
+import tech.kzen.lib.common.structure.notation.NotationConventions
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths

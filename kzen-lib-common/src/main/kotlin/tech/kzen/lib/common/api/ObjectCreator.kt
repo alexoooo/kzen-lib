@@ -3,14 +3,14 @@ package tech.kzen.lib.common.api
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.ObjectDefinition
-import tech.kzen.lib.common.metadata.model.ObjectMetadata
+import tech.kzen.lib.common.structure.GraphStructure
 
 
 interface ObjectCreator {
     fun create(
             objectLocation: ObjectLocation,
+            graphStructure: GraphStructure,
             objectDefinition: ObjectDefinition,
-            objectMetadata: ObjectMetadata,
-            graphInstance: GraphInstance
+            partialGraphInstance: GraphInstance
     ): Any
 }

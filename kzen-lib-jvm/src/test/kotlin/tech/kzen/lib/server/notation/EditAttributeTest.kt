@@ -4,11 +4,11 @@ import org.junit.Test
 import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.AttributePath
 import tech.kzen.lib.common.api.model.AttributeSegment
-import tech.kzen.lib.common.notation.edit.*
-import tech.kzen.lib.common.notation.model.ListAttributeNotation
-import tech.kzen.lib.common.notation.model.MapAttributeNotation
-import tech.kzen.lib.common.notation.model.PositionIndex
-import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.structure.notation.edit.*
+import tech.kzen.lib.common.structure.notation.model.ListAttributeNotation
+import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
+import tech.kzen.lib.common.structure.notation.model.PositionIndex
+import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

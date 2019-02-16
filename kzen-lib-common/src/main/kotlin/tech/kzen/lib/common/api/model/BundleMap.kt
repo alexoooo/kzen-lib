@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.api.model
 
-import tech.kzen.lib.common.notation.model.PositionedObjectPath
+import tech.kzen.lib.common.structure.notation.model.PositionedObjectPath
 
 
 data class BundleMap<T>(

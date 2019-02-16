@@ -11,9 +11,8 @@ import tech.kzen.lib.common.definition.AttributeDefinition
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
-import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.notation.NotationConventions
 
 
 @Suppress("unused")
@@ -25,24 +24,23 @@ class AttributeObjectDefiner: ObjectDefiner {
 //                NotationParameterDefiner::class.simpleName!!
 
         private val defaultAttributeDefiner = ObjectReference.parse(
-                NotationAttributeDefiner::class.simpleName!!)
+                StructuralAttributeDefiner::class.simpleName!!)
 
         private val defaultAttributeCreator = ObjectReference.parse(
-                StructuralAttributeCreator::class.simpleName!!)
+                DefinitionAttributeCreator::class.simpleName!!)
     }
 
 
     override fun define(
             objectLocation: ObjectLocation,
-            graphNotation: GraphNotation,
-            graphMetadata: GraphMetadata,
-            graphDefinition: GraphDefinition,
-            graphInstance: GraphInstance
+            graphStructure: GraphStructure,
+            partialGraphDefinition: GraphDefinition,
+            partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
-        val objectMetadata = graphMetadata.objectMetadata.get(objectLocation)
+        val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
 //                ?: throw IllegalArgumentException("Metadata not found: $objectName")
 
-        val className = graphNotation.getString(objectLocation, NotationConventions.classAttribute)
+        val className = graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttribute)
 
         val constructorArguments = mutableMapOf<AttributeName, AttributeDefinition>()
         val parameterCreators = mutableSetOf<ObjectReference>()
@@ -55,11 +53,11 @@ class AttributeObjectDefiner: ObjectDefiner {
             parameterCreators.add(attributeCreatorReference)
 
             val attributeDefinerRef = attributeMetadata.definerReference ?: defaultAttributeDefiner
-            val attributeDefinerLocation = graphNotation.coalesce
+            val attributeDefinerLocation = graphStructure.graphNotation.coalesce
                     .locateOptional(objectLocation, attributeDefinerRef)
                     ?: return ObjectDefinitionAttempt.failure("Unknown parameter definer: $attributeDefinerRef")
 
-            val definerInstance = graphInstance.objects
+            val definerInstance = partialGraphInstance.objects
                     .find(attributeDefinerLocation)
                     ?: return ObjectDefinitionAttempt.missingObjectsFailure(
                             setOf(attributeDefinerLocation))
@@ -72,16 +70,15 @@ class AttributeObjectDefiner: ObjectDefiner {
             val attributeDefinition = attributeDefiner.define(
                     objectLocation,
                     attributeName,
-                    graphNotation,
-                    graphMetadata,
-                    graphDefinition,
-                    graphInstance)
+                    graphStructure,
+                    partialGraphDefinition,
+                    partialGraphInstance)
 
             constructorArguments[attributeName] = attributeDefinition
         }
 
         val creatorReference = ObjectReference.parse(
-                graphNotation.getString(objectLocation, creatorParameter))
+                graphStructure.graphNotation.getString(objectLocation, creatorParameter))
 
         val objectDefinition = ObjectDefinition(
                 className,

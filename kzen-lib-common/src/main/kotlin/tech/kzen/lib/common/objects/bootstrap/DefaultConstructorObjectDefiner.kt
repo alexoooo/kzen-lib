@@ -7,22 +7,20 @@ import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
-import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.notation.model.GraphNotation
-import tech.kzen.lib.common.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
 
 object DefaultConstructorObjectDefiner: ObjectDefiner {
     override fun define(
             objectLocation: ObjectLocation,
-            graphNotation: GraphNotation,
-            graphMetadata: GraphMetadata,
-            graphDefinition: GraphDefinition,
-            graphInstance: GraphInstance
+            graphStructure: GraphStructure,
+            partialGraphDefinition: GraphDefinition,
+            partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
         val className = (
-                graphNotation.transitiveAttribute(
+                graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, NotationConventions.classAttribute
                 )!! as ScalarAttributeNotation
         ).value as String

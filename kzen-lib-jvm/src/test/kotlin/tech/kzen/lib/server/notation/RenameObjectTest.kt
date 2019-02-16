@@ -3,8 +3,8 @@ package tech.kzen.lib.server.notation
 import org.junit.Test
 import tech.kzen.lib.common.api.model.ObjectName
 import tech.kzen.lib.common.api.model.ObjectPath
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.edit.RenameObjectCommand
+import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
+import tech.kzen.lib.common.structure.notation.edit.RenameObjectCommand
 import kotlin.test.assertEquals
 
 

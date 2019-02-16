@@ -7,7 +7,7 @@ import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.ObjectDefinition
-import tech.kzen.lib.common.metadata.model.ObjectMetadata
+import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.platform.Mirror
 
 
@@ -15,15 +15,17 @@ import tech.kzen.lib.platform.Mirror
 class AttributeObjectCreator: ObjectCreator {
     companion object {
         private val defaultParameterCreator = ObjectReference.parse(
-                StructuralAttributeCreator::class.simpleName!!)
+                DefinitionAttributeCreator::class.simpleName!!)
     }
 
     override fun create(
             objectLocation: ObjectLocation,
+            graphStructure: GraphStructure,
             objectDefinition: ObjectDefinition,
-            objectMetadata: ObjectMetadata,
-            graphInstance: GraphInstance
+            partialGraphInstance: GraphInstance
     ): Any {
+        val objectMetadata = graphStructure.graphMetadata.get(objectLocation)
+
         val constructorArguments = mutableListOf<Any?>()
 
         val constructorArgumentNames =
@@ -32,21 +34,18 @@ class AttributeObjectCreator: ObjectCreator {
         for (argumentName in constructorArgumentNames) {
             val argumentAttribute = AttributeName(argumentName)
 
-            val argumentDefinition = objectDefinition.attributeDefinitions[argumentAttribute]
-                    ?: throw IllegalArgumentException("Attribute definition not found: $argumentAttribute")
-
             val attributeMetadata = objectMetadata.attributes[argumentAttribute]
                     ?: throw IllegalArgumentException("Attribute metadata not found: $argumentAttribute")
 
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultParameterCreator
-            val attributeCreatorLocation = graphInstance.objects.locate(
+            val attributeCreatorLocation = partialGraphInstance.objects.locate(
                     objectLocation, attributeCreatorReference)
 
-            val attributeCreator = graphInstance.objects.get(attributeCreatorLocation) as AttributeCreator
+            val attributeCreator = partialGraphInstance.objects.get(attributeCreatorLocation) as AttributeCreator
 
 
             val attributeInstance = attributeCreator.create(
-                    objectLocation, argumentDefinition, attributeMetadata, graphInstance)
+                    objectLocation, argumentAttribute, graphStructure, objectDefinition, partialGraphInstance)
 
             constructorArguments.add(attributeInstance)
         }

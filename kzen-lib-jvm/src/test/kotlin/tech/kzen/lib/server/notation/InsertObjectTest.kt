@@ -4,10 +4,10 @@ import org.junit.Test
 import tech.kzen.lib.common.api.model.AttributePath
 import tech.kzen.lib.common.api.model.ObjectName
 import tech.kzen.lib.common.api.model.ObjectPath
-import tech.kzen.lib.common.notation.edit.InsertObjectInListAttributeCommand
-import tech.kzen.lib.common.notation.edit.NotationAggregate
-import tech.kzen.lib.common.notation.model.ObjectNotation
-import tech.kzen.lib.common.notation.model.PositionIndex
+import tech.kzen.lib.common.structure.notation.edit.InsertObjectInListAttributeCommand
+import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
+import tech.kzen.lib.common.structure.notation.model.ObjectNotation
+import tech.kzen.lib.common.structure.notation.model.PositionIndex
 import kotlin.test.assertEquals
 
 

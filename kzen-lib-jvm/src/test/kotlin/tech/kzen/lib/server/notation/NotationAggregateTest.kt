@@ -1,9 +1,9 @@
 package tech.kzen.lib.server.notation
 
 import tech.kzen.lib.common.api.model.*
-import tech.kzen.lib.common.notation.format.YamlNotationParser
-import tech.kzen.lib.common.notation.model.BundleNotation
-import tech.kzen.lib.common.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
+import tech.kzen.lib.common.structure.notation.model.BundleNotation
+import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.platform.IoUtils
 
 

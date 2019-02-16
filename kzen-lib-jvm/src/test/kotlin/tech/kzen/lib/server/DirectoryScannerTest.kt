@@ -2,7 +2,7 @@ package tech.kzen.lib.server
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
-import tech.kzen.lib.common.notation.NotationConventions
+import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
 import kotlin.test.assertTrue

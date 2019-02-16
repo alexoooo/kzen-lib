@@ -9,14 +9,14 @@ Bootstrap:
   class: kotlin.Nothing
 
 
-DefaultConstructorObjectCreator:
-  is: Bootstrap
-  class: tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
-
-
 DefaultConstructorObjectDefiner:
   is: Bootstrap
   class: tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
+
+
+DefaultConstructorObjectCreator:
+  is: Bootstrap
+  class: tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 
 
 DefaultConstructorObject:
@@ -28,14 +28,14 @@ DefaultConstructorObject:
 
 ###########################################################
 
-NotationAttributeDefiner:
+StructuralAttributeDefiner:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.base.NotationAttributeDefiner
+  class: tech.kzen.lib.common.objects.base.StructuralAttributeDefiner
 
 
-StructuralAttributeCreator:
+DefinitionAttributeCreator:
   is: DefaultConstructorObject
-  class: tech.kzen.lib.common.objects.base.StructuralAttributeCreator
+  class: tech.kzen.lib.common.objects.base.DefinitionAttributeCreator
 
 
 AttributeObjectDefiner:
@@ -105,11 +105,10 @@ ChildContainer:
       by: ParentChildAttributeDefiner
 
 
+###########################################################
+
 ObjectNameAttributeDefiner:
   class: tech.kzen.lib.common.objects.general.ObjectNameAttributeDefiner
-
-
-###########################################################
 
 
 ObjectName:

@@ -6,14 +6,14 @@ import tech.kzen.lib.common.api.model.ObjectMap
 import tech.kzen.lib.common.api.model.ObjectPath
 import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.metadata.model.GraphMetadata
+import tech.kzen.lib.common.structure.GraphStructure
 
 
 object GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
-            graphDefinition: GraphDefinition,
-            graphMetadata: GraphMetadata
+            graphStructure: GraphStructure,
+            graphDefinition: GraphDefinition
     ): GraphInstance {
         val objectInstances = mutableMapOf<ObjectLocation, Any>()
         objectInstances.putAll(GraphDefiner.bootstrapObjects)
@@ -24,18 +24,18 @@ object GraphCreator {
 
         for (objectLocation in levels.flatten()) {
             val objectDefinition = graphDefinition.objectDefinitions.get(objectLocation)
-            val objectMetadata = graphMetadata.get(objectLocation)
 
-            val creatorPath = tryLocate(graphMetadata.objectMetadata.values.keys, objectDefinition.creator)
-                    ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
+            val creatorPath = tryLocate(
+                    graphStructure.graphMetadata.objectMetadata.values.keys, objectDefinition.creator
+            ) ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
 
             val creator = objectInstances[creatorPath] as? ObjectCreator
                     ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
             val instance = creator.create(
                     objectLocation,
+                    graphStructure,
                     objectDefinition,
-                    objectMetadata,
                     objectGraph)
 
             objectInstances[objectLocation] = instance

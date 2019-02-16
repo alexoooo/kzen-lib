@@ -4,8 +4,9 @@ import tech.kzen.lib.common.api.model.BundleTree
 import tech.kzen.lib.common.api.model.ObjectMap
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
-import tech.kzen.lib.common.metadata.model.GraphMetadata
-import tech.kzen.lib.common.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
+import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -14,12 +15,14 @@ class CommonTest {
     fun objectGraphCanBeEmpty() {
         val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
-        val emptyDefinition = GraphDefiner.define(
+        val graphStructure = GraphStructure(
                 GraphNotation(BundleTree(mapOf())),
                 emptyMetadata)
 
+        val emptyDefinition = GraphDefiner.define(graphStructure)
+
         val emptyGraph = GraphCreator.createGraph(
-                emptyDefinition, emptyMetadata)
+                graphStructure, emptyDefinition)
 
         assertEquals(
                 GraphDefiner.bootstrapObjects.size,

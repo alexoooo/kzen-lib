@@ -1,7 +1,10 @@
 package tech.kzen.lib.common.objects.bootstrap
 
-import tech.kzen.lib.common.notation.NotationConventions
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.api.model.BundleNesting
+import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectName
+import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.common.structure.notation.NotationConventions
 
 
 object BootstrapConventions {
