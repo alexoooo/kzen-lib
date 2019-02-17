@@ -13,7 +13,7 @@ actual object Mirror {
 
     actual fun constructorArgumentNames(className: ClassName): List<String> {
         val metadata = reflect(className.get())
-                ?: throw IllegalArgumentException("Not found: $className")
+                ?: throw IllegalArgumentException("Not found: $className (${className.get()})")
 
         return metadata.constructorArgumentNames
     }
