@@ -49,7 +49,7 @@ data class GraphNotation(
             return parameter
         }
 
-        val isAttribute = notation.get(NotationConventions.isAttribute)
+        val isAttribute = notation.get(NotationConventions.isPath)
 
         val superReference =
                 when (isAttribute) {

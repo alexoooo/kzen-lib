@@ -11,7 +11,7 @@ import tech.kzen.lib.common.structure.GraphStructure
 
 
 @Suppress("unused")
-class ObjectNameAttributeDefiner: AttributeDefiner {
+class ObjectLocationAttributeDefiner: AttributeDefiner {
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -20,6 +20,6 @@ class ObjectNameAttributeDefiner: AttributeDefiner {
             partialGraphInstance: GraphInstance
     ): AttributeDefinition {
         return ValueAttributeDefinition(
-                objectLocation.objectPath.name)
+                objectLocation)
     }
 }

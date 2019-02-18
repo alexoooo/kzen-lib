@@ -76,13 +76,29 @@ object YamlNodeParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parseScalar(block: List<String>) : YamlScalar {
+    private fun parseScalar(block: List<String>): YamlScalar {
         if (block.isEmpty()) {
             return YamlString.empty
         }
 
-        check(block.size == 1)
-        val value = block[0]
+        val value: String =
+                if (block.size == 1) {
+                    block[0]
+                }
+                else {
+                    val nonCommentLines = block.filter {
+                        ! it.isEmpty() &&
+                                Patterns.decorator.matchEntire(it) == null
+                    }
+
+                    if (nonCommentLines.isEmpty()) {
+                        return YamlString.empty
+                    }
+
+                    check(nonCommentLines.size == 1) { "Scalar expected: $nonCommentLines" }
+
+                    nonCommentLines[0]
+                }
 
         if (value.equals("null", true) || value.isEmpty()) {
             return YamlNull
@@ -235,7 +251,10 @@ object YamlNodeParser {
     }
 
 
-    private fun splitElements(block: List<String>, startOfElement: (String) -> Boolean): List<List<String>> {
+    private fun splitElements(
+            block: List<String>,
+            startOfElement: (String) -> Boolean
+    ): List<List<String>> {
         val buffer = mutableListOf<String>()
 
         val declarations = mutableListOf<List<String>>()

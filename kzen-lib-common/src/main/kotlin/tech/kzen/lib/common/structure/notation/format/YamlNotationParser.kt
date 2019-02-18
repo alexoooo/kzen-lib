@@ -25,7 +25,12 @@ class YamlNotationParser: NotationParser {
 
                     is YamlScalar -> when {
                         node is YamlString ->
-                            YamlMap(mapOf(NotationConventions.isKey to node))
+                            if (node.value.isEmpty()) {
+                                YamlMap(mapOf())
+                            }
+                            else {
+                                YamlMap(mapOf(NotationConventions.isKey to node))
+                            }
 
                         // NB: empty document
                         node.value == null ->
@@ -43,6 +48,11 @@ class YamlNotationParser: NotationParser {
             val objectMap = e.value
                     as? YamlMap
                     ?: throw IllegalArgumentException("Sub-map expected: ${e.key} - ${e.value.asString()}")
+
+            if (objectMap.values.isEmpty()) {
+                continue
+            }
+
             val objectPath = ObjectPath.parse(e.key)
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation

@@ -108,6 +108,10 @@ data class ListAttributeNotation(
 data class MapAttributeNotation(
         val values: Map<AttributeSegment, AttributeNotation>
 ): StructuredAttributeNotation() {
+    companion object {
+        val empty = MapAttributeNotation(mapOf())
+    }
+
     override fun get(key: String): AttributeNotation? {
         return values[AttributeSegment.ofKey(key)]
     }

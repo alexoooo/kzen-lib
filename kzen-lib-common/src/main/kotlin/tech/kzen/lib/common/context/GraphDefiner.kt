@@ -170,7 +170,7 @@ object GraphDefiner {
             projectNotation: GraphNotation
     ): ObjectReference {
         return ObjectReference.parse(
-                projectNotation.getString(objectName, NotationConventions.definerAttribute))
+                projectNotation.getString(objectName, NotationConventions.definerPath))
     }
 
 
@@ -178,7 +178,7 @@ object GraphDefiner {
             objectName: ObjectLocation,
             projectNotation: GraphNotation
     ): Boolean {
-        return projectNotation.directAttribute(objectName, NotationConventions.abstractAttribute)
+        return projectNotation.directAttribute(objectName, NotationConventions.abstractPath)
                 ?.asBoolean()
                 ?: false
     }

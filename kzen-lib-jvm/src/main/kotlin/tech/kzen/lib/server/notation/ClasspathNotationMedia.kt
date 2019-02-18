@@ -54,7 +54,7 @@ class ClasspathNotationMedia(
     override suspend fun read(location: BundlePath): ByteArray {
         val resourcePath = prefix + "/" + location.asRelativeFile()
         val bytes = loader.getResource(resourcePath).readBytes()
-        println("ClasspathNotationMedia - read ${bytes.size}")
+//        println("ClasspathNotationMedia - read ${bytes.size}")
         return bytes
     }
 

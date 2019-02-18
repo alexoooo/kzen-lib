@@ -29,7 +29,7 @@ class AddObjectTest: NotationAggregateTest() {
 
         val objectNotation = bundleNotation.objects.values.values.iterator().next()
 
-        val isValue = (objectNotation.get(NotationConventions.isAttribute) as ScalarAttributeNotation).value as String
+        val isValue = (objectNotation.get(NotationConventions.isPath) as ScalarAttributeNotation).value as String
         assertEquals("Parent", isValue)
 
         val deparsedBundle = deparseBundle(bundleNotation)

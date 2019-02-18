@@ -44,7 +44,7 @@ class AttributeObjectDefiner: ObjectDefiner {
         val className = ClassName(
                 graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttribute))
 
-        val constructorArguments = mutableMapOf<AttributeName, AttributeDefinition>()
+        val attributeDefinitions = mutableMapOf<AttributeName, AttributeDefinition>()
         val parameterCreators = mutableSetOf<ObjectReference>()
 
 //        val argumentNames = Mirror.constructorArgumentNames(className)
@@ -76,7 +76,7 @@ class AttributeObjectDefiner: ObjectDefiner {
                     partialGraphDefinition,
                     partialGraphInstance)
 
-            constructorArguments[attributeName] = attributeDefinition
+            attributeDefinitions[attributeName] = attributeDefinition
         }
 
         val creatorReference = ObjectReference.parse(
@@ -84,7 +84,7 @@ class AttributeObjectDefiner: ObjectDefiner {
 
         val objectDefinition = ObjectDefinition(
                 className,
-                constructorArguments,
+                attributeDefinitions,
                 creatorReference,
                 parameterCreators)
 

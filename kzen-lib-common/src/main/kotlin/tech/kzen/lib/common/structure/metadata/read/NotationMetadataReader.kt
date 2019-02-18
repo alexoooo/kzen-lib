@@ -70,6 +70,7 @@ class NotationMetadataReader(
                 }
 
         val attributeMap = attributeNotation as? MapAttributeNotation
+                ?: MapAttributeNotation.empty
 
         val classNotation = metadataAttribute(
                 NotationConventions.classAttribute, inheritanceParentLocation, attributeMap, notationTree)
@@ -77,16 +78,16 @@ class NotationMetadataReader(
                 ?.let { ClassName(it) }
                 ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
 
-        val definerNotation = metadataAttribute(
-                NotationConventions.byAttribute, inheritanceParentLocation, attributeMap, notationTree)
-        val definerReference = (definerNotation as? ScalarAttributeNotation)?.value as? String
+        val definerReference = attributeMap
+                .values[NotationConventions.definerSegment]
+                ?.asString()
 
-        val creatorNotation = metadataAttribute(
-                NotationConventions.usingAttribute, inheritanceParentLocation, attributeMap, notationTree)
-        val creatorReference = (creatorNotation as? ScalarAttributeNotation)?.value as? String
+        val creatorReference = attributeMap
+                .values[NotationConventions.creatorSegment]
+                ?.asString()
 
-        val genericsNotation = metadataAttribute(
-                NotationConventions.ofAttribute, inheritanceParentLocation, attributeMap, notationTree)
+        val genericsNotation = attributeMap.values[NotationConventions.ofSegment]
+
 
         val genericsNames: List<TypeMetadata> =
                 when (genericsNotation) {
@@ -112,6 +113,7 @@ class NotationMetadataReader(
                 genericsNames)
 
         return AttributeMetadata(
+                attributeMap,
                 typeMetadata,
                 definerReference?.let { ObjectReference.parse(it) },
                 creatorReference?.let { ObjectReference.parse(it) })
@@ -142,16 +144,16 @@ class NotationMetadataReader(
 
 
     private fun metadataAttribute(
-            notationPath: AttributePath,
+            attributePath: AttributePath,
             inheritanceParent: ObjectLocation?,
-            attributeMap: MapAttributeNotation?,
+            attributeMap: MapAttributeNotation,
             projectNotation: GraphNotation
     ): AttributeNotation? {
-        val paramNotation = attributeMap?.get(notationPath)
+        val paramNotation = attributeMap.get(attributePath)
 
         return if (paramNotation == null && inheritanceParent != null) {
             projectNotation.transitiveAttribute(
-                    inheritanceParent, notationPath)
+                    inheritanceParent, attributePath)
         }
         else {
             paramNotation

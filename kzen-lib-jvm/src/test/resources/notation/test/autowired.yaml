@@ -1,0 +1,28 @@
+
+
+AbstractObject:
+  abstract: true
+  class: tech.kzen.lib.server.objects.autowire.AbstractObject
+
+
+WeakHolder:
+  class: tech.kzen.lib.server.objects.autowire.WeakHolder
+  meta:
+    locations:
+      is: List
+      of: ObjectLocation
+      definer: WeakAutowiredAttributeDefiner
+      find:
+#        abstract: true
+        is: AbstractObject
+
+
+AbstractFoo:
+  abstract: true
+  is: AbstractObject
+
+
+AbstractBar:
+  abstract: true
+  is: AbstractObject
+

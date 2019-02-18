@@ -82,11 +82,11 @@ object GraphCreator {
                     .all { it != null && closed.contains(it) }
 
             if (! satisfied) {
-                println("not satisfied ($candidate): ${definition.references()}")
+//                println("not satisfied ($candidate): ${definition.references()}")
                 continue
             }
 
-            println("satisfied: $candidate")
+//            println("satisfied: $candidate")
             allSatisfied.add(candidate)
         }
         return allSatisfied

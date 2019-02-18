@@ -8,7 +8,7 @@ import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
-import tech.kzen.lib.server.objects.NameAware
+import tech.kzen.lib.server.objects.LocationAware
 import tech.kzen.lib.server.objects.StringHolder
 import tech.kzen.lib.server.util.GraphTestUtils
 
@@ -37,8 +37,9 @@ class ObjectGraphTest {
     fun `Name-aware object should know its name`() {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
-        val fooNamedInstance = objectGraph.objects.get(location("FooNamed")) as NameAware
-        assertEquals(ObjectName("FooNamed"), fooNamedInstance.name)
+        val location = location("FooNamed")
+        val fooNamedInstance = objectGraph.objects.get(location) as LocationAware
+        assertEquals(location, fooNamedInstance.objectLocation)
     }
 
 

@@ -7,10 +7,10 @@ import tech.kzen.lib.common.api.model.ObjectMap
 data class GraphMetadata(
         val objectMetadata: ObjectMap<ObjectMetadata>
 ) {
-    fun get(objectPath: ObjectLocation): ObjectMetadata {
-        val metadata = objectMetadata.find(objectPath)
+    fun get(objectLocation: ObjectLocation): ObjectMetadata {
+        val metadata = objectMetadata.find(objectLocation)
 
-        check(metadata != null) { "Not found: $objectPath" }
+        check(metadata != null) { "Not found: $objectLocation" }
 
         return metadata
     }

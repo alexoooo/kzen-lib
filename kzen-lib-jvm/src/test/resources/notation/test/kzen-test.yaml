@@ -17,18 +17,18 @@ NumericStringHolder:
   value: 123
 
 
-NameAware:
+LocationAware:
   abstract: true
-  class: tech.kzen.lib.server.objects.NameAware
+  class: tech.kzen.lib.server.objects.LocationAware
   foo: ''
   meta:
-    name:
-      is: ObjectName
-      by: ObjectNameAttributeDefiner
+    objectLocation:
+      is: ObjectLocation
+      definer: ObjectLocationAttributeDefiner
     foo:
       is: String
 
 
 FooNamed:
-  is: NameAware
+  is: LocationAware
 

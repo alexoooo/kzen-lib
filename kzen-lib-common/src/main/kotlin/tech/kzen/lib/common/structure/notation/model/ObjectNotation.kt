@@ -18,7 +18,7 @@ data class ObjectNotation(
             val attributeNotation = ScalarAttributeNotation(reference.asString())
 
             return ObjectNotation(mapOf(
-                    NotationConventions.isAttribute.attribute to attributeNotation))
+                    NotationConventions.isPath.attribute to attributeNotation))
         }
     }
 

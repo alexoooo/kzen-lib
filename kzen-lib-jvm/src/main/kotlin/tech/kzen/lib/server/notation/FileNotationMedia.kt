@@ -1,8 +1,8 @@
 package tech.kzen.lib.server.notation
 
-import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.api.model.BundlePath
 import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
 import java.nio.file.FileVisitResult
@@ -97,7 +97,7 @@ class FileNotationMedia(
         val path = notationLocator.locateExisting(location)
                 ?: throw IllegalArgumentException("Not found: $location")
 
-        println("GradleNotationMedia | read - moduleRoot: ${path.toAbsolutePath().normalize()}")
+//        println("GradleNotationMedia | read - moduleRoot: ${path.toAbsolutePath().normalize()}")
 
         return Files.readAllBytes(path)
     }

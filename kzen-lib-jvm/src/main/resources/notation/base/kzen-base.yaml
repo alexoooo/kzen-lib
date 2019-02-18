@@ -102,15 +102,23 @@ ChildContainer:
     children:
       is: List
       of: ParentPointer
-      by: ParentChildAttributeDefiner
+      definer: ParentChildAttributeDefiner
 
 
 ###########################################################
 
-ObjectNameAttributeDefiner:
-  class: tech.kzen.lib.common.objects.general.ObjectNameAttributeDefiner
+
+ObjectLocationAttributeDefiner:
+  class: tech.kzen.lib.common.objects.general.ObjectLocationAttributeDefiner
 
 
-ObjectName:
+ObjectLocation:
   abstract: true
-  class: tech.kzen.lib.common.api.model.ObjectName
+  class: tech.kzen.lib.common.api.model.ObjectLocation
+
+
+###########################################################
+
+
+WeakAutowiredAttributeDefiner:
+  class: tech.kzen.lib.common.objects.general.WeakAutowiredAttributeDefiner
