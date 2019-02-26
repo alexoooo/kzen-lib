@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 
-class YamlParserTest {
+class YamlNotationParserTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val mainPath = BundlePath.parse("main.yaml")
     private val yamlParser = YamlNotationParser()
@@ -91,18 +91,6 @@ Foo:
 
         assertEquals("baz\"", notation.getString(location("Foo"), attribute("bar")))
     }
-
-
-//    @Test
-//    fun parseComplicatedYaml() {
-//        val notation = parseGraph("""
-//"__ANON__20190131T143114_226Z":
-//  is: "action/action-browser.yaml#/OpenBrowser"
-//""")
-//
-//        assertEquals("action/action-browser.yaml#/OpenBrowser",
-//                notation.getString(location("__ANON__20190131T143114_226Z"), attribute("is")))
-//    }
 
 
     //-----------------------------------------------------------------------------------------------------------------

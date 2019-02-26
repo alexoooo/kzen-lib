@@ -5,6 +5,12 @@ import kotlin.js.Json
 
 
 object ClientJsonUtils {
+    @Suppress("UNUSED_PARAMETER")
+    fun getOwnPropertyNames(any: Any): Array<String> {
+        return js("Object.getOwnPropertyNames(any)") as Array<String>
+    }
+
+
     fun toList(jsonList: Array<*>): List<Any?> {
         return jsonList.map(this::toValue)
     }
@@ -13,7 +19,7 @@ object ClientJsonUtils {
     fun toMap(json: Json): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
 
-        for (key in ClientObjectUtils.getOwnPropertyNames(json)) {
+        for (key in getOwnPropertyNames(json)) {
             map[key] = toValue(json[key])
         }
 

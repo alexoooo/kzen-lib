@@ -3,6 +3,10 @@ package tech.kzen.lib.common.structure.notation.format
 
 object YamlUtils {
     //-----------------------------------------------------------------------------------------------------------------
+    const val emptyListJson = "[]"
+    const val emptyMapJson = "{}"
+
+
     val bareString = Regex("([0-9a-zA-Z_-]+)")
 
 

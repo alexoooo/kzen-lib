@@ -65,8 +65,8 @@ TwoPlusTwo:
 TwoPlusTwoInlineMap:
   is: PlusOperation
   addends:
-  - TwoPlusTwoInlineMap.addends/Arg1
-  - TwoPlusTwoInlineMap.addends/Arg2
+    - TwoPlusTwoInlineMap.addends/Arg1
+    - TwoPlusTwoInlineMap.addends/Arg2
 
 TwoPlusTwoInlineMap.addends/Arg1:
   is: DoubleValue

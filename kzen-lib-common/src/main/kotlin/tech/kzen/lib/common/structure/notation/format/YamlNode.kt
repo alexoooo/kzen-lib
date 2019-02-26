@@ -69,7 +69,7 @@ sealed class YamlNode {
 
 
 //-----------------------------------------------------------------------------------------------------------------
-abstract class YamlScalar: YamlNode() {
+sealed class YamlScalar: YamlNode() {
     abstract val value: Any?
 
     override fun asString(): String {
@@ -116,12 +116,33 @@ object YamlNull: YamlScalar() {
 }
 
 
+//-----------------------------------------------------------------------------------------------------------------
+sealed class YamlStructure: YamlNode() {
+//    abstract fun collection(): Any
+
+    fun isEmpty(): Boolean {
+        return size() == 0
+    }
+
+    abstract fun size(): Int
+}
+
+
 data class YamlList(
         val values: List<YamlNode>
-): YamlNode() {
+): YamlStructure() {
+//    override fun collection(): Any {
+//        return values
+//    }
+
+    override fun size(): Int {
+        return values.size
+    }
+
+
     override fun asString(): String {
         if (values.isEmpty()) {
-            return "[]"
+            return YamlUtils.emptyListJson
         }
 
         return values.joinToString("\n") {
@@ -143,19 +164,31 @@ data class YamlList(
 
 data class YamlMap(
         val values: Map<String, YamlNode>
-): YamlNode() {
+): YamlStructure() {
+//    override fun collection(): Any {
+//        return values
+//    }
+
+
+    override fun size(): Int {
+        return values.size
+    }
+
+
     override fun asString(): String {
         if (values.isEmpty()) {
-            return "{}"
+            return YamlUtils.emptyMapJson
         }
 
-        return values.map {
-            val lines = it.value.asString().split("\n")
+        return values.map { entry ->
+            val lines = entry.value.asString().split("\n")
 
-            val keyPrefix = YamlString(it.key).asString()
+            val keyPrefix = YamlString(entry.key).asString()
 
-            if (lines.size == 1) {
-                "$keyPrefix: ${lines[0]}"
+            if (entry.value is YamlScalar ||
+                    (entry.value as YamlStructure).isEmpty()) {
+                "$keyPrefix: ${lines[0]}" +
+                        lines.subList(1, lines.size).joinToString("") { "\n   $it" }
             }
             else {
                 "$keyPrefix:\n" + lines.joinToString("\n") { "  $it" }

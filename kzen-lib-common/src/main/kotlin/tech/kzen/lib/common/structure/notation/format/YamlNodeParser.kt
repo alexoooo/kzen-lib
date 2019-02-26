@@ -31,9 +31,6 @@ object YamlNodeParser {
 
         val item = Regex(
                 "- .*")
-
-        const val emptyListJson = "[]"
-        const val emptyMapJson = "{}"
     }
 
 
@@ -130,7 +127,7 @@ object YamlNodeParser {
     private fun parseList(block: List<String>): YamlList {
 //        println("^^^ parseList: $block")
 
-        if (block.size == 1 && block[0] == Patterns.emptyListJson) {
+        if (block.size == 1 && block[0] == YamlUtils.emptyListJson) {
             return YamlList(listOf())
         }
 
@@ -159,7 +156,7 @@ object YamlNodeParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun parseMap(block: List<String>): YamlMap {
-        if (block.size == 1 && block[0] == Patterns.emptyMapJson) {
+        if (block.size == 1 && block[0] == YamlUtils.emptyMapJson) {
             return YamlMap(mapOf())
         }
 
@@ -229,10 +226,10 @@ object YamlNodeParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun identifyStructure(block: List<String>): NotationStructure {
         for (line in block) {
-            if (matchEntireEntry(line) != null || line == Patterns.emptyMapJson) {
+            if (matchEntireEntry(line) != null || line == YamlUtils.emptyMapJson) {
                 return NotationStructure.Map
             }
-            if (Patterns.item.matchEntire(line) != null || line == Patterns.emptyListJson) {
+            if (Patterns.item.matchEntire(line) != null || line == YamlUtils.emptyListJson) {
                 return NotationStructure.List
             }
         }

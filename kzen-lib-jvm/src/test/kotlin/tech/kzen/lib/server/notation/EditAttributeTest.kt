@@ -78,7 +78,7 @@ Foo:
         val notation = parseGraph("""
 Foo:
   hello:
-  - bar
+    - bar
 """)
 
         val project = NotationAggregate(notation)
@@ -98,8 +98,8 @@ Foo:
         val notation = parseGraph("""
 Foo:
   hello:
-  - bar
-  - baz
+    - bar
+    - baz
 """)
 
         val project = NotationAggregate(notation)
@@ -145,7 +145,7 @@ Foo:
         val notation = parseGraph("""
 Foo:
   hello:
-  - baz
+    - baz
   bar: []
 """)
 
