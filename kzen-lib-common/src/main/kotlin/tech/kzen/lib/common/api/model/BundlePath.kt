@@ -9,13 +9,30 @@ data class BundlePath(
     companion object {
         private val delimiter = "/"
 
-        private val resource = Regex(
-                "([a-zA-Z0-9_\\-]+/)*[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+")
+        private val pathSegment = Regex("[a-zA-Z0-9_\\-]+")
+        private val resourceSegment = Regex("[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+")
+
+//        private val resource = Regex(
+//                "([a-zA-Z0-9_\\-]+/)*([a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+)?")
 
 
         fun matches(relativeLocation: String): Boolean {
-            return ! relativeLocation.startsWith(delimiter) &&
-                    resource.matches(relativeLocation)
+            if (relativeLocation.isEmpty()) {
+                return false
+            }
+
+            val segments = relativeLocation.split(delimiter)
+
+            val pathMatches = segments
+                    .subList(0, segments.size - 1)
+                    .all { pathSegment.matches(it) }
+            if (! pathMatches) {
+                return false
+            }
+
+            val last = segments.last()
+            return pathSegment.matches(last) ||
+                    resourceSegment.matches(last)
         }
 
 
@@ -25,6 +42,13 @@ data class BundlePath(
             val segments = asString.split(delimiter)
             return BundlePath(segments)
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun startsWith(prefix: BundlePath): Boolean {
+        return segments.size >= prefix.segments.size &&
+                segments.subList(0, prefix.segments.size) == prefix.segments
     }
 
 

@@ -43,5 +43,5 @@ object NotationConventions {
     const val suffix: String = ".yaml"
 
     val kzenBasePath = BundlePath.parse("base/kzen-base.yaml")
-    val mainPath = BundlePath.parse("main/main.yaml")
+    val mainPrefix = BundlePath.parse("main")
 }

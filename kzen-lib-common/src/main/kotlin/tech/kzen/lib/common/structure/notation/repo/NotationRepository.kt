@@ -117,6 +117,10 @@ class NotationRepository(
             val written = writeIfRequired(updatedBundle.key, updatedBundle.value)
             writtenAny = writtenAny || written
         }
+        for (removed in oldBundles.values.keys.minus(newBundles.values.keys)) {
+            delete(removed)
+            writtenAny = true
+        }
 
         if (writtenAny) {
             // TODO: avoid needless clearing
@@ -128,10 +132,10 @@ class NotationRepository(
 
 
     private suspend fun writeIfRequired(
-            projectPath: BundlePath,
+            bundlePath: BundlePath,
             packageNotation: BundleNotation
     ): Boolean {
-        val cachedDigest = scanCache[projectPath]
+        val cachedDigest = scanCache[bundlePath]
 
         var previousMissing = false
         val previousBody: ByteArray =
@@ -157,10 +161,18 @@ class NotationRepository(
             return false
         }
 
-        notationMedia.write(projectPath, updatedBody)
-        scanCache[projectPath] = Digest.ofXoShiRo256StarStar(updatedBody)
+        notationMedia.write(bundlePath, updatedBody)
+        scanCache[bundlePath] = Digest.ofXoShiRo256StarStar(updatedBody)
 
         return true
+    }
+
+
+    private suspend fun delete(
+            bundlePath: BundlePath
+    ) {
+        notationMedia.delete(bundlePath)
+        scanCache.remove(bundlePath)
     }
 
 

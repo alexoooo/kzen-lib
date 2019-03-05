@@ -114,7 +114,7 @@ class NotationAggregate(
             command: DeleteBundleCommand
     ): EventAndNotation {
         check(state.bundles.values.containsKey(command.bundlePath)) {
-            "Does not exist: ${command.bundlePath}"
+            "Does not exist: ${command.bundlePath} - ${state.bundles.values.keys}"
         }
 
         val nextState = state.withoutBundle(command.bundlePath)
