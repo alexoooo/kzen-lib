@@ -47,7 +47,7 @@ object GraphDefiner {
 
         definerAndRelatedInstances.putAll(bootstrapObjects)
 
-        val openDefinitions = graphStructure
+        val openDefinitions: MutableSet<ObjectLocation> = graphStructure
                 .graphNotation
                 .objectLocations
                 .filter {
@@ -116,9 +116,9 @@ object GraphDefiner {
 //                    println("  $$ missing creator ($missingName): $creatorLocation")
                 }
 
-                for (creatorReference in definition.creatorReferences) {
+                for (creatorRequired in definition.creatorDependencies) {
                     val creatorReferenceLocation =
-                            graphStructure.graphNotation.coalesce.locate(missingName, creatorReference)
+                            graphStructure.graphNotation.coalesce.locate(missingName, creatorRequired)
 
                     if (! definerAndRelatedInstances.containsKey(creatorReferenceLocation)) {
                         missingCreatorInstances.add(creatorReferenceLocation)
@@ -151,7 +151,7 @@ object GraphDefiner {
             missingInstances.removeAll(levelCreated)
 
             check(levelClosed.isNotEmpty() || levelCreated.isNotEmpty()) {
-                "Graph cycle?"
+                "Graph cycle? $openDefinitions"
             }
 
             openDefinitions.removeAll(levelClosed)

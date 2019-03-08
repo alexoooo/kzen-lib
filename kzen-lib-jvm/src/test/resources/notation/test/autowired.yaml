@@ -1,5 +1,7 @@
 
 
+################################################################
+
 AbstractObject:
   abstract: true
   class: tech.kzen.lib.server.objects.autowire.AbstractObject
@@ -13,7 +15,6 @@ WeakHolder:
       of: ObjectLocation
       definer: WeakAutowiredAttributeDefiner
       find:
-#        abstract: true
         is: AbstractObject
 
 
@@ -26,3 +27,58 @@ AbstractBar:
   abstract: true
   is: AbstractObject
 
+
+################################################################
+
+
+ConcreteObject:
+  abstract: true
+  class: tech.kzen.lib.server.objects.autowire.ConcreteObject
+
+
+StrongHolder:
+  class: tech.kzen.lib.server.objects.autowire.StrongHolder
+  meta:
+    concreteObjects:
+      is: List
+#      of: ConcreteObject
+      definer: AutowiredAttributeDefiner
+      find:
+        is: ConcreteObject
+
+
+ConcreteFoo:
+  is: ConcreteObject
+
+
+ConcreteBar:
+  is: ConcreteObject
+
+
+################################################################
+
+
+ObjectGroup:
+  is: ChildContainer
+  class: tech.kzen.lib.server.objects.autowire.ObjectGroup
+  meta:
+    children:
+      is: List
+      of: ObjectItem
+      definer: ParentChildAttributeDefiner
+
+
+ObjectItem:
+  abstract: true
+  is: ParentPointer
+  class: tech.kzen.lib.server.objects.autowire.ObjectItem
+
+
+ItemFoo:
+  is: ObjectItem
+  parent: ObjectGroup
+
+
+ItemBar:
+  is: ObjectItem
+  parent: ObjectGroup

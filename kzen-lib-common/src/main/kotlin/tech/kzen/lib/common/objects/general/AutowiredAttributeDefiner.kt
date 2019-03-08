@@ -5,19 +5,19 @@ import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.AttributeSegment
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.context.GraphInstance
-import tech.kzen.lib.common.definition.AttributeDefinition
-import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ListAttributeDefinition
-import tech.kzen.lib.common.definition.ValueAttributeDefinition
+import tech.kzen.lib.common.definition.*
+import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
 
 
-class WeakAutowiredAttributeDefiner: AttributeDefiner {
+@Suppress("unused")
+class AutowiredAttributeDefiner(
+        private val weak: Boolean
+): AttributeDefiner {
     companion object {
-        val findKey = AttributeSegment.ofKey("find")
-//        val findAttribute = AttributePath.parse("find")
+        val findSegment = AttributeSegment.ofKey("find")
     }
 
 
@@ -31,26 +31,39 @@ class WeakAutowiredAttributeDefiner: AttributeDefiner {
         val attributeMetadata = graphStructure.graphMetadata.get(objectLocation).attributes[attributeName]
                 ?: throw IllegalArgumentException("Not found: $objectLocation - $attributeName")
 
-        val find = attributeMetadata.attributeMetadataNotation.values[findKey]
+        val find = attributeMetadata.attributeMetadataNotation.values[findSegment]
                 as? MapAttributeNotation
-                ?: throw IllegalArgumentException("Expected: $objectLocation - $attributeName - $findKey")
+                ?: throw IllegalArgumentException("Expected: $objectLocation - $attributeName - $findSegment")
 
 //        val isAbstract = find.get(NotationConventions.abstractSegment)?.asBoolean() ?: false
-        val findIsReference = find.get(NotationConventions.isSegment)?.asString() ?: "Object"
+        val findIsReference = find.get(NotationConventions.isSegment)?.asString()
+                ?: BootstrapConventions.rootObjectName.value
 
         val references = mutableListOf<AttributeDefinition>()
 
         for ((location, notation) in graphStructure.graphNotation.coalesce.values) {
-            val isReference = notation.attributes[NotationConventions.isName]?.asString() ?: "Object"
+            val isReference = notation.attributes[NotationConventions.isName]?.asString()
+                    ?: BootstrapConventions.rootObjectName.value
 
             if (findIsReference != isReference) {
                 continue
             }
 
-            references.add(
-                    ValueAttributeDefinition(location))
+            val attributeDefinition = defineLocation(location)
+
+            references.add(attributeDefinition)
         }
 
         return ListAttributeDefinition(references)
+    }
+
+
+    private fun defineLocation(objectLocation: ObjectLocation): AttributeDefinition {
+        return if (weak) {
+            ValueAttributeDefinition(objectLocation)
+        }
+        else {
+            ReferenceAttributeDefinition(objectLocation.toReference())
+        }
     }
 }

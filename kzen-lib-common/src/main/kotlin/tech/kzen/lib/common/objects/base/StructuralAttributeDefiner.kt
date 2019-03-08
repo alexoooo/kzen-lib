@@ -25,7 +25,7 @@ class StructuralAttributeDefiner: AttributeDefiner {
         val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
 
         // TODO: is the transitiveParameter here handled correctly? what about default values?
-        val parameterNotation = objectNotation.attributes[attributeName]
+        val attributeNotation = objectNotation.attributes[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, attributeName.asAttributeNesting())
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
@@ -35,33 +35,33 @@ class StructuralAttributeDefiner: AttributeDefiner {
 
         val typeMetadata = parameterMetadata.type!!
 
-        return defineRecursively(parameterNotation, typeMetadata)
+        return defineRecursively(attributeNotation, typeMetadata)
     }
 
 
     private fun defineRecursively(
-            parameterNotation: AttributeNotation,
+            attributeNotation: AttributeNotation,
             typeMetadata: TypeMetadata
     ): AttributeDefinition {
-        if (parameterNotation is ScalarAttributeNotation) {
+        if (attributeNotation is ScalarAttributeNotation) {
             val className = typeMetadata.className
 
-            if (parameterNotation.value is String && className != ClassNames.kotlinString) {
+            if (attributeNotation.value is String && className != ClassNames.kotlinString) {
                 return ReferenceAttributeDefinition(
-                        ObjectReference.parse(parameterNotation.value))
+                        ObjectReference.parse(attributeNotation.value))
             }
 
-            if (className == ClassNames.kotlinString && parameterNotation.value !is String) {
-                return ValueAttributeDefinition(parameterNotation.value.toString())
+            if (className == ClassNames.kotlinString && attributeNotation.value !is String) {
+                return ValueAttributeDefinition(attributeNotation.value.toString())
             }
 
-            return ValueAttributeDefinition(parameterNotation.value)
+            return ValueAttributeDefinition(attributeNotation.value)
         }
-        else if (parameterNotation is ListAttributeNotation) {
+        else if (attributeNotation is ListAttributeNotation) {
             val listGeneric = typeMetadata.generics[0]
 
             val definitions = mutableListOf<AttributeDefinition>()
-            for (value in parameterNotation.values) {
+            for (value in attributeNotation.values) {
                 val definition = defineRecursively(value, listGeneric)
                 definitions.add(definition)
             }

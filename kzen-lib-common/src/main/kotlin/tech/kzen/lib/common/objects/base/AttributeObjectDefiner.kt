@@ -45,19 +45,20 @@ class AttributeObjectDefiner: ObjectDefiner {
                 graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttribute))
 
         val attributeDefinitions = mutableMapOf<AttributeName, AttributeDefinition>()
-        val parameterCreators = mutableSetOf<ObjectReference>()
+        val creatorRequired = mutableSetOf<ObjectReference>()
 
 //        val argumentNames = Mirror.constructorArgumentNames(className)
 //        println("&&& class arguments ($className): $argumentNames")
 
         for ((attributeName, attributeMetadata) in objectMetadata.attributes) {
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultAttributeCreator
-            parameterCreators.add(attributeCreatorReference)
+            creatorRequired.add(attributeCreatorReference)
 
             val attributeDefinerRef = attributeMetadata.definerReference ?: defaultAttributeDefiner
             val attributeDefinerLocation = graphStructure.graphNotation.coalesce
                     .locateOptional(objectLocation, attributeDefinerRef)
-                    ?: return ObjectDefinitionAttempt.failure("Unknown parameter definer: $attributeDefinerRef")
+                    ?: return ObjectDefinitionAttempt.failure(
+                            "Unknown attribute definer: $attributeDefinerRef")
 
             val definerInstance = partialGraphInstance.objects
                     .find(attributeDefinerLocation)
@@ -67,7 +68,7 @@ class AttributeObjectDefiner: ObjectDefiner {
             val attributeDefiner = definerInstance
                     as? AttributeDefiner
                     ?: return ObjectDefinitionAttempt.failure(
-                            "Attribute Definer expected: $attributeDefinerRef")
+                            "Attribute definer expected: $attributeDefinerRef")
 
             val attributeDefinition = attributeDefiner.define(
                     objectLocation,
@@ -86,7 +87,7 @@ class AttributeObjectDefiner: ObjectDefiner {
                 className,
                 attributeDefinitions,
                 creatorReference,
-                parameterCreators)
+                creatorRequired)
 
         return ObjectDefinitionAttempt.success(objectDefinition)
     }

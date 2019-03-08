@@ -26,6 +26,17 @@ abstract class AggregateTest {
     }
 
 
+    fun deparseBundle(notationTree: GraphNotation): String {
+        return deparseBundle(notationTree.bundles.values[testPath]!!)
+    }
+
+
+    fun deparseBundle(bundleNotation: BundleNotation): String {
+        return IoUtils.utf8Decode(
+                yamlParser.deparseBundle(bundleNotation, ByteArray(0)))
+    }
+
+
     fun location(objectPathAsString: String): ObjectLocation {
         return ObjectLocation(testPath, ObjectPath.parse(objectPathAsString))
     }

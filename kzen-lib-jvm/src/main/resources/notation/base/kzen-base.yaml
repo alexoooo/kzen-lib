@@ -62,6 +62,11 @@ Object:
 ###########################################################
 
 
+Boolean:
+  abstract: true
+  class: kotlin.Boolean
+
+
 String:
   abstract: true
   class: kotlin.String
@@ -85,14 +90,18 @@ List:
 ###########################################################
 
 
-ParentChildParameterDefiner:
+ParentChildAttributeDefiner:
   class: tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner
 
 
 ParentPointer:
   abstract: true
+  order: 0
   meta:
-    parent: ChildContainer
+#    parent: ChildContainer
+    parent:
+      is: ObjectLocation
+      definer: WeakLiteralAttributeDefiner
     order: Int
 
 
@@ -120,5 +129,17 @@ ObjectLocation:
 ###########################################################
 
 
+AutowiredAttributeDefiner:
+  class: tech.kzen.lib.common.objects.general.AutowiredAttributeDefiner
+  weak: false
+  meta:
+    weak: Boolean
+
+
 WeakAutowiredAttributeDefiner:
-  class: tech.kzen.lib.common.objects.general.WeakAutowiredAttributeDefiner
+  is: AutowiredAttributeDefiner
+  weak: true
+
+
+WeakLiteralAttributeDefiner:
+  class: tech.kzen.lib.common.objects.general.WeakLiteralAttributeDefiner

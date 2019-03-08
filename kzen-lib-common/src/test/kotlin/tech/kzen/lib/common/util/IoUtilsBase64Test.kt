@@ -48,7 +48,7 @@ class IoUtilsBase64Test {
 
     @Test
     fun encodeLargeBlob() {
-        val blob = Random.nextBytes(1_000_000)
+        val blob = Random.nextBytes(100_000)
         encodeAndDecode(blob)
     }
 

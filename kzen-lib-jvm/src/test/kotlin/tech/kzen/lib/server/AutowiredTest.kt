@@ -5,6 +5,8 @@ import org.junit.Test
 import tech.kzen.lib.common.api.model.BundlePath
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.server.objects.autowire.ObjectGroup
+import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
 import tech.kzen.lib.server.util.GraphTestUtils
 
@@ -22,6 +24,30 @@ class AutowiredTest {
                 location("AbstractFoo"),
                 location("AbstractBar")
         ), weakHolderInstance.locations)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Autowired object instances`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val location = location("StrongHolder")
+        val strongHolderInstance = objectGraph.objects.get(location) as StrongHolder
+
+        assertEquals(2, strongHolderInstance.concreteObjects.size)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Autowired parent child`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val location = location("ObjectGroup")
+        val objectGroup = objectGraph.objects.get(location) as ObjectGroup
+
+        assertEquals(2, objectGroup.children.size)
     }
 
 

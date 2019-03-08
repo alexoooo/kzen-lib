@@ -9,6 +9,7 @@ import tech.kzen.lib.common.structure.GraphStructure
 
 
 interface AttributeDefiner {
+    // TODO: how to indicate missing definition or other failure conditions
     fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,

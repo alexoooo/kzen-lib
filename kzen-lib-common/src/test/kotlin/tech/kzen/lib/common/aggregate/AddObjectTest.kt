@@ -1,19 +1,19 @@
-package tech.kzen.lib.server.notation
+package tech.kzen.lib.common.aggregate
 
-import org.junit.Test
 import tech.kzen.lib.common.api.model.ObjectName
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.edit.AddObjectCommand
 import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
 import tech.kzen.lib.common.structure.notation.model.PositionIndex
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
+import kotlin.test.Test
 import kotlin.test.assertEquals
 
 
-class AddObjectTest: NotationAggregateTest() {
+class AddObjectTest: AggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
-    fun `Add object of parent`() {
+    fun addObjectOfParent() {
         val notation = parseGraph("")
 
         val project = NotationAggregate(notation)

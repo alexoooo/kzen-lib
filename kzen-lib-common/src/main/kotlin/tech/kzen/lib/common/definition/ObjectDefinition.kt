@@ -4,13 +4,18 @@ import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.platform.ClassName
 
 
-// TODO: is creatorReferences necessary?
 // TODO: should creator be ObjectLocation?
 data class ObjectDefinition(
         val className: ClassName,
         val attributeDefinitions: Map<AttributeName, AttributeDefinition>,
         val creator: ObjectReference,
-        val creatorReferences: Set<ObjectReference>
+
+        /**
+         * Attribute creators or any other objects that are required by the object creator.
+         * Combined with every ReferenceAttributeDefinition in attributeDefinitions to
+         *  determine creation dependency DAG.
+         */
+        val creatorDependencies: Set<ObjectReference>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributePath: AttributePath): AttributeDefinition {
@@ -49,7 +54,7 @@ data class ObjectDefinition(
         builder.addAll(attributeReferences.values)
 
         builder.add(creator)
-        builder.addAll(creatorReferences)
+        builder.addAll(creatorDependencies)
 
         return builder
     }
