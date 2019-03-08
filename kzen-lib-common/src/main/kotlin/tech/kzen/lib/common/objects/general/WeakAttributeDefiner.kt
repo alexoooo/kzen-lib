@@ -13,7 +13,9 @@ import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
 
 @Suppress("unused")
-class WeakLiteralAttributeDefiner: AttributeDefiner {
+class WeakAttributeDefiner(
+        private val reference: Boolean
+): AttributeDefiner {
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -52,9 +54,15 @@ class WeakLiteralAttributeDefiner: AttributeDefiner {
         val objectReference = scalarAttributeNotation.asString()?.let { ObjectReference.parse(it) }
                 ?: throw IllegalArgumentException("Reference expected: $objectLocation - $attributeName")
 
-        val dependencyLocation = partialGraphDefinition
-                .objectDefinitions.locate(objectLocation, objectReference)
+        return if (reference) {
+            ValueAttributeDefinition(objectReference)
+        }
+        else {
+            val dependencyLocation = partialGraphDefinition
+                    .objectDefinitions.locate(objectLocation, objectReference)
 
-        return ValueAttributeDefinition(dependencyLocation)
+            ValueAttributeDefinition(dependencyLocation)
+        }
+
     }
 }

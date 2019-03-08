@@ -59,13 +59,13 @@ ConcreteBar:
 
 
 ObjectGroup:
-  is: ChildContainer
+#  is: ChildContainer
   class: tech.kzen.lib.server.objects.autowire.ObjectGroup
-  meta:
-    children:
-      is: List
-      of: ObjectItem
-      definer: ParentChildAttributeDefiner
+#  meta:
+#    children:
+#      is: List
+#      of: ObjectItem
+#      definer: ParentChildAttributeDefiner
 
 
 ObjectItem:

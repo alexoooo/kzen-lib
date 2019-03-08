@@ -101,7 +101,7 @@ ParentPointer:
 #    parent: ChildContainer
     parent:
       is: ObjectLocation
-      definer: WeakLiteralAttributeDefiner
+      definer: WeakAttributeDefiner
     order: Int
 
 
@@ -141,5 +141,14 @@ WeakAutowiredAttributeDefiner:
   weak: true
 
 
-WeakLiteralAttributeDefiner:
-  class: tech.kzen.lib.common.objects.general.WeakLiteralAttributeDefiner
+WeakAttributeDefiner:
+  class: tech.kzen.lib.common.objects.general.WeakAttributeDefiner
+  reference: false
+  meta:
+    reference: Boolean
+
+
+WeakReferenceAttributeDefiner:
+  is: WeakAttributeDefiner
+  reference: true
+
