@@ -20,7 +20,7 @@ A:
         project.apply(RemoveObjectCommand(
                 location("A")))
 
-        val packageNotation = project.state.bundles.values[testPath]!!
+        val packageNotation = project.state.documents.values[testPath]!!
         assertEquals(0, packageNotation.objects.values.size)
     }
 }

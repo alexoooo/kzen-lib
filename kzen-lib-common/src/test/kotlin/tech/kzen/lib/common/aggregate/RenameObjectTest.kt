@@ -26,11 +26,11 @@ C:
         project.apply(RenameObjectCommand(
                 location("B"), ObjectName("Foo")))
 
-        val bundleNotation = project.state.bundles.values[testPath]!!
+        val documentNotation = project.state.documents.values[testPath]!!
 
-        assertEquals(0, bundleNotation.indexOf(ObjectPath.parse("A")).value)
-        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("Foo")).value)
-        assertEquals(2, bundleNotation.indexOf(ObjectPath.parse("C")).value)
+        assertEquals(0, documentNotation.indexOf(ObjectPath.parse("A")).value)
+        assertEquals(1, documentNotation.indexOf(ObjectPath.parse("Foo")).value)
+        assertEquals(2, documentNotation.indexOf(ObjectPath.parse("C")).value)
         assertEquals("b", project.state.getString(location("Foo"), attribute("hello")))
     }
 
@@ -53,11 +53,11 @@ C:
                 location("B"), ObjectName("http://www.yahoo.com/")))
         val objectPathAsString = "http:\\/\\/www.yahoo.com\\/"
 
-        val bundleNotation = project.state.bundles.values[testPath]!!
+        val documentNotation = project.state.documents.values[testPath]!!
 
-        assertEquals(0, bundleNotation.indexOf(ObjectPath.parse("A")).value)
-        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse(objectPathAsString)).value)
-        assertEquals(2, bundleNotation.indexOf(ObjectPath.parse("C")).value)
+        assertEquals(0, documentNotation.indexOf(ObjectPath.parse("A")).value)
+        assertEquals(1, documentNotation.indexOf(ObjectPath.parse(objectPathAsString)).value)
+        assertEquals(2, documentNotation.indexOf(ObjectPath.parse("C")).value)
         assertEquals("b", project.state.getString(location(objectPathAsString), attribute("hello")))
     }
 }

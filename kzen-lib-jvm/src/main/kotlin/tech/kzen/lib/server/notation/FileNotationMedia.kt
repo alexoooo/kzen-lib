@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.notation
 
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
@@ -17,7 +17,7 @@ class FileNotationMedia(
         private val notationLocator: FileNotationLocator
 ) : NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
-    private val digestCache: MutableMap<BundlePath, TimedDigest> = mutableMapOf()
+    private val digestCache: MutableMap<DocumentPath, TimedDigest> = mutableMapOf()
 
     private data class TimedDigest(
             var modified: Instant,
@@ -25,7 +25,7 @@ class FileNotationMedia(
 
 
     private suspend fun digest(
-            path: BundlePath
+            path: DocumentPath
     ): Digest {
         val bytes = read(path)
         return Digest.ofXoShiRo256StarStar(bytes)
@@ -33,15 +33,15 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): BundleTree<Digest> {
-        val locationTimes = mutableMapOf<BundlePath, Instant>()
+    override suspend fun scan(): DocumentTree<Digest> {
+        val locationTimes = mutableMapOf<DocumentPath, Instant>()
 
         val roots = notationLocator.scanRoots()
         for (root in roots) {
             directoryScan(root, locationTimes)
         }
 
-        val digested = mutableMapOf<BundlePath, Digest>()
+        val digested = mutableMapOf<DocumentPath, Digest>()
 
         for (e in locationTimes) {
             val timedDigest = digestCache[e.key]
@@ -61,13 +61,13 @@ class FileNotationMedia(
             }
         }
 
-        return BundleTree(digested)
+        return DocumentTree(digested)
     }
 
 
     private fun directoryScan(
             root: Path,
-            locationTimes: MutableMap<BundlePath, Instant>
+            locationTimes: MutableMap<DocumentPath, Instant>
     ) {
         if (! Files.exists(root)) {
             return
@@ -79,7 +79,7 @@ class FileNotationMedia(
                     val relative = root.relativize(file).toString()
                     val normalized = relative.replace('\\', '/')
 
-                    val path = BundlePath.parse(normalized)
+                    val path = DocumentPath.parse(normalized)
                     val modified = attrs!!.lastModifiedTime().toInstant()
 
                     locationTimes[path] = modified
@@ -93,7 +93,7 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun read(location: BundlePath): ByteArray {
+    override suspend fun read(location: DocumentPath): ByteArray {
         val path = notationLocator.locateExisting(location)
                 ?: throw IllegalArgumentException("Not found: $location")
 
@@ -103,7 +103,7 @@ class FileNotationMedia(
     }
 
 
-    override suspend fun write(location: BundlePath, bytes: ByteArray) {
+    override suspend fun write(location: DocumentPath, bytes: ByteArray) {
         val existingPath = notationLocator.locateExisting(location)
 
         val path = if (existingPath != null) {
@@ -126,7 +126,7 @@ class FileNotationMedia(
     }
 
 
-    override suspend fun delete(location: BundlePath) {
+    override suspend fun delete(location: DocumentPath) {
         val path = notationLocator.locateExisting(location)
                 ?: throw IllegalArgumentException("Not found: $location")
 

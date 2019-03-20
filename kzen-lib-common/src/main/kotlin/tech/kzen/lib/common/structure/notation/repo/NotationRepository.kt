@@ -1,14 +1,14 @@
 package tech.kzen.lib.common.structure.notation.repo
 
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.structure.notation.edit.*
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.structure.notation.io.NotationParser
-import tech.kzen.lib.common.structure.notation.model.BundleNotation
+import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
@@ -21,7 +21,7 @@ class NotationRepository(
         private val metadataReader: NotationMetadataReader
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    private var scanCache = mutableMapOf<BundlePath, Digest>()
+    private var scanCache = mutableMapOf<DocumentPath, Digest>()
 
     // TODO: use notation from inside ProjectAggregate?
     private var projectNotationCache: GraphNotation? = null
@@ -39,8 +39,8 @@ class NotationRepository(
 
 
     private suspend fun read(): GraphNotation {
-        val packageBytes = mutableMapOf<BundlePath, ByteArray>()
-        val packages = mutableMapOf<BundlePath, BundleNotation>()
+        val packageBytes = mutableMapOf<DocumentPath, ByteArray>()
+        val documents = mutableMapOf<DocumentPath, DocumentNotation>()
 
         scanCache.clear()
         scanCache.putAll(notationMedia.scan().values)
@@ -59,11 +59,11 @@ class NotationRepository(
 
             packageBytes[projectPath] = body
 
-            val bundleNotation = notationParser.parseBundle(body)
-            packages[projectPath] = bundleNotation
+            val documentNotation = notationParser.parseDocument(body)
+            documents[projectPath] = documentNotation
         }
 
-        return GraphNotation(BundleTree(packages))
+        return GraphNotation(DocumentTree(documents))
     }
 
 
@@ -90,7 +90,7 @@ class NotationRepository(
         val notation = notation()
         val aggregate = aggregate()
 
-        val oldBundles = notation.bundles
+        val oldDocuments = notation.documents
 
         val event =
                 when (command) {
@@ -105,19 +105,19 @@ class NotationRepository(
                 }
 
 
-        val newBundles = aggregate.state.bundles
+        val newDocuments = aggregate.state.documents
 
         var writtenAny = false
-        for (updatedBundle in newBundles.values) {
-            if (oldBundles.values.containsKey(updatedBundle.key) &&
-                    updatedBundle.value.objects.equalsInOrder(oldBundles.values[updatedBundle.key]!!.objects)) {
+        for (updatedDocument in newDocuments.values) {
+            if (oldDocuments.values.containsKey(updatedDocument.key) &&
+                    updatedDocument.value.objects.equalsInOrder(oldDocuments.values[updatedDocument.key]!!.objects)) {
                 continue
             }
 
-            val written = writeIfRequired(updatedBundle.key, updatedBundle.value)
+            val written = writeIfRequired(updatedDocument.key, updatedDocument.value)
             writtenAny = writtenAny || written
         }
-        for (removed in oldBundles.values.keys.minus(newBundles.values.keys)) {
+        for (removed in oldDocuments.values.keys.minus(newDocuments.values.keys)) {
             delete(removed)
             writtenAny = true
         }
@@ -132,10 +132,10 @@ class NotationRepository(
 
 
     private suspend fun writeIfRequired(
-            bundlePath: BundlePath,
-            packageNotation: BundleNotation
+            documentPath: DocumentPath,
+            packageNotation: DocumentNotation
     ): Boolean {
-        val cachedDigest = scanCache[bundlePath]
+        val cachedDigest = scanCache[documentPath]
 
         var previousMissing = false
         val previousBody: ByteArray =
@@ -154,25 +154,25 @@ class NotationRepository(
                     }
                 }
 
-        val updatedBody = notationParser.deparseBundle(packageNotation, previousBody)
+        val updatedBody = notationParser.deparseDocument(packageNotation, previousBody)
 //        println("!!! updatedBody: ${IoUtils.utf8ToString(updatedBody)}")
 
         if (updatedBody.contentEquals(previousBody) && ! previousMissing) {
             return false
         }
 
-        notationMedia.write(bundlePath, updatedBody)
-        scanCache[bundlePath] = Digest.ofXoShiRo256StarStar(updatedBody)
+        notationMedia.write(documentPath, updatedBody)
+        scanCache[documentPath] = Digest.ofXoShiRo256StarStar(updatedBody)
 
         return true
     }
 
 
     private suspend fun delete(
-            bundlePath: BundlePath
+            documentPath: DocumentPath
     ) {
-        notationMedia.delete(bundlePath)
-        scanCache.remove(bundlePath)
+        notationMedia.delete(documentPath)
+        scanCache.remove(documentPath)
     }
 
 

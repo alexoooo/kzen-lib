@@ -2,7 +2,7 @@ package tech.kzen.lib.common.aggregate
 
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.model.BundleNotation
+import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.platform.IoUtils
 
@@ -10,30 +10,30 @@ import tech.kzen.lib.platform.IoUtils
 abstract class AggregateTest {
     //-----------------------------------------------------------------------------------------------------------------
     val yamlParser = YamlNotationParser()
-    val testPath = BundlePath.parse("test.yaml")
+    val testPath = DocumentPath.parse("test.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun parseBundle(doc: String): BundleNotation {
-        return yamlParser.parseBundle(IoUtils.utf8Encode(doc))
+    fun parseDocument(doc: String): DocumentNotation {
+        return yamlParser.parseDocument(IoUtils.utf8Encode(doc))
     }
 
 
     fun parseGraph(doc: String): GraphNotation {
-        val packageNotation = parseBundle(doc)
-        return GraphNotation(BundleTree(mapOf(
+        val packageNotation = parseDocument(doc)
+        return GraphNotation(DocumentTree(mapOf(
                 testPath to packageNotation)))
     }
 
 
-    fun deparseBundle(notationTree: GraphNotation): String {
-        return deparseBundle(notationTree.bundles.values[testPath]!!)
+    fun deparseDocument(notationTree: GraphNotation): String {
+        return deparseDocument(notationTree.documents.values[testPath]!!)
     }
 
 
-    fun deparseBundle(bundleNotation: BundleNotation): String {
+    fun deparseDocument(documentNotation: DocumentNotation): String {
         return IoUtils.utf8Decode(
-                yamlParser.deparseBundle(bundleNotation, ByteArray(0)))
+                yamlParser.deparseDocument(documentNotation, ByteArray(0)))
     }
 
 

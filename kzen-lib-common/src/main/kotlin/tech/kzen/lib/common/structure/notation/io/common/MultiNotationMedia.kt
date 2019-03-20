@@ -1,24 +1,24 @@
 package tech.kzen.lib.common.structure.notation.io.common
 
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.util.Digest
 
 
 class MultiNotationMedia(
         private val media: List<NotationMedia>
 ) : NotationMedia {
-    override suspend fun scan(): BundleTree<Digest> {
-        val all = mutableMapOf<BundlePath, Digest>()
+    override suspend fun scan(): DocumentTree<Digest> {
+        val all = mutableMapOf<DocumentPath, Digest>()
         for (delegate in media) {
             all.putAll(delegate.scan().values)
         }
-        return BundleTree(all)
+        return DocumentTree(all)
     }
 
 
-    override suspend fun read(location: BundlePath): ByteArray {
+    override suspend fun read(location: DocumentPath): ByteArray {
         for (source in media) {
             try {
                 return source.read(location)
@@ -32,7 +32,7 @@ class MultiNotationMedia(
     }
 
 
-    override suspend fun write(location: BundlePath, bytes: ByteArray) {
+    override suspend fun write(location: DocumentPath, bytes: ByteArray) {
         for (medium in media) {
             try {
                 return medium.write(location, bytes)
@@ -46,7 +46,7 @@ class MultiNotationMedia(
     }
 
 
-    override suspend fun delete(location: BundlePath) {
+    override suspend fun delete(location: DocumentPath) {
         for (medium in media) {
             try {
                 return medium.delete(location)

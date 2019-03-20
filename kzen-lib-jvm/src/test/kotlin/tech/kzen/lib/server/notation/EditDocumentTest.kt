@@ -1,35 +1,35 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.structure.notation.edit.CreateBundleCommand
-import tech.kzen.lib.common.structure.notation.edit.DeleteBundleCommand
+import tech.kzen.lib.common.structure.notation.edit.CreateDocumentCommand
+import tech.kzen.lib.common.structure.notation.edit.DeleteDocumentCommand
 import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 
-class EditBundleTest: NotationAggregateTest() {
+class EditDocumentTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
-    fun `Create bundle`() {
+    fun `Create document`() {
         val project = NotationAggregate(GraphNotation.empty)
 
-        project.apply(CreateBundleCommand(testPath))
+        project.apply(CreateDocumentCommand(testPath))
 
-        val packageNotation = project.state.bundles.values[testPath]!!
-        assertEquals(0, packageNotation.objects.values.size)
+        val documentNotation = project.state.documents.values[testPath]!!
+        assertEquals(0, documentNotation.objects.values.size)
     }
 
 
     @Test
-    fun `Delete bundle`() {
+    fun `Delete document`() {
         val notation = parseGraph("")
 
         val project = NotationAggregate(notation)
 
-        project.apply(DeleteBundleCommand(testPath))
+        project.apply(DeleteDocumentCommand(testPath))
 
-        assertTrue(project.state.bundles.values.isEmpty())
+        assertTrue(project.state.documents.values.isEmpty())
     }
 }

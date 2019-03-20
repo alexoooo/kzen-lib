@@ -3,8 +3,9 @@
 RefactorObject:
   is: PlusOperation
   addends:
-  - Two
-  - OldName
+    - Two
+    - OldName
+
 
 OldName:
   is: DoubleValue

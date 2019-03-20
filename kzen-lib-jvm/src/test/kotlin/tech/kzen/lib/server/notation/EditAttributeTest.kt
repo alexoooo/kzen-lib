@@ -165,7 +165,7 @@ Foo:
 Foo:
   hello: []
   bar: []
-""".trim(), deparseBundle(project.state))
+""".trim(), deparseDocument(project.state))
     }
 
 
@@ -194,6 +194,6 @@ Foo:
             Foo:
               hello: {}
               bar: {}
-            """.trimIndent(), deparseBundle(project.state))
+            """.trimIndent(), deparseDocument(project.state))
     }
 }

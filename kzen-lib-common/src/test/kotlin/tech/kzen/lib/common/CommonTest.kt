@@ -1,6 +1,6 @@
 package tech.kzen.lib.common
 
-import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.api.model.ObjectMap
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
@@ -16,7 +16,7 @@ class CommonTest {
         val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
         val graphStructure = GraphStructure(
-                GraphNotation(BundleTree(mapOf())),
+                GraphNotation(DocumentTree(mapOf())),
                 emptyMetadata)
 
         val emptyDefinition = GraphDefiner.define(graphStructure)

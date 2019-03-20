@@ -10,7 +10,7 @@ import kotlin.test.assertEquals
 
 class RenameRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
-    private val testPath = BundlePath.parse("test/refactor-test.yaml")
+    private val testPath = DocumentPath.parse("test/refactor-test.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -26,9 +26,9 @@ class RenameRefactorTest {
                         location("OldName"), ObjectName("NewName")),
                 graphDefinition)
 
-        val bundleNotation = aggregate.state.bundles.values[testPath]!!
+        val documentNotation = aggregate.state.documents.values[testPath]!!
 
-        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("NewName")).value)
+        assertEquals(1, documentNotation.indexOf(ObjectPath.parse("NewName")).value)
 
         assertEquals("NewName",
                 aggregate.state.getString(location("RefactorObject"),

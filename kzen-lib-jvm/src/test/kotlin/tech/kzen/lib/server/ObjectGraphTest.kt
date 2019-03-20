@@ -19,7 +19,7 @@ class ObjectGraphTest {
         val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
         val emptyStructure = GraphStructure(
-                GraphNotation(BundleTree(mapOf())),
+                GraphNotation(DocumentTree(mapOf())),
                 emptyMetadata)
 
         val emptyDefinition = GraphDefiner.define(emptyStructure)
@@ -64,7 +64,7 @@ class ObjectGraphTest {
     //-----------------------------------------------------------------------------------------------------------------
     private fun location(name: String): ObjectLocation {
         return ObjectLocation(
-                BundlePath.parse("test/kzen-test.yaml"),
+                DocumentPath.parse("test/kzen-test.yaml"),
                 ObjectPath.parse(name))
     }
 }

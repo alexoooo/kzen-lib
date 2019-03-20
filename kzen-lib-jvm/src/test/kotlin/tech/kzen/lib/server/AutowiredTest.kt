@@ -2,7 +2,7 @@ package tech.kzen.lib.server
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.DocumentPath
 import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.api.model.ObjectPath
 import tech.kzen.lib.server.objects.autowire.ObjectGroup
@@ -54,7 +54,7 @@ class AutowiredTest {
     //-----------------------------------------------------------------------------------------------------------------
     private fun location(name: String): ObjectLocation {
         return ObjectLocation(
-                BundlePath.parse("test/autowired.yaml"),
+                DocumentPath.parse("test/autowired.yaml"),
                 ObjectPath.parse(name))
     }
 }

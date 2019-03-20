@@ -1,6 +1,6 @@
 package tech.kzen.lib.server.notation.locate
 
-import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.DocumentPath
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import java.nio.file.Files
 import java.nio.file.Path
@@ -31,7 +31,7 @@ class GradleLocator(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun locateExisting(location: BundlePath): Path? {
+    override fun locateExisting(location: DocumentPath): Path? {
         for (root in scanRoots) {
             val candidate = root.resolve(location.asRelativeFile())
 
@@ -47,7 +47,7 @@ class GradleLocator(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun resolveNew(location: BundlePath): Path? {
+    override fun resolveNew(location: DocumentPath): Path? {
         return Paths.get("${mainResources()}/${location.asRelativeFile()}")
                 .normalize()
                 .toAbsolutePath()

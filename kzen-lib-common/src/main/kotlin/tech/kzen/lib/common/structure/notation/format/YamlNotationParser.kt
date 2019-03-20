@@ -3,7 +3,7 @@ package tech.kzen.lib.common.structure.notation.format
 
 import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.AttributeSegment
-import tech.kzen.lib.common.api.model.BundleMap
+import tech.kzen.lib.common.api.model.DocumentMap
 import tech.kzen.lib.common.api.model.ObjectPath
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.io.NotationParser
@@ -13,7 +13,7 @@ import tech.kzen.lib.platform.IoUtils
 
 class YamlNotationParser: NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
-    override fun parseBundle(body: ByteArray): BundleNotation {
+    override fun parseDocument(body: ByteArray): DocumentNotation {
         val node = YamlNodeParser.parse(body)
 //        println("#!@#!@#!@#!@#!@ node = $node")
 
@@ -57,7 +57,7 @@ class YamlNotationParser: NotationParser {
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation
         }
-        return BundleNotation(BundleMap(objects))
+        return DocumentNotation(DocumentMap(objects))
     }
 
 
@@ -112,7 +112,7 @@ class YamlNotationParser: NotationParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun deparseBundle(notation: BundleNotation, previousBody: ByteArray): ByteArray {
+    override fun deparseDocument(notation: DocumentNotation, previousBody: ByteArray): ByteArray {
 //        println("&%^&%^&%^ -- de-parsing - $notation")
 
         val buffer = StringBuilder()

@@ -3,7 +3,7 @@ package tech.kzen.lib.common.structure.notation
 import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.AttributePath
 import tech.kzen.lib.common.api.model.AttributeSegment
-import tech.kzen.lib.common.api.model.BundlePath
+import tech.kzen.lib.common.api.model.DocumentPath
 
 
 object NotationConventions {
@@ -42,6 +42,6 @@ object NotationConventions {
     const val prefix: String = "notation/"
     const val suffix: String = ".yaml"
 
-    val kzenBasePath = BundlePath.parse("base/kzen-base.yaml")
-    val mainPrefix = BundlePath.parse("main")
+    val kzenBasePath = DocumentPath.parse("base/kzen-base.yaml")
+    val mainPrefix = DocumentPath.parse("main")
 }

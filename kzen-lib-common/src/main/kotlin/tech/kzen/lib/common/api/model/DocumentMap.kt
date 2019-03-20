@@ -3,7 +3,7 @@ package tech.kzen.lib.common.api.model
 import tech.kzen.lib.common.structure.notation.model.PositionedObjectPath
 
 
-data class BundleMap<T>(
+data class DocumentMap<T>(
         val values: Map<ObjectPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ data class BundleMap<T>(
 //    }
 
 
-    fun equalsInOrder(other: BundleMap<T>): Boolean {
+    fun equalsInOrder(other: DocumentMap<T>): Boolean {
         return this == other &&
                 values.keys.toList() == other.values.keys.toList()
     }
@@ -27,7 +27,7 @@ data class BundleMap<T>(
     fun updateEntry(
             key: ObjectPath,
             value: T
-    ): BundleMap<T> {
+    ): DocumentMap<T> {
         check(values.containsKey(key)) { "Not found: $key" }
 
         val buffer = mutableMapOf<ObjectPath, T>()
@@ -42,7 +42,7 @@ data class BundleMap<T>(
                     }
         }
 
-        return BundleMap(buffer)
+        return DocumentMap(buffer)
     }
 
 
@@ -50,7 +50,7 @@ data class BundleMap<T>(
     fun insertEntry(
             key: PositionedObjectPath,
             value: T
-    ): BundleMap<T> {
+    ): DocumentMap<T> {
         check(! values.containsKey(key.objectPath)) { "Already exists: $key" }
         check(0 <= key.positionIndex.value &&
                 key.positionIndex.value <= values.size) {
@@ -79,13 +79,13 @@ data class BundleMap<T>(
             buffer[entry.key] = entry.value
         }
 
-        return BundleMap(buffer)
+        return DocumentMap(buffer)
     }
 
 
     fun removeKey(
             key: ObjectPath
-    ): BundleMap<T> {
+    ): DocumentMap<T> {
         check(values.containsKey(key)) { "Not found: $key" }
 
         val buffer = mutableMapOf<ObjectPath, T>()
@@ -98,7 +98,7 @@ data class BundleMap<T>(
             buffer[e.key] = e.value
         }
 
-        return BundleMap(buffer)
+        return DocumentMap(buffer)
     }
 
 

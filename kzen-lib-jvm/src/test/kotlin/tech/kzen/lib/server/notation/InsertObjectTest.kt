@@ -32,9 +32,11 @@ InsertInto:
                 ObjectNotation.ofParent(ObjectName("DoubleValue"))
         ))
 
-        val bundleNotation = project.state.bundles.get(testPath)
+        val documentNotation = project.state.documents.get(testPath)
 
-        assertEquals(1, bundleNotation.indexOf(ObjectPath.parse("InsertInto.foo/Inserted")).value)
+        assertEquals(1, documentNotation.indexOf(
+                ObjectPath.parse("InsertInto.foo/Inserted")
+        ).value)
 
         assertEquals("InsertInto.foo/Inserted",
                 project.state.getString(

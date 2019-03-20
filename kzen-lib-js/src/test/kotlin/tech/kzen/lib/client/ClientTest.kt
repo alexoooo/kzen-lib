@@ -2,7 +2,7 @@
 
 package tech.kzen.lib.client
 
-import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.api.model.ObjectMap
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
@@ -19,7 +19,7 @@ class ClientTest {
         val emptyMetadata = GraphMetadata(ObjectMap(mapOf()))
 
         val emptyStructure = GraphStructure(
-                GraphNotation(BundleTree(mapOf())),
+                GraphNotation(DocumentTree(mapOf())),
                 emptyMetadata)
 
         val emptyDefinition = GraphDefiner.define(emptyStructure)

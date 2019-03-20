@@ -2,7 +2,7 @@ package tech.kzen.lib.common.structure.notation.io.yaml
 
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.model.BundleNotation
+import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.IoUtils
@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
 
 class YamlNotationParserTest {
     //-----------------------------------------------------------------------------------------------------------------
-    private val mainPath = BundlePath.parse("main.yaml")
+    private val mainPath = DocumentPath.parse("main.yaml")
     private val yamlParser = YamlNotationParser()
 
 
@@ -105,21 +105,21 @@ Foo:
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parseBundle(doc: String): BundleNotation {
-        return yamlParser.parseBundle(IoUtils.utf8Encode(doc))
+    private fun parseDocument(doc: String): DocumentNotation {
+        return yamlParser.parseDocument(IoUtils.utf8Encode(doc))
     }
 
 
     private fun parseGraph(doc: String): GraphNotation {
-        val bundleNotation = parseBundle(doc)
-        return GraphNotation(BundleTree(mapOf(
-                mainPath to bundleNotation)))
+        val documentNotation = parseDocument(doc)
+        return GraphNotation(DocumentTree(mapOf(
+                mainPath to documentNotation)))
     }
 
 
     private fun deparse(initial: String, expected: String): String {
-        return IoUtils.utf8Decode(yamlParser.deparseBundle(
-                yamlParser.parseBundle(IoUtils.utf8Encode(expected)),
+        return IoUtils.utf8Decode(yamlParser.deparseDocument(
+                yamlParser.parseDocument(IoUtils.utf8Encode(expected)),
                 IoUtils.utf8Encode(initial)))
     }
 

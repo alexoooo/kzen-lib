@@ -16,43 +16,49 @@ sealed class SemanticNotationCommand: NotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
-data class CreateBundleCommand(
-        val bundlePath: BundlePath
+data class CreateDocumentCommand(
+        val documentPath: DocumentPath
 ): StructuralNotationCommand()
 
 
 
-data class DeleteBundleCommand(
-        val bundlePath: BundlePath
+data class DeleteDocumentCommand(
+        val documentPath: DocumentPath
+): StructuralNotationCommand()
+
+
+data class CopyDocumentCommand(
+        val sourceDocumentPath: DocumentPath,
+        val destinationDocumentPath: DocumentPath
 ): StructuralNotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
         val objectLocation: ObjectLocation,
-        val indexInBundle: PositionIndex,
+        val indexInDocument: PositionIndex,
         val body: ObjectNotation
 ): StructuralNotationCommand() {
     companion object {
         fun ofParent(
                 objectLocation: ObjectLocation,
-                indexInBundle: PositionIndex,
+                indexInDocument: PositionIndex,
                 parentName: ObjectName
         ): AddObjectCommand {
             return ofParent(
                     objectLocation,
-                    indexInBundle,
+                    indexInDocument,
                     ObjectReference.ofName(parentName))
         }
 
 
         fun ofParent(
                 objectLocation: ObjectLocation,
-                indexInBundle: PositionIndex,
+                indexInDocument: PositionIndex,
                 parentReference: ObjectReference
         ): AddObjectCommand {
             val parentBody = ObjectNotation.ofParent(parentReference)
-            return AddObjectCommand(objectLocation, indexInBundle, parentBody)
+            return AddObjectCommand(objectLocation, indexInDocument, parentBody)
         }
     }
 }
@@ -65,7 +71,7 @@ data class RemoveObjectCommand(
 
 data class ShiftObjectCommand(
         val objectLocation: ObjectLocation,
-        val newPositionInBundle: PositionIndex
+        val newPositionInDocument: PositionIndex
 ): StructuralNotationCommand()
 
 
@@ -139,7 +145,7 @@ data class InsertObjectInListAttributeCommand(
         val containingList: AttributePath,
         val indexInList: PositionIndex,
         val objectName: ObjectName,
-        val positionInBundle: PositionIndex,
+        val positionInDocument: PositionIndex,
         val body: ObjectNotation
 ): StructuralNotationCommand()
 
@@ -156,6 +162,12 @@ data class InsertObjectInListAttributeCommand(
 data class RenameRefactorCommand(
         val objectLocation: ObjectLocation,
         val newName: ObjectName
+): SemanticNotationCommand()
+
+
+data class RenameDocumentRefactorCommand(
+        val documentPath: DocumentPath,
+        val newName: DocumentName
 ): SemanticNotationCommand()
 
 

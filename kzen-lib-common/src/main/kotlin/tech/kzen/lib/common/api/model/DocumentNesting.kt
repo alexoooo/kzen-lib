@@ -1,14 +1,14 @@
 package tech.kzen.lib.common.api.model
 
 
-data class BundleNesting(
-        val segments: List<BundleNestingSegment>
+data class DocumentNesting(
+        val segments: List<DocumentNestingSegment>
 ) {
     companion object {
         val delimiter = "/"
 //        val delimiterRegex = Regex("[^\\\\]/")
 
-        val root = BundleNesting(listOf())
+        val root = DocumentNesting(listOf())
 
 
         private fun containsSegments(encodedObjectPath: String): Boolean {
@@ -100,7 +100,7 @@ data class BundleNesting(
         }
 
 
-        fun parse(asString: String): BundleNesting {
+        fun parse(asString: String): DocumentNesting {
             if (asString.isEmpty()) {
                 return root
             }
@@ -108,17 +108,17 @@ data class BundleNesting(
             val parts = splitOnDelimiter(asString)
 //            check(parts.size % 2 == 0) { "Name/nesting segment mis-match: $asString" }
 
-            val builder = mutableListOf<BundleNestingSegment>()
+            val builder = mutableListOf<DocumentNestingSegment>()
             for (part in parts) {
-                builder.add(BundleNestingSegment.parse(part))
+                builder.add(DocumentNestingSegment.parse(part))
             }
-            return BundleNesting(builder)
+            return DocumentNesting(builder)
         }
     }
 
 
-    fun append(segment: BundleNestingSegment): BundleNesting {
-        return BundleNesting(segments.plus(segment))
+    fun append(segment: DocumentNestingSegment): DocumentNesting {
+        return DocumentNesting(segments.plus(segment))
     }
 
 

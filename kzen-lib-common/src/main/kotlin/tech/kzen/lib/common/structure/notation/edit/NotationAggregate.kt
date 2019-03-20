@@ -33,11 +33,14 @@ class NotationAggregate(
     //-----------------------------------------------------------------------------------------------------------------
     private fun handle(command: StructuralNotationCommand): EventAndNotation {
         return when (command) {
-            is CreateBundleCommand ->
-                createBundle(command)
+            is CreateDocumentCommand ->
+                createDocument(command)
 
-            is DeleteBundleCommand ->
-                deleteBundle(command)
+            is DeleteDocumentCommand ->
+                deleteDocument(command)
+
+            is CopyDocumentCommand ->
+                copyDocument(command)
 
 
             is AddObjectCommand ->
@@ -89,38 +92,59 @@ class NotationAggregate(
         return when (command) {
             is RenameRefactorCommand ->
                 renameRefactor(command.objectLocation, command.newName, graphDefinition)
+
+            is RenameDocumentRefactorCommand ->
+                renameDocumentRefactor(command.documentPath, command.newName, graphDefinition)
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun createBundle(
-            command: CreateBundleCommand
+    private fun createDocument(
+            command: CreateDocumentCommand
     ): EventAndNotation {
-        check(! state.bundles.values.containsKey(command.bundlePath)) {
-            "Already exists: ${command.bundlePath}"
+        check(! state.documents.values.containsKey(command.documentPath)) {
+            "Already exists: ${command.documentPath}"
         }
 
-        val nextState = state.withNewBundle(
-                command.bundlePath, BundleNotation.empty)
+        val nextState = state.withNewDocument(
+                command.documentPath, DocumentNotation.empty)
 
         return EventAndNotation(
-                CreatedBundleEvent(command.bundlePath),
+                CreatedDocumentEvent(command.documentPath),
                 nextState)
     }
 
 
-    private fun deleteBundle(
-            command: DeleteBundleCommand
+    private fun deleteDocument(
+            command: DeleteDocumentCommand
     ): EventAndNotation {
-        check(state.bundles.values.containsKey(command.bundlePath)) {
-            "Does not exist: ${command.bundlePath} - ${state.bundles.values.keys}"
+        check(state.documents.values.containsKey(command.documentPath)) {
+            "Does not exist: ${command.documentPath} - ${state.documents.values.keys}"
         }
 
-        val nextState = state.withoutBundle(command.bundlePath)
+        val nextState = state.withoutDocument(command.documentPath)
 
         return EventAndNotation(
-                DeletedBundleEvent(command.bundlePath),
+                DeletedDocumentEvent(command.documentPath),
+                nextState)
+    }
+
+
+    private fun copyDocument(
+            command: CopyDocumentCommand
+    ): EventAndNotation {
+        check(state.documents.values.containsKey(command.sourceDocumentPath)) {
+            "Does not exist: ${command.sourceDocumentPath} - ${state.documents.values.keys}"
+        }
+
+        val document = state.documents.get(command.sourceDocumentPath)
+
+        val nextState = state
+                .withNewDocument(command.destinationDocumentPath, document)
+
+        return EventAndNotation(
+                CopiedDocumentEvent(command.sourceDocumentPath, command.destinationDocumentPath),
                 nextState)
     }
 
@@ -133,20 +157,20 @@ class NotationAggregate(
             "Object named '${command.objectLocation}' already exists"
         }
 
-        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val modifiedProjectNotation =
-                bundleNotation.withNewObject(
-                        PositionedObjectPath(command.objectLocation.objectPath, command.indexInBundle),
+                documentNotation.withNewObject(
+                        PositionedObjectPath(command.objectLocation.objectPath, command.indexInDocument),
                         command.body)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedProjectNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedProjectNotation)
 
         return EventAndNotation(
                 AddedObjectEvent(
                         command.objectLocation,
-                        command.indexInBundle,
+                        command.indexInDocument,
                         command.body),
                 nextState)
     }
@@ -157,13 +181,13 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val modifiedProjectNotation =
                 packageNotation.withoutObject(command.objectLocation.objectPath)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedProjectNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedProjectNotation)
 
         return EventAndNotation(
                 RemovedObjectEvent(command.objectLocation),
@@ -176,21 +200,21 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
         val removedFromCurrent = packageNotation.withoutObject(command.objectLocation.objectPath)
 
         val addedToNew = removedFromCurrent.withNewObject(
-                PositionedObjectPath(command.objectLocation.objectPath, command.newPositionInBundle),
+                PositionedObjectPath(command.objectLocation.objectPath, command.newPositionInDocument),
                 objectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, addedToNew)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, addedToNew)
 
         return EventAndNotation(
-                ShiftedObjectEvent(command.objectLocation, command.newPositionInBundle),
+                ShiftedObjectEvent(command.objectLocation, command.newPositionInDocument),
                 nextState)
     }
 
@@ -200,7 +224,7 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
         val objectIndex = packageNotation.indexOf(command.objectLocation.objectPath)
@@ -214,8 +238,8 @@ class NotationAggregate(
                 PositionedObjectPath(newObjectPath, objectIndex),
                 objectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, addedWithNewName)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, addedWithNewName)
 
         return EventAndNotation(
                 RenamedObjectEvent(command.objectLocation, command.newName),
@@ -227,7 +251,7 @@ class NotationAggregate(
     private fun upsertAttribute(
             command: UpsertAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -237,8 +261,8 @@ class NotationAggregate(
         val modifiedProjectNotation = packageNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedProjectNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedProjectNotation)
 
         return EventAndNotation(
                 UpsertedAttributeEvent(
@@ -250,7 +274,7 @@ class NotationAggregate(
     private fun updateInAttribute(
             command: UpdateInAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -260,8 +284,8 @@ class NotationAggregate(
         val modifiedProjectNotation = packageNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedProjectNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedProjectNotation)
 
         return EventAndNotation(
                 UpdatedInAttributeEvent(
@@ -273,7 +297,7 @@ class NotationAggregate(
     private fun insertListItemInAttribute(
             command: InsertListItemInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -283,11 +307,11 @@ class NotationAggregate(
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.containingList, listWithInsert)
 
-        val modifiedBundleNotation = bundleNotation.withModifiedObject(
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedBundleNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         val event = InsertedListItemInAttributeEvent(
                 command.objectLocation, command.containingList, command.indexInList, listInAttribute)
@@ -299,7 +323,7 @@ class NotationAggregate(
     private fun insertMapEntryInAttribute(
             command: InsertMapEntryInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -309,11 +333,11 @@ class NotationAggregate(
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.containingMap, mapWithInsert)
 
-        val modifiedBundleNotation = bundleNotation.withModifiedObject(
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedBundleNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         val event = InsertedMapEntryInAttributeEvent(
                 command.objectLocation,
@@ -329,7 +353,7 @@ class NotationAggregate(
     private fun removeInAttribute(
             command: RemoveInAttributeCommand
     ): EventAndNotation {
-        val bundleNotation = state.bundles.values[command.objectLocation.bundlePath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
@@ -353,11 +377,11 @@ class NotationAggregate(
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 containerPath, containerWithoutElement)
 
-        val modifiedBundleNotation = bundleNotation.withModifiedObject(
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
-        val nextState = state.withModifiedBundle(
-                command.objectLocation.bundlePath, modifiedBundleNotation)
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         val event = RemovedInAttributeEvent(
                 command.objectLocation, command.attributePath)
@@ -418,12 +442,12 @@ class NotationAggregate(
         val objectPath = command.containingObjectLocation.objectPath.nest(
                 command.containingList, command.objectName)
 
-        val objectLocation = ObjectLocation(command.containingObjectLocation.bundlePath, objectPath)
+        val objectLocation = ObjectLocation(command.containingObjectLocation.documentPath, objectPath)
 
         val objectAdded = builder
                 .apply(AddObjectCommand(
                         objectLocation,
-                        command.positionInBundle,
+                        command.positionInDocument,
                         command.body))
                 as AddedObjectEvent
 
@@ -541,5 +565,45 @@ class NotationAggregate(
                 .locateOptional(host, reference)
 
         return referencedLocation == targetLocation
+    }
+
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun renameDocumentRefactor(
+            documentPath: DocumentPath,
+            newName: DocumentName,
+            graphDefinition: GraphDefinition
+    ): EventAndNotation {
+        check(documentPath in state.documents.values)
+        val builder = NotationAggregate(state)
+
+        val newDocumentPath = documentPath.withName(newName)
+
+        val createdWithNewName = builder
+                .apply(CopyDocumentCommand(
+                        documentPath,
+                        newDocumentPath
+                ))
+                as CopiedDocumentEvent
+
+        val removedUnderOldName = builder
+                .apply(DeleteDocumentCommand(documentPath))
+                as DeletedDocumentEvent
+
+//        val adjustedReferenceCommands = adjustReferenceCommands(
+//                objectLocation, newName, graphDefinition)
+//
+//        val adjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
+//        adjustedReferenceCommands.forEach {
+//            adjustedReferenceEvents.add(builder.apply(it) as UpdatedInAttributeEvent)
+//        }
+//
+        return EventAndNotation(
+                RenameDocumentRefactoredEvent(
+                        createdWithNewName,
+                        removedUnderOldName
+                ),
+                builder.state)
     }
 }

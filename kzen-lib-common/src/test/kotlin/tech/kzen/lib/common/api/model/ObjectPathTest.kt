@@ -8,7 +8,7 @@ class ObjectPathTest {
     @Test
     fun parseSimpleObjectName() {
         val asString = "foo"
-        val literal = ObjectPath(ObjectName("foo"), BundleNesting.root)
+        val literal = ObjectPath(ObjectName("foo"), DocumentNesting.root)
         assertEquals(literal, ObjectPath.parse(asString))
         assertEquals(asString, literal.asString())
     }
@@ -17,7 +17,7 @@ class ObjectPathTest {
     @Test
     fun parseNameWithDot() {
         val asString = "foo.bar"
-        val literal = ObjectPath(ObjectName("foo.bar"), BundleNesting.root)
+        val literal = ObjectPath(ObjectName("foo.bar"), DocumentNesting.root)
         assertEquals(literal, ObjectPath.parse(asString))
         assertEquals(asString, literal.asString())
     }
@@ -26,7 +26,7 @@ class ObjectPathTest {
     @Test
     fun parseNameWithSlash() {
         val asString = "foo\\/bar"
-        val literal = ObjectPath(ObjectName("foo/bar"), BundleNesting.root)
+        val literal = ObjectPath(ObjectName("foo/bar"), DocumentNesting.root)
         assertEquals(literal, ObjectPath.parse(asString))
         assertEquals(asString, literal.asString())
     }
@@ -37,8 +37,8 @@ class ObjectPathTest {
         val asString = "foo.hello/bar\\/baz"
         val literal = ObjectPath(
                 ObjectName("bar/baz"),
-                BundleNesting(listOf(
-                        BundleNestingSegment(
+                DocumentNesting(listOf(
+                        DocumentNestingSegment(
                                 ObjectName("foo"),
                                 AttributePath.ofAttribute(AttributeName("hello"))
                         ))))
@@ -52,8 +52,8 @@ class ObjectPathTest {
         val asString = "foo.hello/http:\\/\\/www.google.com\\/"
         val literal = ObjectPath(
                 ObjectName("http://www.google.com/"),
-                BundleNesting(listOf(
-                        BundleNestingSegment(
+                DocumentNesting(listOf(
+                        DocumentNestingSegment(
                                 ObjectName("foo"),
                                 AttributePath.ofAttribute(AttributeName("hello"))
                         ))))

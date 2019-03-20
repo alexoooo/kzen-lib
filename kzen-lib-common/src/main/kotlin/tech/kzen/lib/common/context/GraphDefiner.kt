@@ -35,7 +35,7 @@ object GraphDefiner {
     private fun bootstrapPath(objectName: ObjectName): ObjectLocation {
         return ObjectLocation(
                 NotationConventions.kzenBasePath,
-                ObjectPath(objectName, BundleNesting.root))
+                ObjectPath(objectName, DocumentNesting.root))
     }
 
 

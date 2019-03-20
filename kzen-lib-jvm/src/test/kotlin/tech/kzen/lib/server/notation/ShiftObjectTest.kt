@@ -26,9 +26,9 @@ B:
         project.apply(ShiftObjectCommand(
                 location("B"), PositionIndex(0)))
 
-        val packageNotation = project.state.bundles.values[testPath]!!
+        val packageNotation = project.state.documents.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
-        assertFalse(notation.bundles.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertFalse(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -46,9 +46,9 @@ B:
         project.apply(ShiftObjectCommand(
                 location("A"), PositionIndex(1)))
 
-        val packageNotation = project.state.bundles.values[testPath]!!
+        val packageNotation = project.state.documents.values[testPath]!!
         assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertFalse(notation.bundles.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertFalse(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 
 
@@ -66,8 +66,8 @@ B:
         project.apply(ShiftObjectCommand(
                 location("A"), PositionIndex(0)))
 
-        val packageNotation = project.state.bundles.values[testPath]!!
+        val packageNotation = project.state.documents.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertTrue(notation.bundles.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertTrue(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
 }

@@ -3,8 +3,8 @@ package tech.kzen.lib.common.api.model
 
 data class ObjectReference(
         val name: ObjectName,
-        val nesting: BundleNesting?,
-        val path: BundlePath?
+        val nesting: DocumentNesting?,
+        val path: DocumentPath?
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -19,7 +19,7 @@ data class ObjectReference(
         fun parse(asString: String): ObjectReference {
             val endOfPath = asString.indexOf(nestingSeparator)
 
-            val path: BundlePath?
+            val path: DocumentPath?
             val nestingAsString: String
 
             if (endOfPath == -1) {
@@ -27,14 +27,14 @@ data class ObjectReference(
                 nestingAsString = asString
             }
             else {
-                path = BundlePath.parse(asString.substring(0, endOfPath))
+                path = DocumentPath.parse(asString.substring(0, endOfPath))
                 nestingAsString = asString.substring(endOfPath + nestingSeparator.length)
             }
 
-            val nameSegment: String = BundleNesting.extractNameSuffix(nestingAsString)
+            val nameSegment: String = DocumentNesting.extractNameSuffix(nestingAsString)
 
-            val nesting: BundleNesting? = BundleNesting.extractSegments(nestingAsString)
-                    ?.let { BundleNesting.parse(it) }
+            val nesting: DocumentNesting? = DocumentNesting.extractSegments(nestingAsString)
+                    ?.let { DocumentNesting.parse(it) }
 
             return ObjectReference(ObjectName(nameSegment), nesting, path)
         }
@@ -97,7 +97,7 @@ data class ObjectReference(
                     ""
                 }
                 else {
-                    nesting.asString() + BundleNesting.delimiter
+                    nesting.asString() + DocumentNesting.delimiter
                 }
 
         return pathPrefix + nestingInfix + name.value

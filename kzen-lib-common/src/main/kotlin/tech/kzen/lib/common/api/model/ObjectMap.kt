@@ -44,7 +44,7 @@ class ObjectMap<T>(
         val candidates = mutableSetOf<ObjectLocation>()
         for (candidate in values.keys) {
             if (reference.name != candidate.objectPath.name ||
-                    reference.path != null && reference.path != candidate.bundlePath ||
+                    reference.path != null && reference.path != candidate.documentPath ||
                     reference.nesting != null && reference.nesting != candidate.objectPath.nesting) {
                 continue
             }

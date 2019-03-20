@@ -2,7 +2,7 @@ package tech.kzen.lib.common.api.model
 
 
 data class ObjectLocation(
-        val bundlePath: BundlePath,
+        val documentPath: DocumentPath,
         val objectPath: ObjectPath
 ) {
     //-----------------------------------------------------------------------------------------------------------------
@@ -25,7 +25,7 @@ data class ObjectLocation(
         return ObjectReference(
                 objectPath.name,
                 objectPath.nesting,
-                bundlePath)
+                documentPath)
     }
 
 

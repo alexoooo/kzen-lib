@@ -19,14 +19,20 @@ sealed class CompoundNotationEvent(
 
 
 //---------------------------------------------------------------------------------------------------------------------
-data class CreatedBundleEvent(
-        val bundlePath: BundlePath
+data class CreatedDocumentEvent(
+        val documentPath: DocumentPath
 ): SingularNotationEvent()
 
 
 
-data class DeletedBundleEvent(
-        val bundlePath: BundlePath
+data class DeletedDocumentEvent(
+        val documentPath: DocumentPath
+): SingularNotationEvent()
+
+
+data class CopiedDocumentEvent(
+        val documentPath: DocumentPath,
+        val destination: DocumentPath
 ): SingularNotationEvent()
 
 
@@ -34,7 +40,7 @@ data class DeletedBundleEvent(
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedObjectEvent(
         val objectLocation: ObjectLocation,
-        val indexInBundle: PositionIndex,
+        val indexInDocument: PositionIndex,
         val objectNotation: ObjectNotation
 ): SingularNotationEvent()
 
@@ -48,7 +54,7 @@ data class RemovedObjectEvent(
 
 data class ShiftedObjectEvent(
         val objectLocation: ObjectLocation,
-        val newPositionInBundle: PositionIndex
+        val newPositionInDocument: PositionIndex
 ): SingularNotationEvent()
 
 
@@ -125,4 +131,12 @@ data class RenameRefactoredEvent(
         val adjustedReferences: List<UpdatedInAttributeEvent>
 ): CompoundNotationEvent(
         listOf(renamedObject).plus(adjustedReferences)
+)
+
+
+data class RenameDocumentRefactoredEvent(
+        val createdWithNewName: CopiedDocumentEvent,
+        val removedUnderOldName: DeletedDocumentEvent
+): CompoundNotationEvent(
+        listOf(createdWithNewName, removedUnderOldName)
 )

@@ -1,8 +1,8 @@
 package tech.kzen.lib.server.notation
 
 import com.google.common.reflect.ClassPath
-import tech.kzen.lib.common.api.model.BundlePath
-import tech.kzen.lib.common.api.model.BundleTree
+import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
@@ -14,11 +14,11 @@ class ClasspathNotationMedia(
         private val loader: ClassLoader = Thread.currentThread().contextClassLoader
 ): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
-    private val cache: MutableMap<BundlePath, Digest> = mutableMapOf()
+    private val cache: MutableMap<DocumentPath, Digest> = mutableMapOf()
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): BundleTree<Digest> {
+    override suspend fun scan(): DocumentTree<Digest> {
         if (cache.isEmpty()) {
             val paths = scanPaths()
 
@@ -28,21 +28,21 @@ class ClasspathNotationMedia(
                 cache[path] = digest
             }
         }
-        return BundleTree(cache)
+        return DocumentTree(cache)
     }
 
 
-    private fun scanPaths(): List<BundlePath> {
+    private fun scanPaths(): List<DocumentPath> {
         return ClassPath
                 .from(loader)
                 .resources
                 .filter {
                     it.resourceName.startsWith(prefix) &&
                             it.resourceName.endsWith(suffix) &&
-                            BundlePath.matches(it.resourceName)
+                            DocumentPath.matches(it.resourceName)
                 }
                 .map{
-                    BundlePath.parse(
+                    DocumentPath.parse(
                             it.resourceName.substring(prefix.length)
                     )
                 }
@@ -51,7 +51,7 @@ class ClasspathNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun read(location: BundlePath): ByteArray {
+    override suspend fun read(location: DocumentPath): ByteArray {
         val resourcePath = prefix + "/" + location.asRelativeFile()
         val bytes = loader.getResource(resourcePath).readBytes()
 //        println("ClasspathNotationMedia - read ${bytes.size}")
@@ -59,11 +59,11 @@ class ClasspathNotationMedia(
     }
 
 
-    override suspend fun write(location: BundlePath, bytes: ByteArray) {
+    override suspend fun write(location: DocumentPath, bytes: ByteArray) {
         throw UnsupportedOperationException("Classpath writing not supported")
     }
 
-    override suspend fun delete(location: BundlePath) {
+    override suspend fun delete(location: DocumentPath) {
         throw UnsupportedOperationException("Classpath deleting not supported")
     }
 }

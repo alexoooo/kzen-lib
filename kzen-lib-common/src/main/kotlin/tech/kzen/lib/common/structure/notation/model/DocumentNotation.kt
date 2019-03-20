@@ -3,17 +3,17 @@ package tech.kzen.lib.common.structure.notation.model
 import tech.kzen.lib.common.api.model.*
 
 
-data class BundleNotation(
-        val objects: BundleMap<ObjectNotation>
+data class DocumentNotation(
+        val objects: DocumentMap<ObjectNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = BundleNotation(BundleMap(mapOf()))
+        val empty = DocumentNotation(DocumentMap(mapOf()))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun expand(path: BundlePath): ObjectMap<ObjectNotation> {
+    fun expand(path: DocumentPath): ObjectMap<ObjectNotation> {
         val values = mutableMapOf<ObjectLocation, ObjectNotation>()
 
         for (e in objects.values) {
@@ -44,7 +44,7 @@ data class BundleNotation(
     }
 
 //
-//    fun equalsInOrder(other: BundleNotation): Boolean {
+//    fun equalsInOrder(other: DocumentNotation): Boolean {
 //        return this == other &&
 //                objects.keys.toList() == other.objects.keys.toList()
 //    }
@@ -54,8 +54,8 @@ data class BundleNotation(
     fun withModifiedObject(
             objectPath: ObjectPath,
             objectNotation: ObjectNotation
-    ): BundleNotation {
-        return BundleNotation(
+    ): DocumentNotation {
+        return DocumentNotation(
                 objects.updateEntry(objectPath, objectNotation))
     }
 
@@ -63,15 +63,15 @@ data class BundleNotation(
     fun withNewObject(
             objectPath: PositionedObjectPath,
             objectNotation: ObjectNotation
-    ): BundleNotation {
-        return BundleNotation(objects.insertEntry(objectPath, objectNotation))
+    ): DocumentNotation {
+        return DocumentNotation(objects.insertEntry(objectPath, objectNotation))
     }
 
 
     fun withoutObject(
             objectPath: ObjectPath
-    ): BundleNotation {
-        return BundleNotation(objects.removeKey(objectPath))
+    ): DocumentNotation {
+        return DocumentNotation(objects.removeKey(objectPath))
     }
 
 

@@ -24,18 +24,18 @@ class AddObjectTest: AggregateTest() {
                 ObjectName("Parent")
         ))
 
-        val bundleNotation = project.state.bundles.values[testPath]!!
-        assertEquals(1, bundleNotation.objects.values.size)
+        val documentNotation = project.state.documents.values[testPath]!!
+        assertEquals(1, documentNotation.objects.values.size)
 
-        val objectNotation = bundleNotation.objects.values.values.iterator().next()
+        val objectNotation = documentNotation.objects.values.values.iterator().next()
 
         val isValue = (objectNotation.get(NotationConventions.isPath) as ScalarAttributeNotation).value as String
         assertEquals("Parent", isValue)
 
-        val deparsedBundle = deparseBundle(bundleNotation)
+        val deparsedDocument = deparseDocument(documentNotation)
         assertEquals("""
             Foo:
               is: Parent
-        """.trimIndent(), deparsedBundle)
+        """.trimIndent(), deparsedDocument)
     }
 }

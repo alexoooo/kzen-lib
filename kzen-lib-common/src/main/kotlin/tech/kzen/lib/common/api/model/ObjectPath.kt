@@ -3,21 +3,21 @@ package tech.kzen.lib.common.api.model
 
 data class ObjectPath(
         val name: ObjectName,
-        val nesting: BundleNesting
+        val nesting: DocumentNesting
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): ObjectPath {
-            val nameSuffix = BundleNesting.extractNameSuffix(asString)
-            val segmentsAsString = BundleNesting.extractSegments(asString)
+            val nameSuffix = DocumentNesting.extractNameSuffix(asString)
+            val segmentsAsString = DocumentNesting.extractSegments(asString)
 
             val name = ObjectName(nameSuffix)
             val nesting =
                     if (segmentsAsString == null) {
-                        BundleNesting.root
+                        DocumentNesting.root
                     }
                     else {
-                        BundleNesting.parse(segmentsAsString)
+                        DocumentNesting.parse(segmentsAsString)
                     }
 
             return ObjectPath(name, nesting)
@@ -28,17 +28,17 @@ data class ObjectPath(
     //-----------------------------------------------------------------------------------------------------------------
     fun asString(): String {
         if (nesting.segments.isEmpty()) {
-            return BundleNesting.encodeDelimiter(name.value)
+            return DocumentNesting.encodeDelimiter(name.value)
         }
         return nesting.asString() +
-                BundleNesting.delimiter +
-                BundleNesting.encodeDelimiter(name.value)
+                DocumentNesting.delimiter +
+                DocumentNesting.encodeDelimiter(name.value)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun nest(attributePath: AttributePath, nestedName: ObjectName): ObjectPath {
-        val nestSegment = nesting.append(BundleNestingSegment(name, attributePath))
+        val nestSegment = nesting.append(DocumentNestingSegment(name, attributePath))
         return ObjectPath(nestedName, nestSegment)
     }
 
