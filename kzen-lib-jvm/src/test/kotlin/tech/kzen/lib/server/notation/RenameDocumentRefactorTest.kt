@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 class RenameDocumentRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val testPath = DocumentPath.parse("test/refactor-test.yaml")
-    private val newSegment = DocumentName.parse("new-name.yaml")
+    private val newSegment = DocumentName("new-name.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------

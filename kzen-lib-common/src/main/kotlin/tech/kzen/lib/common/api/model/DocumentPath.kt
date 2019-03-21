@@ -38,7 +38,7 @@ data class DocumentPath(
         fun parse(asString: String): DocumentPath {
             check(matches(asString)) { "Invalid path: $asString" }
 
-            val segments = asString.split(delimiter).map { DocumentName.parse(it) }
+            val segments = asString.split(delimiter).map { DocumentName(it) }
             return DocumentPath(segments)
         }
     }

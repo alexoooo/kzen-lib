@@ -2,21 +2,21 @@ package tech.kzen.lib.common.api.model
 
 
 data class DocumentName(
-        private val asString: String
+        val value: String
 ) {
     companion object {
-        fun parse(asString: String): DocumentName {
-            return DocumentName(asString)
+        fun ofFilenameWithDefaultExtension(filename: String): DocumentName {
+            return DocumentName("$filename.yaml")
         }
     }
 
 
-    fun asString(): String {
-        return AttributePath.encodeDelimiter(asString)
+    fun withoutExtension(): String {
+        return value.substringBeforeLast(".")
     }
 
 
     override fun toString(): String {
-        return asString
+        return value
     }
 }
