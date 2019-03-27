@@ -9,6 +9,7 @@ import tech.kzen.lib.common.definition.AttributeDefinition
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ValueAttributeDefinition
 import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
 
@@ -31,7 +32,7 @@ class WeakAttributeDefiner(
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
 
         if (attributeNotation is ScalarAttributeNotation) {
-            return define(objectLocation, attributeName, partialGraphDefinition, attributeNotation)
+            return define(objectLocation, attributeName, graphStructure.graphNotation, attributeNotation)
         }
         else {
             TODO()
@@ -48,7 +49,7 @@ class WeakAttributeDefiner(
     private fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
-            partialGraphDefinition: GraphDefinition,
+            graphNotation: GraphNotation,
             scalarAttributeNotation: ScalarAttributeNotation
     ): ValueAttributeDefinition {
         val objectReference = scalarAttributeNotation.asString()?.let { ObjectReference.parse(it) }
@@ -58,11 +59,8 @@ class WeakAttributeDefiner(
             ValueAttributeDefinition(objectReference)
         }
         else {
-            val dependencyLocation = partialGraphDefinition
-                    .objectDefinitions.locate(objectLocation, objectReference)
-
+            val dependencyLocation = graphNotation.coalesce.locate(objectLocation, objectReference)
             ValueAttributeDefinition(dependencyLocation)
         }
-
     }
 }

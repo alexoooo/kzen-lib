@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.api.model
 
 
+// TODO: distinguish between DocumentName and DocumentPathSegment?
 data class DocumentPath(
         val segments: List<DocumentName>
 ) {

@@ -1,9 +1,6 @@
 package tech.kzen.lib.common.structure.notation
 
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributePath
-import tech.kzen.lib.common.api.model.AttributeSegment
-import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.api.model.*
 
 
 object NotationConventions {
@@ -43,5 +40,13 @@ object NotationConventions {
     const val suffix: String = ".yaml"
 
     val kzenBasePath = DocumentPath.parse("base/kzen-base.yaml")
-    val mainPrefix = DocumentPath.parse("main")
+
+    val mainKey = "main"
+    val mainObjectName = ObjectName(mainKey)
+    val mainObjectPath = ObjectPath(mainObjectName, DocumentNesting.root)
+    val mainDocumentName = DocumentName(mainKey)
+    val mainDocumentPath = DocumentPath(listOf(mainDocumentName))
+
+    // TODO: "main" add ObjectPath and DocumentName
+//    val mainPrefix = DocumentPath.parse("main")
 }
