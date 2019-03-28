@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 class RenameDocumentRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val testPath = DocumentPath.parse("test/refactor-test.yaml")
-    private val newSegment = DocumentName("new-name.yaml")
+    private val newName = DocumentName("new-name.yaml")
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -26,19 +26,12 @@ class RenameDocumentRefactorTest {
         val originalDocument = aggregate.state.documents.values[testPath]
 
         aggregate.apply(
-                RenameDocumentRefactorCommand(
-                        testPath,
-                        newSegment),
+                RenameDocumentRefactorCommand(testPath, newName),
                 graphDefinition)
 
         assert(testPath !in aggregate.state.documents.values)
 
-        val newDocumentPath = DocumentPath(
-                testPath
-                        .segments
-                        .subList(0, testPath.segments.size - 1)
-                        .plus(newSegment)
-        )
+        val newDocumentPath = testPath.withName(newName)
 
         val documentNotation = aggregate.state.documents.values[newDocumentPath]!!
 

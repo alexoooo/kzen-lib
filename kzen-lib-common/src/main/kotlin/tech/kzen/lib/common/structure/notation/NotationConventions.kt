@@ -44,9 +44,7 @@ object NotationConventions {
     val mainKey = "main"
     val mainObjectName = ObjectName(mainKey)
     val mainObjectPath = ObjectPath(mainObjectName, DocumentNesting.root)
-    val mainDocumentName = DocumentName(mainKey)
-    val mainDocumentPath = DocumentPath(listOf(mainDocumentName))
-
-    // TODO: "main" add ObjectPath and DocumentName
-//    val mainPrefix = DocumentPath.parse("main")
+    val mainDocumentName = DocumentName.ofFilenameWithDefaultExtension(mainKey)
+    val mainDocumentPathSegment = DocumentPathSegment(mainKey)
+    val mainDocumentPath = DocumentPath(listOf(mainDocumentPathSegment), null)
 }
