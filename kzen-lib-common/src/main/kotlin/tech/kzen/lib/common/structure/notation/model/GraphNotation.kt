@@ -43,10 +43,10 @@ data class GraphNotation(
         val notation = coalesce.values[objectLocation]
                 ?: return null
 
-        val parameter = notation.get(attributePath)
-        if (parameter != null) {
+        val attributeNotation = notation.get(attributePath)
+        if (attributeNotation != null) {
 //            println("== parameter - $objectName - $notationPath: $parameter")
-            return parameter
+            return attributeNotation
         }
 
         val isAttribute = notation.get(NotationConventions.isPath)

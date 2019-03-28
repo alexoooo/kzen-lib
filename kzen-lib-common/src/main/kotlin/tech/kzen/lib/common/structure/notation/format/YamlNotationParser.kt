@@ -23,22 +23,15 @@ class YamlNotationParser: NotationParser {
                     is YamlMap ->
                         node
 
-                    is YamlScalar -> when {
-                        node is YamlString ->
-                            if (node.value.isEmpty()) {
-                                YamlMap(mapOf())
-                            }
-                            else {
-                                YamlMap(mapOf(NotationConventions.isKey to node))
-                            }
-
-                        // NB: empty document
-                        node.value == null ->
+//                    is YamlScalar -> when {
+                    is YamlString ->
+                        if (node.value.isEmpty()/* || node.value == "null"*/) {
                             YamlMap(mapOf())
+                        }
+                        else {
+                            YamlMap(mapOf(NotationConventions.isKey to node))
+                        }
 
-                        else ->
-                            throw IllegalArgumentException("Top-level non-string scalar: ${node.value}")
-                    }
                     else ->
                         throw IllegalArgumentException("Top-level map expected: $node")
                 }
@@ -95,7 +88,9 @@ class YamlNotationParser: NotationParser {
 
     private fun yamlToAttribute(node: YamlNode): AttributeNotation {
         return when (node) {
-            is YamlScalar ->
+//            is YamlScalar ->
+//                ScalarAttributeNotation(node.value)
+            is YamlString ->
                 ScalarAttributeNotation(node.value)
 
             is YamlList ->

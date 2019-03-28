@@ -166,11 +166,11 @@ object GraphDefiner {
 
 
     private fun definerReference(
-            objectName: ObjectLocation,
+            objectLocation: ObjectLocation,
             projectNotation: GraphNotation
     ): ObjectReference {
         return ObjectReference.parse(
-                projectNotation.getString(objectName, NotationConventions.definerPath))
+                projectNotation.getString(objectLocation, NotationConventions.definerPath))
     }
 
 

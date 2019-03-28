@@ -1,10 +1,7 @@
 package tech.kzen.lib.common.structure.notation.edit
 
 import tech.kzen.lib.common.api.model.*
-import tech.kzen.lib.common.structure.notation.model.AttributeNotation
-import tech.kzen.lib.common.structure.notation.model.ObjectNotation
-import tech.kzen.lib.common.structure.notation.model.PositionIndex
-import tech.kzen.lib.common.structure.notation.model.PositionedObjectPath
+import tech.kzen.lib.common.structure.notation.model.*
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -17,7 +14,8 @@ sealed class SemanticNotationCommand: NotationCommand()
 
 //---------------------------------------------------------------------------------------------------------------------
 data class CreateDocumentCommand(
-        val documentPath: DocumentPath
+        val documentPath: DocumentPath,
+        val documentNotation: DocumentNotation = DocumentNotation.empty
 ): StructuralNotationCommand()
 
 

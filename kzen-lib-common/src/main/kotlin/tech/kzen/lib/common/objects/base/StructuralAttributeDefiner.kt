@@ -46,16 +46,30 @@ class StructuralAttributeDefiner: AttributeDefiner {
         if (attributeNotation is ScalarAttributeNotation) {
             val className = typeMetadata.className
 
-            if (attributeNotation.value is String && className != ClassNames.kotlinString) {
-                return ReferenceAttributeDefinition(
-                        ObjectReference.parse(attributeNotation.value))
+            if (className == ClassNames.kotlinString) {
+                return ValueAttributeDefinition(attributeNotation.value)
             }
 
-            if (className == ClassNames.kotlinString && attributeNotation.value !is String) {
-                return ValueAttributeDefinition(attributeNotation.value.toString())
+            if (className == ClassNames.kotlinBoolean) {
+                if (attributeNotation.value == "true") {
+                    return ValueAttributeDefinition(true)
+                }
+                else if (attributeNotation.value == "false") {
+                    return ValueAttributeDefinition(false)
+                }
+                throw IllegalArgumentException("Boolean expected: $attributeNotation")
             }
 
-            return ValueAttributeDefinition(attributeNotation.value)
+            if (className == ClassNames.kotlinInt) {
+                return ValueAttributeDefinition(attributeNotation.value.toInt())
+            }
+
+            if (className == ClassNames.kotlinDouble) {
+                return ValueAttributeDefinition(attributeNotation.value.toDouble())
+            }
+
+            return ReferenceAttributeDefinition(
+                    ObjectReference.parse(attributeNotation.value))
         }
         else if (attributeNotation is ListAttributeNotation) {
             val listGeneric = typeMetadata.generics[0]

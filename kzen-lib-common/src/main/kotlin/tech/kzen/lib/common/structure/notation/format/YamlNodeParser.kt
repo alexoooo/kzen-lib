@@ -73,7 +73,8 @@ object YamlNodeParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parseScalar(block: List<String>): YamlScalar {
+//    private fun parseScalar(block: List<String>): YamlScalar {
+    private fun parseScalar(block: List<String>): YamlString {
         if (block.isEmpty()) {
             return YamlString.empty
         }
@@ -97,27 +98,27 @@ object YamlNodeParser {
                     nonCommentLines[0]
                 }
 
-        if (value.equals("null", true) || value.isEmpty()) {
-            return YamlNull
-        }
-
-        if (value.equals("true", true)) {
-            return YamlTrue
-        }
-
-        if (value.equals("false", true)) {
-            return YamlFalse
-        }
-
-        val asLong = value.toLongOrNull()
-        if (asLong != null) {
-            return YamlLong(asLong)
-        }
-
-        val asDouble = value.toDoubleOrNull()
-        if (asDouble != null) {
-            return YamlDouble(asDouble)
-        }
+//        if (value.equals("null", true) || value.isEmpty()) {
+//            return YamlNull
+//        }
+//
+//        if (value.equals("true", true)) {
+//            return YamlTrue
+//        }
+//
+//        if (value.equals("false", true)) {
+//            return YamlFalse
+//        }
+//
+//        val asLong = value.toLongOrNull()
+//        if (asLong != null) {
+//            return YamlLong(asLong)
+//        }
+//
+//        val asDouble = value.toDoubleOrNull()
+//        if (asDouble != null) {
+//            return YamlDouble(asDouble)
+//        }
 
         return YamlUtils.parseString(value)
     }

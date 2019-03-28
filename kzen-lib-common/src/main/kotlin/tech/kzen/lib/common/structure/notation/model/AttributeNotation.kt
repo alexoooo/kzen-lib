@@ -9,37 +9,49 @@ sealed class AttributeNotation {
     fun asString(): String? {
         return (this as? ScalarAttributeNotation)
                 ?.value
-                as? String
+//                as? String
     }
 
     fun asBoolean(): Boolean? {
-        return (this as? ScalarAttributeNotation)
+        val asString = (this as? ScalarAttributeNotation)
                 ?.value
-                as? Boolean
+                ?: return null
+
+        return when (asString) {
+            "true" -> true
+            "false" -> false
+            else -> null
+        }
+
+//        return (this as? ScalarAttributeNotation)
+//                ?.value
+//                as? Boolean
     }
 }
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class ScalarAttributeNotation(
-        val value: Any?
+//        val value: Any?
+        val value: String
 ): AttributeNotation() {
-    init {
-        // TODO: rename to OpaqueAttributeNotation and allow any type?
-        when (value) {
-            null,
-            is String,
-            is Boolean,
-            is Number
-            -> Unit
-
-            else ->
-                throw IllegalArgumentException("Scalar value expected: $value")
-        }
-    }
+//    init {
+//        // TODO: rename to OpaqueAttributeNotation and allow any type?
+//        when (value) {
+//            null,
+//            is String,
+//            is Boolean,
+//            is Number
+//            -> Unit
+//
+//            else ->
+//                throw IllegalArgumentException("Scalar value expected: $value")
+//        }
+//    }
 
     override fun toString(): String {
-        return value.toString()
+//        return value.toString()
+        return value
     }
 }
 

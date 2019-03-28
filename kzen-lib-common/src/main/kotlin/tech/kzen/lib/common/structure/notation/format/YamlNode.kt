@@ -7,25 +7,31 @@ sealed class YamlNode {
         fun ofObject(value: Any?): YamlNode {
             return when (value) {
                 null ->
-                    YamlNull
+//                    YamlNull
+                    YamlString("null")
 
                 is String ->
                     YamlString(value)
 
                 is Int ->
-                    YamlLong(value.toLong())
+//                    YamlLong(value.toLong())
+                    YamlString(value.toString())
 
                 is Long ->
-                    YamlLong(value)
+//                    YamlLong(value)
+                    YamlString(value.toString())
 
                 is Float ->
-                    YamlDouble(value.toDouble())
+//                    YamlDouble(value.toDouble())
+                    YamlString(value.toString())
 
                 is Double ->
-                    YamlDouble(value)
+//                    YamlDouble(value)
+                    YamlString(value.toString())
 
                 is Boolean ->
-                    if (value) YamlTrue else YamlFalse
+//                    if (value) YamlTrue else YamlFalse
+                    if (value) YamlString("true") else YamlString("false")
 
                 is List<Any?> ->
                     YamlList(value.map { ofObject(it) })
@@ -52,7 +58,8 @@ sealed class YamlNode {
 
     fun toObject(): Any? {
         return when (this) {
-            is YamlScalar ->
+//            is YamlScalar ->
+            is YamlString ->
                 value
 
             is YamlList ->
@@ -69,19 +76,21 @@ sealed class YamlNode {
 
 
 //-----------------------------------------------------------------------------------------------------------------
-sealed class YamlScalar: YamlNode() {
-    abstract val value: Any?
-
-    override fun asString(): String {
-        return value.toString()
-    }
-}
+//sealed class YamlScalar: YamlNode() {
+//    abstract val value: Any?
+//
+//    override fun asString(): String {
+//        return value.toString()
+//    }
+//}
 
 
 // TODO: add |- multi-line support
 data class YamlString(
-        override val value: String
-): YamlScalar() {
+//        override val value: String
+        val value: String
+//): YamlScalar() {
+): YamlNode() {
     companion object {
         val empty = YamlString("")
     }
@@ -92,28 +101,28 @@ data class YamlString(
 }
 
 
-data class YamlDouble(
-        override val value: Double
-): YamlScalar()
-
-
-data class YamlLong(
-        override val value: Long
-): YamlScalar()
-
-
-abstract class YamlBoolean(
-        override val value: Boolean
-): YamlScalar()
-
-object YamlTrue: YamlBoolean(true)
-object YamlFalse: YamlBoolean(false)
-
-
-
-object YamlNull: YamlScalar() {
-    override val value: Any? = null
-}
+//data class YamlDouble(
+//        override val value: Double
+//): YamlScalar()
+//
+//
+//data class YamlLong(
+//        override val value: Long
+//): YamlScalar()
+//
+//
+//abstract class YamlBoolean(
+//        override val value: Boolean
+//): YamlScalar()
+//
+//object YamlTrue: YamlBoolean(true)
+//object YamlFalse: YamlBoolean(false)
+//
+//
+//
+//object YamlNull: YamlScalar() {
+//    override val value: Any? = null
+//}
 
 
 //-----------------------------------------------------------------------------------------------------------------
@@ -185,7 +194,8 @@ data class YamlMap(
 
             val keyPrefix = YamlString(entry.key).asString()
 
-            if (entry.value is YamlScalar ||
+//            if (entry.value is YamlScalar ||
+            if (entry.value is YamlString ||
                     (entry.value as YamlStructure).isEmpty()) {
                 "$keyPrefix: ${lines[0]}" +
                         lines.subList(1, lines.size).joinToString("") { "\n   $it" }

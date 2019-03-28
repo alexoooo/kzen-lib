@@ -2,6 +2,7 @@ package tech.kzen.lib.common.structure.notation.edit
 
 import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.structure.notation.model.AttributeNotation
+import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.ObjectNotation
 import tech.kzen.lib.common.structure.notation.model.PositionIndex
 
@@ -20,7 +21,8 @@ sealed class CompoundNotationEvent(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class CreatedDocumentEvent(
-        val documentPath: DocumentPath
+        val documentPath: DocumentPath,
+        val documentNotation: DocumentNotation
 ): SingularNotationEvent()
 
 

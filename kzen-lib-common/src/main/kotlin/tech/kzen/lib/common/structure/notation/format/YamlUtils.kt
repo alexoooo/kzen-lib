@@ -3,6 +3,8 @@ package tech.kzen.lib.common.structure.notation.format
 
 object YamlUtils {
     //-----------------------------------------------------------------------------------------------------------------
+    const val fileExtension = "yaml"
+
     const val emptyListJson = "[]"
     const val emptyMapJson = "{}"
 

@@ -108,11 +108,11 @@ class NotationAggregate(
         }
 
         val nextState = state.withNewDocument(
-                command.documentPath, DocumentNotation.empty)
+                command.documentPath, command.documentNotation)
 
-        return EventAndNotation(
-                CreatedDocumentEvent(command.documentPath),
-                nextState)
+        val event = CreatedDocumentEvent(command.documentPath, command.documentNotation)
+
+        return EventAndNotation(event, nextState)
     }
 
 

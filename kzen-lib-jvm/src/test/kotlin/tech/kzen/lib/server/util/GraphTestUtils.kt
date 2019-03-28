@@ -40,22 +40,22 @@ object GraphTestUtils {
     }
 
 
-    fun grapMetadata(notationTree: GraphNotation): GraphMetadata {
+    fun grapMetadata(graphNotation: GraphNotation): GraphMetadata {
         val notationMetadataReader = NotationMetadataReader()
-        return notationMetadataReader.read(notationTree)
+        return notationMetadataReader.read(graphNotation)
     }
 
 
-    fun grapDefinition(notationTree: GraphNotation): GraphDefinition {
-        val graphMetadata = grapMetadata(notationTree)
+    fun grapDefinition(graphNotation: GraphNotation): GraphDefinition {
+        val graphMetadata = grapMetadata(graphNotation)
         return GraphDefiner.define(
-                GraphStructure(notationTree, graphMetadata))
+                GraphStructure(graphNotation, graphMetadata))
     }
 
 
-    fun newObjectGraph(notationTree: GraphNotation): GraphInstance {
-        val graphMetadata = grapMetadata(notationTree)
-        val graphStructure = GraphStructure(notationTree, graphMetadata)
+    fun newObjectGraph(graphNotation: GraphNotation): GraphInstance {
+        val graphMetadata = grapMetadata(graphNotation)
+        val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val graphDefinition = GraphDefiner.define(graphStructure)
 
@@ -65,7 +65,7 @@ object GraphTestUtils {
 
 
     fun newObjectGraph(): GraphInstance {
-        val notationTree = readNotation()
-        return newObjectGraph(notationTree)
+        val graphNotation = readNotation()
+        return newObjectGraph(graphNotation)
     }
 }
