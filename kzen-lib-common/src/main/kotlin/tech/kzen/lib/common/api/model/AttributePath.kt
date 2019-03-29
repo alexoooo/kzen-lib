@@ -7,6 +7,7 @@ data class AttributePath(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        // TODO: change to "$" or something for better IntelliJ support?
         const val delimiter = "."
 
 
