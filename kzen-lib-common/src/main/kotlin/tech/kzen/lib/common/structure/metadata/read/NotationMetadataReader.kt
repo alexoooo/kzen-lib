@@ -33,23 +33,23 @@ class NotationMetadataReader(
             objectLocation: ObjectLocation,
             projectNotation: GraphNotation
     ): ObjectMetadata {
-        val metaAttribute =
-                projectNotation.transitiveAttribute(objectLocation, NotationConventions.metaAttribute)
-                ?: return ObjectMetadata(mapOf())
+        val builder = mutableMapOf<AttributeName, AttributeMetadata>()
 
-        val metaMapAttribute = metaAttribute as MapAttributeNotation
+        val inheritanceChain = projectNotation.inheritanceChain(objectLocation)
 
-        val attributes = mutableMapOf<AttributeName, AttributeMetadata>()
+        for (superLocation in inheritanceChain) {
+            val metaAttribute = projectNotation
+                    .directAttribute(superLocation, NotationConventions.metaAttribute)
+                    as? MapAttributeNotation
+                    ?: continue
 
-        for (e in metaMapAttribute.values) {
-            val attributeMetadata = readAttribute(objectLocation, e.value, projectNotation)
-
-            attributes[AttributeName(e.key.asString())] = attributeMetadata
+            for (e in metaAttribute.values) {
+                val attributeMetadata = readAttribute(objectLocation, e.value, projectNotation)
+                builder[AttributeName(e.key.asString())] = attributeMetadata
+            }
         }
 
-        return ObjectMetadata(
-//                className,
-                attributes)
+        return ObjectMetadata(builder)
     }
 
 
@@ -74,7 +74,7 @@ class NotationMetadataReader(
 
         val classNotation = metadataAttribute(
                 NotationConventions.classAttribute, inheritanceParentLocation, attributeMap, notationTree)
-        val className = ((classNotation as? ScalarAttributeNotation)?.value as? String)
+        val className = ((classNotation as? ScalarAttributeNotation)?.value)
                 ?.let { ClassName(it) }
                 ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
 
@@ -95,7 +95,7 @@ class NotationMetadataReader(
                         listOf()
 
                     is ScalarAttributeNotation -> {
-                        val value = genericsNotation.value as String
+                        val value = genericsNotation.value
                         val reference = ObjectReference.parse(value)
                         val objectLocation = notationTree.coalesce.locate(host, reference)
                         val genericClassName = ClassName(
@@ -125,9 +125,9 @@ class NotationMetadataReader(
     ): String? {
         return when (attributeNotation) {
             is ScalarAttributeNotation -> {
-                check(attributeNotation.value is String) {
-                    "Inline '${NotationConventions.isKey}' must be String: $attributeNotation"
-                }
+//                check(attributeNotation.value is String) {
+//                    "Inline '${NotationConventions.isKey}' must be String: $attributeNotation"
+//                }
 
                 attributeNotation.value
             }

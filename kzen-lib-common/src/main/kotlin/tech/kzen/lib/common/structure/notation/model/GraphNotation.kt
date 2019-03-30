@@ -29,6 +29,53 @@ data class GraphNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun inheritanceChain(objectLocation: ObjectLocation): List<ObjectLocation> {
+        val builder = mutableListOf<ObjectLocation>()
+        inheritanceChain(objectLocation) {
+            builder.add(it)
+        }
+        return builder
+    }
+
+
+    fun inheritanceChain(
+            objectLocation: ObjectLocation,
+            consumer: (ObjectLocation) -> Unit
+    ) {
+        var cursor = objectLocation
+        while (true) {
+            val notation = coalesce.values[cursor]
+                    ?: throw IllegalStateException("Missing: $cursor")
+
+            consumer.invoke(cursor)
+
+            if (cursor == BootstrapConventions.rootObjectLocation ||
+                    cursor == BootstrapConventions.bootstrapLocation) {
+                break
+            }
+
+            val isAttribute = notation.get(NotationConventions.isPath)
+
+            val superReference =
+                    when (isAttribute) {
+                        null ->
+                            BootstrapConventions.rootObjectReference
+
+                        !is ScalarAttributeNotation ->
+                            TODO()
+
+                        else -> {
+                            val isValue = isAttribute.value
+                            ObjectReference.parse(isValue)
+                        }
+                    }
+
+            cursor = coalesce.locate(objectLocation, superReference)
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     fun directAttribute(
             objectLocation: ObjectLocation,
             attributePath: AttributePath
@@ -45,7 +92,6 @@ data class GraphNotation(
 
         val attributeNotation = notation.get(attributePath)
         if (attributeNotation != null) {
-//            println("== parameter - $objectName - $notationPath: $parameter")
             return attributeNotation
         }
 
@@ -61,12 +107,6 @@ data class GraphNotation(
 
                     else -> {
                         val isValue = isAttribute.value
-
-                        @Suppress("FoldInitializerAndIfToElvis")
-                        if (isValue !is String) {
-                            TODO()
-                        }
-
                         ObjectReference.parse(isValue)
                     }
                 }
@@ -78,8 +118,6 @@ data class GraphNotation(
                 objectLocation == BootstrapConventions.bootstrapLocation) {
             return null
         }
-
-//        println("^^^^^ superName: $superName")
 
         return transitiveAttribute(superLocation, attributePath)
     }

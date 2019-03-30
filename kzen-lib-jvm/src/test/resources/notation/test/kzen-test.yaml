@@ -20,15 +20,15 @@ NumericStringHolder:
 LocationAware:
   abstract: true
   class: tech.kzen.lib.server.objects.LocationAware
-  foo: ''
   meta:
     objectLocation:
       is: ObjectLocation
       definer: ObjectLocationAttributeDefiner
-    foo:
-      is: String
 
 
 FooNamed:
   is: LocationAware
+  foo: ''
+  meta:
+    foo: String
 

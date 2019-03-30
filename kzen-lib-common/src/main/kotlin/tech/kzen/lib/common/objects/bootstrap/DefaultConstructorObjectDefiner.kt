@@ -24,7 +24,7 @@ object DefaultConstructorObjectDefiner: ObjectDefiner {
                 graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, NotationConventions.classAttribute
                 )!! as ScalarAttributeNotation
-        ).value as String)
+        ).value)
 
         val definition = ObjectDefinition(
                 className,
