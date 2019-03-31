@@ -1,43 +1,43 @@
 package tech.kzen.lib.common.structure.notation
 
 import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.structure.notation.format.YamlUtils
 
 
 object NotationConventions {
     const val isKey = "is"
-    val isSegment = AttributeSegment.ofKey(isKey)
-    val isName = AttributeName(isKey)
-    val isPath = AttributePath.ofAttribute(isName)
+    val isAttributeSegment = AttributeSegment.ofKey(isKey)
+    val isAttributeName = AttributeName(isKey)
+    val isAttributePath = AttributePath.ofAttribute(isAttributeName)
 
-    val classAttribute    = AttributePath.ofAttribute(AttributeName("class"))
-//    val byAttribute       = AttributePath.ofAttribute(AttributeName("by"))
-//    val usingAttribute    = AttributePath.ofAttribute(AttributeName("using"))
+    val classAttributeName = AttributeName("class")
+    val classAttributePath = AttributePath.ofAttribute(classAttributeName)
 
     val ofKey = "of"
-    val ofSegment = AttributeSegment.ofKey(ofKey)
-    val ofName = AttributeName(ofKey)
-    val ofPath = AttributePath.ofAttribute(ofName)
+    val ofAttributeSegment = AttributeSegment.ofKey(ofKey)
 
-    val metaAttribute = AttributePath.ofAttribute(AttributeName("meta"))
+    val metaAttributeName = AttributeName("meta")
+    val metaAttributePath = AttributePath.ofAttribute(metaAttributeName)
 
-    val definerKey = "definer"
-    val definerSegment = AttributeSegment.ofKey(definerKey)
-    val definerName = AttributeName(definerKey)
-    val definerPath = AttributePath.ofAttribute(definerName)
+//    val definerKey = "definer"
+    val definerKey = "by"
+    val definerAttributeSegment = AttributeSegment.ofKey(definerKey)
+    val definerAttributeName = AttributeName(definerKey)
+    val definerAttributePath = AttributePath.ofAttribute(definerAttributeName)
 
     val creatorKey = "creator"
-    val creatorSegment = AttributeSegment.ofKey(creatorKey)
-    val creatorName = AttributeName(creatorKey)
-    val creatorPath = AttributePath.ofAttribute(creatorName)
+    val creatorAttributeSegment = AttributeSegment.ofKey(creatorKey)
+    val creatorAttributeName = AttributeName(creatorKey)
+    val creatorAttributePath = AttributePath.ofAttribute(creatorAttributeName)
 
     val abstractKey = "abstract"
-    val abstractSegment = AttributeSegment.ofKey(abstractKey)
-    val abstractName = AttributeName(abstractKey)
-    val abstractPath = AttributePath.ofAttribute(abstractName)
+    val abstractAttributeSegment = AttributeSegment.ofKey(abstractKey)
+    val abstractAttributeName = AttributeName(abstractKey)
+    val abstractAttributePath = AttributePath.ofAttribute(abstractAttributeName)
 
 
-    const val prefix: String = "notation/"
-    const val suffix: String = ".yaml"
+    const val documentPathPrefix: String = "notation/"
+    const val documentPathSuffix: String = "." + YamlUtils.fileExtension
 
     val kzenBasePath = DocumentPath.parse("base/kzen-base.yaml")
 
@@ -47,4 +47,17 @@ object NotationConventions {
     val mainDocumentName = DocumentName.ofFilenameWithDefaultExtension(mainKey)
     val mainDocumentPathSegment = DocumentPathSegment(mainKey)
     val mainDocumentPath = DocumentPath(listOf(mainDocumentPathSegment), null)
+
+
+    val specialAttributeNames = setOf(
+            abstractAttributeName,
+            isAttributeName,
+            classAttributeName,
+            definerAttributeName,
+            creatorAttributeName,
+            metaAttributeName)
+
+    fun isSpecial(attributeName: AttributeName): Boolean {
+        return attributeName in specialAttributeNames
+    }
 }

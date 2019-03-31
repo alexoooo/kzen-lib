@@ -9,8 +9,8 @@ import tech.kzen.lib.common.util.Digest
 
 
 class ClasspathNotationMedia(
-        private val prefix: String = NotationConventions.prefix,
-        private val suffix: String = NotationConventions.suffix,
+        private val prefix: String = NotationConventions.documentPathPrefix,
+        private val suffix: String = NotationConventions.documentPathSuffix,
         private val loader: ClassLoader = Thread.currentThread().contextClassLoader
 ): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------

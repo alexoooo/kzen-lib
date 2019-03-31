@@ -23,7 +23,7 @@ DefaultConstructorObject:
   abstract: true
   is: Bootstrap
   class: kotlin.Any
-  definer: DefaultConstructorObjectDefiner
+  by: DefaultConstructorObjectDefiner
   creator: DefaultConstructorObjectCreator
 
 ###########################################################
@@ -55,7 +55,7 @@ Object:
   abstract: true
   is: Object
   class: kotlin.Any
-  definer: AttributeObjectDefiner
+  by: AttributeObjectDefiner
   creator: AttributeObjectCreator
 
 
@@ -90,7 +90,8 @@ List:
 ###########################################################
 
 
-ParentChildAttributeDefiner:
+#ParentChildAttributeDefiner:
+ParentChild:
   class: tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner
 
 
@@ -101,7 +102,7 @@ ParentPointer:
 #    parent: ChildContainer
     parent:
       is: ObjectLocation
-      definer: WeakAttributeDefiner
+      by: Nominal
     order: Int
 
 
@@ -111,14 +112,10 @@ ChildContainer:
     children:
       is: List
       of: ParentPointer
-      definer: ParentChildAttributeDefiner
+      by: ParentChild
 
 
 ###########################################################
-
-
-ObjectLocationAttributeDefiner:
-  class: tech.kzen.lib.common.objects.general.ObjectLocationAttributeDefiner
 
 
 ObjectLocation:
@@ -126,29 +123,38 @@ ObjectLocation:
   class: tech.kzen.lib.common.api.model.ObjectLocation
 
 
+#ObjectLocationAttributeDefiner:
+SelfLocation:
+  class: tech.kzen.lib.common.objects.general.ObjectLocationAttributeDefiner
+
+
 ###########################################################
 
 
-AutowiredAttributeDefiner:
+#AutowiredAttributeDefiner:
+Autowired:
   class: tech.kzen.lib.common.objects.general.AutowiredAttributeDefiner
   weak: false
   meta:
     weak: Boolean
 
 
-WeakAutowiredAttributeDefiner:
-  is: AutowiredAttributeDefiner
+#WeakAutowiredAttributeDefiner:
+AutowiredNominal:
+  is: Autowired
   weak: true
 
 
-WeakAttributeDefiner:
+#WeakAttributeDefiner:
+Nominal:
   class: tech.kzen.lib.common.objects.general.WeakAttributeDefiner
   reference: false
   meta:
     reference: Boolean
 
 
-WeakReferenceAttributeDefiner:
-  is: WeakAttributeDefiner
+#WeakReferenceAttributeDefiner:
+NominalReference:
+  is: Nominal
   reference: true
 

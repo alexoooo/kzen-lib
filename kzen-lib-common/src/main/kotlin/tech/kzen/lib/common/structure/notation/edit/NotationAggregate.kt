@@ -298,11 +298,16 @@ class NotationAggregate(
     private fun insertListItemInAttribute(
             command: InsertListItemInAttributeCommand
     ): EventAndNotation {
-        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
 
         val objectNotation = state.coalesce.get(command.objectLocation)
 
-        val listInAttribute = objectNotation.get(command.containingList) as ListAttributeNotation
+        val listInAttribute = state
+                .transitiveAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
+                ?: throw IllegalStateException(
+                        "List attribute expected: ${command.objectLocation} - ${command.containingList}")
+
         val listWithInsert = listInAttribute.insert(command.item, command.indexInList)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(

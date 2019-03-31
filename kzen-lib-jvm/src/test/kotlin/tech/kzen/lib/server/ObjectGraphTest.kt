@@ -10,6 +10,7 @@ import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.server.objects.LocationAware
 import tech.kzen.lib.server.objects.StringHolder
+import tech.kzen.lib.server.objects.StringHolderRef
 import tech.kzen.lib.server.util.GraphTestUtils
 
 
@@ -58,6 +59,15 @@ class ObjectGraphTest {
 
         val helloWorldInstance = objectGraph.objects.get(location("NumericStringHolder")) as StringHolder
         assertEquals("123", helloWorldInstance.value)
+    }
+
+
+    @Test
+    fun `Reference can be held to StringHolder`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val refInstance = objectGraph.objects.get(location("StringHolderRef")) as StringHolderRef
+        assertEquals("Hello, world!", refInstance.stringHolder.value)
     }
 
 

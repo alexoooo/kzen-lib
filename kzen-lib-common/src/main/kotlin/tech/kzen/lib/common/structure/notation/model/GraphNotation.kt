@@ -50,11 +50,11 @@ data class GraphNotation(
             consumer.invoke(cursor)
 
             if (cursor == BootstrapConventions.rootObjectLocation ||
-                    cursor == BootstrapConventions.bootstrapLocation) {
+                    cursor == BootstrapConventions.bootstrapObjectLocation) {
                 break
             }
 
-            val isAttribute = notation.get(NotationConventions.isPath)
+            val isAttribute = notation.get(NotationConventions.isAttributePath)
 
             val superReference =
                     when (isAttribute) {
@@ -95,7 +95,7 @@ data class GraphNotation(
             return attributeNotation
         }
 
-        val isAttribute = notation.get(NotationConventions.isPath)
+        val isAttribute = notation.get(NotationConventions.isAttributePath)
 
         val superReference =
                 when (isAttribute) {
@@ -115,7 +115,7 @@ data class GraphNotation(
         val superLocation = coalesce.locate(objectLocation, superReference)
 
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
-                objectLocation == BootstrapConventions.bootstrapLocation) {
+                objectLocation == BootstrapConventions.bootstrapObjectLocation) {
             return null
         }
 

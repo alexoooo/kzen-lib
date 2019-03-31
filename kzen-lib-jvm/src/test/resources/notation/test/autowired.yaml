@@ -13,7 +13,7 @@ WeakHolder:
     locations:
       is: List
       of: ObjectLocation
-      definer: WeakAutowiredAttributeDefiner
+      by: AutowiredNominal
       find:
         is: AbstractObject
 
@@ -41,10 +41,9 @@ StrongHolder:
   meta:
     concreteObjects:
       is: List
-#      of: ConcreteObject
-      definer: AutowiredAttributeDefiner
-      find:
-        is: ConcreteObject
+      of: ConcreteObject
+      by: Autowired
+#      find: ConcreteObject
 
 
 ConcreteFoo:
@@ -61,11 +60,6 @@ ConcreteBar:
 ObjectGroup:
   is: ChildContainer
   class: tech.kzen.lib.server.objects.autowire.ObjectGroup
-#  meta:
-#    children:
-#      is: List
-#      of: ObjectItem
-#      definer: ParentChildAttributeDefiner
 
 
 ObjectItem:

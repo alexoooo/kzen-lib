@@ -29,7 +29,7 @@ class AddObjectTest: AggregateTest() {
 
         val objectNotation = documentNotation.objects.values.values.iterator().next()
 
-        val isValue = (objectNotation.get(NotationConventions.isPath) as ScalarAttributeNotation).value
+        val isValue = (objectNotation.get(NotationConventions.isAttributePath) as ScalarAttributeNotation).value
         assertEquals("Parent", isValue)
 
         val deparsedDocument = deparseDocument(documentNotation)

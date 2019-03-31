@@ -33,7 +33,8 @@ class StructuralAttributeDefiner: AttributeDefiner {
         val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
         val parameterMetadata = objectMetadata.attributes[attributeName]!!
 
-        val typeMetadata = parameterMetadata.type!!
+        val typeMetadata = parameterMetadata.type
+                ?: TypeMetadata.any
 
         return defineRecursively(attributeNotation, typeMetadata)
     }

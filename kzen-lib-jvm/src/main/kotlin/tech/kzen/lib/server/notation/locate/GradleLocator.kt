@@ -13,8 +13,8 @@ class GradleLocator(
 ): FileNotationLocator {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        private const val mainResources = "/src/main/resources/" + NotationConventions.prefix
-        private const val testResources = "/src/test/resources/" + NotationConventions.prefix
+        private const val mainResources = "/src/main/resources/" + NotationConventions.documentPathPrefix
+        private const val testResources = "/src/test/resources/" + NotationConventions.documentPathPrefix
     }
 
 

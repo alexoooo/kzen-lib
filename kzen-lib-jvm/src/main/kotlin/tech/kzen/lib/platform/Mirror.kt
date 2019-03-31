@@ -22,7 +22,12 @@ actual object Mirror {
 
 
     actual fun create(className: ClassName, constructorArguments: List<Any?>): Any {
-        val type = Class.forName(className.get()).kotlin
-        return type.primaryConstructor!!.call(*constructorArguments.toTypedArray())
+        try {
+            val type = Class.forName(className.get()).kotlin
+            return type.primaryConstructor!!.call(*constructorArguments.toTypedArray())
+        }
+        catch (e: Throwable) {
+            throw IllegalArgumentException("Unable to create $className - $constructorArguments", e)
+        }
     }
 }

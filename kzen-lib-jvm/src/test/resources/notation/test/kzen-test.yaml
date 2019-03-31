@@ -23,7 +23,7 @@ LocationAware:
   meta:
     objectLocation:
       is: ObjectLocation
-      definer: ObjectLocationAttributeDefiner
+      by: SelfLocation
 
 
 FooNamed:
@@ -32,3 +32,7 @@ FooNamed:
   meta:
     foo: String
 
+
+StringHolderRef:
+  class: tech.kzen.lib.server.objects.StringHolderRef
+  stringHolder: HelloWorldHolder

@@ -19,9 +19,9 @@ object BootstrapConventions {
 
     val bootstrapObjectName = ObjectName("Bootstrap")
 
-    val bootstrapLocation = ObjectLocation(
+    val bootstrapObjectLocation = ObjectLocation(
             NotationConventions.kzenBasePath,
             ObjectPath(bootstrapObjectName, DocumentNesting.root))
 
-    val bootstrapReference = bootstrapLocation.toReference()
+    val bootstrapObjectReference = bootstrapObjectLocation.toReference()
 }

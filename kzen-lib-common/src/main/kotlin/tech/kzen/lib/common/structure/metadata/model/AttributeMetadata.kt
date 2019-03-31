@@ -8,4 +8,5 @@ data class AttributeMetadata(
         val attributeMetadataNotation: MapAttributeNotation,
         val type: TypeMetadata?,
         val definerReference: ObjectReference?,
-        val creatorReference: ObjectReference?)
+        val creatorReference: ObjectReference?
+)

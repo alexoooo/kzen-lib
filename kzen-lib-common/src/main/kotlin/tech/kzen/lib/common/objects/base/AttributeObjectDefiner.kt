@@ -42,7 +42,7 @@ class AttributeObjectDefiner: ObjectDefiner {
 //                ?: throw IllegalArgumentException("Metadata not found: $objectName")
 
         val className = ClassName(
-                graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttribute))
+                graphStructure.graphNotation.getString(objectLocation, NotationConventions.classAttributePath))
 
         val attributeDefinitions = mutableMapOf<AttributeName, AttributeDefinition>()
         val creatorRequired = mutableSetOf<ObjectReference>()

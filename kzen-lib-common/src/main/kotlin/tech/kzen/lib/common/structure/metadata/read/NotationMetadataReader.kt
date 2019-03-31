@@ -11,6 +11,7 @@ import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.ClassName
+import tech.kzen.lib.platform.ClassNames
 
 
 class NotationMetadataReader(
@@ -31,21 +32,37 @@ class NotationMetadataReader(
 
     private fun readObject(
             objectLocation: ObjectLocation,
-            projectNotation: GraphNotation
+            graphNotation: GraphNotation
     ): ObjectMetadata {
+        val allAttributes = mutableSetOf<AttributeName>()
+
         val builder = mutableMapOf<AttributeName, AttributeMetadata>()
 
-        val inheritanceChain = projectNotation.inheritanceChain(objectLocation)
+        val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
 
         for (superLocation in inheritanceChain) {
-            val metaAttribute = projectNotation
-                    .directAttribute(superLocation, NotationConventions.metaAttribute)
+            val superNotation = graphNotation.coalesce.get(superLocation)
+
+            allAttributes.addAll(superNotation.attributes.keys)
+
+            val metaAttribute = superNotation.get(NotationConventions.metaAttributePath)
                     as? MapAttributeNotation
                     ?: continue
 
             for (e in metaAttribute.values) {
-                val attributeMetadata = readAttribute(objectLocation, e.value, projectNotation)
+                val attributeMetadata = readAttribute(objectLocation, e.value, graphNotation)
                 builder[AttributeName(e.key.asString())] = attributeMetadata
+            }
+        }
+
+        for (attributeName in allAttributes) {
+            if (attributeName in builder ||
+                    NotationConventions.isSpecial(attributeName)) {
+                continue
+            }
+
+            inferMetadata(objectLocation, attributeName, graphNotation)?.let {
+                builder[attributeName] = it
             }
         }
 
@@ -53,10 +70,46 @@ class NotationMetadataReader(
     }
 
 
+    private fun inferMetadata(
+            objectLocation: ObjectLocation,
+            attributeName: AttributeName,
+            graphNotation: GraphNotation
+    ): AttributeMetadata? {
+        val attributeNotation = graphNotation
+                .transitiveAttribute(objectLocation, AttributePath.ofAttribute(attributeName))
+
+        if (attributeNotation is ScalarAttributeNotation) {
+            val isValue = try {
+                val reference = ObjectReference.parse(attributeNotation.value)
+                graphNotation.coalesce.locate(objectLocation, reference)
+                attributeNotation.value
+            }
+            catch (t: Throwable) {
+                "String"
+            }
+
+            val isLocation = graphNotation.coalesce.locate(objectLocation, ObjectReference.parse(isValue))
+            val isClass = graphNotation
+                    .transitiveAttribute(isLocation, NotationConventions.classAttributePath)
+                    ?.asString()
+                    ?: ClassNames.kotlinAny.get()
+
+            return AttributeMetadata(
+                    MapAttributeNotation(mapOf(
+                            AttributeSegment.ofKey("is") to ScalarAttributeNotation(isValue))),
+                    TypeMetadata(ClassName(isClass), listOf()),
+                    null,
+                    null)
+        }
+
+        return null
+    }
+
+
     private fun readAttribute(
             host: ObjectLocation,
             attributeNotation: AttributeNotation,
-            notationTree: GraphNotation
+            graphNotation: GraphNotation
     ): AttributeMetadata {
         val inheritanceParent: String? =
                 attributeInheritanceParent(attributeNotation)
@@ -66,27 +119,27 @@ class NotationMetadataReader(
                     null
                 }
                 else {
-                    notationTree.coalesce.locate(host, ObjectReference.parse(inheritanceParent))
+                    graphNotation.coalesce.locate(host, ObjectReference.parse(inheritanceParent))
                 }
 
         val attributeMap = attributeNotation as? MapAttributeNotation
                 ?: MapAttributeNotation.empty
 
         val classNotation = metadataAttribute(
-                NotationConventions.classAttribute, inheritanceParentLocation, attributeMap, notationTree)
+                NotationConventions.classAttributePath, inheritanceParentLocation, attributeMap, graphNotation)
         val className = ((classNotation as? ScalarAttributeNotation)?.value)
                 ?.let { ClassName(it) }
                 ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
 
         val definerReference = attributeMap
-                .values[NotationConventions.definerSegment]
+                .values[NotationConventions.definerAttributeSegment]
                 ?.asString()
 
         val creatorReference = attributeMap
-                .values[NotationConventions.creatorSegment]
+                .values[NotationConventions.creatorAttributeSegment]
                 ?.asString()
 
-        val genericsNotation = attributeMap.values[NotationConventions.ofSegment]
+        val genericsNotation = attributeMap.values[NotationConventions.ofAttributeSegment]
 
 
         val genericsNames: List<TypeMetadata> =
@@ -97,9 +150,9 @@ class NotationMetadataReader(
                     is ScalarAttributeNotation -> {
                         val value = genericsNotation.value
                         val reference = ObjectReference.parse(value)
-                        val objectLocation = notationTree.coalesce.locate(host, reference)
+                        val objectLocation = graphNotation.coalesce.locate(host, reference)
                         val genericClassName = ClassName(
-                                notationTree.getString(objectLocation, NotationConventions.classAttribute))
+                                graphNotation.getString(objectLocation, NotationConventions.classAttributePath))
 
                         listOf(TypeMetadata(genericClassName, listOf()))
                     }
@@ -134,7 +187,7 @@ class NotationMetadataReader(
 
             is MapAttributeNotation -> {
                 attributeNotation
-                        .values[NotationConventions.isSegment]
+                        .values[NotationConventions.isAttributeSegment]
                         ?.asString()
             }
 

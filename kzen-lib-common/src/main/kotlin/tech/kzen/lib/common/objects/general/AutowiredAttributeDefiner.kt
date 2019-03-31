@@ -4,12 +4,14 @@ import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.api.model.AttributeName
 import tech.kzen.lib.common.api.model.AttributeSegment
 import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.*
-import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.common.structure.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
+import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
 
 @Suppress("unused")
@@ -31,21 +33,18 @@ class AutowiredAttributeDefiner(
         val attributeMetadata = graphStructure.graphMetadata.get(objectLocation).attributes[attributeName]
                 ?: throw IllegalArgumentException("Not found: $objectLocation - $attributeName")
 
-        val find = attributeMetadata.attributeMetadataNotation.values[findSegment]
-                as? MapAttributeNotation
-                ?: throw IllegalArgumentException("Expected: $objectLocation - $attributeName - $findSegment")
-
-//        val isAbstract = find.get(NotationConventions.abstractSegment)?.asBoolean() ?: false
-        val findIsReference = find.get(NotationConventions.isSegment)?.asString()
-                ?: BootstrapConventions.rootObjectName.value
+        val findIs = ObjectReference.parse(findIs(attributeMetadata))
+        val findIsLocation = graphStructure.graphNotation.coalesce.locate(objectLocation, findIs)
 
         val references = mutableListOf<AttributeDefinition>()
 
         for ((location, notation) in graphStructure.graphNotation.coalesce.values) {
-            val isReference = notation.attributes[NotationConventions.isName]?.asString()
-                    ?: BootstrapConventions.rootObjectName.value
+            val isReference = notation.attributes[NotationConventions.isAttributeName]?.asString()
+                    ?: continue
 
-            if (findIsReference != isReference) {
+            val isLocation = graphStructure.graphNotation.coalesce
+                    .locate(location, ObjectReference.parse(isReference))
+            if (findIsLocation != isLocation) {
                 continue
             }
 
@@ -55,6 +54,31 @@ class AutowiredAttributeDefiner(
         }
 
         return ListAttributeDefinition(references)
+    }
+
+
+    private fun findIs(attributeMetadata: AttributeMetadata): String {
+        val find = attributeMetadata.attributeMetadataNotation.values[findSegment]
+                ?: return attributeOf(attributeMetadata)
+
+        if (find is MapAttributeNotation) {
+            return find.get(NotationConventions.isAttributeSegment)?.asString()
+                    ?: attributeOf(attributeMetadata)
+        }
+
+        if (find is ScalarAttributeNotation) {
+            return find.value
+        }
+
+        throw UnsupportedOperationException("Can't find autowire type: $attributeMetadata")
+    }
+
+
+    private fun attributeOf(attributeMetadata: AttributeMetadata): String {
+        return (attributeMetadata.attributeMetadataNotation.values[NotationConventions.ofAttributeSegment]
+                as? ScalarAttributeNotation
+                )?.value
+                ?: throw UnsupportedOperationException("Can't find autowire type: $attributeMetadata")
     }
 
 
