@@ -26,8 +26,8 @@ abstract class NotationAggregateTest {
     }
 
 
-    fun deparseDocument(notationTree: GraphNotation): String {
-        return deparseDocument(notationTree.documents.values[testPath]!!)
+    fun deparseDocument(graphNotation: GraphNotation): String {
+        return deparseDocument(graphNotation.documents.values[testPath]!!)
     }
 
 

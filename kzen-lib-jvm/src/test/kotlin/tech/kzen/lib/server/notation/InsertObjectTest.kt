@@ -43,5 +43,16 @@ InsertInto:
                         location("InsertInto"),
                         attribute("foo.1")
                 ))
+
+        val deparsed = deparseDocument(documentNotation)
+        assertEquals("""
+InsertInto:
+  foo:
+    - Bar
+    - "InsertInto.foo/Inserted"
+
+"InsertInto.foo/Inserted":
+  is: DoubleValue
+""".trimIndent(), deparsed)
     }
 }

@@ -85,7 +85,8 @@ class NotationMetadataReader(
                 attributeNotation.value
             }
             catch (t: Throwable) {
-                "String"
+//                "String"
+                return null
             }
 
             val isLocation = graphNotation.coalesce.locate(objectLocation, ObjectReference.parse(isValue))
@@ -96,7 +97,7 @@ class NotationMetadataReader(
 
             return AttributeMetadata(
                     MapAttributeNotation(mapOf(
-                            AttributeSegment.ofKey("is") to ScalarAttributeNotation(isValue))),
+                            NotationConventions.isAttributeSegment to ScalarAttributeNotation(isValue))),
                     TypeMetadata(ClassName(isClass), listOf()),
                     null,
                     null)

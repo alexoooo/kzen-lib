@@ -39,8 +39,8 @@ data class DocumentNotation(
 //    }
 //
 //
-    fun indexOf(objectName: ObjectPath): PositionIndex {
-        return PositionIndex(objects.values.keys.indexOf(objectName))
+    fun indexOf(objectPath: ObjectPath): PositionIndex {
+        return PositionIndex(objects.values.keys.indexOf(objectPath))
     }
 
 //

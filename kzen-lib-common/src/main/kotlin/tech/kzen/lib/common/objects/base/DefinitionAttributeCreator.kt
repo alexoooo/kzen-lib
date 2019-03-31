@@ -9,6 +9,11 @@ import tech.kzen.lib.common.structure.GraphStructure
 
 
 class DefinitionAttributeCreator: AttributeCreator {
+//    companion object {
+//        private val defaultDefiner = StructuralAttributeDefiner()
+//    }
+
+
     override fun create(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -16,10 +21,23 @@ class DefinitionAttributeCreator: AttributeCreator {
             objectDefinition: ObjectDefinition,
             partialGraphInstance: GraphInstance
     ): Any? {
-        val attributeDefinition = objectDefinition.attributeDefinitions[attributeName]!!
+        val attributeDefinition = objectDefinition.attributeDefinitions[attributeName]
+//                ?: inferDefinition(objectLocation, attributeName, graphStructure)
+                ?: throw IllegalArgumentException("Attribute definition missing: $objectLocation - $attributeName")
+
         return createDefinition(
                 objectLocation, attributeDefinition, partialGraphInstance)
     }
+
+
+//    private fun inferDefinition(
+//            objectLocation: ObjectLocation,
+//            attributeName: AttributeName,
+//            graphStructure: GraphStructure
+//    ): AttributeDefinition {
+//        return defaultDefiner.define(
+//                objectLocation, attributeName, graphStructure)
+//    }
 
 
     private fun createDefinition(

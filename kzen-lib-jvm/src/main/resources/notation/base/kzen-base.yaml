@@ -90,7 +90,6 @@ List:
 ###########################################################
 
 
-#ParentChildAttributeDefiner:
 ParentChild:
   class: tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner
 
@@ -123,7 +122,6 @@ ObjectLocation:
   class: tech.kzen.lib.common.api.model.ObjectLocation
 
 
-#ObjectLocationAttributeDefiner:
 SelfLocation:
   class: tech.kzen.lib.common.objects.general.ObjectLocationAttributeDefiner
 
@@ -131,7 +129,6 @@ SelfLocation:
 ###########################################################
 
 
-#AutowiredAttributeDefiner:
 Autowired:
   class: tech.kzen.lib.common.objects.general.AutowiredAttributeDefiner
   weak: false
@@ -139,13 +136,11 @@ Autowired:
     weak: Boolean
 
 
-#WeakAutowiredAttributeDefiner:
 AutowiredNominal:
   is: Autowired
   weak: true
 
 
-#WeakAttributeDefiner:
 Nominal:
   class: tech.kzen.lib.common.objects.general.WeakAttributeDefiner
   reference: false
@@ -153,7 +148,6 @@ Nominal:
     reference: Boolean
 
 
-#WeakReferenceAttributeDefiner:
 NominalReference:
   is: Nominal
   reference: true

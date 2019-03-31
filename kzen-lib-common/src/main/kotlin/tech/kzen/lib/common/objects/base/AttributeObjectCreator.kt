@@ -35,14 +35,17 @@ class AttributeObjectCreator: ObjectCreator {
             val argumentAttribute = AttributeName(argumentName)
 
             val attributeMetadata = objectMetadata.attributes[argumentAttribute]
-                    ?: throw IllegalArgumentException("Attribute metadata not found: $argumentAttribute")
+//                    ?: throw IllegalArgumentException("Attribute metadata not found: $argumentAttribute")
 
-            val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultParameterCreator
+            val attributeCreatorReference = attributeMetadata
+                    ?.creatorReference
+                    ?: defaultParameterCreator
+
             val attributeCreatorLocation = partialGraphInstance.objects.locate(
                     objectLocation, attributeCreatorReference)
 
-            val attributeCreator = partialGraphInstance.objects.get(attributeCreatorLocation) as AttributeCreator
-
+            val attributeCreator = partialGraphInstance
+                    .objects.get(attributeCreatorLocation) as AttributeCreator
 
             val attributeInstance = attributeCreator.create(
                     objectLocation, argumentAttribute, graphStructure, objectDefinition, partialGraphInstance)

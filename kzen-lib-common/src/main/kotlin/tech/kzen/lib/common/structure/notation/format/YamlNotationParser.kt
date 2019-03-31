@@ -113,19 +113,18 @@ class YamlNotationParser: NotationParser {
         val buffer = StringBuilder()
 
         var first = true
-        for (entry in notation.objects.values) {
+        for ((objectPath, objectNotation) in notation.objects.values) {
             if (! first) {
                 buffer.append("\n\n")
             }
             first = false
 
-            val node = objectToYaml(entry.value)
+            val node = objectToYaml(objectNotation)
             val nodeLines = node.asString().split("\n")
 
 //            println("&%^&%^&%^ -- de-parsing - ${entry.key} -> $node || ${node.asString()}")
 
-            // TODO: consolidate
-            val keyPrefix = YamlString(entry.key.name.value).asString()
+            val keyPrefix = YamlString(objectPath.asString()).asString()
             buffer.append("$keyPrefix:")
 
             nodeLines.forEach { buffer.append("\n  $it") }

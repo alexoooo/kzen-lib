@@ -135,7 +135,7 @@ object GraphDefiner {
 
                 val creator = definerAndRelatedInstances[creatorLocation] as ObjectCreator
 
-                val newInstance = creator.create(
+                val instance = creator.create(
                         missingName,
                         graphStructure,
                         definition,
@@ -143,7 +143,7 @@ object GraphDefiner {
 
 //                println("  $$ created: $missingName")
 
-                definerAndRelatedInstances[missingName] = newInstance
+                definerAndRelatedInstances[missingName] = instance
                 levelCreated.add(missingName)
             }
 

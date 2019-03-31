@@ -24,20 +24,22 @@ class StructuralAttributeDefiner: AttributeDefiner {
     ): AttributeDefinition {
         val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
 
-        // TODO: is the transitiveParameter here handled correctly? what about default values?
         val attributeNotation = objectNotation.attributes[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, attributeName.asAttributeNesting())
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
 
         val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
-        val parameterMetadata = objectMetadata.attributes[attributeName]!!
 
-        val typeMetadata = parameterMetadata.type
+        val attributeMetadata = objectMetadata.attributes[attributeName]
+//                ?: inferMetadata(objectLocation, attributeName, graphStructure.graphNotation)
+
+        val typeMetadata = attributeMetadata?.type
                 ?: TypeMetadata.any
 
         return defineRecursively(attributeNotation, typeMetadata)
     }
+
 
 
     private fun defineRecursively(
