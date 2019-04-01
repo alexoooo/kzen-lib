@@ -78,6 +78,8 @@ class NotationAggregate(
             is InsertObjectInListAttributeCommand ->
                 insertObjectInListAttribute(command)
 
+            is RemoveObjectInAttributeCommand ->
+                removeObjectInAttribute(command)
 
             else ->
                 throw UnsupportedOperationException("Unknown: $command")
@@ -90,7 +92,7 @@ class NotationAggregate(
             graphDefinition: GraphDefinition
     ): EventAndNotation {
         return when (command) {
-            is RenameRefactorCommand ->
+            is RenameObjectRefactorCommand ->
                 renameRefactor(command.objectLocation, command.newName, graphDefinition)
 
             is RenameDocumentRefactorCommand ->
@@ -469,7 +471,37 @@ class NotationAggregate(
                 as InsertedListItemInAttributeEvent
 
         return EventAndNotation(
-                InsertedObjectListItemInAttributeEvent(objectAdded, insertedInAttribute),
+                InsertedObjectInListAttributeEvent(objectAdded, insertedInAttribute),
+                builder.state)
+    }
+
+
+    private fun removeObjectInAttribute(
+            command: RemoveObjectInAttributeCommand
+    ): EventAndNotation {
+        val objectNotation = state.coalesce.get(command.containingObjectLocation)
+
+//        val containerPath = command.attributePath.parent()
+//        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
+
+        val attributeNotation = objectNotation.get(command.attributePath)!!
+        val objectReference = ObjectReference.parse(attributeNotation.asString()!!)
+        val objectLocation = state.coalesce.locate(command.containingObjectLocation, objectReference)
+
+        val builder = NotationAggregate(state)
+
+        val removedInAttribute = builder
+                .apply(RemoveInAttributeCommand(
+                        command.containingObjectLocation, command.attributePath))
+                as RemovedInAttributeEvent
+
+        val removedObject = builder
+                .apply(RemoveObjectCommand(
+                        objectLocation))
+                as RemovedObjectEvent
+
+        return EventAndNotation(
+                RemovedObjectInAttributeEvent(removedInAttribute, removedObject),
                 builder.state)
     }
 
@@ -497,7 +529,7 @@ class NotationAggregate(
         }
 
         return EventAndNotation(
-                RenameRefactoredEvent(renamedObject, adjustedReferenceEvents),
+                RenamedObjectRefactorEvent(renamedObject, adjustedReferenceEvents),
                 builder.state)
     }
 
@@ -606,7 +638,7 @@ class NotationAggregate(
 //        }
 //
         return EventAndNotation(
-                RenameDocumentRefactoredEvent(
+                RenamedDocumentRefactorEvent(
                         createdWithNewName,
                         removedUnderOldName
                 ),

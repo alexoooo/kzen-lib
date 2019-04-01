@@ -136,7 +136,6 @@ data class ShiftInAttributeCommand(
 ): StructuralNotationCommand()
 
 
-
 //---------------------------------------------------------------------------------------------------------------------
 data class InsertObjectInListAttributeCommand(
         val containingObjectLocation: ObjectLocation,
@@ -148,7 +147,12 @@ data class InsertObjectInListAttributeCommand(
 ): StructuralNotationCommand()
 
 
-// TODO: could use __REF__ or inline object definition?
+data class RemoveObjectInAttributeCommand(
+        val containingObjectLocation: ObjectLocation,
+        val attributePath: AttributePath
+): StructuralNotationCommand()
+
+
 //data class InsertObjectInMapAttributeCommand(
 //        val objectLocation: PositionedObjectLocation,
 //        val containingMapPosition: PositionedAttributeNesting,
@@ -157,7 +161,7 @@ data class InsertObjectInListAttributeCommand(
 //): ProjectCommand()
 
 
-data class RenameRefactorCommand(
+data class RenameObjectRefactorCommand(
         val objectLocation: ObjectLocation,
         val newName: ObjectName
 ): SemanticNotationCommand()

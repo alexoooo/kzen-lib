@@ -26,7 +26,6 @@ data class CreatedDocumentEvent(
 ): SingularNotationEvent()
 
 
-
 data class DeletedDocumentEvent(
         val documentPath: DocumentPath
 ): SingularNotationEvent()
@@ -38,7 +37,6 @@ data class CopiedDocumentEvent(
 ): SingularNotationEvent()
 
 
-
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedObjectEvent(
         val objectLocation: ObjectLocation,
@@ -47,18 +45,15 @@ data class AddedObjectEvent(
 ): SingularNotationEvent()
 
 
-
 data class RemovedObjectEvent(
         val objectLocation: ObjectLocation
 ): SingularNotationEvent()
-
 
 
 data class ShiftedObjectEvent(
         val objectLocation: ObjectLocation,
         val newPositionInDocument: PositionIndex
 ): SingularNotationEvent()
-
 
 
 data class RenamedObjectEvent(
@@ -109,7 +104,6 @@ data class InsertedMapEntryInAttributeEvent(
 ): InsertedInAttributeEvent()
 
 
-
 //--------------------------------------------------------------
 data class ShiftedInAttributeEvent(
         val removedInAttribute: RemovedInAttributeEvent,
@@ -119,7 +113,7 @@ data class ShiftedInAttributeEvent(
 )
 
 
-data class InsertedObjectListItemInAttributeEvent(
+data class InsertedObjectInListAttributeEvent(
         val addedObject: AddedObjectEvent,
         val insertedInAttribute: InsertedListItemInAttributeEvent
 ): CompoundNotationEvent(
@@ -127,8 +121,16 @@ data class InsertedObjectListItemInAttributeEvent(
 )
 
 
+data class RemovedObjectInAttributeEvent(
+        val removedInAttribute: RemovedInAttributeEvent,
+        val removedObject: RemovedObjectEvent
+): CompoundNotationEvent(
+        listOf(removedInAttribute, removedObject)
+)
+
+
 //---------------------------------------------------------------------------------------------------------------------
-data class RenameRefactoredEvent(
+data class RenamedObjectRefactorEvent(
         val renamedObject: RenamedObjectEvent,
         val adjustedReferences: List<UpdatedInAttributeEvent>
 ): CompoundNotationEvent(
@@ -136,7 +138,7 @@ data class RenameRefactoredEvent(
 )
 
 
-data class RenameDocumentRefactoredEvent(
+data class RenamedDocumentRefactorEvent(
         val createdWithNewName: CopiedDocumentEvent,
         val removedUnderOldName: DeletedDocumentEvent
 ): CompoundNotationEvent(

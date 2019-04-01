@@ -54,7 +54,7 @@ data class DocumentMap<T>(
         check(! values.containsKey(key.objectPath)) { "Already exists: $key" }
         check(0 <= key.positionIndex.value &&
                 key.positionIndex.value <= values.size) {
-            "Index must be in [0, ${values.size}]"
+            "Index (${key.positionIndex.value}) must be in [0, ${values.size}]"
         }
 
         val buffer = mutableMapOf<ObjectPath, T>()

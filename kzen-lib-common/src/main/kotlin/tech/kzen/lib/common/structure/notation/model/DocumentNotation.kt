@@ -61,10 +61,10 @@ data class DocumentNotation(
 
 
     fun withNewObject(
-            objectPath: PositionedObjectPath,
+            positionedObjectPath: PositionedObjectPath,
             objectNotation: ObjectNotation
     ): DocumentNotation {
-        return DocumentNotation(objects.insertEntry(objectPath, objectNotation))
+        return DocumentNotation(objects.insertEntry(positionedObjectPath, objectNotation))
     }
 
 
