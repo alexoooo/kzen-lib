@@ -1,6 +1,8 @@
 {
   "name": "kzen-lib-client",
-  "dependencies": {},
+  "dependencies": {
+    "immutable": "3.8.2"
+  },
   "devDependencies": {
     "browser-sync": "2.23.6",
     "browser-sync-webpack-plugin": "2.0.1",
