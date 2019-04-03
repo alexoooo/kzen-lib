@@ -1,9 +1,9 @@
 package tech.kzen.lib.common.objects.bootstrap
 
-import tech.kzen.lib.common.api.model.DocumentNesting
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectName
-import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.notation.NotationConventions
 
 
@@ -12,7 +12,7 @@ object BootstrapConventions {
 
     val rootObjectLocation = ObjectLocation(
             NotationConventions.kzenBasePath,
-            ObjectPath(rootObjectName, DocumentNesting.root))
+            ObjectPath(rootObjectName, ObjectNesting.root))
 
     val rootObjectReference = rootObjectLocation.toReference()
 
@@ -21,7 +21,7 @@ object BootstrapConventions {
 
     val bootstrapObjectLocation = ObjectLocation(
             NotationConventions.kzenBasePath,
-            ObjectPath(bootstrapObjectName, DocumentNesting.root))
+            ObjectPath(bootstrapObjectName, ObjectNesting.root))
 
     val bootstrapObjectReference = bootstrapObjectLocation.toReference()
 }

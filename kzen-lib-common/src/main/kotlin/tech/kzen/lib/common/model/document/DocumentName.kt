@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.document
 
 import tech.kzen.lib.common.structure.notation.format.YamlUtils
 

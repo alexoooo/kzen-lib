@@ -1,10 +1,10 @@
 package tech.kzen.lib.common.context
 
-import tech.kzen.lib.common.api.model.ObjectMap
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
 
 
 data class GraphInstance(
-        val objects: ObjectMap<Any>)
+        val objects: ObjectLocationMap<Any>)
 {
 //    fun names(): Set<ObjectName> =
 //            objects.names()

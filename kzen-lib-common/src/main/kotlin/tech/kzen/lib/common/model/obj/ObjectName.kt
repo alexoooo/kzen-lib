@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.obj
 
 
 data class ObjectName(

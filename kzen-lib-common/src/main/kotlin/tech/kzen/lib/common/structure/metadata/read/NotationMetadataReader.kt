@@ -1,6 +1,11 @@
 package tech.kzen.lib.common.structure.metadata.read
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
 import tech.kzen.lib.common.structure.metadata.model.ObjectMetadata
@@ -26,7 +31,7 @@ class NotationMetadataReader(
             builder[objectLocation] = objectMetadata
         }
 
-        return GraphMetadata(ObjectMap(builder))
+        return GraphMetadata(ObjectLocationMap(builder))
     }
 
 
@@ -43,7 +48,7 @@ class NotationMetadataReader(
         for (superLocation in inheritanceChain) {
             val superNotation = graphNotation.coalesce.get(superLocation)
 
-            allAttributes.addAll(superNotation.attributes.keys)
+            allAttributes.addAll(superNotation.attributes.values.keys)
 
             val metaAttribute = superNotation.get(NotationConventions.metaAttributePath)
                     as? MapAttributeNotation
@@ -66,7 +71,7 @@ class NotationMetadataReader(
             }
         }
 
-        return ObjectMetadata(builder)
+        return ObjectMetadata(AttributeNameMap(builder))
     }
 
 
@@ -76,7 +81,7 @@ class NotationMetadataReader(
             graphNotation: GraphNotation
     ): AttributeMetadata? {
         val attributeNotation = graphNotation
-                .transitiveAttribute(objectLocation, AttributePath.ofAttribute(attributeName))
+                .transitiveAttribute(objectLocation, AttributePath.ofName(attributeName))
 
         if (attributeNotation is ScalarAttributeNotation) {
             val isValue = try {

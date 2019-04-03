@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocation
 
 
 data class PositionedObjectLocation(

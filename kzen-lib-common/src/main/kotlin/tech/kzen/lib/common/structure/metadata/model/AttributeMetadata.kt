@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.structure.metadata.model
 
-import tech.kzen.lib.common.api.model.ObjectReference
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
 
 

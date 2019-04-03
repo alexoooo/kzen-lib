@@ -1,7 +1,7 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.document
 
 
-data class DocumentTree<T>(
+data class DocumentPathMap<T>(
         val values: Map<DocumentPath, T>
 ) {
     fun get(documentPath: DocumentPath): T {

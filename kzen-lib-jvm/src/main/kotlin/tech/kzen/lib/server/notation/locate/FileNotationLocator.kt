@@ -1,6 +1,6 @@
 package tech.kzen.lib.server.notation.locate
 
-import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentPath
 import java.nio.file.Path
 
 

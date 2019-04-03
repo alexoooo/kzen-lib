@@ -1,13 +1,13 @@
 package tech.kzen.lib.common.objects.general
 
 import tech.kzen.lib.common.api.AttributeDefiner
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.AttributeDefinition
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ValueAttributeDefinition
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
@@ -26,7 +26,7 @@ class WeakAttributeDefiner(
     ): AttributeDefinition {
         val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
 
-        val attributeNotation = objectNotation.attributes[attributeName]
+        val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, attributeName.asAttributeNesting())
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")

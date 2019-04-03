@@ -1,9 +1,13 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.locate
+
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
 
 
 data class ObjectReference(
         val name: ObjectName,
-        val nesting: DocumentNesting?,
+        val nesting: ObjectNesting?,
         val path: DocumentPath?
 ) {
     //-----------------------------------------------------------------------------------------------------------------
@@ -31,10 +35,10 @@ data class ObjectReference(
                 nestingAsString = asString.substring(endOfPath + nestingSeparator.length)
             }
 
-            val nameSegment: String = DocumentNesting.extractNameSuffix(nestingAsString)
+            val nameSegment: String = ObjectNesting.extractNameSuffix(nestingAsString)
 
-            val nesting: DocumentNesting? = DocumentNesting.extractSegments(nestingAsString)
-                    ?.let { DocumentNesting.parse(it) }
+            val nesting: ObjectNesting? = ObjectNesting.extractSegments(nestingAsString)
+                    ?.let { ObjectNesting.parse(it) }
 
             return ObjectReference(ObjectName(nameSegment), nesting, path)
         }
@@ -97,7 +101,7 @@ data class ObjectReference(
                     ""
                 }
                 else {
-                    nesting.asString() + DocumentNesting.delimiter
+                    nesting.asString() + ObjectNesting.delimiter
                 }
 
         return pathPrefix + nestingInfix + name.value

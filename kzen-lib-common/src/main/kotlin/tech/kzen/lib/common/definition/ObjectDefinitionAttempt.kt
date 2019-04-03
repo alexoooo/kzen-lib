@@ -1,21 +1,21 @@
 package tech.kzen.lib.common.definition
 
-import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationSet
 
 
 data class ObjectDefinitionAttempt(
         val value: ObjectDefinition?,
-        val missingObjects: Set<ObjectLocation>,
+        val missingObjects: ObjectLocationSet,
         val errorMessage: String?
 ) {
     companion object {
         fun success(definition: ObjectDefinition) =
                 ObjectDefinitionAttempt(
                         definition,
-                        setOf(),
+                        ObjectLocationSet.empty,
                         null)
 
-        fun missingObjectsFailure(missingObjects: Set<ObjectLocation>) =
+        fun missingObjectsFailure(missingObjects: ObjectLocationSet) =
                 ObjectDefinitionAttempt(
                         null,
                         missingObjects,
@@ -24,13 +24,12 @@ data class ObjectDefinitionAttempt(
         fun failure(error: String) =
                 ObjectDefinitionAttempt(
                         null,
-                        setOf(),
+                        ObjectLocationSet.empty,
                         error)
     }
 
 
-    fun isError() =
-            value == null
-//            errorMessage != null ||
-//            missingObjects.isNotEmpty()
+    fun isError(): Boolean {
+        return value == null
+    }
 }

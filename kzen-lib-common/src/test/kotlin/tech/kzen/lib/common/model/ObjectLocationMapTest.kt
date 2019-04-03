@@ -1,15 +1,18 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model
 
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.locate.ObjectReference
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 
-class ObjectMapTest {
+class ObjectLocationMapTest {
     @Test
     fun locateByName() {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
 
-        val data = ObjectMap(mapOf(
+        val data = ObjectLocationMap(mapOf(
                 location to "foo"
         ))
 
@@ -23,7 +26,7 @@ class ObjectMapTest {
     fun locateByAbsoluteReference() {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
 
-        val data = ObjectMap(mapOf(
+        val data = ObjectLocationMap(mapOf(
                 location to "foo"
         ))
 

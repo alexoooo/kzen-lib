@@ -1,5 +1,4 @@
-package tech.kzen.lib.common.api.model
-
+package tech.kzen.lib.common.model.attribute
 
 
 data class AttributeNesting(

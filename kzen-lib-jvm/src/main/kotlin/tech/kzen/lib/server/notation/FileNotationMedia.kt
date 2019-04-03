@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.notation
 
-import tech.kzen.lib.common.api.model.DocumentPath
-import tech.kzen.lib.common.api.model.DocumentTree
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
@@ -33,7 +33,7 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): DocumentTree<Digest> {
+    override suspend fun scan(): DocumentPathMap<Digest> {
         val locationTimes = mutableMapOf<DocumentPath, Instant>()
 
         val roots = notationLocator.scanRoots()
@@ -61,7 +61,7 @@ class FileNotationMedia(
             }
         }
 
-        return DocumentTree(digested)
+        return DocumentPathMap(digested)
     }
 
 

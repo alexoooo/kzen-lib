@@ -1,15 +1,15 @@
 package tech.kzen.lib.common.objects.general
 
 import tech.kzen.lib.common.api.AttributeDefiner
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributePath
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.AttributeDefinition
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ListAttributeDefinition
 import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
@@ -17,7 +17,7 @@ import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 @Suppress("unused")
 class ParentChildAttributeDefiner: AttributeDefiner {
     companion object {
-        private val parentPath = AttributePath.ofAttribute(
+        private val parentAttributePath = AttributePath.ofName(
                 AttributeName("parent"))
     }
 
@@ -33,7 +33,7 @@ class ParentChildAttributeDefiner: AttributeDefiner {
 
         for (e in graphStructure.graphNotation.coalesce.values) {
             val parentNotation = graphStructure.graphNotation
-                    .transitiveAttribute(e.key, parentPath)
+                    .transitiveAttribute(e.key, parentAttributePath)
                     ?: continue
 
             val parentName =

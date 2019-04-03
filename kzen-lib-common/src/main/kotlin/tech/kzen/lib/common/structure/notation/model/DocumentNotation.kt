@@ -1,26 +1,30 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.model.obj.ObjectPathMap
 
 
 data class DocumentNotation(
-        val objects: DocumentMap<ObjectNotation>
+        val objects: ObjectPathMap<ObjectNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = DocumentNotation(DocumentMap(mapOf()))
+        val empty = DocumentNotation(ObjectPathMap(mapOf()))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun expand(path: DocumentPath): ObjectMap<ObjectNotation> {
+    fun expand(path: DocumentPath): ObjectLocationMap<ObjectNotation> {
         val values = mutableMapOf<ObjectLocation, ObjectNotation>()
 
         for (e in objects.values) {
             values[ObjectLocation(path, e.key)] = e.value
         }
 
-        return ObjectMap(values)
+        return ObjectLocationMap(values)
     }
 
 

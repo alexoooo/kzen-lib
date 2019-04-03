@@ -1,8 +1,14 @@
 package tech.kzen.lib.common.structure.notation.edit
 
-import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.document.DocumentName
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.locate.AttributeLocation
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.structure.notation.model.*
 
 
@@ -259,7 +265,7 @@ class NotationAggregate(
         val objectNotation = state.coalesce.get(command.objectLocation)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
-                AttributePath.ofAttribute(command.attributeName), command.attributeNotation)
+                AttributePath.ofName(command.attributeName), command.attributeNotation)
 
         val modifiedProjectNotation = packageNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)

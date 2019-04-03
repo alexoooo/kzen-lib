@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.aggregate
 
-import tech.kzen.lib.common.api.model.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.edit.AddObjectCommand
 import tech.kzen.lib.common.structure.notation.edit.NotationAggregate

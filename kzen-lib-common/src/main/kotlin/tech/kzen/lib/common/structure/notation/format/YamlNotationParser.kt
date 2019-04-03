@@ -1,10 +1,11 @@
 package tech.kzen.lib.common.structure.notation.format
 
 
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributeSegment
-import tech.kzen.lib.common.api.model.DocumentMap
-import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
+import tech.kzen.lib.common.model.attribute.AttributeSegment
+import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.io.NotationParser
 import tech.kzen.lib.common.structure.notation.model.*
@@ -50,7 +51,7 @@ class YamlNotationParser: NotationParser {
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation
         }
-        return DocumentNotation(DocumentMap(objects))
+        return DocumentNotation(ObjectPathMap(objects))
     }
 
 
@@ -65,7 +66,7 @@ class YamlNotationParser: NotationParser {
             attributes[attributeName] = attribute
         }
 
-        return ObjectNotation(attributes)
+        return ObjectNotation(AttributeNameMap(attributes))
     }
 
 
@@ -136,7 +137,7 @@ class YamlNotationParser: NotationParser {
 
 
     private fun objectToYaml(objectNotation: ObjectNotation): YamlNode {
-        return YamlMap(objectNotation.attributes.map {
+        return YamlMap(objectNotation.attributes.values.map {
             it.key.value to attributeToYaml(it.value)
         }.toMap())
     }

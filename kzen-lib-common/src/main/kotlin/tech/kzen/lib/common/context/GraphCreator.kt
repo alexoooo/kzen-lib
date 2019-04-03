@@ -1,11 +1,11 @@
 package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectMap
-import tech.kzen.lib.common.api.model.ObjectPath
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.GraphStructure
 
 
@@ -18,7 +18,7 @@ object GraphCreator {
         val objectInstances = mutableMapOf<ObjectLocation, Any>()
         objectInstances.putAll(GraphDefiner.bootstrapObjects)
 
-        val objectGraph = GraphInstance(ObjectMap(objectInstances))
+        val objectGraph = GraphInstance(ObjectLocationMap(objectInstances))
 
         val levels = constructionLevels(graphDefinition)
 

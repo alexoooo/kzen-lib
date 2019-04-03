@@ -2,11 +2,11 @@ package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeCreator
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.ObjectDefinition
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.platform.Mirror
 
@@ -34,7 +34,7 @@ class AttributeObjectCreator: ObjectCreator {
         for (argumentName in constructorArgumentNames) {
             val argumentAttribute = AttributeName(argumentName)
 
-            val attributeMetadata = objectMetadata.attributes[argumentAttribute]
+            val attributeMetadata = objectMetadata.attributes.values[argumentAttribute]
 //                    ?: throw IllegalArgumentException("Attribute metadata not found: $argumentAttribute")
 
             val attributeCreatorReference = attributeMetadata

@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.api.model.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributePath
 
 
 data class PositionedAttributeNesting(

@@ -1,6 +1,10 @@
 package tech.kzen.lib.common.structure.notation.io.yaml
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentPathMap
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
@@ -112,7 +116,7 @@ Foo:
 
     private fun parseGraph(doc: String): GraphNotation {
         val documentNotation = parseDocument(doc)
-        return GraphNotation(DocumentTree(mapOf(
+        return GraphNotation(DocumentPathMap(mapOf(
                 mainPath to documentNotation)))
     }
 

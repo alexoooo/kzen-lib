@@ -1,7 +1,7 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.locate
 
 
-class ObjectMap<T>(
+class ObjectLocationMap<T>(
         val values: Map<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
@@ -19,28 +19,28 @@ class ObjectMap<T>(
 
     fun locateOptional(reference: ObjectReference): ObjectLocation? {
         val matches = locateAll(reference)
-        check(matches.size <= 1) { "Ambiguous: $reference - $matches" }
+        check(matches.values.size <= 1) { "Ambiguous: $reference - $matches" }
 
-        if (matches.isEmpty()) {
+        if (matches.values.isEmpty()) {
             return null
         }
-        return matches.iterator().next()
+        return matches.values.iterator().next()
     }
 
 
     fun locateOptional(host: ObjectLocation, reference: ObjectReference): ObjectLocation? {
         val matches = locateAll(host, reference)
 
-        check(matches.size <= 1) { "Ambiguous: $host - $reference - $matches" }
+        check(matches.values.size <= 1) { "Ambiguous: $host - $reference - $matches" }
 
-        if (matches.isEmpty()) {
+        if (matches.values.isEmpty()) {
             return null
         }
-        return matches.iterator().next()
+        return matches.values.iterator().next()
     }
 
 
-    fun locateAll(reference: ObjectReference): Set<ObjectLocation> {
+    fun locateAll(reference: ObjectReference): ObjectLocationSet {
         val candidates = mutableSetOf<ObjectLocation>()
         for (candidate in values.keys) {
             if (reference.name != candidate.objectPath.name ||
@@ -51,11 +51,11 @@ class ObjectMap<T>(
 
             candidates.add(candidate)
         }
-        return candidates
+        return ObjectLocationSet(candidates)
     }
 
 
-    fun locateAll(host: ObjectLocation, reference: ObjectReference): Set<ObjectLocation> {
+    fun locateAll(host: ObjectLocation, reference: ObjectReference): ObjectLocationSet {
         // TODO: breadth-first-search from host
         return locateAll(reference)
     }

@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.api.model.AttributePath
-import tech.kzen.lib.common.api.model.AttributeSegment
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributeSegment
 
 
 //---------------------------------------------------------------------------------------------------------------------

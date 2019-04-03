@@ -1,8 +1,8 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.api.model.DocumentName
-import tech.kzen.lib.common.api.model.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentName
+import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
 import tech.kzen.lib.common.structure.notation.edit.RenameDocumentRefactorCommand
 import tech.kzen.lib.server.util.GraphTestUtils

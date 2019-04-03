@@ -1,9 +1,9 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributePath
-import tech.kzen.lib.common.api.model.AttributeSegment
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.structure.notation.edit.*
 import tech.kzen.lib.common.structure.notation.model.ListAttributeNotation
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
@@ -157,7 +157,7 @@ Foo:
         ))
 
         val newObjectNotation = project.state.coalesce.values[location("Foo")]!!
-        val emptyList = newObjectNotation.attributes[AttributeName("hello")] as ListAttributeNotation
+        val emptyList = newObjectNotation.attributes.values[AttributeName("hello")] as ListAttributeNotation
 
         assertTrue(emptyList.values.isEmpty())
 
@@ -186,7 +186,7 @@ Foo:
         ))
 
         val newObjectNotation = project.state.coalesce.values[location("Foo")]!!
-        val emptyMap = newObjectNotation.attributes[AttributeName("hello")] as MapAttributeNotation
+        val emptyMap = newObjectNotation.attributes.values[AttributeName("hello")] as MapAttributeNotation
 
         assertTrue(emptyMap.values.isEmpty())
 

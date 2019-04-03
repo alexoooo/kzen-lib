@@ -1,13 +1,17 @@
 package tech.kzen.lib.common.definition
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
+import tech.kzen.lib.common.model.attribute.AttributeNesting
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributeSegment
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.platform.ClassName
 
 
 // TODO: should creator be ObjectLocation?
 data class ObjectDefinition(
         val className: ClassName,
-        val attributeDefinitions: Map<AttributeName, AttributeDefinition>,
+        val attributeDefinitions: AttributeNameMap<AttributeDefinition>,
         val creator: ObjectReference,
 
         /**
@@ -19,7 +23,7 @@ data class ObjectDefinition(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributePath: AttributePath): AttributeDefinition {
-        val root = attributeDefinitions[attributePath.attribute]
+        val root = attributeDefinitions.values[attributePath.attribute]
                 ?: throw IllegalArgumentException("Missing attribute definition: ${attributePath.attribute}")
 
         if (attributePath.nesting.segments.isEmpty()) {
@@ -63,7 +67,7 @@ data class ObjectDefinition(
     fun attributeReferences(): Map<AttributePath, ObjectReference> {
         val builder = mutableMapOf<AttributePath, ObjectReference>()
 
-        for (e in attributeDefinitions) {
+        for (e in attributeDefinitions.values) {
             val attributeReferences = attributeReferences(e.value)
 
             for (attributeReference in attributeReferences) {

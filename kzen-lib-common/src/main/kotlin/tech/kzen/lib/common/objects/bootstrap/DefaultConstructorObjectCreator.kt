@@ -1,9 +1,9 @@
 package tech.kzen.lib.common.objects.bootstrap
 
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.ObjectDefinition
+import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.platform.Mirror
 

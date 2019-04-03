@@ -1,11 +1,13 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.*
+import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.structure.notation.NotationConventions
 
 
 data class ObjectNotation(
-        val attributes: Map<AttributeName, AttributeNotation>
+        val attributes: AttributeNameMap<AttributeNotation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -17,8 +19,8 @@ data class ObjectNotation(
         fun ofParent(reference: ObjectReference): ObjectNotation {
             val attributeNotation = ScalarAttributeNotation(reference.asString())
 
-            return ObjectNotation(mapOf(
-                    NotationConventions.isAttributePath.attribute to attributeNotation))
+            return ObjectNotation(AttributeNameMap(mapOf(
+                    NotationConventions.isAttributePath.attribute to attributeNotation)))
         }
     }
 
@@ -34,13 +36,13 @@ data class ObjectNotation(
 //        println("attributes: $attributes - $notationPath")
 
         val firstSegment = notationPath.attribute
-        if (! attributes.containsKey(firstSegment)) {
+        if (! attributes.values.containsKey(firstSegment)) {
 //            println("first segment missing ($firstSegment): $attributes - $notationPath")
             return null
         }
 //        println("first segment: $firstSegment")
 
-        val root = attributes[firstSegment]!!
+        val root = attributes.values[firstSegment]!!
         if (notationPath.nesting.segments.isEmpty()) {
             return root
         }
@@ -81,7 +83,7 @@ data class ObjectNotation(
 //        }
 
         val root: StructuredAttributeNotation =
-                attributes[rootParameterName]
+                attributes.values[rootParameterName]
                 as? StructuredAttributeNotation
                 ?: MapAttributeNotation(mapOf())
 //                ?: throw IllegalArgumentException(
@@ -103,7 +105,7 @@ data class ObjectNotation(
         var replaced = false
 
         val buffer = mutableMapOf<AttributeName, AttributeNotation>()
-        for (parameter in attributes) {
+        for (parameter in attributes.values) {
             buffer[parameter.key] =
                     if (parameter.key == parameterName) {
                         replaced = true
@@ -118,7 +120,7 @@ data class ObjectNotation(
             buffer[parameterName] = value
         }
 
-        return ObjectNotation(buffer)
+        return ObjectNotation(AttributeNameMap(buffer))
     }
 
 

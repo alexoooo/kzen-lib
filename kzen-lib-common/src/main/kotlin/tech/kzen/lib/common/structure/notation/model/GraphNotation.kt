@@ -1,16 +1,22 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentPathMap
+import tech.kzen.lib.common.model.locate.AttributeLocation
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.structure.notation.NotationConventions
 
 
 data class GraphNotation(
-        val documents: DocumentTree<DocumentNotation>)
+        val documents: DocumentPathMap<DocumentNotation>)
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = GraphNotation(DocumentTree(mapOf()))
+        val empty = GraphNotation(DocumentPathMap(mapOf()))
     }
 
 
@@ -19,12 +25,12 @@ data class GraphNotation(
         coalesce.values.keys
     }
 
-    val coalesce: ObjectMap<ObjectNotation> by lazy {
+    val coalesce: ObjectLocationMap<ObjectNotation> by lazy {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
         documents.values.entries
                 .flatMap { it.value.expand(it.key).values.entries }
                 .forEach { buffer[it.key] = it.value }
-        ObjectMap(buffer)
+        ObjectLocationMap(buffer)
     }
 
 
@@ -151,7 +157,7 @@ data class GraphNotation(
 
         buffer[documentPath] = documentNotation
 
-        return GraphNotation(DocumentTree(buffer))
+        return GraphNotation(DocumentPathMap(buffer))
     }
 
 
@@ -173,7 +179,7 @@ data class GraphNotation(
                     }
         }
 
-        return GraphNotation(DocumentTree(buffer))
+        return GraphNotation(DocumentPathMap(buffer))
     }
 
 
@@ -192,7 +198,7 @@ data class GraphNotation(
             buffer[e.key] = e.value
         }
 
-        return GraphNotation(DocumentTree(buffer))
+        return GraphNotation(DocumentPathMap(buffer))
     }
 
 
@@ -208,6 +214,6 @@ data class GraphNotation(
             filteredDocuments[e.key] = e.value
         }
 
-        return GraphNotation(DocumentTree(filteredDocuments))
+        return GraphNotation(DocumentPathMap(filteredDocuments))
     }
 }

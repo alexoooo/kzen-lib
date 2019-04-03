@@ -1,11 +1,11 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.attribute
 
 
 data class AttributeName(
         val value: String
 ) {
     fun asAttributeNesting(): AttributePath {
-        return AttributePath.ofAttribute(this)
+        return AttributePath.ofName(this)
     }
 
 

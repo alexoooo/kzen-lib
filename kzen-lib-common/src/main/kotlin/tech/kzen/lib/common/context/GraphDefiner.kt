@@ -2,9 +2,14 @@ package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.api.ObjectDefiner
-import tech.kzen.lib.common.api.model.*
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
 import tech.kzen.lib.common.structure.GraphStructure
@@ -35,7 +40,7 @@ object GraphDefiner {
     private fun bootstrapPath(objectName: ObjectName): ObjectLocation {
         return ObjectLocation(
                 NotationConventions.kzenBasePath,
-                ObjectPath(objectName, DocumentNesting.root))
+                ObjectPath(objectName, ObjectNesting.root))
     }
 
 
@@ -84,14 +89,14 @@ object GraphDefiner {
                 val definition = definer.define(
                         objectLocation,
                         graphStructure,
-                        GraphDefinition(ObjectMap(closedDefinitions)),
-                        GraphInstance(ObjectMap(definerAndRelatedInstances)))
+                        GraphDefinition(ObjectLocationMap(closedDefinitions)),
+                        GraphInstance(ObjectLocationMap(definerAndRelatedInstances)))
 //                println("  >> definition: $definition")
 
                 if (definition.isError()) {
 //                    println(" !! definition error: ${definition.errorMessage}")
 
-                    missingInstances.addAll(definition.missingObjects)
+                    missingInstances.addAll(definition.missingObjects.values)
                     continue
                 }
 
@@ -139,7 +144,7 @@ object GraphDefiner {
                         missingName,
                         graphStructure,
                         definition,
-                        GraphInstance(ObjectMap(definerAndRelatedInstances)))
+                        GraphInstance(ObjectLocationMap(definerAndRelatedInstances)))
 
 //                println("  $$ created: $missingName")
 
@@ -160,7 +165,7 @@ object GraphDefiner {
             levelClosed.clear()
             missingCreatorInstances.clear()
         }
-        return GraphDefinition(ObjectMap(closedDefinitions))
+        return GraphDefinition(ObjectLocationMap(closedDefinitions))
     }
 
 

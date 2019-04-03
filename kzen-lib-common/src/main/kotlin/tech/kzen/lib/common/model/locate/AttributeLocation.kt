@@ -1,4 +1,6 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.locate
+
+import tech.kzen.lib.common.model.attribute.AttributePath
 
 
 data class AttributeLocation(

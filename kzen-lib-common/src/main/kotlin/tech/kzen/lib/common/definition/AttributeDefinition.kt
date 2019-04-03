@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.definition
 
-import tech.kzen.lib.common.api.model.ObjectReference
+import tech.kzen.lib.common.model.locate.ObjectReference
 
 
 sealed class AttributeDefinition

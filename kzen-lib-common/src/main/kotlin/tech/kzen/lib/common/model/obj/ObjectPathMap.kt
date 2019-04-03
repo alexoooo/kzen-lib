@@ -1,9 +1,9 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.obj
 
 import tech.kzen.lib.common.structure.notation.model.PositionedObjectPath
 
 
-data class DocumentMap<T>(
+data class ObjectPathMap<T>(
         val values: Map<ObjectPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
@@ -17,7 +17,7 @@ data class DocumentMap<T>(
 //    }
 
 
-    fun equalsInOrder(other: DocumentMap<T>): Boolean {
+    fun equalsInOrder(other: ObjectPathMap<T>): Boolean {
         return this == other &&
                 values.keys.toList() == other.values.keys.toList()
     }
@@ -27,7 +27,7 @@ data class DocumentMap<T>(
     fun updateEntry(
             key: ObjectPath,
             value: T
-    ): DocumentMap<T> {
+    ): ObjectPathMap<T> {
         check(values.containsKey(key)) { "Not found: $key" }
 
         val buffer = mutableMapOf<ObjectPath, T>()
@@ -42,7 +42,7 @@ data class DocumentMap<T>(
                     }
         }
 
-        return DocumentMap(buffer)
+        return ObjectPathMap(buffer)
     }
 
 
@@ -50,7 +50,7 @@ data class DocumentMap<T>(
     fun insertEntry(
             key: PositionedObjectPath,
             value: T
-    ): DocumentMap<T> {
+    ): ObjectPathMap<T> {
         check(! values.containsKey(key.objectPath)) { "Already exists: $key" }
         check(0 <= key.positionIndex.value &&
                 key.positionIndex.value <= values.size) {
@@ -79,13 +79,13 @@ data class DocumentMap<T>(
             buffer[entry.key] = entry.value
         }
 
-        return DocumentMap(buffer)
+        return ObjectPathMap(buffer)
     }
 
 
     fun removeKey(
             key: ObjectPath
-    ): DocumentMap<T> {
+    ): ObjectPathMap<T> {
         check(values.containsKey(key)) { "Not found: $key" }
 
         val buffer = mutableMapOf<ObjectPath, T>()
@@ -98,7 +98,7 @@ data class DocumentMap<T>(
             buffer[e.key] = e.value
         }
 
-        return DocumentMap(buffer)
+        return ObjectPathMap(buffer)
     }
 
 

@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.aggregate
 
-import tech.kzen.lib.common.api.model.ObjectName
-import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
 import tech.kzen.lib.common.structure.notation.edit.RenameObjectCommand
 import kotlin.test.Test

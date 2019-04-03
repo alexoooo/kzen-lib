@@ -1,6 +1,13 @@
 package tech.kzen.lib.common.structure.notation.edit
 
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributeSegment
+import tech.kzen.lib.common.model.document.DocumentName
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.structure.notation.model.*
 
 

@@ -1,10 +1,10 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeCreator
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.ObjectLocation
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.*
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.structure.GraphStructure
 
 
@@ -21,7 +21,7 @@ class DefinitionAttributeCreator: AttributeCreator {
             objectDefinition: ObjectDefinition,
             partialGraphInstance: GraphInstance
     ): Any? {
-        val attributeDefinition = objectDefinition.attributeDefinitions[attributeName]
+        val attributeDefinition = objectDefinition.attributeDefinitions.values[attributeName]
 //                ?: inferDefinition(objectLocation, attributeName, graphStructure)
                 ?: throw IllegalArgumentException("Attribute definition missing: $objectLocation - $attributeName")
 

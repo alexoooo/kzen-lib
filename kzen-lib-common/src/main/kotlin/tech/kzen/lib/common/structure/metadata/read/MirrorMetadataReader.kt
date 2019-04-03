@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.structure.metadata.read
 
-import tech.kzen.lib.common.api.model.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.structure.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.structure.metadata.model.ObjectMetadata
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
@@ -20,12 +21,12 @@ class MirrorMetadataReader {
     fun read(className: ClassName): ObjectMetadata {
         val parameterNames = Mirror.constructorArgumentNames(className)
 
-        val parameters = mutableMapOf<AttributeName, AttributeMetadata>()
+        val attributes = mutableMapOf<AttributeName, AttributeMetadata>()
 
         for (parameterName in parameterNames) {
-            parameters[AttributeName(parameterName)] = Constants.emptyParameterMetadata
+            attributes[AttributeName(parameterName)] = Constants.emptyParameterMetadata
         }
 
-        return ObjectMetadata(/*className,*/ parameters)
+        return ObjectMetadata(AttributeNameMap(attributes))
     }
 }

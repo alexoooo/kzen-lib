@@ -1,11 +1,11 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeDefiner
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.*
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.model.TypeMetadata
 import tech.kzen.lib.common.structure.notation.model.AttributeNotation
@@ -24,14 +24,14 @@ class StructuralAttributeDefiner: AttributeDefiner {
     ): AttributeDefinition {
         val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
 
-        val attributeNotation = objectNotation.attributes[attributeName]
+        val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, attributeName.asAttributeNesting())
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
 
         val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
 
-        val attributeMetadata = objectMetadata.attributes[attributeName]
+        val attributeMetadata = objectMetadata.attributes.values[attributeName]
 //                ?: inferMetadata(objectLocation, attributeName, graphStructure.graphNotation)
 
         val typeMetadata = attributeMetadata?.type

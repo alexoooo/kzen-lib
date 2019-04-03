@@ -2,7 +2,12 @@ package tech.kzen.lib.server
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
-import tech.kzen.lib.common.api.model.*
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.structure.notation.edit.RenameObjectCommand
 import tech.kzen.lib.common.structure.notation.edit.ShiftObjectCommand
@@ -86,6 +91,6 @@ A:
     }
 
     private fun attribute(attribute: String): AttributePath {
-        return AttributePath.ofAttribute(AttributeName(attribute))
+        return AttributePath.ofName(AttributeName(attribute))
     }
 }

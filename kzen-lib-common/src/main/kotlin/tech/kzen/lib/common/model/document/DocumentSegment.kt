@@ -1,7 +1,7 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.document
 
 
-data class DocumentPathSegment(
+data class DocumentSegment(
         val value: String
 ) {
     override fun toString(): String {

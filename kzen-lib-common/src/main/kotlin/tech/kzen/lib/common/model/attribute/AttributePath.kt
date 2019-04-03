@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.api.model
+package tech.kzen.lib.common.model.attribute
 
 
 data class AttributePath(
@@ -56,8 +56,8 @@ data class AttributePath(
         }
 
 
-        fun ofAttribute(attribute: AttributeName): AttributePath {
-            return AttributePath(attribute, AttributeNesting.empty)
+        fun ofName(attributeName: AttributeName): AttributePath {
+            return AttributePath(attributeName, AttributeNesting.empty)
         }
 
 

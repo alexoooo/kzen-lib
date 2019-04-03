@@ -2,15 +2,17 @@ package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.api.ObjectDefiner
-import tech.kzen.lib.common.api.model.AttributeName
-import tech.kzen.lib.common.api.model.AttributePath
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectReference
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.AttributeDefinition
 import tech.kzen.lib.common.definition.GraphDefinition
 import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocationSet
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.platform.ClassName
@@ -19,7 +21,7 @@ import tech.kzen.lib.platform.ClassName
 @Suppress("unused")
 class AttributeObjectDefiner: ObjectDefiner {
     companion object {
-        private val creatorParameter = AttributePath.ofAttribute(AttributeName("creator"))
+        private val creatorParameter = AttributePath.ofName(AttributeName("creator"))
 
 //        private val defaultParameterDefiner =
 //                NotationParameterDefiner::class.simpleName!!
@@ -50,7 +52,7 @@ class AttributeObjectDefiner: ObjectDefiner {
 //        val argumentNames = Mirror.constructorArgumentNames(className)
 //        println("&&& class arguments ($className): $argumentNames")
 
-        for ((attributeName, attributeMetadata) in objectMetadata.attributes) {
+        for ((attributeName, attributeMetadata) in objectMetadata.attributes.values) {
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultAttributeCreator
             creatorRequired.add(attributeCreatorReference)
 
@@ -63,7 +65,7 @@ class AttributeObjectDefiner: ObjectDefiner {
             val definerInstance = partialGraphInstance.objects
                     .find(attributeDefinerLocation)
                     ?: return ObjectDefinitionAttempt.missingObjectsFailure(
-                            setOf(attributeDefinerLocation))
+                            ObjectLocationSet(setOf(attributeDefinerLocation)))
 
             val attributeDefiner = definerInstance
                     as? AttributeDefiner
@@ -85,7 +87,7 @@ class AttributeObjectDefiner: ObjectDefiner {
 
         val objectDefinition = ObjectDefinition(
                 className,
-                attributeDefinitions,
+                AttributeNameMap(attributeDefinitions),
                 creatorReference,
                 creatorRequired)
 

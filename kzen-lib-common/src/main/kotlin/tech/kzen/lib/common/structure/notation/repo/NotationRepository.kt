@@ -1,8 +1,8 @@
 package tech.kzen.lib.common.structure.notation.repo
 
-import tech.kzen.lib.common.api.model.DocumentPath
-import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.context.GraphDefiner
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.structure.notation.edit.*
@@ -63,7 +63,7 @@ class NotationRepository(
             documents[projectPath] = documentNotation
         }
 
-        return GraphNotation(DocumentTree(documents))
+        return GraphNotation(DocumentPathMap(documents))
     }
 
 

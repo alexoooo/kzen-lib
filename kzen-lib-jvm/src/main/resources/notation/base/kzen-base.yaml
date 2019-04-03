@@ -119,7 +119,7 @@ ChildContainer:
 
 ObjectLocation:
   abstract: true
-  class: tech.kzen.lib.common.api.model.ObjectLocation
+  class: tech.kzen.lib.common.model.ObjectLocation
 
 
 SelfLocation:

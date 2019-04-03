@@ -1,6 +1,6 @@
 package tech.kzen.lib.server.objects.autowire
 
-import tech.kzen.lib.common.api.model.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectLocation
 
 
 class WeakHolder(

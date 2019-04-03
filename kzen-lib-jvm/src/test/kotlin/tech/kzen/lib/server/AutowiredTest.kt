@@ -2,9 +2,9 @@ package tech.kzen.lib.server
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import tech.kzen.lib.common.api.model.DocumentPath
-import tech.kzen.lib.common.api.model.ObjectLocation
-import tech.kzen.lib.common.api.model.ObjectPath
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.server.objects.autowire.ObjectGroup
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder

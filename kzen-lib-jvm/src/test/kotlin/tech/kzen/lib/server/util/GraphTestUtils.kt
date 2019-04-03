@@ -1,12 +1,12 @@
 package tech.kzen.lib.server.util
 
 import kotlinx.coroutines.runBlocking
-import tech.kzen.lib.common.api.model.DocumentPath
-import tech.kzen.lib.common.api.model.DocumentTree
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.context.GraphInstance
 import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
 import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
@@ -35,7 +35,7 @@ object GraphTestUtils {
                 val notationModule = notationMedia.read(notationPath.key)
                 notationProjectBuilder[notationPath.key] = notationParser.parseDocument(notationModule)
             }
-            GraphNotation(DocumentTree(notationProjectBuilder))
+            GraphNotation(DocumentPathMap(notationProjectBuilder))
         }
     }
 
