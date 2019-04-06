@@ -1,5 +1,5 @@
 {
-  "name": "kzen-lib-client",
+  "name": "kzen-lib-js",
   "dependencies": {
     "immutable": "3.8.2"
   },

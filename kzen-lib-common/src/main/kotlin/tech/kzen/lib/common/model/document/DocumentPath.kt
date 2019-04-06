@@ -7,10 +7,10 @@ data class DocumentPath(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        private val delimiter = "/"
+        const val delimiter = "/"
 
-        private val segmentPattern = Regex("[a-zA-Z0-9_\\-]+")
-        private val namePattern = Regex("[a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+")
+        private val segmentPattern = Regex("[a-zA-Z0-9_\\- ]+")
+        private val namePattern = Regex("[a-zA-Z0-9_\\- ]+\\.yaml")
 
 //        private val resource = Regex(
 //                "([a-zA-Z0-9_\\-]+/)*([a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+)?")
