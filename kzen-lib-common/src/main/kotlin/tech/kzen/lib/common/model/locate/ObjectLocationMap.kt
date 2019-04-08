@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.model.locate
 
 
-class ObjectLocationMap<T>(
+data class ObjectLocationMap<T>(
         val values: Map<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------

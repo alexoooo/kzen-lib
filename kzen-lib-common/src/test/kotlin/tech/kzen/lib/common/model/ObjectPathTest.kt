@@ -54,7 +54,22 @@ class ObjectPathTest {
 
 
     @Test
-    fun parseNameWithUrlName() {
+    fun parseNameWithUrl() {
+        val asString = "foo.hello/http:\\/\\/www.google.com\\/"
+        val literal = ObjectPath(
+                ObjectName("http://www.google.com/"),
+                ObjectNesting(listOf(
+                        ObjectNestingSegment(
+                                ObjectName("foo"),
+                                AttributePath.ofName(AttributeName("hello"))
+                        ))))
+        assertEquals(literal, ObjectPath.parse(asString))
+        assertEquals(asString, literal.asString())
+    }
+
+
+    @Test
+    fun parseNameSingle() {
         val asString = "foo.hello/http:\\/\\/www.google.com\\/"
         val literal = ObjectPath(
                 ObjectName("http://www.google.com/"),

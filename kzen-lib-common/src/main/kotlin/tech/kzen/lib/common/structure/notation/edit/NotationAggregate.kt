@@ -233,13 +233,13 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce.get(command.objectLocation)
-        val objectIndex = packageNotation.indexOf(command.objectLocation.objectPath)
+        val objectIndex = documentNotation.indexOf(command.objectLocation.objectPath)
 
         val removedCurrentName =
-                packageNotation.withoutObject(command.objectLocation.objectPath)
+                documentNotation.withoutObject(command.objectLocation.objectPath)
 
         val newObjectPath = command.objectLocation.objectPath.copy(name = command.newName)
 

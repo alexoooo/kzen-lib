@@ -7,10 +7,13 @@ data class ObjectNestingSegment(
         val objectName: ObjectName,
         val attributePath: AttributePath
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): ObjectNestingSegment {
             val nameDelimiter = AttributePath.indexOfDelimiter(asString)
-            check(nameDelimiter != -1)
+            check(nameDelimiter != -1) {
+                "Object nesting expected: $asString"
+            }
 
             val encodedName = asString.substring(0, nameDelimiter)
             val attributePathSuffix = asString.substring(nameDelimiter + 1)
@@ -22,9 +25,16 @@ data class ObjectNestingSegment(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun asString(): String {
-        return objectName.value +
+        return ObjectNesting.encodeDelimiter(objectName.value) +
                 AttributePath.delimiter +
                 attributePath.asString()
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun toString(): String {
+        return asString()
     }
 }

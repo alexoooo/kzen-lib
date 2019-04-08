@@ -133,7 +133,7 @@ class NotationRepository(
 
     private suspend fun writeIfRequired(
             documentPath: DocumentPath,
-            packageNotation: DocumentNotation
+            documentNotation: DocumentNotation
     ): Boolean {
         val cachedDigest = scanCache[documentPath]
 
@@ -154,7 +154,7 @@ class NotationRepository(
                     }
                 }
 
-        val updatedBody = notationParser.deparseDocument(packageNotation, previousBody)
+        val updatedBody = notationParser.deparseDocument(documentNotation, previousBody)
 //        println("!!! updatedBody: ${IoUtils.utf8ToString(updatedBody)}")
 
         if (updatedBody.contentEquals(previousBody) && ! previousMissing) {

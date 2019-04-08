@@ -91,6 +91,11 @@ data class ObjectNesting(
         }
 
 
+//        fun encodeNameSuffix(objectName: ObjectName): String {
+//            return objectName
+//        }
+
+
         fun extractSegments(encodedObjectPath: String): String? {
             if (! containsSegments(encodedObjectPath)) {
                 return null
@@ -109,7 +114,12 @@ data class ObjectNesting(
 //            check(parts.size % 2 == 0) { "Name/nesting segment mis-match: $asString" }
 
             val builder = mutableListOf<ObjectNestingSegment>()
-            for (part in parts) {
+            for ((index, part) in parts.withIndex()) {
+                if (index == 0 && part.isEmpty()) {
+                    // absolute path
+                    continue
+                }
+
                 builder.add(ObjectNestingSegment.parse(part))
             }
             return ObjectNesting(builder)
@@ -127,5 +137,11 @@ data class ObjectNesting(
             return ""
         }
         return segments.joinToString(delimiter) { it.asString() }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun toString(): String {
+        return asString()
     }
 }

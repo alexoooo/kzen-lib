@@ -34,4 +34,18 @@ class ObjectLocationMapTest {
 
         assertEquals(location, located)
     }
+
+
+    @Test
+    fun locateWeirdName() {
+        val location = ObjectLocation.parse("main/main.yaml#/main.attr/\\")
+
+        val data = ObjectLocationMap(mapOf(
+                location to "foo"
+        ))
+
+        val located = data.locate(ObjectReference.parse("main.attr/\\"))
+
+        assertEquals(location, located)
+    }
 }

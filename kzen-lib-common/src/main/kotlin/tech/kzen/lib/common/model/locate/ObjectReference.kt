@@ -104,7 +104,7 @@ data class ObjectReference(
                     nesting.asString() + ObjectNesting.delimiter
                 }
 
-        return pathPrefix + nestingInfix + name.value
+        return pathPrefix + nestingInfix + ObjectNesting.encodeDelimiter(name.value)
     }
 
 

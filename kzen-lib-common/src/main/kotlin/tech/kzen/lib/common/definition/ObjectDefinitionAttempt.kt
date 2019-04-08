@@ -8,6 +8,7 @@ data class ObjectDefinitionAttempt(
         val missingObjects: ObjectLocationSet,
         val errorMessage: String?
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun success(definition: ObjectDefinition) =
                 ObjectDefinitionAttempt(
@@ -29,6 +30,7 @@ data class ObjectDefinitionAttempt(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun isError(): Boolean {
         return value == null
     }

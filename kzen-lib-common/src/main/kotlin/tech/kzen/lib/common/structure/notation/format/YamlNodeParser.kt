@@ -98,28 +98,6 @@ object YamlNodeParser {
                     nonCommentLines[0]
                 }
 
-//        if (value.equals("null", true) || value.isEmpty()) {
-//            return YamlNull
-//        }
-//
-//        if (value.equals("true", true)) {
-//            return YamlTrue
-//        }
-//
-//        if (value.equals("false", true)) {
-//            return YamlFalse
-//        }
-//
-//        val asLong = value.toLongOrNull()
-//        if (asLong != null) {
-//            return YamlLong(asLong)
-//        }
-//
-//        val asDouble = value.toDoubleOrNull()
-//        if (asDouble != null) {
-//            return YamlDouble(asDouble)
-//        }
-
         return YamlUtils.parseString(value)
     }
 
@@ -183,7 +161,7 @@ object YamlNodeParser {
 
         val startMatch = matchEntireEntry(startLife)!!
 
-        val key = startMatch.groupValues[1]
+        val key = YamlUtils.unescape(startMatch.groupValues[1])
         val startSuffix = startMatch.groupValues[2]
 
         val valueBuffer = mutableListOf<String>()

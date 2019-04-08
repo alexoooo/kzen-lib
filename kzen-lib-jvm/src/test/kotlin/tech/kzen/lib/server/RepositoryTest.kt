@@ -6,7 +6,9 @@ import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.structure.notation.edit.RenameObjectCommand
@@ -81,6 +83,42 @@ A:
 
             assertTrue(modified.startsWith("\"Foo Bar\":"),
                     "Encoded key expected: $modified")
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Rename with slash`() {
+        val media = MapNotationMedia()
+
+        val repo = NotationRepository(
+                media, yamlParser, metadataReader)
+
+        runBlocking {
+            media.write(mainPath, IoUtils.utf8Encode("""
+A:
+  hello: "a"
+"""))
+
+            val aLocation = location("A")
+            val newName = ObjectName("/")
+
+            repo.apply(RenameObjectCommand(aLocation, newName))
+
+            val modified = IoUtils.utf8Decode(media.read(mainPath))
+
+            assertEquals("""
+                "\\/":
+                  hello: a
+            """.trimIndent(), modified)
+
+            assertEquals(
+                    ObjectLocation(
+                            mainPath,
+                            ObjectPath(newName, ObjectNesting.root)
+                    ),
+                    repo.aggregate().state.coalesce.locate(ObjectReference(newName, null, null)))
         }
     }
 

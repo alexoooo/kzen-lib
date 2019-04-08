@@ -5,6 +5,7 @@ package tech.kzen.lib.common.model.attribute
 data class AttributeSegment private constructor(
         private val asString: String
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): AttributeSegment {
             return ofKey(AttributePath.decodeDelimiter(asString))
@@ -21,6 +22,7 @@ data class AttributeSegment private constructor(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun asKey(): String {
         return asString
     }
@@ -35,6 +37,7 @@ data class AttributeSegment private constructor(
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
         return asString
     }
