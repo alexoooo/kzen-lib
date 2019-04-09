@@ -53,7 +53,7 @@ class RenameRefactorTest {
 
         val aggregate = NotationAggregate(notationTree)
 
-        val event = aggregate.apply(
+        aggregate.apply(
                 RenameObjectRefactorCommand(
                         location("OldName"), weirdName),
                 graphDefinition)
