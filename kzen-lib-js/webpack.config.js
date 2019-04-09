@@ -5,7 +5,6 @@ gracefulFs.gracefulify(fs);
 
 
 const webpack = require("webpack");
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const BrowserSyncPlugin = require('browser-sync-webpack-plugin');
 const path = require("path");
 
@@ -41,33 +40,16 @@ module.exports = {
     },
     devtool: 'cheap-source-map',
     plugins: [
-        new webpack.optimize.CommonsChunkPlugin({
-            name: 'vendor',
-            filename: 'vendor.bundle.js'
-        }),
-        new HtmlWebpackPlugin({
-            chunks: ['vendor', 'main'],
-            chunksSortMode: 'manual',
-            minify: {
-                removeAttributeQuotes: false,
-                collapseWhitespace: false,
-                html5: false,
-                minifyCSS: false,
-                minifyJS: false,
-                minifyURLs: false,
-                removeComments: false,
-                removeEmptyAttributes: false
-            },
-            hash: false
-        }),
-
-        // TODO: is this necessary?
-        new BrowserSyncPlugin({
-            host: 'localhost',
-            port: 8080,
-            server: {
-                baseDir: ['./build/dist']
-            }
-        })
+//        new webpack.optimize.CommonsChunkPlugin({
+//            name: 'vendor',
+//            filename: 'vendor.bundle.js'
+//        }),
+//        new BrowserSyncPlugin({
+//            host: 'localhost',
+//            port: 8080,
+//            server: {
+//                baseDir: ['./build/dist']
+//            }
+//        })
     ]
 };
