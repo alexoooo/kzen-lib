@@ -25,14 +25,14 @@ actual class PersistentList<out E> private constructor(
     }
 
     actual fun add(index: Int, element: @UnsafeVariance E): PersistentList<E> {
-        TODO("not implemented")
+        return PersistentList(delegate.insert(index, element))
     }
 
     actual fun set(index: Int, element: @UnsafeVariance E): PersistentList<E> {
-        TODO("not implemented")
+        return PersistentList(delegate.set(index, element))
     }
 
     actual fun removeAt(index: Int): PersistentList<E> {
-        TODO("not implemented")
+        return PersistentList(delegate.remove(index))
     }
 }

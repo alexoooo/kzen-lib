@@ -78,13 +78,39 @@ data class ObjectNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun upsertAttribute(
+            attributeName: AttributeName,
+            attributeNotation: AttributeNotation
+    ): ObjectNotation {
+        var replaced = false
+
+        val buffer = mutableMapOf<AttributeName, AttributeNotation>()
+        for (parameter in attributes.values) {
+            buffer[parameter.key] =
+                    if (parameter.key == attributeName) {
+                        replaced = true
+                        attributeNotation
+                    }
+                    else {
+                        parameter.value
+                    }
+        }
+
+        if (! replaced) {
+            buffer[attributeName] = attributeNotation
+        }
+
+        return ObjectNotation(AttributeNameMap(buffer))
+    }
+
+
+    fun upsertAttribute(
             attributePath: AttributePath,
             attributeNotation: AttributeNotation
     ): ObjectNotation {
         val rootParameterName = attributePath.attribute
 
         if (attributePath.nesting.segments.isEmpty()) {
-            return upsertRootParameter(rootParameterName, attributeNotation)
+            return upsertAttribute(rootParameterName, attributeNotation)
         }
 
 //        if (! parameters.containsKey(rootParameterName)) {
@@ -103,33 +129,7 @@ data class ObjectNotation(
                 attributePath.nesting,
                 attributeNotation)
 
-        return upsertRootParameter(rootParameterName, newRoot)
-    }
-
-
-    private fun upsertRootParameter(
-            parameterName: AttributeName,
-            value: AttributeNotation
-    ): ObjectNotation {
-        var replaced = false
-
-        val buffer = mutableMapOf<AttributeName, AttributeNotation>()
-        for (parameter in attributes.values) {
-            buffer[parameter.key] =
-                    if (parameter.key == parameterName) {
-                        replaced = true
-                        value
-                    }
-                    else {
-                        parameter.value
-                    }
-        }
-
-        if (! replaced) {
-            buffer[parameterName] = value
-        }
-
-        return ObjectNotation(AttributeNameMap(buffer))
+        return upsertAttribute(rootParameterName, newRoot)
     }
 
 

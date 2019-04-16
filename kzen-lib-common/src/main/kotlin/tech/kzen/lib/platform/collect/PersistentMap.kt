@@ -1,7 +1,8 @@
 package tech.kzen.lib.platform.collect
 
 
-interface PersistentMap<K, out V>: Map<K, V> {
+// NB: iteration in same order as keys were inserted
+expect class PersistentMap<K, out V>(): Map<K, V> {
     fun put(key: K, value: @UnsafeVariance V): PersistentMap<K, V>
 
     fun remove(key: K): PersistentMap<K, V>

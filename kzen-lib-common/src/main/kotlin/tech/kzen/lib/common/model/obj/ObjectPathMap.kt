@@ -7,6 +7,12 @@ data class ObjectPathMap<T>(
         val values: Map<ObjectPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    operator fun get(objectPath: ObjectPath): T {
+        return values[objectPath]
+                ?: throw IllegalArgumentException("Not found: $objectPath")
+    }
+
+
 //    fun nameAt(index: Int): ObjectName {
 //        return values.keys.toList()[index].name
 //    }

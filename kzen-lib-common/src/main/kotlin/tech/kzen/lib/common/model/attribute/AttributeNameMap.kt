@@ -4,6 +4,7 @@ package tech.kzen.lib.common.model.attribute
 data class AttributeNameMap<T>(
         val values: Map<AttributeName, T>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         private val empty = AttributeNameMap<Any>(emptyMap())
 
@@ -11,5 +12,12 @@ data class AttributeNameMap<T>(
         fun <T> of(): AttributeNameMap<T> {
             return empty as AttributeNameMap<T>
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    operator fun get(attributeName: AttributeName): T {
+        return values[attributeName]
+                ?: throw IllegalArgumentException("Not found: $attributeName")
     }
 }
