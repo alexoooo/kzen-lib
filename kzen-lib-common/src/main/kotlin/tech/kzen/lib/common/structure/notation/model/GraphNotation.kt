@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.structure.notation.model
 
+import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
@@ -84,9 +85,29 @@ data class GraphNotation(
     //-----------------------------------------------------------------------------------------------------------------
     fun directAttribute(
             objectLocation: ObjectLocation,
+            attributeName: AttributeName
+    ): AttributeNotation? {
+        return coalesce.values[objectLocation]?.get(attributeName)
+    }
+
+
+    fun directAttribute(
+            objectLocation: ObjectLocation,
             attributePath: AttributePath
-    ): AttributeNotation? =
-            coalesce.values[objectLocation]?.get(attributePath)
+    ): AttributeNotation? {
+        return coalesce.values[objectLocation]?.get(attributePath)
+    }
+
+
+    fun transitiveAttribute(
+            objectLocation: ObjectLocation,
+            attributeName: AttributeName
+    ): AttributeNotation? {
+        val notation = coalesce.values[objectLocation]
+                ?: return null
+
+        return notation.get(attributeName)
+    }
 
 
     fun transitiveAttribute(
@@ -101,6 +122,7 @@ data class GraphNotation(
             return attributeNotation
         }
 
+        @Suppress("MoveVariableDeclarationIntoWhen")
         val isAttribute = notation.get(NotationConventions.isAttributePath)
 
         val superReference =

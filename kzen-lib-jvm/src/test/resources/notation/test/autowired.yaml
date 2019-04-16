@@ -14,8 +14,7 @@ WeakHolder:
       is: List
       of: ObjectLocation
       by: AutowiredNominal
-      find:
-        is: AbstractObject
+      for: AbstractObject
 
 
 AbstractFoo:

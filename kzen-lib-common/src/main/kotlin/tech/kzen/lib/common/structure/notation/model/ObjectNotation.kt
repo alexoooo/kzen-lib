@@ -26,6 +26,11 @@ data class ObjectNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun get(notationName: AttributeName): AttributeNotation? {
+        return attributes.values[notationName]
+    }
+
+
     fun get(notationPath: AttributePath): AttributeNotation? {
 //        if (parameters.containsKey(notationPath)) {
 //            return parameters[notationPath]!!
@@ -42,7 +47,11 @@ data class ObjectNotation(
         }
 //        println("first segment: $firstSegment")
 
-        val root = attributes.values[firstSegment]!!
+//        val root = attributes.values[firstSegment]!!
+
+        val root = get(notationPath.attribute)
+                ?: return null
+
         if (notationPath.nesting.segments.isEmpty()) {
             return root
         }

@@ -19,7 +19,7 @@ class AutowiredAttributeDefiner(
         private val weak: Boolean
 ): AttributeDefiner {
     companion object {
-        val findSegment = AttributeSegment.ofKey("find")
+        val forAttributeSegment = AttributeSegment.ofKey("for")
     }
 
 
@@ -58,7 +58,7 @@ class AutowiredAttributeDefiner(
 
 
     private fun findIs(attributeMetadata: AttributeMetadata): String {
-        val find = attributeMetadata.attributeMetadataNotation.values[findSegment]
+        val find = attributeMetadata.attributeMetadataNotation.values[forAttributeSegment]
                 ?: return attributeOf(attributeMetadata)
 
         if (find is MapAttributeNotation) {
