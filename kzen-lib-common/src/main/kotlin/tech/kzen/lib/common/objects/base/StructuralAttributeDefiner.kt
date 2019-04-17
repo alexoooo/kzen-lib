@@ -23,6 +23,7 @@ class StructuralAttributeDefiner: AttributeDefiner {
             partialGraphInstance: GraphInstance
     ): AttributeDefinition {
         val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
+                ?: throw IllegalArgumentException("Unknown object notation: $objectLocation")
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
@@ -30,6 +31,7 @@ class StructuralAttributeDefiner: AttributeDefiner {
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
 
         val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
+                ?: throw IllegalArgumentException("Unknown object metadata: $objectLocation")
 
         val attributeMetadata = objectMetadata.attributes.values[attributeName]
 //                ?: inferMetadata(objectLocation, attributeName, graphStructure.graphNotation)

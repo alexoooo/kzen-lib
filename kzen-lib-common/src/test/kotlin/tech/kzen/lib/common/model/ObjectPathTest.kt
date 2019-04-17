@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectNestingSegment
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.platform.collect.persistentListOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -43,7 +44,7 @@ class ObjectPathTest {
         val asString = "foo.hello/bar\\/baz"
         val literal = ObjectPath(
                 ObjectName("bar/baz"),
-                ObjectNesting(listOf(
+                ObjectNesting(persistentListOf(
                         ObjectNestingSegment(
                                 ObjectName("foo"),
                                 AttributePath.ofName(AttributeName("hello"))
@@ -58,7 +59,7 @@ class ObjectPathTest {
         val asString = "foo.hello/http:\\/\\/www.google.com\\/"
         val literal = ObjectPath(
                 ObjectName("http://www.google.com/"),
-                ObjectNesting(listOf(
+                ObjectNesting(persistentListOf(
                         ObjectNestingSegment(
                                 ObjectName("foo"),
                                 AttributePath.ofName(AttributeName("hello"))
@@ -73,7 +74,7 @@ class ObjectPathTest {
         val asString = "foo.hello/http:\\/\\/www.google.com\\/"
         val literal = ObjectPath(
                 ObjectName("http://www.google.com/"),
-                ObjectNesting(listOf(
+                ObjectNesting(persistentListOf(
                         ObjectNestingSegment(
                                 ObjectName("foo"),
                                 AttributePath.ofName(AttributeName("hello"))

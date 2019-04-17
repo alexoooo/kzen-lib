@@ -11,6 +11,7 @@ import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.notation.format.YamlUtils
+import tech.kzen.lib.platform.collect.persistentListOf
 
 
 object NotationConventions {
@@ -55,7 +56,7 @@ object NotationConventions {
     val mainObjectPath = ObjectPath(mainObjectName, ObjectNesting.root)
     val mainDocumentName = DocumentName.ofYaml(mainKey)
     val mainDocumentPathSegment = DocumentSegment(mainKey)
-    val mainDocumentPath = DocumentPath(null, DocumentNesting(listOf(mainDocumentPathSegment)))
+    val mainDocumentPath = DocumentPath(null, DocumentNesting(persistentListOf(mainDocumentPathSegment)))
 
 
     val specialAttributeNames = setOf(

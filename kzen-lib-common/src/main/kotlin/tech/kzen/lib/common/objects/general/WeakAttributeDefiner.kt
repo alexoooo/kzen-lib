@@ -24,7 +24,7 @@ class WeakAttributeDefiner(
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
     ): AttributeDefinition {
-        val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
+        val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)!!
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(

@@ -4,6 +4,7 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -61,7 +62,7 @@ class FileNotationMedia(
             }
         }
 
-        return DocumentPathMap(digested)
+        return DocumentPathMap(digested.toPersistentMap())
     }
 
 

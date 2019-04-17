@@ -1,12 +1,14 @@
 package tech.kzen.lib.common.model.attribute
 
+import tech.kzen.lib.platform.collect.PersistentList
+
 
 data class AttributeNesting(
-        val segments: List<AttributeSegment>
+        val segments: PersistentList<AttributeSegment>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = AttributeNesting(listOf())
+        val empty = AttributeNesting(PersistentList())
     }
 
 
@@ -17,7 +19,7 @@ data class AttributeNesting(
 
 
     fun push(segment: AttributeSegment): AttributeNesting {
-        return AttributeNesting(segments.plus(segment))
+        return AttributeNesting(segments.add(segment))
     }
 
 

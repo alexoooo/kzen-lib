@@ -15,6 +15,7 @@ import tech.kzen.lib.common.structure.notation.io.NotationParser
 import tech.kzen.lib.common.structure.notation.io.common.MultiNotationMedia
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.server.notation.ClasspathNotationMedia
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
@@ -35,7 +36,8 @@ object GraphTestUtils {
                 val notationModule = notationMedia.read(notationPath.key)
                 notationProjectBuilder[notationPath.key] = notationParser.parseDocument(notationModule)
             }
-            GraphNotation(DocumentPathMap(notationProjectBuilder))
+            GraphNotation(DocumentPathMap(
+                    notationProjectBuilder.toPersistentMap()))
         }
     }
 

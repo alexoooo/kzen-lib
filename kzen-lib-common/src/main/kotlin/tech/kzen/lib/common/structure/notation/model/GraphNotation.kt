@@ -10,6 +10,7 @@ import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class GraphNotation(
@@ -17,7 +18,8 @@ data class GraphNotation(
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = GraphNotation(DocumentPathMap(mapOf()))
+        val empty = GraphNotation(DocumentPathMap(
+                mapOf<DocumentPath, DocumentNotation>().toPersistentMap()))
     }
 
 
@@ -26,12 +28,13 @@ data class GraphNotation(
         coalesce.values.keys
     }
 
+
     val coalesce: ObjectLocationMap<ObjectNotation> by lazy {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
         documents.values.entries
                 .flatMap { it.value.expand(it.key).values.entries }
                 .forEach { buffer[it.key] = it.value }
-        ObjectLocationMap(buffer)
+        ObjectLocationMap(buffer.toPersistentMap())
     }
 
 
@@ -171,15 +174,9 @@ data class GraphNotation(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation
     ): GraphNotation {
-        check(! documents.values.containsKey(documentPath)) {"Already exists: $documentPath"}
-
-        val buffer = mutableMapOf<DocumentPath, DocumentNotation>()
-
-        buffer.putAll(documents.values)
-
-        buffer[documentPath] = documentNotation
-
-        return GraphNotation(DocumentPathMap(buffer))
+        check(documentPath !in documents.values) {"Already exists: $documentPath"}
+        return GraphNotation(
+                documents.put(documentPath, documentNotation))
     }
 
 
@@ -187,40 +184,18 @@ data class GraphNotation(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation
     ): GraphNotation {
-        check(documents.values.containsKey(documentPath)) {"Not found: $documentPath"}
-
-        val buffer = mutableMapOf<DocumentPath, DocumentNotation>()
-
-        for (e in documents.values) {
-            buffer[e.key] =
-                    if (e.key == documentPath) {
-                        documentNotation
-                    }
-                    else {
-                        e.value
-                    }
-        }
-
-        return GraphNotation(DocumentPathMap(buffer))
+        check(documentPath in documents) {"Not found: $documentPath"}
+        return GraphNotation(
+                documents.put(documentPath, documentNotation))
     }
 
 
     fun withoutDocument(
             documentPath: DocumentPath
     ): GraphNotation {
-        check(documents.values.containsKey(documentPath)) {"Already absent: $documentPath"}
-
-        val buffer = mutableMapOf<DocumentPath, DocumentNotation>()
-
-        for (e in documents.values) {
-            if (e.key == documentPath) {
-                continue
-            }
-
-            buffer[e.key] = e.value
-        }
-
-        return GraphNotation(DocumentPathMap(buffer))
+        check(documentPath in documents) {"Already absent: $documentPath"}
+        return GraphNotation(
+                documents.remove(documentPath))
     }
 
 
@@ -236,6 +211,6 @@ data class GraphNotation(
             filteredDocuments[e.key] = e.value
         }
 
-        return GraphNotation(DocumentPathMap(filteredDocuments))
+        return GraphNotation(DocumentPathMap(filteredDocuments.toPersistentMap()))
     }
 }

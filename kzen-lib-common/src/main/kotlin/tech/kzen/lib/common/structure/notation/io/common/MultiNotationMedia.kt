@@ -4,6 +4,7 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class MultiNotationMedia(
@@ -14,7 +15,7 @@ class MultiNotationMedia(
         for (delegate in media) {
             all.putAll(delegate.scan().values)
         }
-        return DocumentPathMap(all)
+        return DocumentPathMap(all.toPersistentMap())
     }
 
 

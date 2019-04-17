@@ -16,6 +16,7 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.platform.ClassName
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 @Suppress("unused")
@@ -41,16 +42,13 @@ class AttributeObjectDefiner: ObjectDefiner {
             partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
         val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
-//                ?: throw IllegalArgumentException("Metadata not found: $objectName")
+                ?: throw IllegalArgumentException("Metadata not found: $objectLocation")
 
         val className = ClassName(graphStructure.graphNotation
                 .getString(objectLocation, NotationConventions.classAttributePath))
 
         val attributeDefinitions = mutableMapOf<AttributeName, AttributeDefinition>()
         val creatorRequired = mutableSetOf<ObjectReference>()
-
-//        val argumentNames = Mirror.constructorArgumentNames(className)
-//        println("&&& class arguments ($className): $argumentNames")
 
         for ((attributeName, attributeMetadata) in objectMetadata.attributes.values) {
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultAttributeCreator
@@ -63,7 +61,7 @@ class AttributeObjectDefiner: ObjectDefiner {
                             "Unknown attribute definer: $attributeDefinerRef")
 
             val definerInstance = partialGraphInstance.objects
-                    .find(attributeDefinerLocation)
+                    .get(attributeDefinerLocation)
                     ?: return ObjectDefinitionAttempt.missingObjectsFailure(
                             ObjectLocationSet(setOf(attributeDefinerLocation)))
 
@@ -87,7 +85,7 @@ class AttributeObjectDefiner: ObjectDefiner {
 
         val objectDefinition = ObjectDefinition(
                 className,
-                AttributeNameMap(attributeDefinitions),
+                AttributeNameMap(attributeDefinitions.toPersistentMap()),
                 creatorReference,
                 creatorRequired)
 

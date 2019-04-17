@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.model.attribute
 
+import tech.kzen.lib.platform.collect.toPersistentList
+
 
 data class AttributePath(
         val attribute: AttributeName,
@@ -67,7 +69,7 @@ data class AttributePath(
             val attribute = AttributeName(decodeDelimiter(parts[0]))
             val segments = parts.subList(1, parts.size).map { AttributeSegment.parse(it) }
 
-            return AttributePath(attribute, AttributeNesting(segments))
+            return AttributePath(attribute, AttributeNesting(segments.toPersistentList()))
         }
     }
 

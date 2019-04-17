@@ -2,6 +2,9 @@ package tech.kzen.lib.common.structure.notation.model
 
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
+import tech.kzen.lib.platform.collect.PersistentList
+import tech.kzen.lib.platform.collect.PersistentMap
+import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -9,10 +12,10 @@ sealed class AttributeNotation {
     fun asString(): String? {
         return (this as? ScalarAttributeNotation)
                 ?.value
-//                as? String
     }
 
     fun asBoolean(): Boolean? {
+        @Suppress("MoveVariableDeclarationIntoWhen")
         val asString = (this as? ScalarAttributeNotation)
                 ?.value
                 ?: return null
@@ -22,35 +25,15 @@ sealed class AttributeNotation {
             "false" -> false
             else -> null
         }
-
-//        return (this as? ScalarAttributeNotation)
-//                ?.value
-//                as? Boolean
     }
 }
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class ScalarAttributeNotation(
-//        val value: Any?
         val value: String
 ): AttributeNotation() {
-//    init {
-//        // TODO: rename to OpaqueAttributeNotation and allow any type?
-//        when (value) {
-//            null,
-//            is String,
-//            is Boolean,
-//            is Number
-//            -> Unit
-//
-//            else ->
-//                throw IllegalArgumentException("Scalar value expected: $value")
-//        }
-//    }
-
     override fun toString(): String {
-//        return value.toString()
         return value
     }
 }
@@ -84,7 +67,7 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
 
 
 data class ListAttributeNotation(
-        val values: List<AttributeNotation>
+        val values: PersistentList<AttributeNotation>
 ): StructuredAttributeNotation() {
     override fun get(key: String): AttributeNotation? {
         val index = key.toInt()
@@ -92,22 +75,29 @@ data class ListAttributeNotation(
     }
 
 
-    fun insert(
-            attributeNotation: AttributeNotation,
-            positionIndex: PositionIndex
+    fun set(
+            positionIndex: PositionIndex,
+            attributeNotation: AttributeNotation
     ): ListAttributeNotation {
-        val builder = values.toMutableList()
-        builder.add(positionIndex.value, attributeNotation)
-        return ListAttributeNotation(builder)
+        return ListAttributeNotation(
+                values.set(positionIndex.value, attributeNotation))
+    }
+
+
+    fun insert(
+            positionIndex: PositionIndex,
+            attributeNotation: AttributeNotation
+    ): ListAttributeNotation {
+        return ListAttributeNotation(
+                values.add(positionIndex.value, attributeNotation))
     }
 
 
     fun remove(
             positionIndex: PositionIndex
     ): ListAttributeNotation {
-        val builder = values.toMutableList()
-        builder.removeAt(positionIndex.value)
-        return ListAttributeNotation(builder)
+        return ListAttributeNotation(
+                values.removeAt(positionIndex.value))
     }
 
 
@@ -118,14 +108,24 @@ data class ListAttributeNotation(
 
 
 data class MapAttributeNotation(
-        val values: Map<AttributeSegment, AttributeNotation>
+        val values: PersistentMap<AttributeSegment, AttributeNotation>
 ): StructuredAttributeNotation() {
     companion object {
-        val empty = MapAttributeNotation(mapOf())
+        val empty = MapAttributeNotation(persistentMapOf())
     }
+
 
     override fun get(key: String): AttributeNotation? {
         return values[AttributeSegment.ofKey(key)]
+    }
+
+
+    fun put(
+            key: AttributeSegment,
+            attributeNotation: AttributeNotation
+    ): MapAttributeNotation {
+        return MapAttributeNotation(
+                values.put(key, attributeNotation))
     }
 
 
@@ -141,30 +141,34 @@ data class MapAttributeNotation(
             "Position ($positionIndex) must be <= size (${values.size})"
         }
 
-        val builder = mutableMapOf<AttributeSegment, AttributeNotation>()
-
-        var index = 0
-        for (e in values) {
-            if (index == positionIndex.value) {
-                builder[key] = attributeNotation
-            }
-            builder[e.key] = attributeNotation
-            index++
-        }
-        if (index == positionIndex.value) {
-            builder[key] = attributeNotation
-        }
-
-        return MapAttributeNotation(builder)
+        return MapAttributeNotation(
+                values.insert(key, attributeNotation, positionIndex.value))
+//        val builder = mutableMapOf<AttributeSegment, AttributeNotation>()
+//
+//        var index = 0
+//        for (e in values) {
+//            if (index == positionIndex.value) {
+//                builder[key] = attributeNotation
+//            }
+//            builder[e.key] = attributeNotation
+//            index++
+//        }
+//        if (index == positionIndex.value) {
+//            builder[key] = attributeNotation
+//        }
+//
+//        return MapAttributeNotation(builder)
     }
 
 
     fun remove(
             key: AttributeSegment
     ): MapAttributeNotation {
-        val builder = values.toMutableMap()
-        builder.remove(key)
-        return MapAttributeNotation(builder)
+//        val builder = values.toMutableMap()
+//        builder.remove(key)
+//        return MapAttributeNotation(builder)
+        return MapAttributeNotation(
+                values.remove(key))
     }
 
 

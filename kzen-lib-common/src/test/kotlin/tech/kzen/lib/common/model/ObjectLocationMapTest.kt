@@ -3,6 +3,7 @@ package tech.kzen.lib.common.model
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -12,7 +13,7 @@ class ObjectLocationMapTest {
     fun locateByName() {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
 
-        val data = ObjectLocationMap(mapOf(
+        val data = ObjectLocationMap(persistentMapOf(
                 location to "foo"
         ))
 
@@ -26,7 +27,7 @@ class ObjectLocationMapTest {
     fun locateByAbsoluteReference() {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
 
-        val data = ObjectLocationMap(mapOf(
+        val data = ObjectLocationMap(persistentMapOf(
                 location to "foo"
         ))
 
@@ -40,7 +41,7 @@ class ObjectLocationMapTest {
     fun locateWeirdName() {
         val location = ObjectLocation.parse("main/main.yaml#/main.attr/\\")
 
-        val data = ObjectLocationMap(mapOf(
+        val data = ObjectLocationMap(persistentMapOf(
                 location to "foo"
         ))
 

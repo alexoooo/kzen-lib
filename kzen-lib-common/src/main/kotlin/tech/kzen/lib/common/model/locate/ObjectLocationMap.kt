@@ -1,8 +1,10 @@
 package tech.kzen.lib.common.model.locate
 
+import tech.kzen.lib.platform.collect.PersistentMap
+
 
 data class ObjectLocationMap<T>(
-        val values: Map<ObjectLocation, T>
+        val values: PersistentMap<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun locate(reference: ObjectReference): ObjectLocation {
@@ -66,16 +68,25 @@ data class ObjectLocationMap<T>(
 //            values.keys.map(ObjectLocation::name).toSet()
 
 
-    fun get(objectLocation: ObjectLocation): T {
-        val instance = find(objectLocation)
-        check(instance != null) { "Not found: $objectLocation" }
-        return instance
+    fun containsKey(objectLocation: ObjectLocation): Boolean {
+        return values.containsKey(objectLocation)
     }
 
 
-    fun find(objectLocation: ObjectLocation): T? {
+    fun get(objectLocation: ObjectLocation): T? {
         return values[objectLocation]
     }
+
+//    fun get(objectLocation: ObjectLocation): T {
+//        val instance = find(objectLocation)
+//        check(instance != null) { "Not found: $objectLocation" }
+//        return instance
+//    }
+//
+//
+//    fun find(objectLocation: ObjectLocation): T? {
+//        return values[objectLocation]
+//    }
 
 
 
@@ -102,4 +113,10 @@ data class ObjectLocationMap<T>(
 //
 //        return candidates[0]
 //    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun put(objectLocation: ObjectLocation, instance: T): ObjectLocationMap<T> {
+        return ObjectLocationMap(values.put(objectLocation, instance))
+    }
 }

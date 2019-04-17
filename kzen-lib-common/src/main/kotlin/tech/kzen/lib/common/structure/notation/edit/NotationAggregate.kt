@@ -211,7 +211,7 @@ class NotationAggregate(
 
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val removedFromCurrent = packageNotation.withoutObject(command.objectLocation.objectPath)
 
@@ -234,8 +234,7 @@ class NotationAggregate(
         check(command.objectLocation in state.coalesce.values)
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
         val objectIndex = documentNotation.indexOf(command.objectLocation.objectPath)
 
         val removedCurrentName =
@@ -261,8 +260,7 @@ class NotationAggregate(
             command: UpsertAttributeCommand
     ): EventAndNotation {
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
-
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 AttributePath.ofName(command.attributeName), command.attributeNotation)
@@ -284,8 +282,7 @@ class NotationAggregate(
             command: UpdateInAttributeCommand
     ): EventAndNotation {
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
-
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.attributePath, command.attributeNotation)
@@ -309,14 +306,14 @@ class NotationAggregate(
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
 
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val listInAttribute = state
                 .transitiveAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
                 ?: throw IllegalStateException(
                         "List attribute expected: ${command.objectLocation} - ${command.containingList}")
 
-        val listWithInsert = listInAttribute.insert(command.item, command.indexInList)
+        val listWithInsert = listInAttribute.insert(command.indexInList, command.item)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.containingList, listWithInsert)
@@ -338,8 +335,7 @@ class NotationAggregate(
             command: InsertMapEntryInAttributeCommand
     ): EventAndNotation {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
         val mapWithInsert = mapInAttribute.insert(command.value, command.mapKey, command.indexInMap)
@@ -368,8 +364,7 @@ class NotationAggregate(
             command: RemoveInAttributeCommand
     ): EventAndNotation {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val containerPath = command.attributePath.parent()
         val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
@@ -408,7 +403,7 @@ class NotationAggregate(
     private fun shiftInAttribute(
             command: ShiftInAttributeCommand
     ): EventAndNotation {
-        val objectNotation = state.coalesce.get(command.objectLocation)
+        val objectNotation = state.coalesce.get(command.objectLocation)!!
 
         val containerPath = command.attributePath.parent()
         val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
@@ -485,7 +480,7 @@ class NotationAggregate(
     private fun removeObjectInAttribute(
             command: RemoveObjectInAttributeCommand
     ): EventAndNotation {
-        val objectNotation = state.coalesce.get(command.containingObjectLocation)
+        val objectNotation = state.coalesce.get(command.containingObjectLocation)!!
 
 //        val containerPath = command.attributePath.parent()
 //        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation

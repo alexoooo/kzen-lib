@@ -17,6 +17,8 @@ import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.ClassNames
+import tech.kzen.lib.platform.collect.persistentMapOf
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class NotationMetadataReader(
@@ -31,7 +33,7 @@ class NotationMetadataReader(
             builder[objectLocation] = objectMetadata
         }
 
-        return GraphMetadata(ObjectLocationMap(builder))
+        return GraphMetadata(ObjectLocationMap(builder.toPersistentMap()))
     }
 
 
@@ -46,7 +48,7 @@ class NotationMetadataReader(
         val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
 
         for (superLocation in inheritanceChain) {
-            val superNotation = graphNotation.coalesce.get(superLocation)
+            val superNotation = graphNotation.coalesce.get(superLocation)!!
 
             allAttributes.addAll(superNotation.attributes.values.keys)
 
@@ -71,7 +73,7 @@ class NotationMetadataReader(
             }
         }
 
-        return ObjectMetadata(AttributeNameMap(builder))
+        return ObjectMetadata(AttributeNameMap(builder.toPersistentMap()))
     }
 
 
@@ -101,7 +103,7 @@ class NotationMetadataReader(
                     ?: ClassNames.kotlinAny.get()
 
             return AttributeMetadata(
-                    MapAttributeNotation(mapOf(
+                    MapAttributeNotation(persistentMapOf(
                             NotationConventions.isAttributeSegment to ScalarAttributeNotation(isValue))),
                     TypeMetadata(ClassName(isClass), listOf()),
                     null,

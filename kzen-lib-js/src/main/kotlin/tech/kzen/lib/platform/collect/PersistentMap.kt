@@ -94,6 +94,10 @@ actual class PersistentMap<K, out V> private constructor(
                         }
                     }
                 }
+
+                override fun contains(element: K): Boolean {
+                    return containsKey(element)
+                }
             }
         }
 
@@ -137,5 +141,48 @@ actual class PersistentMap<K, out V> private constructor(
 
     actual fun remove(key: K): PersistentMap<K, V> {
         return PersistentMap(delegate.delete(key))
+    }
+
+
+    @Suppress("UNCHECKED_CAST")
+    actual fun insert(key: K, value: @UnsafeVariance V, position: Int): PersistentMap<K, V> {
+        check(key !in this)
+
+        if (position == size) {
+            return put(key, value)
+        }
+
+        var builder = PersistentMap<K, V>()
+        val iterator = delegate.entries()
+
+        var result: IteratorResult<Array<Any>> = iterator.next()
+
+        var nextIndex = 0
+        while (true) {
+            if (nextIndex == position) {
+                break
+            }
+            nextIndex++
+
+            val entryKey = result.value[0] as K
+            val entryValue = result.value[1] as V
+
+            builder = builder.put(entryKey, entryValue)
+
+            result = iterator.next()
+        }
+
+        builder = builder.put(key, value)
+
+        while (! result.done) {
+            val entryKey = result.value[0] as K
+            val entryValue = result.value[1] as V
+
+            builder = builder.put(entryKey, entryValue)
+
+            result = iterator.next()
+        }
+
+        return builder
     }
 }

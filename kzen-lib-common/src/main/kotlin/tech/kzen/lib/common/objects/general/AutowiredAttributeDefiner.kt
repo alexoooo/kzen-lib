@@ -30,7 +30,12 @@ class AutowiredAttributeDefiner(
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
     ): AttributeDefinition {
-        val attributeMetadata = graphStructure.graphMetadata.get(objectLocation).attributes.values[attributeName]
+        val attributeMetadata = graphStructure
+                .graphMetadata
+                .get(objectLocation)
+                ?.attributes
+                ?.values
+                ?.get(attributeName)
                 ?: throw IllegalArgumentException("Metadata not found: $objectLocation - $attributeName")
 
         val findIs = ObjectReference.parse(findIs(attributeMetadata))

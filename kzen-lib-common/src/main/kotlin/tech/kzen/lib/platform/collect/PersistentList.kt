@@ -10,4 +10,6 @@ expect class PersistentList<out E>(): List<E> {
     fun set(index: Int, element: @UnsafeVariance E): PersistentList<E>
 
     fun removeAt(index: Int): PersistentList<E>
+
+    override fun subList(fromIndex: Int, toIndex: Int): PersistentList<E>
 }

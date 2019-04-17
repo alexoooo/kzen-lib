@@ -1,8 +1,10 @@
 package tech.kzen.lib.common.model.document
 
+import tech.kzen.lib.platform.collect.PersistentList
+
 
 data class DocumentNesting(
-        val segments: List<DocumentSegment>
+        val segments: PersistentList<DocumentSegment>
 ) {
     fun startsWith(prefix: DocumentNesting): Boolean {
         return segments.size >= prefix.segments.size &&
@@ -16,6 +18,6 @@ data class DocumentNesting(
 
 
     fun plus(segment: DocumentSegment): DocumentNesting {
-        return DocumentNesting(segments.plus(segment))
+        return DocumentNesting(segments.add(segment))
     }
 }

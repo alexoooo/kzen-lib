@@ -5,9 +5,7 @@ import org.junit.Test
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
@@ -21,11 +19,7 @@ import tech.kzen.lib.server.util.GraphTestUtils
 class ObjectGraphTest {
     @Test
     fun `ObjectGraph can be empty`() {
-        val emptyMetadata = GraphMetadata(ObjectLocationMap(mapOf()))
-
-        val emptyStructure = GraphStructure(
-                GraphNotation(DocumentPathMap(mapOf())),
-                emptyMetadata)
+        val emptyStructure = GraphStructure(GraphNotation.empty, GraphMetadata.empty)
 
         val emptyDefinition = GraphDefiner.define(emptyStructure)
 

@@ -10,6 +10,8 @@ import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.io.NotationParser
 import tech.kzen.lib.common.structure.notation.model.*
 import tech.kzen.lib.platform.IoUtils
+import tech.kzen.lib.platform.collect.toPersistentList
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class YamlNotationParser: NotationParser {
@@ -51,7 +53,7 @@ class YamlNotationParser: NotationParser {
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation
         }
-        return DocumentNotation(ObjectPathMap(objects))
+        return DocumentNotation(ObjectPathMap(objects.toPersistentMap()))
     }
 
 
@@ -66,7 +68,7 @@ class YamlNotationParser: NotationParser {
             attributes[attributeName] = attribute
         }
 
-        return ObjectNotation(AttributeNameMap(attributes))
+        return ObjectNotation(AttributeNameMap(attributes.toPersistentMap()))
     }
 
 
@@ -96,13 +98,15 @@ class YamlNotationParser: NotationParser {
 
             is YamlList ->
                 ListAttributeNotation(
-                        node.values.map { i -> yamlToAttribute(i) })
+                        node.values.map {
+                            i -> yamlToAttribute(i)
+                        }.toPersistentList())
 
             is YamlMap ->
                 MapAttributeNotation(
                         node.values.map { e ->
                             AttributeSegment.ofKey(e.key) to yamlToAttribute(e.value)
-                        }.toMap())
+                        }.toPersistentMap())
         }
     }
 

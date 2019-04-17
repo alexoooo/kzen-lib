@@ -3,7 +3,6 @@ package tech.kzen.lib.common.context
 import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.api.ObjectDefiner
 import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ObjectDefinition
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
@@ -15,6 +14,8 @@ import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.platform.collect.PersistentMap
+import tech.kzen.lib.platform.collect.toPersistentMap
 import kotlin.reflect.KClass
 
 
@@ -48,9 +49,11 @@ object GraphDefiner {
     fun define(
             graphStructure: GraphStructure
     ): GraphDefinition {
-        val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
+//        val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
+        var definerAndRelatedInstances = GraphInstance(
+                ObjectLocationMap(bootstrapObjects.toPersistentMap()))
 
-        definerAndRelatedInstances.putAll(bootstrapObjects)
+//        definerAndRelatedInstances.putAll(bootstrapObjects)
 
         val openDefinitions: MutableSet<ObjectLocation> = graphStructure
                 .graphNotation
@@ -60,7 +63,8 @@ object GraphDefiner {
                             ! isAbstract(it, graphStructure.graphNotation)
                 }.toMutableSet()
 
-        val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
+//        val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
+        var closedDefinitions = GraphDefinition(ObjectLocationMap(PersistentMap()))
 
         val missingInstances = mutableSetOf<ObjectLocation>()
 
@@ -69,7 +73,7 @@ object GraphDefiner {
         val missingCreatorInstances = mutableSetOf<ObjectLocation>()
 
         var levelCount = 0
-        while (! openDefinitions.isEmpty()) {
+        while (openDefinitions.isNotEmpty()) {
             levelCount += 1
             check(levelCount < 16) {"too deep"}
 //            println("^^^^^ open - $levelCount: $openDefinitions")
@@ -89,8 +93,8 @@ object GraphDefiner {
                 val definition = definer.define(
                         objectLocation,
                         graphStructure,
-                        GraphDefinition(ObjectLocationMap(closedDefinitions)),
-                        GraphInstance(ObjectLocationMap(definerAndRelatedInstances)))
+                        closedDefinitions,
+                        definerAndRelatedInstances)
 //                println("  >> definition: $definition")
 
                 if (definition.isError()) {
@@ -100,18 +104,19 @@ object GraphDefiner {
                     continue
                 }
 
-                closedDefinitions[objectLocation] = definition.value!!
+                closedDefinitions = closedDefinitions.put(objectLocation, definition.value!!)
+
                 levelClosed.add(objectLocation)
             }
 
 //            println("--- missingInstances: $missingInstances")
-            for (missingName in missingInstances) {
+            for (missingLocation in missingInstances) {
                 val definition =
-                        closedDefinitions[missingName]
+                        closedDefinitions[missingLocation]
                         ?: continue
 
 //                println("  $$ got definition for: $missingName")
-                val creatorLocation = graphStructure.graphNotation.coalesce.locate(missingName, definition.creator)
+                val creatorLocation = graphStructure.graphNotation.coalesce.locate(missingLocation, definition.creator)
 
                 var hasMissingCreatorInstances = false
                 if (! definerAndRelatedInstances.containsKey(creatorLocation)) {
@@ -123,7 +128,7 @@ object GraphDefiner {
 
                 for (creatorRequired in definition.creatorDependencies) {
                     val creatorReferenceLocation =
-                            graphStructure.graphNotation.coalesce.locate(missingName, creatorRequired)
+                            graphStructure.graphNotation.coalesce.locate(missingLocation, creatorRequired)
 
                     if (! definerAndRelatedInstances.containsKey(creatorReferenceLocation)) {
                         missingCreatorInstances.add(creatorReferenceLocation)
@@ -141,15 +146,15 @@ object GraphDefiner {
                 val creator = definerAndRelatedInstances[creatorLocation] as ObjectCreator
 
                 val instance = creator.create(
-                        missingName,
+                        missingLocation,
                         graphStructure,
                         definition,
-                        GraphInstance(ObjectLocationMap(definerAndRelatedInstances)))
+                        definerAndRelatedInstances)
 
 //                println("  $$ created: $missingName")
 
-                definerAndRelatedInstances[missingName] = instance
-                levelCreated.add(missingName)
+                definerAndRelatedInstances = definerAndRelatedInstances.put(missingLocation, instance)
+                levelCreated.add(missingLocation)
             }
 
             missingInstances.addAll(missingCreatorInstances)
@@ -165,7 +170,7 @@ object GraphDefiner {
             levelClosed.clear()
             missingCreatorInstances.clear()
         }
-        return GraphDefinition(ObjectLocationMap(closedDefinitions))
+        return closedDefinitions
     }
 
 

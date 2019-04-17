@@ -25,6 +25,7 @@ class AttributeObjectCreator: ObjectCreator {
             partialGraphInstance: GraphInstance
     ): Any {
         val objectMetadata = graphStructure.graphMetadata.get(objectLocation)
+                ?: throw IllegalArgumentException("Missing metadata: $objectLocation")
 
         val constructorArguments = mutableListOf<Any?>()
 

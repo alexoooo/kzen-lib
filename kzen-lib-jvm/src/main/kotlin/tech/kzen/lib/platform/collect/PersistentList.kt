@@ -10,20 +10,25 @@ actual class PersistentList<out E> private constructor(
         List<E>,
         AbstractList<E>()
 {
+    //-----------------------------------------------------------------------------------------------------------------
     actual constructor() : this(Vector.empty<E>())
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     override val size: Int
         get() = delegate.size()
+
 
     override fun get(index: Int): E {
         return delegate.get(index)
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     actual fun add(element: @UnsafeVariance E): PersistentList<E> {
         return PersistentList(delegate.append(element))
     }
+
 
     actual fun add(index: Int, element: @UnsafeVariance E): PersistentList<E> {
         var builder: Vector<E> = delegate.take(index)
@@ -37,9 +42,12 @@ actual class PersistentList<out E> private constructor(
         return PersistentList(builder)
     }
 
+
     actual fun set(index: Int, element: @UnsafeVariance E): PersistentList<E> {
-        return PersistentList(delegate.set(index, element))
+        return PersistentList(
+                delegate.set(index, element))
     }
+
 
     actual fun removeAt(index: Int): PersistentList<E> {
         // https://groups.google.com/forum/#!topic/scala-user/fZ1TTNgneW4
@@ -53,5 +61,11 @@ actual class PersistentList<out E> private constructor(
             builder = builder.append(get(i))
         }
         return PersistentList(builder)
+    }
+
+
+    actual override fun subList(fromIndex: Int, toIndex: Int): PersistentList<E> {
+        return PersistentList(
+                delegate.range(fromIndex, true, toIndex, false))
     }
 }

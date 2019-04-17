@@ -7,6 +7,7 @@ import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.GraphStructure
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 object GraphCreator {
@@ -15,33 +16,35 @@ object GraphCreator {
             graphStructure: GraphStructure,
             graphDefinition: GraphDefinition
     ): GraphInstance {
-        val objectInstances = mutableMapOf<ObjectLocation, Any>()
-        objectInstances.putAll(GraphDefiner.bootstrapObjects)
+//        val objectInstances = mutableMapOf<ObjectLocation, Any>()
+//        objectInstances.putAll(GraphDefiner.bootstrapObjects)
 
-        val objectGraph = GraphInstance(ObjectLocationMap(objectInstances))
+        var partialObjectGraph = GraphInstance(ObjectLocationMap(
+                GraphDefiner.bootstrapObjects.toPersistentMap()))
 
         val levels = constructionLevels(graphDefinition)
 
         for (objectLocation in levels.flatten()) {
             val objectDefinition = graphDefinition.objectDefinitions.get(objectLocation)
+                    ?: throw IllegalArgumentException("Missing object definition: $objectLocation")
 
             val creatorPath = tryLocate(
                     graphStructure.graphMetadata.objectMetadata.values.keys, objectDefinition.creator
             ) ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
 
-            val creator = objectInstances[creatorPath] as? ObjectCreator
+            val creator = partialObjectGraph[creatorPath] as? ObjectCreator
                     ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
             val instance = creator.create(
                     objectLocation,
                     graphStructure,
                     objectDefinition,
-                    objectGraph)
+                    partialObjectGraph)
 
-            objectInstances[objectLocation] = instance
+            partialObjectGraph = partialObjectGraph.put(objectLocation, instance)
         }
 
-        return objectGraph
+        return partialObjectGraph
     }
 
 
@@ -75,6 +78,7 @@ object GraphCreator {
         val allSatisfied = mutableListOf<ObjectLocation>()
         for (candidate in open) {
             val definition = projectDefinition.objectDefinitions.get(candidate)
+                    ?: throw IllegalArgumentException("Missing definition: $candidate")
 
             val satisfied = definition
                     .references()

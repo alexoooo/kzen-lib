@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.model.document
 
+import tech.kzen.lib.platform.collect.toPersistentList
+
 
 data class DocumentPath(
         val name: DocumentName?,
@@ -44,7 +46,9 @@ data class DocumentPath(
             if (parts.last().isEmpty()) {
                 return DocumentPath(
                         null,
-                        DocumentNesting(parts.map { DocumentSegment(it) }))
+                        DocumentNesting(parts.map {
+                            DocumentSegment(it)
+                        }.toPersistentList()))
             }
 
             val segmentParts = parts.subList(0, parts.size - 1)
@@ -52,7 +56,7 @@ data class DocumentPath(
 
             val name = DocumentName(parts.last())
 
-            return DocumentPath(name, DocumentNesting(segments))
+            return DocumentPath(name, DocumentNesting(segments.toPersistentList()))
         }
     }
 

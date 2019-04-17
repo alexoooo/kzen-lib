@@ -5,6 +5,7 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.obj.ObjectPathMap
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentNotation(
@@ -12,7 +13,8 @@ data class DocumentNotation(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = DocumentNotation(ObjectPathMap(mapOf()))
+        val empty = DocumentNotation(ObjectPathMap(
+                mapOf<ObjectPath, ObjectNotation>().toPersistentMap()))
     }
 
 
@@ -24,7 +26,7 @@ data class DocumentNotation(
             values[ObjectLocation(path, e.key)] = e.value
         }
 
-        return ObjectLocationMap(values)
+        return ObjectLocationMap(values.toPersistentMap())
     }
 
 
@@ -41,13 +43,13 @@ data class DocumentNotation(
 //    fun nameAt(index: Int): ObjectName {
 //        return objects.values.keys.toList()[index].name
 //    }
-//
-//
+
+
     fun indexOf(objectPath: ObjectPath): PositionIndex {
         return PositionIndex(objects.values.keys.indexOf(objectPath))
     }
 
-//
+
 //    fun equalsInOrder(other: DocumentNotation): Boolean {
 //        return this == other &&
 //                objects.keys.toList() == other.objects.keys.toList()
@@ -68,14 +70,16 @@ data class DocumentNotation(
             positionedObjectPath: PositionedObjectPath,
             objectNotation: ObjectNotation
     ): DocumentNotation {
-        return DocumentNotation(objects.insertEntry(positionedObjectPath, objectNotation))
+        return DocumentNotation(
+                objects.insertEntry(positionedObjectPath, objectNotation))
     }
 
 
     fun withoutObject(
             objectPath: ObjectPath
     ): DocumentNotation {
-        return DocumentNotation(objects.removeKey(objectPath))
+        return DocumentNotation(
+                objects.removeKey(objectPath))
     }
 
 

@@ -73,6 +73,10 @@ actual class PersistentMap<K, out V> private constructor(
                 override fun iterator(): Iterator<K> {
                     return orderDelegate.values().iterator()
                 }
+
+                override fun contains(element: K): Boolean {
+                    return containsKey(element)
+                }
             }
         }
 
@@ -112,6 +116,15 @@ actual class PersistentMap<K, out V> private constructor(
     }
 
 
+//    actual fun putAll(from: Map<K, @UnsafeVariance V>): PersistentMap<K, V> {
+//        var builder = this
+//        from.forEach { (k, v) ->
+//            builder = builder.put(k, v)
+//        }
+//        return builder
+//    }
+
+
     actual fun remove(key: K): PersistentMap<K, V> {
         val existing = delegate[key]
                 ?: return this
@@ -120,5 +133,41 @@ actual class PersistentMap<K, out V> private constructor(
                 delegate.remove(key),
                 orderDelegate.remove(existing.second),
                 insertCount)
+    }
+
+
+    actual fun insert(
+            key: K,
+            value: @UnsafeVariance V,
+            position: Int
+    ): PersistentMap<K, V> {
+        check(key !in this)
+
+        if (position == size) {
+            return put(key, value)
+        }
+
+        var builder = PersistentMap<K, V>()
+        val iterator = delegate.iterator()
+
+        var nextIndex = 0
+        while (true) {
+            if (nextIndex == position) {
+                break
+            }
+            nextIndex++
+
+            val entry = iterator.next()
+            builder = builder.put(entry.component1(), entry.component2().first)
+        }
+
+        builder = builder.put(key, value)
+
+        while (iterator.hasNext()) {
+            val entry = iterator.next()
+            builder = builder.put(entry.component1(), entry.component2().first)
+        }
+
+        return builder
     }
 }

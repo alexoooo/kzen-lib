@@ -7,6 +7,7 @@ import tech.kzen.lib.common.structure.metadata.model.ObjectMetadata
 import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.Mirror
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class MirrorMetadataReader {
@@ -27,6 +28,6 @@ class MirrorMetadataReader {
             attributes[AttributeName(parameterName)] = Constants.emptyParameterMetadata
         }
 
-        return ObjectMetadata(AttributeNameMap(attributes))
+        return ObjectMetadata(AttributeNameMap(attributes.toPersistentMap()))
     }
 }

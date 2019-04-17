@@ -12,6 +12,7 @@ import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 // TODO: threadsafe?
@@ -63,7 +64,7 @@ class NotationRepository(
             documents[projectPath] = documentNotation
         }
 
-        return GraphNotation(DocumentPathMap(documents))
+        return GraphNotation(DocumentPathMap(documents.toPersistentMap()))
     }
 
 

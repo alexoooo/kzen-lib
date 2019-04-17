@@ -10,6 +10,7 @@ import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.IoUtils
+import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -116,7 +117,7 @@ Foo:
 
     private fun parseGraph(doc: String): GraphNotation {
         val documentNotation = parseDocument(doc)
-        return GraphNotation(DocumentPathMap(mapOf(
+        return GraphNotation(DocumentPathMap(persistentMapOf(
                 mainPath to documentNotation)))
     }
 

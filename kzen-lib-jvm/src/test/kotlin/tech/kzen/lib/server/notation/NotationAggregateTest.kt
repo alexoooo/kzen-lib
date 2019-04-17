@@ -9,6 +9,7 @@ import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.platform.IoUtils
+import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 abstract class NotationAggregateTest {
@@ -25,7 +26,7 @@ abstract class NotationAggregateTest {
 
     fun parseGraph(doc: String): GraphNotation {
         val packageNotation = parseDocument(doc)
-        return GraphNotation(DocumentPathMap(mapOf(
+        return GraphNotation(DocumentPathMap(persistentMapOf(
                 testPath to packageNotation)))
     }
 

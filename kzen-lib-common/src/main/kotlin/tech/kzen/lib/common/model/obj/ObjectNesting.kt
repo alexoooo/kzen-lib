@@ -1,14 +1,17 @@
 package tech.kzen.lib.common.model.obj
 
+import tech.kzen.lib.platform.collect.PersistentList
+import tech.kzen.lib.platform.collect.toPersistentList
+
 
 data class ObjectNesting(
-        val segments: List<ObjectNestingSegment>
+        val segments: PersistentList<ObjectNestingSegment>
 ) {
     companion object {
         val delimiter = "/"
 //        val delimiterRegex = Regex("[^\\\\]/")
 
-        val root = ObjectNesting(listOf())
+        val root = ObjectNesting(PersistentList())
 
 
         private fun containsSegments(encodedObjectPath: String): Boolean {
@@ -29,7 +32,7 @@ data class ObjectNesting(
                     return i
                 }
             }
-            if (! encodedObjectPath.isEmpty() && encodedObjectPath[0] == '/') {
+            if (encodedObjectPath.isNotEmpty() && encodedObjectPath[0] == '/') {
                 return 0
             }
             return -1
@@ -122,13 +125,13 @@ data class ObjectNesting(
 
                 builder.add(ObjectNestingSegment.parse(part))
             }
-            return ObjectNesting(builder)
+            return ObjectNesting(builder.toPersistentList())
         }
     }
 
 
     fun append(segment: ObjectNestingSegment): ObjectNesting {
-        return ObjectNesting(segments.plus(segment))
+        return ObjectNesting(segments.add(segment))
     }
 
 

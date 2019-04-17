@@ -7,16 +7,17 @@ import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class CommonTest {
     @Test
     fun objectGraphCanBeEmpty() {
-        val emptyMetadata = GraphMetadata(ObjectLocationMap(mapOf()))
+        val emptyMetadata = GraphMetadata(ObjectLocationMap(persistentMapOf()))
 
         val graphStructure = GraphStructure(
-                GraphNotation(DocumentPathMap(mapOf())),
+                GraphNotation(DocumentPathMap(persistentMapOf())),
                 emptyMetadata)
 
         val emptyDefinition = GraphDefiner.define(graphStructure)

@@ -4,6 +4,7 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class MapNotationMedia: NotationMedia {
@@ -12,7 +13,7 @@ class MapNotationMedia: NotationMedia {
 
     override suspend fun scan(): DocumentPathMap<Digest> {
         val digests = data.mapValues { Digest.ofXoShiRo256StarStar(it.value) }
-        return DocumentPathMap(digests)
+        return DocumentPathMap(digests.toPersistentMap())
     }
 
 

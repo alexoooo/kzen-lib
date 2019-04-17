@@ -1,9 +1,13 @@
 package tech.kzen.lib.common.structure.notation.model
 
-import tech.kzen.lib.common.model.attribute.*
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
+import tech.kzen.lib.common.model.attribute.AttributeNesting
+import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 data class ObjectNotation(
@@ -19,7 +23,7 @@ data class ObjectNotation(
         fun ofParent(reference: ObjectReference): ObjectNotation {
             val attributeNotation = ScalarAttributeNotation(reference.asString())
 
-            return ObjectNotation(AttributeNameMap(mapOf(
+            return ObjectNotation(AttributeNameMap(persistentMapOf(
                     NotationConventions.isAttributePath.attribute to attributeNotation)))
         }
     }
@@ -81,25 +85,7 @@ data class ObjectNotation(
             attributeName: AttributeName,
             attributeNotation: AttributeNotation
     ): ObjectNotation {
-        var replaced = false
-
-        val buffer = mutableMapOf<AttributeName, AttributeNotation>()
-        for (parameter in attributes.values) {
-            buffer[parameter.key] =
-                    if (parameter.key == attributeName) {
-                        replaced = true
-                        attributeNotation
-                    }
-                    else {
-                        parameter.value
-                    }
-        }
-
-        if (! replaced) {
-            buffer[attributeName] = attributeNotation
-        }
-
-        return ObjectNotation(AttributeNameMap(buffer))
+        return ObjectNotation(attributes.put(attributeName, attributeNotation))
     }
 
 
@@ -113,16 +99,10 @@ data class ObjectNotation(
             return upsertAttribute(rootParameterName, attributeNotation)
         }
 
-//        if (! parameters.containsKey(rootParameterName)) {
-//            throw IllegalArgumentException("Parameter not found: $notationPath")
-//        }
-
         val root: StructuredAttributeNotation =
                 attributes.values[rootParameterName]
                 as? StructuredAttributeNotation
-                ?: MapAttributeNotation(mapOf())
-//                ?: throw IllegalArgumentException(
-//                        "Structured parameter expected (${notationPathSegments[0]}): $notationPath")
+                ?: MapAttributeNotation.empty
 
         val newRoot = upsertSubParameter(
                 root,
@@ -154,29 +134,11 @@ data class ObjectNotation(
         return when (next) {
             is ListAttributeNotation -> {
                 val index = nextPathSegment.asIndex()!!
-
-                val buffer = mutableListOf<AttributeNotation>()
-                buffer.addAll(next.values)
-
-                buffer[index] = nextValue
-
-                ListAttributeNotation(buffer)
+                next.set(PositionIndex(index), nextValue)
             }
 
             is MapAttributeNotation -> {
-                val buffer = mutableMapOf<AttributeSegment, AttributeNotation>()
-
-                for (e in next.values) {
-                    buffer[e.key] =
-                            if (e.key == nextPathSegment) {
-                                nextValue
-                            }
-                            else {
-                                e.value
-                            }
-                }
-
-                MapAttributeNotation(buffer)
+                next.put(nextPathSegment, nextValue)
             }
         }
     }
