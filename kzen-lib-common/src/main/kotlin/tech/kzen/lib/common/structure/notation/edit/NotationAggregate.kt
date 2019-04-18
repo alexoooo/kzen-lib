@@ -143,11 +143,11 @@ class NotationAggregate(
     private fun copyDocument(
             command: CopyDocumentCommand
     ): EventAndNotation {
-        check(state.documents.values.containsKey(command.sourceDocumentPath)) {
+        check(command.sourceDocumentPath in state.documents.values) {
             "Does not exist: ${command.sourceDocumentPath} - ${state.documents.values.keys}"
         }
 
-        val document = state.documents.get(command.sourceDocumentPath)
+        val document = state.documents.get(command.sourceDocumentPath)!!
 
         val nextState = state
                 .withNewDocument(command.destinationDocumentPath, document)

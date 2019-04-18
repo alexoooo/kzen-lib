@@ -8,7 +8,8 @@ actual class PersistentList<out E> private constructor(
         private val delegate: Vector<@UnsafeVariance E>
 ):
         List<E>,
-        AbstractList<E>()
+        AbstractList<E>(),
+        RandomAccess
 {
     //-----------------------------------------------------------------------------------------------------------------
     actual constructor() : this(Vector.empty<E>())

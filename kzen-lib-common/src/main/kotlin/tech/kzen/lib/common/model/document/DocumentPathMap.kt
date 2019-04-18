@@ -12,9 +12,9 @@ data class DocumentPathMap<T>(
     }
 
 
-    fun get(documentPath: DocumentPath): T {
+    fun get(documentPath: DocumentPath): T? {
         return values[documentPath]
-                ?: throw IllegalArgumentException("Missing: $documentPath")
+//                ?: throw IllegalArgumentException("Missing: $documentPath")
     }
 
 

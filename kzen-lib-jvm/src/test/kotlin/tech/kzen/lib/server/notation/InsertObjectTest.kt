@@ -32,7 +32,7 @@ InsertInto:
                 ObjectNotation.ofParent(ObjectName("DoubleValue"))
         ))
 
-        val documentNotation = project.state.documents.get(testPath)
+        val documentNotation = project.state.documents.get(testPath)!!
 
         assertEquals(1, documentNotation.indexOf(
                 ObjectPath.parse("InsertInto.foo/Inserted")

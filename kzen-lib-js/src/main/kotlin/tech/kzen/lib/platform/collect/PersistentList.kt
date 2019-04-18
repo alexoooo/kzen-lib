@@ -7,7 +7,8 @@ actual class PersistentList<out E> private constructor(
         private val delegate: ImmutableList<@UnsafeVariance E>
 ):
         List<E>,
-        AbstractList<E>()
+        AbstractList<E>(),
+        RandomAccess
 {
     //-----------------------------------------------------------------------------------------------------------------
     actual constructor(): this(ImmutableList())
