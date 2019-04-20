@@ -8,9 +8,9 @@ data class ObjectPathMap<T>(
         val values: PersistentMap<ObjectPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    operator fun get(objectPath: ObjectPath): T {
+    operator fun get(objectPath: ObjectPath): T? {
         return values[objectPath]
-                ?: throw IllegalArgumentException("Not found: $objectPath")
+//                ?: throw IllegalArgumentException("Not found: $objectPath")
     }
 
 

@@ -4,6 +4,7 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.platform.collect.PersistentMap
+import tech.kzen.lib.platform.collect.persistentListOf
 import tech.kzen.lib.platform.collect.persistentMapOf
 
 
@@ -69,6 +70,11 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
 data class ListAttributeNotation(
         val values: PersistentList<AttributeNotation>
 ): StructuredAttributeNotation() {
+    companion object {
+        val empty = ListAttributeNotation(persistentListOf())
+    }
+
+
     override fun get(key: String): AttributeNotation? {
         val index = key.toInt()
         return values[index]
