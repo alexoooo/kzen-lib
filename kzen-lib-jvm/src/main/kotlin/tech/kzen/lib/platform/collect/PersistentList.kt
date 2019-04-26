@@ -51,6 +51,10 @@ actual class PersistentList<out E> private constructor(
 
 
     actual fun removeAt(index: Int): PersistentList<E> {
+        if (index == 0) {
+            return PersistentList(delegate.drop(1))
+        }
+
         // https://groups.google.com/forum/#!topic/scala-user/fZ1TTNgneW4
         // https://lacuna.io/docs/bifurcan/io/lacuna/bifurcan/List.html#concat-io.lacuna.bifurcan.IList-
 

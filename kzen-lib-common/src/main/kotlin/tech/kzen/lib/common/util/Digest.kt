@@ -22,6 +22,7 @@ data class Digest(
             return x.shl(k) or (x ushr (32 - k))
         }
 
+
         private fun murmurHash3(value: Int): Int {
             var x = value
             x = x xor x.ushr(16)
@@ -32,9 +33,11 @@ data class Digest(
             return x
         }
 
+
         private fun hashMapHash(value: Int): Int {
             return value xor value.ushr(16)
         }
+
 
         private fun guavaHashingSmear(value: Int): Int {
             return 461845907 * rotl(value * -862048943, 15)
@@ -49,6 +52,7 @@ data class Digest(
             val bytes = IoUtils.utf8Encode(utf8)
             return ofXoShiRo256StarStar(bytes)
         }
+
 
         fun ofXoShiRo256StarStar(bytes: ByteArray?): Digest {
             if (bytes == null) {
@@ -101,6 +105,7 @@ data class Digest(
         private var c: Int = 0
         private var d: Int = 0
 
+
         fun clear() {
             a = 0
             b = 0
@@ -108,12 +113,14 @@ data class Digest(
             d = 0
         }
 
+
         fun add(digest: Digest) {
             a += digest.a
             b += digest.b
             c += digest.c
             d += digest.d
         }
+
 
         fun combine(): Digest {
             return Digest(a, b, c, d)
@@ -128,6 +135,7 @@ data class Digest(
         private var c: Int = 0
         private var d: Int = 0
 
+
         fun clear() {
             a = 0
             b = 0
@@ -135,12 +143,14 @@ data class Digest(
             d = 0
         }
 
+
         fun add(digest: Digest) {
             a = a * 37 xor digest.a
             b = b * 37 xor digest.b
             c = c * 37 xor digest.c
             d = d * 37 xor digest.d
         }
+
 
         fun combine(): Digest {
             return Digest(a, b, c, d)
@@ -169,6 +179,7 @@ data class Digest(
             return this
         }
 
+
         fun addBoolean(value: Boolean): Streaming {
             if (value) {
                 addInt(1)
@@ -179,25 +190,30 @@ data class Digest(
             return this
         }
 
+
         fun addByte(value: Byte): Streaming {
             addInt(value.toInt())
             return this
         }
+
 
         fun addChar(value: Char): Streaming {
             addInt(value.toInt())
             return this
         }
 
+
         fun addShort(value: Short): Streaming {
             addInt(value.toInt())
             return this
         }
 
+
         fun addDouble(value: Double): Streaming {
             addLong(value.toBits())
             return this
         }
+
 
         fun addLong(value: Long): Streaming {
             // https://stackoverflow.com/a/12772968/1941359
@@ -205,6 +221,7 @@ data class Digest(
             addInt((value shr Int.SIZE_BITS).toInt())
             return this
         }
+
 
         fun addDigest(digest: Digest?): Streaming {
             if (digest == null) {
