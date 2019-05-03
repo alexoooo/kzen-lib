@@ -18,9 +18,9 @@ data class AttributeNameMap<T>(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    operator fun get(attributeName: AttributeName): T {
+    operator fun get(attributeName: AttributeName): T? {
         return values[attributeName]
-                ?: throw IllegalArgumentException("Not found: $attributeName")
+//                ?: throw IllegalArgumentException("Not found: $attributeName")
     }
 
 
