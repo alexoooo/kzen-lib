@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.structure.notation.edit
 
-import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ReferenceAttributeDefinition
+import tech.kzen.lib.common.context.definition.GraphDefinition
+import tech.kzen.lib.common.context.definition.ReferenceAttributeDefinition
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentName
 import tech.kzen.lib.common.model.document.DocumentPath

@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.definition
+package tech.kzen.lib.common.context.definition
 
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.attribute.AttributeNesting

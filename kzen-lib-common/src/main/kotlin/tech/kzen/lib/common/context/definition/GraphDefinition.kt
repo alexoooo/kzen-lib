@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.definition
+package tech.kzen.lib.common.context.definition
 
 import tech.kzen.lib.common.model.locate.AttributeLocation
 import tech.kzen.lib.common.model.locate.ObjectLocation

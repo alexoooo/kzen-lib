@@ -18,7 +18,7 @@ class AutowiredTest {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
         val location = location("WeakHolder")
-        val weakHolderInstance = objectGraph.objects.get(location) as WeakHolder
+        val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
 
         assertEquals(listOf(
                 location("AbstractFoo"),
@@ -33,7 +33,7 @@ class AutowiredTest {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
         val location = location("StrongHolder")
-        val strongHolderInstance = objectGraph.objects.get(location) as StrongHolder
+        val strongHolderInstance = objectGraph[location]?.reference as StrongHolder
 
         assertEquals(2, strongHolderInstance.concreteObjects.size)
     }
@@ -45,7 +45,7 @@ class AutowiredTest {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
         val location = location("ObjectGroup")
-        val objectGroup = objectGraph.objects.get(location) as ObjectGroup
+        val objectGroup = objectGraph.objects.get(location)?.reference as ObjectGroup
 
         assertEquals(2, objectGroup.children.size)
     }

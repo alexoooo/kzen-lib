@@ -28,7 +28,7 @@ class ObjectGraphTest {
 
         assertEquals(
                 GraphDefiner.bootstrapObjects.size,
-                emptyGraph.objects.values.size)
+                emptyGraph.size)
     }
 
 
@@ -37,7 +37,7 @@ class ObjectGraphTest {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
         val location = location("FooNamed")
-        val fooNamedInstance = objectGraph.objects.get(location) as LocationAware
+        val fooNamedInstance = objectGraph[location]?.reference as LocationAware
         assertEquals(location, fooNamedInstance.objectLocation)
     }
 
@@ -46,7 +46,7 @@ class ObjectGraphTest {
     fun `StringHolder can be instantiated`() {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
-        val helloWorldInstance = objectGraph.objects.get(location("HelloWorldHolder")) as StringHolder
+        val helloWorldInstance = objectGraph[location("HelloWorldHolder")]?.reference as StringHolder
         assertEquals("Hello, world!", helloWorldInstance.value)
     }
 
@@ -55,7 +55,7 @@ class ObjectGraphTest {
     fun `Numeric message can be used in StringHolder`() {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
-        val helloWorldInstance = objectGraph.objects.get(location("NumericStringHolder")) as StringHolder
+        val helloWorldInstance = objectGraph[location("NumericStringHolder")]?.reference as StringHolder
         assertEquals("123", helloWorldInstance.value)
     }
 
@@ -64,7 +64,7 @@ class ObjectGraphTest {
     fun `Reference can be held to StringHolder`() {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
-        val refInstance = objectGraph.objects.get(location("StringHolderRef")) as StringHolderRef
+        val refInstance = objectGraph[location("StringHolderRef")]?.reference as StringHolderRef
         assertEquals("Hello, world!", refInstance.stringHolder.value)
     }
 

@@ -1,8 +1,8 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeDefiner
-import tech.kzen.lib.common.context.GraphInstance
-import tech.kzen.lib.common.definition.*
+import tech.kzen.lib.common.context.instance.GraphInstance
+import tech.kzen.lib.common.context.definition.*
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference

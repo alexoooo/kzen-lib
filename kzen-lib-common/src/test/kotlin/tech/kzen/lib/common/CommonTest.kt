@@ -27,6 +27,6 @@ class CommonTest {
 
         assertEquals(
                 GraphDefiner.bootstrapObjects.size,
-                emptyGraph.objects.values.size)
+                emptyGraph.size)
     }
 }

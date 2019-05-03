@@ -191,6 +191,17 @@ data class Digest(
         }
 
 
+        fun addBoolean(value: Boolean?): Streaming {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addBoolean(value)
+            }
+            return this
+        }
+
+
         fun addByte(value: Byte): Streaming {
             addInt(value.toInt())
             return this

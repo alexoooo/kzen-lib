@@ -1,8 +1,10 @@
 package tech.kzen.lib.common.objects.bootstrap
 
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.context.GraphInstance
-import tech.kzen.lib.common.definition.ObjectDefinition
+import tech.kzen.lib.common.context.definition.ObjectDefinition
+import tech.kzen.lib.common.context.instance.GraphInstance
+import tech.kzen.lib.common.context.instance.ObjectInstance
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.platform.Mirror
@@ -14,9 +16,12 @@ object DefaultConstructorObjectCreator: ObjectCreator {
             graphStructure: GraphStructure,
             objectDefinition: ObjectDefinition,
             partialGraphInstance: GraphInstance
-    ): Any {
-//        check(objectDefinition.attributeDefinitions.isEmpty())
-        return Mirror
+    ): ObjectInstance {
+        val instance = Mirror
                 .create(objectDefinition.className, emptyList())
+
+        return ObjectInstance(
+                instance,
+                AttributeNameMap.of())
     }
 }

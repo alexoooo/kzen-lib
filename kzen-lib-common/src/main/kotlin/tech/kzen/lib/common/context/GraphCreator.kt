@@ -1,13 +1,12 @@
 package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
-import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.context.definition.GraphDefinition
+import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.GraphStructure
-import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 object GraphCreator {
@@ -19,8 +18,7 @@ object GraphCreator {
 //        val objectInstances = mutableMapOf<ObjectLocation, Any>()
 //        objectInstances.putAll(GraphDefiner.bootstrapObjects)
 
-        var partialObjectGraph = GraphInstance(ObjectLocationMap(
-                GraphDefiner.bootstrapObjects.toPersistentMap()))
+        var partialObjectGraph = GraphDefiner.bootstrapObjects
 
         val levels = constructionLevels(graphDefinition)
 
@@ -32,7 +30,7 @@ object GraphCreator {
                     graphStructure.graphMetadata.objectMetadata.values.keys, objectDefinition.creator
             ) ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
 
-            val creator = partialObjectGraph[creatorPath] as? ObjectCreator
+            val creator = partialObjectGraph[creatorPath]?.reference as? ObjectCreator
                     ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
             val instance = creator.create(
@@ -56,10 +54,10 @@ object GraphCreator {
         val open = graphDefinition.objectDefinitions.values.keys.toMutableSet()
 
         val levels = mutableListOf<List<ObjectLocation>>()
-        while (! open.isEmpty()) {
+        while (open.isNotEmpty()) {
             val nextLevel = findSatisfied(open, closed, graphDefinition)
 
-            check(! nextLevel.isEmpty()) {"unable to satisfy: $open"}
+            check(nextLevel.isNotEmpty()) { "unable to satisfy: $open" }
 
             closed.addAll(nextLevel)
             open.removeAll(nextLevel)

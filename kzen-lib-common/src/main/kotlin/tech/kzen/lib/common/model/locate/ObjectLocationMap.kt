@@ -7,6 +7,10 @@ data class ObjectLocationMap<T>(
         val values: PersistentMap<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    val size: Int
+        get() = values.size
+
+
     fun locate(reference: ObjectReference): ObjectLocation {
         return locateOptional(reference)
                 ?: throw IllegalArgumentException("Missing: $reference")
@@ -73,7 +77,7 @@ data class ObjectLocationMap<T>(
     }
 
 
-    fun get(objectLocation: ObjectLocation): T? {
+    operator fun get(objectLocation: ObjectLocation): T? {
         return values[objectLocation]
     }
 

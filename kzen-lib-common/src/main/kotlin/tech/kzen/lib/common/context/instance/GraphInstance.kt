@@ -1,14 +1,22 @@
-package tech.kzen.lib.common.context
+package tech.kzen.lib.common.context.instance
 
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 
 
 data class GraphInstance(
-        val objects: ObjectLocationMap<Any>)
+        val objects: ObjectLocationMap<ObjectInstance>)
 {
 //    fun names(): Set<ObjectName> =
 //            objects.names()
+
+
+    val keys: Set<ObjectLocation>
+        get() = objects.values.keys
+
+
+    val size: Int
+        get() = objects.size
 
 
     fun containsKey(objectLocation: ObjectLocation): Boolean {
@@ -16,8 +24,8 @@ data class GraphInstance(
     }
 
 
-    operator fun get(objectLocation: ObjectLocation): Any? {
-        return objects.get(objectLocation)
+    operator fun get(objectLocation: ObjectLocation): ObjectInstance? {
+        return objects[objectLocation]
     }
 
 
@@ -26,7 +34,7 @@ data class GraphInstance(
 //    }
 
 
-    fun put(objectLocation: ObjectLocation, instance: Any): GraphInstance {
+    fun put(objectLocation: ObjectLocation, instance: ObjectInstance): GraphInstance {
         return GraphInstance(objects.put(objectLocation, instance))
     }
 }

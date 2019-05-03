@@ -3,8 +3,8 @@ package tech.kzen.lib.server.util
 import kotlinx.coroutines.runBlocking
 import tech.kzen.lib.common.context.GraphCreator
 import tech.kzen.lib.common.context.GraphDefiner
-import tech.kzen.lib.common.context.GraphInstance
-import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.context.instance.GraphInstance
+import tech.kzen.lib.common.context.definition.GraphDefinition
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.GraphStructure

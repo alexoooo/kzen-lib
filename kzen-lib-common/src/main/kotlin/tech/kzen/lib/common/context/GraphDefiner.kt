@@ -2,7 +2,10 @@ package tech.kzen.lib.common.context
 
 import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.api.ObjectDefiner
-import tech.kzen.lib.common.definition.GraphDefinition
+import tech.kzen.lib.common.context.definition.GraphDefinition
+import tech.kzen.lib.common.context.instance.GraphInstance
+import tech.kzen.lib.common.context.instance.ObjectInstance
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
@@ -15,21 +18,22 @@ import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.platform.collect.PersistentMap
-import tech.kzen.lib.platform.collect.toPersistentMap
+import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.reflect.KClass
 
 
 object GraphDefiner {
     //-----------------------------------------------------------------------------------------------------------------
-    val bootstrapObjects = mapOf(
-            bootstrapEntry(DefaultConstructorObjectCreator),
-            bootstrapEntry(DefaultConstructorObjectDefiner)
-    )
+    val bootstrapObjects = GraphInstance(
+            ObjectLocationMap(persistentMapOf(
+                    bootstrapEntry(DefaultConstructorObjectCreator),
+                    bootstrapEntry(DefaultConstructorObjectDefiner)
+            )))
 
 
-    private fun bootstrapEntry(bootstrapObject: Any): Pair<ObjectLocation, Any> {
+    private fun bootstrapEntry(bootstrapObject: Any): Pair<ObjectLocation, ObjectInstance> {
         val objectPath = bootstrapPath(bootstrapObject::class)
-        return objectPath to bootstrapObject
+        return objectPath to ObjectInstance(bootstrapObject, AttributeNameMap.of())
     }
 
 
@@ -50,8 +54,7 @@ object GraphDefiner {
             graphStructure: GraphStructure
     ): GraphDefinition {
 //        val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
-        var definerAndRelatedInstances = GraphInstance(
-                ObjectLocationMap(bootstrapObjects.toPersistentMap()))
+        var definerAndRelatedInstances = bootstrapObjects
 
 //        definerAndRelatedInstances.putAll(bootstrapObjects)
 
@@ -75,7 +78,7 @@ object GraphDefiner {
         var levelCount = 0
         while (openDefinitions.isNotEmpty()) {
             levelCount += 1
-            check(levelCount < 16) {"too deep"}
+            check(levelCount < 16) { "too deep" }
 //            println("^^^^^ open - $levelCount: $openDefinitions")
 
             for (objectLocation in openDefinitions) {
@@ -83,7 +86,7 @@ object GraphDefiner {
 
                 val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
                 val definerLocation = graphStructure.graphNotation.coalesce.locate(objectLocation, definerReference)
-                val definer = definerAndRelatedInstances[definerLocation] as? ObjectDefiner
+                val definer = definerAndRelatedInstances[definerLocation]?.reference as? ObjectDefiner
 
                 if (definer == null) {
                     missingInstances.add(definerLocation)
@@ -143,7 +146,7 @@ object GraphDefiner {
                     continue
                 }
 
-                val creator = definerAndRelatedInstances[creatorLocation] as ObjectCreator
+                val creator = definerAndRelatedInstances[creatorLocation]?.reference as ObjectCreator
 
                 val instance = creator.create(
                         missingLocation,
@@ -161,7 +164,7 @@ object GraphDefiner {
             missingInstances.removeAll(levelCreated)
 
             check(levelClosed.isNotEmpty() || levelCreated.isNotEmpty()) {
-                "Graph cycle? $openDefinitions"
+                "Graph cycle ($levelCount)? $openDefinitions"
             }
 
             openDefinitions.removeAll(levelClosed)
@@ -172,7 +175,6 @@ object GraphDefiner {
         }
         return closedDefinitions
     }
-
 
 
     private fun definerReference(

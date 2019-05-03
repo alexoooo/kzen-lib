@@ -2,11 +2,11 @@ package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.api.ObjectDefiner
-import tech.kzen.lib.common.context.GraphInstance
-import tech.kzen.lib.common.definition.AttributeDefinition
-import tech.kzen.lib.common.definition.GraphDefinition
-import tech.kzen.lib.common.definition.ObjectDefinition
-import tech.kzen.lib.common.definition.ObjectDefinitionAttempt
+import tech.kzen.lib.common.context.definition.AttributeDefinition
+import tech.kzen.lib.common.context.definition.GraphDefinition
+import tech.kzen.lib.common.context.definition.ObjectDefinition
+import tech.kzen.lib.common.context.definition.ObjectDefinitionAttempt
+import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.attribute.AttributePath
@@ -60,12 +60,11 @@ class AttributeObjectDefiner: ObjectDefiner {
                     ?: return ObjectDefinitionAttempt.failure(
                             "Unknown attribute definer: $attributeDefinerRef")
 
-            val definerInstance = partialGraphInstance.objects
-                    .get(attributeDefinerLocation)
+            val definerInstance = partialGraphInstance[attributeDefinerLocation]
                     ?: return ObjectDefinitionAttempt.missingObjectsFailure(
                             ObjectLocationSet(setOf(attributeDefinerLocation)))
 
-            val attributeDefiner = definerInstance
+            val attributeDefiner = definerInstance.reference
                     as? AttributeDefiner
                     ?: return ObjectDefinitionAttempt.failure(
                             "Attribute definer expected: $attributeDefinerRef")

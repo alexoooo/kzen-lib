@@ -18,7 +18,7 @@ class AstGraphTest {
 
         val twoPlusTwoLocation = location("TwoPlusTwo")
 
-        val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
+        val fooNamedInstance = objectGraph[twoPlusTwoLocation]?.reference as DoubleExpression
         assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
     }
 
@@ -29,7 +29,7 @@ class AstGraphTest {
 
         val twoPlusTwoLocation = location("TwoPlusTwoInlineMap")
 
-        val fooNamedInstance = objectGraph.objects.get(twoPlusTwoLocation) as DoubleExpression
+        val fooNamedInstance = objectGraph[twoPlusTwoLocation]?.reference as DoubleExpression
         assertEquals(4.0, fooNamedInstance.evaluate(), 0.0)
     }
 
