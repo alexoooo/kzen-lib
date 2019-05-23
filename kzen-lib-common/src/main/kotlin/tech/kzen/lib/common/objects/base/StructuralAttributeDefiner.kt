@@ -22,7 +22,7 @@ class StructuralAttributeDefiner: AttributeDefiner {
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
     ): AttributeDefinition {
-        val objectNotation = graphStructure.graphNotation.coalesce.get(objectLocation)
+        val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]
                 ?: throw IllegalArgumentException("Unknown object notation: $objectLocation")
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
@@ -30,7 +30,7 @@ class StructuralAttributeDefiner: AttributeDefiner {
                         objectLocation, attributeName.asAttributeNesting())
                 ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
 
-        val objectMetadata = graphStructure.graphMetadata.objectMetadata.get(objectLocation)
+        val objectMetadata = graphStructure.graphMetadata.objectMetadata[objectLocation]
                 ?: throw IllegalArgumentException("Unknown object metadata: $objectLocation")
 
         val attributeMetadata = objectMetadata.attributes.values[attributeName]
@@ -41,7 +41,6 @@ class StructuralAttributeDefiner: AttributeDefiner {
 
         return defineRecursively(attributeNotation, typeMetadata)
     }
-
 
 
     private fun defineRecursively(

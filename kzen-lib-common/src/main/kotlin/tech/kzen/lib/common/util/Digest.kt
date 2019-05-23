@@ -247,6 +247,7 @@ data class Digest(
             return this
         }
 
+
         fun addUtf8(utf8: String?): Streaming {
             if (utf8 == null) {
                 addMissing()
@@ -258,6 +259,7 @@ data class Digest(
             return this
         }
 
+
         fun addBytes(bytes: ByteArray?): Streaming {
             if (bytes == null) {
                 addMissing()
@@ -268,6 +270,7 @@ data class Digest(
             }
             return this
         }
+
 
         fun addInt(value: Int): Streaming {
             if (isZero()) {
@@ -298,6 +301,7 @@ data class Digest(
             s3 = guavaHashingSmear(value)
         }
 
+
         private fun isZero(): Boolean {
             return s0 == 0 &&
                     s1 == 0 &&
@@ -308,7 +312,7 @@ data class Digest(
 
         fun digest(): Digest =
                 if (isZero()) {
-                    Digest.empty
+                    empty
                 }
                 else {
                     Digest(s0, s1, s2, s3)

@@ -23,24 +23,24 @@ object NotationConventions {
     val classAttributeName = AttributeName("class")
     val classAttributePath = AttributePath.ofName(classAttributeName)
 
-    val ofKey = "of"
+    const val ofKey = "of"
     val ofAttributeSegment = AttributeSegment.ofKey(ofKey)
 
     val metaAttributeName = AttributeName("meta")
     val metaAttributePath = AttributePath.ofName(metaAttributeName)
 
 //    val definerKey = "definer"
-    val definerKey = "by"
+    const val definerKey = "by"
     val definerAttributeSegment = AttributeSegment.ofKey(definerKey)
     val definerAttributeName = AttributeName(definerKey)
     val definerAttributePath = AttributePath.ofName(definerAttributeName)
 
-    val creatorKey = "creator"
+    const val creatorKey = "creator"
     val creatorAttributeSegment = AttributeSegment.ofKey(creatorKey)
     val creatorAttributeName = AttributeName(creatorKey)
     val creatorAttributePath = AttributePath.ofName(creatorAttributeName)
 
-    val abstractKey = "abstract"
+    const val abstractKey = "abstract"
     val abstractAttributeSegment = AttributeSegment.ofKey(abstractKey)
     val abstractAttributeName = AttributeName(abstractKey)
     val abstractAttributePath = AttributePath.ofName(abstractAttributeName)
@@ -51,7 +51,7 @@ object NotationConventions {
 
     val kzenBasePath = DocumentPath.parse("base/kzen-base.yaml")
 
-    val mainKey = "main"
+    const val mainKey = "main"
     val mainObjectName = ObjectName(mainKey)
     val mainObjectPath = ObjectPath(mainObjectName, ObjectNesting.root)
     val mainDocumentName = DocumentName.ofYaml(mainKey)

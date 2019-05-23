@@ -22,11 +22,6 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 @Suppress("unused")
 class AttributeObjectDefiner: ObjectDefiner {
     companion object {
-        private val creatorParameter = AttributePath.ofName(AttributeName("creator"))
-
-//        private val defaultParameterDefiner =
-//                NotationParameterDefiner::class.simpleName!!
-
         private val defaultAttributeDefiner = ObjectReference.parse(
                 StructuralAttributeDefiner::class.simpleName!!)
 
@@ -80,7 +75,7 @@ class AttributeObjectDefiner: ObjectDefiner {
         }
 
         val creatorReference = ObjectReference.parse(
-                graphStructure.graphNotation.getString(objectLocation, creatorParameter))
+                graphStructure.graphNotation.getString(objectLocation, NotationConventions.creatorAttributePath))
 
         val objectDefinition = ObjectDefinition(
                 className,
