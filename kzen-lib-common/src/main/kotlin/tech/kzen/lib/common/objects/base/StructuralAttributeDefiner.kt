@@ -21,17 +21,17 @@ class StructuralAttributeDefiner: AttributeDefiner {
             graphStructure: GraphStructure,
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
-    ): AttributeDefinition {
+    ): AttributeDefinitionAttempt {
         val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]
-                ?: throw IllegalArgumentException("Unknown object notation: $objectLocation")
+                ?: return AttributeDefinitionAttempt.failure("Unknown object notation: $objectLocation")
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, attributeName.asAttributeNesting())
-                ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
+                ?: return AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
 
         val objectMetadata = graphStructure.graphMetadata.objectMetadata[objectLocation]
-                ?: throw IllegalArgumentException("Unknown object metadata: $objectLocation")
+                ?: return AttributeDefinitionAttempt.failure("Unknown object metadata: $objectLocation")
 
         val attributeMetadata = objectMetadata.attributes.values[attributeName]
 //                ?: inferMetadata(objectLocation, attributeName, graphStructure.graphNotation)
@@ -46,44 +46,54 @@ class StructuralAttributeDefiner: AttributeDefiner {
     private fun defineRecursively(
             attributeNotation: AttributeNotation,
             typeMetadata: TypeMetadata
-    ): AttributeDefinition {
+    ): AttributeDefinitionAttempt {
         if (attributeNotation is ScalarAttributeNotation) {
             val className = typeMetadata.className
 
             if (className == ClassNames.kotlinString) {
-                return ValueAttributeDefinition(attributeNotation.value)
+                return AttributeDefinitionAttempt.success(
+                        ValueAttributeDefinition(attributeNotation.value))
             }
 
             if (className == ClassNames.kotlinBoolean) {
                 if (attributeNotation.value == "true") {
-                    return ValueAttributeDefinition(true)
+                    return AttributeDefinitionAttempt.success(
+                            ValueAttributeDefinition(true))
                 }
                 else if (attributeNotation.value == "false") {
-                    return ValueAttributeDefinition(false)
+                    return AttributeDefinitionAttempt.success(
+                            ValueAttributeDefinition(false))
                 }
-                throw IllegalArgumentException("Boolean expected: $attributeNotation")
+                return AttributeDefinitionAttempt.failure(
+                        "Boolean expected: $attributeNotation")
             }
 
             if (className == ClassNames.kotlinInt) {
-                return ValueAttributeDefinition(attributeNotation.value.toInt())
+                return AttributeDefinitionAttempt.success(
+                        ValueAttributeDefinition(attributeNotation.value.toInt()))
             }
 
             if (className == ClassNames.kotlinDouble) {
-                return ValueAttributeDefinition(attributeNotation.value.toDouble())
+                return AttributeDefinitionAttempt.success(
+                        ValueAttributeDefinition(attributeNotation.value.toDouble()))
             }
 
-            return ReferenceAttributeDefinition(
-                    ObjectReference.parse(attributeNotation.value))
+            return AttributeDefinitionAttempt.success(
+                    ReferenceAttributeDefinition(
+                            ObjectReference.parse(attributeNotation.value)))
         }
         else if (attributeNotation is ListAttributeNotation) {
             val listGeneric = typeMetadata.generics[0]
 
             val definitions = mutableListOf<AttributeDefinition>()
             for (value in attributeNotation.values) {
-                val definition = defineRecursively(value, listGeneric)
+                val definitionAttempt = defineRecursively(value, listGeneric)
+                val definition = definitionAttempt.value
+                        ?: return definitionAttempt
                 definitions.add(definition)
             }
-            return ListAttributeDefinition(definitions)
+            return AttributeDefinitionAttempt.success(
+                    ListAttributeDefinition(definitions))
         }
 
         TODO()

@@ -3,6 +3,7 @@ package tech.kzen.lib.common.objects.general
 import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.context.definition.AttributeDefinition
+import tech.kzen.lib.common.context.definition.AttributeDefinitionAttempt
 import tech.kzen.lib.common.context.definition.GraphDefinition
 import tech.kzen.lib.common.context.definition.ValueAttributeDefinition
 import tech.kzen.lib.common.model.attribute.AttributeName
@@ -18,8 +19,9 @@ class ObjectLocationAttributeDefiner: AttributeDefiner {
             graphStructure: GraphStructure,
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
-    ): AttributeDefinition {
-        return ValueAttributeDefinition(
-                objectLocation)
+    ): AttributeDefinitionAttempt {
+        return AttributeDefinitionAttempt.success(
+                ValueAttributeDefinition(
+                        objectLocation))
     }
 }

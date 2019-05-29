@@ -18,18 +18,20 @@ import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 class AutowiredAttributeDefiner(
         private val weak: Boolean
 ): AttributeDefiner {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val forAttributeSegment = AttributeSegment.ofKey("for")
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
             graphStructure: GraphStructure,
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
-    ): AttributeDefinition {
+    ): AttributeDefinitionAttempt {
         val attributeMetadata = graphStructure
                 .graphMetadata
                 .get(objectLocation)
@@ -58,7 +60,8 @@ class AutowiredAttributeDefiner(
             references.add(attributeDefinition)
         }
 
-        return ListAttributeDefinition(references)
+        return AttributeDefinitionAttempt.success(
+                ListAttributeDefinition(references))
     }
 
 

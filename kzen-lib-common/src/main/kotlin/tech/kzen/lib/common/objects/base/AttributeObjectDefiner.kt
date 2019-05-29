@@ -64,12 +64,17 @@ class AttributeObjectDefiner: ObjectDefiner {
                     ?: return ObjectDefinitionAttempt.failure(
                             "Attribute definer expected: $attributeDefinerRef")
 
-            val attributeDefinition = attributeDefiner.define(
+            val attributeDefinitionAttempt = attributeDefiner.define(
                     objectLocation,
                     attributeName,
                     graphStructure,
                     partialGraphDefinition,
                     partialGraphInstance)
+
+            val attributeDefinition = attributeDefinitionAttempt.value
+                    ?: return ObjectDefinitionAttempt.failure(
+                            "Attribute definition failed $attributeName: " +
+                                    "${attributeDefinitionAttempt.errorMessage}")
 
             attributeDefinitions[attributeName] = attributeDefinition
         }

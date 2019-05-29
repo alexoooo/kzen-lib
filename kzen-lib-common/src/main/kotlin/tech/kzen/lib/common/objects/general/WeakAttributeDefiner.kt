@@ -3,6 +3,7 @@ package tech.kzen.lib.common.objects.general
 import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.context.definition.AttributeDefinition
+import tech.kzen.lib.common.context.definition.AttributeDefinitionAttempt
 import tech.kzen.lib.common.context.definition.GraphDefinition
 import tech.kzen.lib.common.context.definition.ValueAttributeDefinition
 import tech.kzen.lib.common.model.attribute.AttributeName
@@ -23,13 +24,13 @@ class WeakAttributeDefiner(
             graphStructure: GraphStructure,
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
-    ): AttributeDefinition {
+    ): AttributeDefinitionAttempt {
         val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]!!
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.transitiveAttribute(
                         objectLocation, attributeName.asAttributeNesting())
-                ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
+                ?: AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
 
         if (attributeNotation is ScalarAttributeNotation) {
             return define(objectLocation, attributeName, graphStructure.graphNotation, attributeNotation)
@@ -51,16 +52,20 @@ class WeakAttributeDefiner(
             attributeName: AttributeName,
             graphNotation: GraphNotation,
             scalarAttributeNotation: ScalarAttributeNotation
-    ): ValueAttributeDefinition {
+    ): AttributeDefinitionAttempt {
         val objectReference = scalarAttributeNotation.asString()?.let { ObjectReference.parse(it) }
-                ?: throw IllegalArgumentException("Reference expected: $objectLocation - $attributeName")
+                ?: return AttributeDefinitionAttempt.failure(
+                        "Reference expected: $objectLocation - $attributeName")
 
-        return if (reference) {
-            ValueAttributeDefinition(objectReference)
-        }
-        else {
-            val dependencyLocation = graphNotation.coalesce.locate(objectLocation, objectReference)
-            ValueAttributeDefinition(dependencyLocation)
-        }
+        val value: Any? =
+                if (reference) {
+                    objectReference
+                }
+                else {
+                    graphNotation.coalesce.locate(objectLocation, objectReference)
+                }
+
+        return AttributeDefinitionAttempt.success(
+                ValueAttributeDefinition(value))
     }
 }

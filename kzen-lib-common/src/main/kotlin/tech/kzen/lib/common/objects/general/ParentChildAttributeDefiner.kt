@@ -1,11 +1,8 @@
 package tech.kzen.lib.common.objects.general
 
 import tech.kzen.lib.common.api.AttributeDefiner
+import tech.kzen.lib.common.context.definition.*
 import tech.kzen.lib.common.context.instance.GraphInstance
-import tech.kzen.lib.common.context.definition.AttributeDefinition
-import tech.kzen.lib.common.context.definition.GraphDefinition
-import tech.kzen.lib.common.context.definition.ListAttributeDefinition
-import tech.kzen.lib.common.context.definition.ReferenceAttributeDefinition
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.locate.ObjectLocation
@@ -28,7 +25,7 @@ class ParentChildAttributeDefiner: AttributeDefiner {
             graphStructure: GraphStructure,
             partialGraphDefinition: GraphDefinition,
             partialGraphInstance: GraphInstance
-    ): AttributeDefinition {
+    ): AttributeDefinitionAttempt {
         val children = mutableListOf<ObjectReference>()
 
         for (e in graphStructure.graphNotation.coalesce.values) {
@@ -47,7 +44,8 @@ class ParentChildAttributeDefiner: AttributeDefiner {
             children.add(e.key.toReference())
         }
 
-        return ListAttributeDefinition(
-                children.map { ReferenceAttributeDefinition(it) })
+        return AttributeDefinitionAttempt.success(
+                ListAttributeDefinition(
+                        children.map { ReferenceAttributeDefinition(it) }))
     }
 }
