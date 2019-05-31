@@ -48,16 +48,16 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
         get(key.asKey())
 
 
-    fun get(notationPath: AttributePath): AttributeNotation? {
-        var cursor = get(notationPath.attribute.value)
+    fun get(attributePath: AttributePath): AttributeNotation? {
+        var cursor = get(attributePath.attribute.value)
 
         var index = 0
-        while (cursor != null && index < notationPath.nesting.segments.size) {
+        while (cursor != null && index < attributePath.nesting.segments.size) {
             if (cursor !is StructuredAttributeNotation) {
                 return null
             }
 
-            cursor = cursor.get(notationPath.nesting.segments[index].asString())
+            cursor = cursor.get(attributePath.nesting.segments[index].asString())
 
             index++
         }

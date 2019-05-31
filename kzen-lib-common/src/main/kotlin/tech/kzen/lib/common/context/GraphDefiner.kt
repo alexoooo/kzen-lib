@@ -74,6 +74,7 @@ object GraphDefiner {
         val levelClosed = mutableSetOf<ObjectLocation>()
         val levelCreated = mutableSetOf<ObjectLocation>()
         val missingCreatorInstances = mutableSetOf<ObjectLocation>()
+        val levelErrors = mutableListOf<String>()
 
         var levelCount = 0
         while (openDefinitions.isNotEmpty()) {
@@ -102,7 +103,7 @@ object GraphDefiner {
 
                 if (definition.isError()) {
 //                    println(" !! definition error: ${definition.errorMessage}")
-
+                    levelErrors.add(definition.errorMessage!!)
                     missingInstances.addAll(definition.missingObjects.values)
                     continue
                 }
@@ -164,7 +165,7 @@ object GraphDefiner {
             missingInstances.removeAll(levelCreated)
 
             check(levelClosed.isNotEmpty() || levelCreated.isNotEmpty()) {
-                "Graph cycle ($levelCount)? $openDefinitions"
+                "Graph cycle ($levelCount)? $openDefinitions - $levelErrors"
             }
 
             openDefinitions.removeAll(levelClosed)
@@ -172,6 +173,7 @@ object GraphDefiner {
             levelCreated.clear()
             levelClosed.clear()
             missingCreatorInstances.clear()
+            levelErrors.clear()
         }
         return closedDefinitions
     }

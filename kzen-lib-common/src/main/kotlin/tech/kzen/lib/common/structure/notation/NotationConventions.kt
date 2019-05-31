@@ -29,7 +29,6 @@ object NotationConventions {
     val metaAttributeName = AttributeName("meta")
     val metaAttributePath = AttributePath.ofName(metaAttributeName)
 
-//    val definerKey = "definer"
     const val definerKey = "by"
     val definerAttributeSegment = AttributeSegment.ofKey(definerKey)
     val definerAttributeName = AttributeName(definerKey)

@@ -4,11 +4,14 @@ import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
+/**
+ * Attribute nesting within an object
+ */
 data class ObjectNesting(
         val segments: PersistentList<ObjectNestingSegment>
 ) {
     companion object {
-        val delimiter = "/"
+        const val delimiter = "/"
 //        val delimiterRegex = Regex("[^\\\\]/")
 
         val root = ObjectNesting(PersistentList())

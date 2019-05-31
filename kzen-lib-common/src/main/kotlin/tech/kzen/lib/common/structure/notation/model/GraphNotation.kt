@@ -106,10 +106,8 @@ data class GraphNotation(
             objectLocation: ObjectLocation,
             attributeName: AttributeName
     ): AttributeNotation? {
-        val notation = coalesce.values[objectLocation]
-                ?: return null
-
-        return notation.get(attributeName)
+        return transitiveAttribute(
+                objectLocation, AttributePath.ofName(attributeName))
     }
 
 

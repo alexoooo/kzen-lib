@@ -15,14 +15,13 @@ data class GraphDefinition(
 //                ?: throw IllegalArgumentException("Missing attribute: $attributeLocation")
 //    }
     fun get(attributeLocation: AttributeLocation): AttributeDefinition? {
-        return objectDefinitions
-                .get(attributeLocation.objectLocation)
+        return objectDefinitions[attributeLocation.objectLocation]
                 ?.get(attributeLocation.attributePath)
     }
 
 
     operator fun get(objectPath: ObjectLocation): ObjectDefinition? {
-        return objectDefinitions.get(objectPath)
+        return objectDefinitions[objectPath]
     }
 
 
