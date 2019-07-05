@@ -36,7 +36,7 @@ class WeakAttributeDefiner(
             return define(objectLocation, attributeName, graphStructure.graphNotation, attributeNotation)
         }
         else {
-            TODO()
+            TODO("ScalarAttributeNotation expected: $objectLocation - $attributeName - $attributeNotation")
         }
 //        else if (attributeNotation is ListAttributeNotation) {
 //            val items = mutableListOf<ValueAttributeDefinition>()

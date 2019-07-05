@@ -149,30 +149,12 @@ data class MapAttributeNotation(
 
         return MapAttributeNotation(
                 values.insert(key, attributeNotation, positionIndex.value))
-//        val builder = mutableMapOf<AttributeSegment, AttributeNotation>()
-//
-//        var index = 0
-//        for (e in values) {
-//            if (index == positionIndex.value) {
-//                builder[key] = attributeNotation
-//            }
-//            builder[e.key] = attributeNotation
-//            index++
-//        }
-//        if (index == positionIndex.value) {
-//            builder[key] = attributeNotation
-//        }
-//
-//        return MapAttributeNotation(builder)
     }
 
 
     fun remove(
             key: AttributeSegment
     ): MapAttributeNotation {
-//        val builder = values.toMutableMap()
-//        builder.remove(key)
-//        return MapAttributeNotation(builder)
         return MapAttributeNotation(
                 values.remove(key))
     }

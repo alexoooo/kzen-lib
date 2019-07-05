@@ -91,11 +91,12 @@ class AutowiredAttributeDefiner(
 
 
     private fun defineLocation(objectLocation: ObjectLocation): AttributeDefinition {
-        return if (weak) {
-            ValueAttributeDefinition(objectLocation)
-        }
-        else {
-            ReferenceAttributeDefinition(objectLocation.toReference())
+        return when {
+            weak ->
+                ValueAttributeDefinition(objectLocation)
+            
+            else ->
+                ReferenceAttributeDefinition(objectLocation.toReference())
         }
     }
 }
