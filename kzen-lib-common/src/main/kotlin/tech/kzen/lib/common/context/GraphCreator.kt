@@ -72,10 +72,10 @@ object GraphCreator {
     private fun findSatisfied(
             open: Set<ObjectLocation>,
             closed: Set<ObjectLocation>,
-            projectDefinition: GraphDefinition): List<ObjectLocation> {
+            graphDefinition: GraphDefinition): List<ObjectLocation> {
         val allSatisfied = mutableListOf<ObjectLocation>()
         for (candidate in open) {
-            val definition = projectDefinition.objectDefinitions.get(candidate)
+            val definition = graphDefinition.objectDefinitions[candidate]
                     ?: throw IllegalArgumentException("Missing definition: $candidate")
 
             val satisfied = definition

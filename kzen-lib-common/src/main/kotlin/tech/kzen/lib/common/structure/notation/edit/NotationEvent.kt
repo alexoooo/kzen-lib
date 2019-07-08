@@ -79,6 +79,12 @@ data class RenamedObjectEvent(
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
+    
+    
+    fun newLocation(): ObjectLocation {
+        return objectLocation.copy(
+                objectPath = objectLocation.objectPath.copy(name = newName))
+    }
 }
 
 

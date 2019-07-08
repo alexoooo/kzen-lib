@@ -26,7 +26,7 @@ class DefinitionAttributeCreator: AttributeCreator {
                 ?: throw IllegalArgumentException("Attribute definition missing: $objectLocation - $attributeName")
 
         return createDefinition(
-                objectLocation, attributeDefinition, partialGraphInstance)
+                objectLocation, attributeDefinition, partialGraphInstance, graphStructure)
     }
 
 
@@ -43,7 +43,8 @@ class DefinitionAttributeCreator: AttributeCreator {
     private fun createDefinition(
             objectLocation: ObjectLocation,
             attributeDefinition: AttributeDefinition,
-            partialGraphInstance: GraphInstance
+            partialGraphInstance: GraphInstance,
+            graphStructure: GraphStructure
     ): Any? {
         return when (attributeDefinition) {
             is ValueAttributeDefinition -> {
@@ -57,15 +58,24 @@ class DefinitionAttributeCreator: AttributeCreator {
             }
 
             is ReferenceAttributeDefinition -> {
-                val location = partialGraphInstance.objects.locate(
-                        objectLocation, attributeDefinition.objectReference!!)
-                partialGraphInstance[location]?.reference
+                val objectReference = attributeDefinition.objectReference!!
+                
+                if (attributeDefinition.weak) {
+                    graphStructure.graphNotation.coalesce.locate(
+                            objectLocation, objectReference)
+                }
+                else {
+                    val location = partialGraphInstance.objects.locate(
+                            objectLocation, objectReference)
+
+                    partialGraphInstance[location]?.reference
+                }
             }
 
 
             is ListAttributeDefinition ->
                 attributeDefinition.values.map {
-                    createDefinition(objectLocation, it, partialGraphInstance)
+                    createDefinition(objectLocation, it, partialGraphInstance, graphStructure)
                 }
 
             else ->

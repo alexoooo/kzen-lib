@@ -17,6 +17,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 class YamlNotationParser: NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
     override fun parseDocument(body: ByteArray): DocumentNotation {
+        @Suppress("MoveVariableDeclarationIntoWhen")
         val node = YamlNodeParser.parse(body)
 //        println("#!@#!@#!@#!@#!@ node = $node")
 
@@ -26,9 +27,8 @@ class YamlNotationParser: NotationParser {
                     is YamlMap ->
                         node
 
-//                    is YamlScalar -> when {
                     is YamlString ->
-                        if (node.value.isEmpty()/* || node.value == "null"*/) {
+                        if (node.value.isEmpty()) {
                             YamlMap(mapOf())
                         }
                         else {

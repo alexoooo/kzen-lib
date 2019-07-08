@@ -98,7 +98,6 @@ ParentPointer:
   abstract: true
   order: 0
   meta:
-#    parent: ChildContainer
     parent:
       is: ObjectLocation
       by: Nominal
@@ -119,7 +118,7 @@ ChildContainer:
 
 ObjectLocation:
   abstract: true
-  class: tech.kzen.lib.common.model.ObjectLocation
+  class: tech.kzen.lib.common.model.locate.ObjectLocation
 
 
 SelfLocation:
@@ -143,12 +142,12 @@ AutowiredNominal:
 
 Nominal:
   class: tech.kzen.lib.common.objects.general.WeakAttributeDefiner
-  reference: false
-  meta:
-    reference: Boolean
+#  reference: false
+#  meta:
+#    reference: Boolean
 
 
-NominalReference:
-  is: Nominal
-  reference: true
+#NominalReference:
+#  is: Nominal
+#  reference: true
 

@@ -12,7 +12,8 @@ data class ValueAttributeDefinition(
 
 
 data class ReferenceAttributeDefinition(
-        val objectReference: ObjectReference?
+        val objectReference: ObjectReference?,
+        val weak: Boolean = false
 ): AttributeDefinition()
 
 

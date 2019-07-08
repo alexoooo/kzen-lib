@@ -65,10 +65,22 @@ data class ObjectDefinition(
 
 
     fun attributeReferences(): Map<AttributePath, ObjectReference> {
+        return attributeReferences(false)
+    }
+
+    
+    fun attributeReferencesIncludingWeak(): Map<AttributePath, ObjectReference> {
+        return attributeReferences(true)
+    }
+
+    
+    private fun attributeReferences(
+            includeWeak: Boolean
+    ): Map<AttributePath, ObjectReference> {
         val builder = mutableMapOf<AttributePath, ObjectReference>()
 
         for (e in attributeDefinitions.values) {
-            val attributeReferences = attributeReferences(e.value)
+            val attributeReferences = attributeReferences(e.value, includeWeak)
 
             for (attributeReference in attributeReferences) {
                 val path = AttributePath(e.key, attributeReference.key)
@@ -78,17 +90,19 @@ data class ObjectDefinition(
 
         return builder
     }
-
-
+    
+    
     private fun attributeReferences(
-            definition: AttributeDefinition
+            definition: AttributeDefinition,
+            includeWeak: Boolean
     ): Map<AttributeNesting, ObjectReference> {
         val builder = mutableMapOf<AttributeNesting, ObjectReference>()
 
         traverseAttribute(
                 AttributeNesting.empty,
                 definition,
-                builder
+                builder,
+                includeWeak
         )
 
         return builder
@@ -98,11 +112,13 @@ data class ObjectDefinition(
     private fun traverseAttribute(
             nesting: AttributeNesting,
             definition: AttributeDefinition,
-            builder: MutableMap<AttributeNesting, ObjectReference>
+            builder: MutableMap<AttributeNesting, ObjectReference>,
+            includeWeak: Boolean
     ) {
         when (definition) {
             is ReferenceAttributeDefinition -> {
-                if (definition.objectReference == null) {
+                if (definition.objectReference == null ||
+                        definition.weak && ! includeWeak) {
                     return
                 }
 
@@ -113,7 +129,7 @@ data class ObjectDefinition(
                 for ((index, value) in definition.values.withIndex()) {
                     val segment = AttributeSegment.ofIndex(index)
                     val indexNesting = nesting.push(segment)
-                    traverseAttribute(indexNesting, value, builder)
+                    traverseAttribute(indexNesting, value, builder, includeWeak)
                 }
             }
 
@@ -121,7 +137,7 @@ data class ObjectDefinition(
                 for ((key, value) in definition.values) {
                     val segment = AttributeSegment.ofKey(key)
                     val keyNesting = nesting.push(segment)
-                    traverseAttribute(keyNesting, value, builder)
+                    traverseAttribute(keyNesting, value, builder, includeWeak)
                 }
             }
         }

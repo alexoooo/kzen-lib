@@ -574,8 +574,7 @@ class NotationAggregate(
         val referenceLocations = mutableSetOf<AttributeLocation>()
 
         for (e in graphDefinition.objectDefinitions.values) {
-            for (attributeReference in e.value.attributeReferences()) {
-
+            for (attributeReference in e.value.attributeReferencesIncludingWeak()) {
                 if (! isReferenced(
                                 objectLocation,
                                 e.key,
