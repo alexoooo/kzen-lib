@@ -1,13 +1,18 @@
 
 
-RefactorObject:
+main:
   is: PlusOperation
   addends:
-    - Two
-    - OldName
+    - "main.addends/OldName"
+    - "main.addends/SameName"
 
 
-OldName:
+"main.addends/OldName":
   is: DoubleValue
   value: 2
+
+
+"main.addends/SameName":
+  is: DoubleValue
+  value: 3
 

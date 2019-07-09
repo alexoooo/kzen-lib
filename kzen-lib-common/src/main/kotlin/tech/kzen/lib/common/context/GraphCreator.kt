@@ -57,7 +57,9 @@ object GraphCreator {
         while (open.isNotEmpty()) {
             val nextLevel = findSatisfied(open, closed, graphDefinition)
 
-            check(nextLevel.isNotEmpty()) { "unable to satisfy: $open" }
+            check(nextLevel.isNotEmpty()) {
+                "unable to satisfy: $open"
+            }
 
             closed.addAll(nextLevel)
             open.removeAll(nextLevel)

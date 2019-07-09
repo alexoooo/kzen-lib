@@ -99,7 +99,7 @@ class NotationAggregate(
     ): EventAndNotation {
         return when (command) {
             is RenameObjectRefactorCommand ->
-                renameRefactor(command.objectLocation, command.newName, graphDefinition)
+                renameObjectRefactor(command.objectLocation, command.newName, graphDefinition)
 
             is RenameDocumentRefactorCommand ->
                 renameDocumentRefactor(command.documentPath, command.newName, graphDefinition)
@@ -234,7 +234,7 @@ class NotationAggregate(
         check(command.objectLocation in state.coalesce.values)
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
         val objectIndex = documentNotation.indexOf(command.objectLocation.objectPath)
 
         val removedCurrentName =
@@ -508,7 +508,7 @@ class NotationAggregate(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun renameRefactor(
+    private fun renameObjectRefactor(
             objectLocation: ObjectLocation,
             newName: ObjectName,
             graphDefinition: GraphDefinition
@@ -575,6 +575,7 @@ class NotationAggregate(
 
         for (e in graphDefinition.objectDefinitions.values) {
             for (attributeReference in e.value.attributeReferencesIncludingWeak()) {
+
                 if (! isReferenced(
                                 objectLocation,
                                 e.key,

@@ -82,7 +82,6 @@ data class ObjectReference(
                     null
                 }
 
-
         return ObjectReference(name, croppedNesting, croppedPath)
     }
 

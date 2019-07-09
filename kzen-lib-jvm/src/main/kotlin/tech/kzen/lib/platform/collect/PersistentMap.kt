@@ -148,7 +148,7 @@ actual class PersistentMap<K, out V> private constructor(
         }
 
         var builder = PersistentMap<K, V>()
-        val iterator = delegate.iterator()
+        val iterator = orderDelegate.values().iterator()
 
         var nextIndex = 0
         while (true) {
@@ -157,15 +157,17 @@ actual class PersistentMap<K, out V> private constructor(
             }
             nextIndex++
 
-            val entry = iterator.next()
-            builder = builder.put(entry.component1(), entry.component2().first)
+            val nextKey = iterator.next()
+            val nextValue = delegate.get(nextKey)!!
+            builder = builder.put(nextKey, nextValue.first)
         }
 
         builder = builder.put(key, value)
 
         while (iterator.hasNext()) {
-            val entry = iterator.next()
-            builder = builder.put(entry.component1(), entry.component2().first)
+            val nextKey = iterator.next()
+            val nextValue = delegate.get(nextKey)!!
+            builder = builder.put(nextKey, nextValue.first)
         }
 
         return builder

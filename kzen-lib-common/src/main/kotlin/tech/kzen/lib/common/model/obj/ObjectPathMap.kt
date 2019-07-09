@@ -10,20 +10,9 @@ data class ObjectPathMap<T>(
     //-----------------------------------------------------------------------------------------------------------------
     operator fun get(objectPath: ObjectPath): T? {
         return values[objectPath]
-//                ?: throw IllegalArgumentException("Not found: $objectPath")
     }
 
-
-//    fun nameAt(index: Int): ObjectName {
-//        return values.keys.toList()[index].name
-//    }
-//
-//
-//    fun indexOf(objectName: ObjectName): Int {
-//        return values.keys.indexOf(ObjectPath(objectName))
-//    }
-
-
+    
     fun equalsInOrder(other: ObjectPathMap<T>): Boolean {
         if (values != other.values) {
             return false
@@ -68,30 +57,6 @@ data class ObjectPathMap<T>(
 
         return ObjectPathMap(
                 values.insert(key.objectPath, value, key.positionIndex.value))
-
-//        val buffer = mutableMapOf<ObjectPath, T>()
-//
-//        val iterator = values.entries.iterator()
-//
-//        var nextIndex = 0
-//        while (true) {
-//            if (nextIndex == key.positionIndex.value) {
-//                break
-//            }
-//            nextIndex++
-//
-//            val entry = iterator.next()
-//            buffer[entry.key] = entry.value
-//        }
-//
-//        buffer[key.objectPath] = value
-//
-//        while (iterator.hasNext()) {
-//            val entry = iterator.next()
-//            buffer[entry.key] = entry.value
-//        }
-//
-//        return ObjectPathMap(buffer.toPersistentMap())
     }
 
 
