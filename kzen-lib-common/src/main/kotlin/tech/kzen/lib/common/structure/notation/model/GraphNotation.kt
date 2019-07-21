@@ -64,6 +64,7 @@ data class GraphNotation(
                 break
             }
 
+            @Suppress("MoveVariableDeclarationIntoWhen")
             val isAttribute = notation.get(NotationConventions.isAttributePath)
 
             val superReference =

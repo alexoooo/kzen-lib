@@ -48,7 +48,7 @@ class NotationMetadataReader(
         val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
 
         for (superLocation in inheritanceChain) {
-            val superNotation = graphNotation.coalesce.get(superLocation)!!
+            val superNotation = graphNotation.coalesce[superLocation]!!
 
             allAttributes.addAll(superNotation.attributes.values.keys)
 
@@ -147,8 +147,8 @@ class NotationMetadataReader(
                 .values[NotationConventions.creatorAttributeSegment]
                 ?.asString()
 
+        @Suppress("MoveVariableDeclarationIntoWhen")
         val genericsNotation = attributeMap.values[NotationConventions.ofAttributeSegment]
-
 
         val genericsNames: List<TypeMetadata> =
                 when (genericsNotation) {
@@ -170,8 +170,7 @@ class NotationMetadataReader(
                 }
 
         val typeMetadata = TypeMetadata(
-                className,
-                genericsNames)
+                className, genericsNames)
 
         return AttributeMetadata(
                 attributeMap,
