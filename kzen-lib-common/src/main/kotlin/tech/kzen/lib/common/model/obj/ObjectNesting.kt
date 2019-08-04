@@ -10,6 +10,7 @@ import tech.kzen.lib.platform.collect.toPersistentList
 data class ObjectNesting(
         val segments: PersistentList<ObjectNestingSegment>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         const val delimiter = "/"
 //        val delimiterRegex = Regex("[^\\\\]/")
@@ -130,6 +131,22 @@ data class ObjectNesting(
             }
             return ObjectNesting(builder.toPersistentList())
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun parent(): ObjectPath? {
+        if (segments.isEmpty()) {
+            return null
+        }
+
+        val leadingSegments = segments.subList(0, segments.size - 1)
+        val lastSegment = segments.last()
+
+        return ObjectPath(
+                lastSegment.objectName,
+                ObjectNesting(leadingSegments.toPersistentList())
+        )
     }
 
 

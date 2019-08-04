@@ -24,6 +24,14 @@ data class ObjectLocation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun parent(): ObjectLocation? {
+        val parentObjectPath = objectPath.nesting.parent()
+                ?: return null
+
+        return ObjectLocation(documentPath, parentObjectPath)
+    }
+
+
     fun toReference(): ObjectReference {
         return ObjectReference(
                 objectPath.name,

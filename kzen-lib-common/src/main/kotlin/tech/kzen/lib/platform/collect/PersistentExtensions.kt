@@ -14,6 +14,10 @@ fun <T> persistentListOf(
 
 
 fun <T> List<T>.toPersistentList(): PersistentList<T> {
+    if (this is PersistentList) {
+        return this
+    }
+
     var builder = PersistentList<T>()
     forEach {
         builder = builder.add(it)
@@ -33,6 +37,10 @@ fun <K, V> persistentMapOf(vararg pairs: Pair<K, V>): PersistentMap<K, V> {
 
 
 fun <K, V> Map<K, V>.toPersistentMap(): PersistentMap<K, V> {
+    if (this is PersistentMap) {
+        return this
+    }
+
     var builder = PersistentMap<K, V>()
     forEach {
         builder = builder.put(it.key, it.value)

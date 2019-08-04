@@ -23,6 +23,12 @@ data class AttributeNesting(
     }
 
 
+    fun push(attributeNesting: AttributeNesting): AttributeNesting {
+        return AttributeNesting(
+                segments.addAll(attributeNesting.segments))
+    }
+
+
     fun parent(): AttributeNesting {
         return AttributeNesting(segments.subList(0, segments.size - 1))
     }

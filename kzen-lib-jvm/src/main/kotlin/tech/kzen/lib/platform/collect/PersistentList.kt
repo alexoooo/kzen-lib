@@ -44,6 +44,15 @@ actual class PersistentList<out E> private constructor(
     }
 
 
+    actual fun addAll(elements: List<@UnsafeVariance E>): PersistentList<E> {
+        var builder = delegate
+        for (i in elements) {
+            builder = builder.append(i)
+        }
+        return PersistentList(builder)
+    }
+
+
     actual fun set(index: Int, element: @UnsafeVariance E): PersistentList<E> {
         return PersistentList(
                 delegate.set(index, element))

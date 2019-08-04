@@ -480,7 +480,8 @@ class NotationAggregate(
     private fun removeObjectInAttribute(
             command: RemoveObjectInAttributeCommand
     ): EventAndNotation {
-        val objectNotation = state.coalesce.get(command.containingObjectLocation)!!
+        val objectNotation = state.coalesce[command.containingObjectLocation]
+                ?: throw IllegalArgumentException("Containing object not found: ${command.containingObjectLocation}")
 
 //        val containerPath = command.attributePath.parent()
 //        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation

@@ -8,7 +8,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 
-class ObjectLocationMapTest {
+class ObjectLocationTest {
     @Test
     fun locateByName() {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
@@ -48,5 +48,16 @@ class ObjectLocationMapTest {
         val located = data.locate(ObjectReference.parse("main.attr/\\"))
 
         assertEquals(location, located)
+    }
+
+
+    @Test
+    fun extractParent() {
+        val location = ObjectLocation.parse("main/main.yaml#main.steps/If.then/Text")
+
+        assertEquals(
+                ObjectLocation.parse("main/main.yaml#main.steps/If"),
+                location.parent()
+        )
     }
 }
