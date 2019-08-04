@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.notation.model.ListAttributeNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 
 
@@ -15,6 +16,7 @@ import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 class WeakAttributeDefiner(
 //        private val reference: Boolean
 ): AttributeDefiner {
+    //-----------------------------------------------------------------------------------------------------------------
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -29,25 +31,59 @@ class WeakAttributeDefiner(
                         objectLocation, attributeName.asAttributeNesting())
                 ?: AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
 
-        if (attributeNotation is ScalarAttributeNotation) {
-            return define(objectLocation, attributeName, graphStructure.graphNotation, attributeNotation)
+        return when (attributeNotation) {
+            is ScalarAttributeNotation ->
+                defineScalar(objectLocation, attributeName, /*graphStructure.graphNotation,*/ attributeNotation)
+
+            is ListAttributeNotation ->
+                defineList(objectLocation, attributeName, /*graphStructure,*/ attributeNotation)
+
+            else ->
+                TODO("ScalarAttributeNotation expected: $objectLocation - $attributeName - $attributeNotation")
         }
-        else {
-            TODO("ScalarAttributeNotation expected: $objectLocation - $attributeName - $attributeNotation")
-        }
-//        else if (attributeNotation is ListAttributeNotation) {
-//            val items = mutableListOf<ValueAttributeDefinition>()
-//            for (item in attributeNotation.values) {
-//
-//            }
-//        }
     }
 
 
-    private fun define(
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun defineList(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
-            graphNotation: GraphNotation,
+//            graphStructure: GraphStructure,
+            attributeNotation: ListAttributeNotation
+    ): AttributeDefinitionAttempt {
+        val items = mutableListOf<ReferenceAttributeDefinition>()
+
+        for (itemAttributeNotation in attributeNotation.values) {
+            if (itemAttributeNotation is ScalarAttributeNotation) {
+                val definitionAttempt = defineScalar(
+                        objectLocation, attributeName, /*graphStructure.graphNotation,*/ itemAttributeNotation)
+
+                if (definitionAttempt.isError()) {
+                    return definitionAttempt
+                }
+
+                val attributeDefinition = definitionAttempt.value as? ReferenceAttributeDefinition
+                        ?: TODO("ValueAttributeDefinition expected: " +
+                                "${definitionAttempt.value} - $objectLocation - $attributeName - $attributeNotation ")
+
+                items.add(attributeDefinition)
+            }
+            else {
+                TODO("List of ScalarAttributeNotation expected: " +
+                        "$objectLocation - $attributeName - $attributeNotation")
+            }
+        }
+
+        return AttributeDefinitionAttempt.success(
+                ListAttributeDefinition(items))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun defineScalar(
+            objectLocation: ObjectLocation,
+            attributeName: AttributeName,
+//            graphNotation: GraphNotation,
             scalarAttributeNotation: ScalarAttributeNotation
     ): AttributeDefinitionAttempt {
         val objectReference = scalarAttributeNotation.asString()?.let { ObjectReference.parse(it) }

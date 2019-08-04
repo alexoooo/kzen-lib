@@ -30,6 +30,21 @@ AbstractBar:
 ################################################################
 
 
+WeakLiteral:
+  class: tech.kzen.lib.server.objects.autowire.WeakHolder
+  locations:
+    - /AbstractFoo
+    - /AbstractBar
+  meta:
+    locations:
+      is: List
+      of: ObjectLocation
+      by: Nominal
+
+
+################################################################
+
+
 ConcreteObject:
   abstract: true
   class: tech.kzen.lib.server.objects.autowire.ConcreteObject

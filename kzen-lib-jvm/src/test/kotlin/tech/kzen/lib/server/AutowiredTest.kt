@@ -14,6 +14,21 @@ import tech.kzen.lib.server.util.GraphTestUtils
 class AutowiredTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
+    fun `Literal object locations`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val location = location("WeakLiteral")
+        val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
+        
+        assertEquals(listOf(
+                location("AbstractFoo"),
+                location("AbstractBar")
+        ), weakHolderInstance.locations)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
     fun `Autowired object locations`() {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
