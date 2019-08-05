@@ -536,8 +536,28 @@ class NotationAggregate(
                         objectLocation))
                 as RemovedObjectEvent
 
+        val containingDocumentPath = command.containingObjectLocation.documentPath
+
+        val nestedObjectLocations = builder
+                .state
+                .documents
+                .get(containingDocumentPath)!!
+                .objects
+                .values
+                .keys
+                .filter { it.startsWith(objectLocation.objectPath) }
+                .toList()
+
+        val removedNestedObjects = nestedObjectLocations
+                .map {
+                    builder.apply(RemoveObjectCommand(
+                            ObjectLocation(containingDocumentPath, it)
+                    )) as RemovedObjectEvent
+                }
+
         return EventAndNotation(
-                RemovedObjectInAttributeEvent(removedInAttribute, removedObject),
+                RemovedObjectInAttributeEvent(
+                        removedInAttribute, removedObject, removedNestedObjects),
                 builder.state)
     }
 
@@ -552,8 +572,13 @@ class NotationAggregate(
 
         val builder = NotationAggregate(state)
 
-        val nestedObjectLocations = locateNestedObject(
-                objectLocation, newName, graphDefinition)
+        val nestedObjectLocations = graphDefinition
+                .objectDefinitions
+                .values
+                .keys
+                .filter { it.startsWith(objectLocation) }
+                .map { it to renameNestedObject(objectLocation, newName, it) }
+                .toMap()
 
         val nestedObjects = nestedObjectLocations.map {
             nestedRenameObjectRefactor(
@@ -584,21 +609,6 @@ class NotationAggregate(
                         adjustedReferenceEvents,
                         nestedObjects),
                 builder.state)
-    }
-
-
-    private fun locateNestedObject(
-            objectLocation: ObjectLocation,
-            newName: ObjectName,
-            graphDefinition: GraphDefinition
-    ): Map<ObjectLocation, ObjectLocation> {
-        return graphDefinition
-                .objectDefinitions
-                .values
-                .keys
-                .filter { it.startsWith(objectLocation) }
-                .map { it to renameNestedObject(objectLocation, newName, it) }
-                .toMap()
     }
 
 

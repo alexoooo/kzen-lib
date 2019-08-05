@@ -184,9 +184,10 @@ data class InsertedObjectInListAttributeEvent(
 
 data class RemovedObjectInAttributeEvent(
         val removedInAttribute: RemovedInAttributeEvent,
-        val removedObject: RemovedObjectEvent
+        val removedObject: RemovedObjectEvent,
+        val removedNestedObjects: List<RemovedObjectEvent>
 ): CompoundNotationEvent(
-        listOf(removedInAttribute, removedObject)
+        listOf(removedInAttribute, removedObject) + removedNestedObjects
 ) {
     override val documentPath: DocumentPath
         get() = removedInAttribute.documentPath
