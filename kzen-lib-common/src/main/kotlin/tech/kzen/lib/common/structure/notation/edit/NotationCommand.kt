@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.structure.notation.model.*
 
 
@@ -83,6 +84,12 @@ data class ShiftObjectCommand(
 data class RenameObjectCommand(
         val objectLocation: ObjectLocation,
         val newName: ObjectName
+): StructuralNotationCommand()
+
+
+data class RenameNestedObjectCommand(
+        val objectLocation: ObjectLocation,
+        val newObjectNesting: ObjectNesting
 ): StructuralNotationCommand()
 
 

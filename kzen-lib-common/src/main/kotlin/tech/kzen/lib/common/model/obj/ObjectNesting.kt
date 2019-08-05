@@ -135,6 +135,19 @@ data class ObjectNesting(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun startswith(objectNesting: ObjectNesting): Boolean {
+        if (segments.size < objectNesting.segments.size) {
+            return false
+        }
+
+        if (segments.size == objectNesting.segments.size) {
+            return segments == objectNesting.segments
+        }
+
+        return segments.subList(0, objectNesting.segments.size) == objectNesting.segments
+    }
+
+
     fun parent(): ObjectPath? {
         if (segments.isEmpty()) {
             return null

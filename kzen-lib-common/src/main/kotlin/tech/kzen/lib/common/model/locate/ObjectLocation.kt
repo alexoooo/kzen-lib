@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.locate
 
 import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 
 
@@ -32,6 +33,15 @@ data class ObjectLocation(
     }
 
 
+    fun startsWith(objectLocation: ObjectLocation): Boolean {
+        if (documentPath != objectLocation.documentPath) {
+            return false
+        }
+
+        return objectPath.startsWith(objectLocation.objectPath)
+    }
+
+
     fun toReference(): ObjectReference {
         return ObjectReference(
                 objectPath.name,
@@ -41,7 +51,13 @@ data class ObjectLocation(
 
 
     fun asString(): String {
-        return toReference().asString()
+        return documentPath.asString() +
+                ObjectReference.nestingSeparator +
+                objectPath.asString()
+//        val nestingInfix = objectPath.asString() + ObjectNesting.delimiter
+//
+//        return pathPrefix + nestingInfix + ObjectNesting.encodeDelimiter(name.value)
+//        return toReference().asString()
     }
 
 

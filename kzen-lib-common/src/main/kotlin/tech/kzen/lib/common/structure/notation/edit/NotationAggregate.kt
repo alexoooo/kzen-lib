@@ -9,7 +9,10 @@ import tech.kzen.lib.common.model.locate.AttributeLocation
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
+import tech.kzen.lib.common.model.obj.ObjectNestingSegment
 import tech.kzen.lib.common.structure.notation.model.*
+import tech.kzen.lib.platform.collect.toPersistentList
 
 
 class NotationAggregate(
@@ -60,6 +63,9 @@ class NotationAggregate(
 
             is RenameObjectCommand ->
                 renameObject(command)
+
+            is RenameNestedObjectCommand ->
+                renameNestedObject(command)
 
 
             is UpsertAttributeCommand ->
@@ -255,6 +261,34 @@ class NotationAggregate(
     }
 
 
+    private fun renameNestedObject(
+            command: RenameNestedObjectCommand
+    ): EventAndNotation {
+        check(command.objectLocation in state.coalesce.values)
+
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
+        val objectIndex = documentNotation.indexOf(command.objectLocation.objectPath)
+
+        val removedCurrentNesting =
+                documentNotation.withoutObject(command.objectLocation.objectPath)
+
+        val newObjectPath = command.objectLocation.objectPath.copy(nesting = command.newObjectNesting)
+
+        val addedWithNewNesting = removedCurrentNesting.withNewObject(
+                PositionedObjectPath(newObjectPath, objectIndex),
+                objectNotation)
+
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, addedWithNewNesting)
+
+        return EventAndNotation(
+                RenamedNestedObjectEvent(
+                        command.objectLocation, command.newObjectNesting),
+                nextState)
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     private fun upsertAttribute(
             command: UpsertAttributeCommand
@@ -282,7 +316,8 @@ class NotationAggregate(
             command: UpdateInAttributeCommand
     ): EventAndNotation {
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]
+                ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.attributePath, command.attributeNotation)
@@ -460,7 +495,9 @@ class NotationAggregate(
                         command.body))
                 as AddedObjectEvent
 
-        val addendReference = objectLocation.toReference().crop(true, false)
+        val addendReference = objectLocation.toReference()
+                .crop(retainNesting = true, retainPath = false)
+
         val insertInAttributeCommand = InsertListItemInAttributeCommand(
                 command.containingObjectLocation,
                 command.containingList,
@@ -482,9 +519,6 @@ class NotationAggregate(
     ): EventAndNotation {
         val objectNotation = state.coalesce[command.containingObjectLocation]
                 ?: throw IllegalArgumentException("Containing object not found: ${command.containingObjectLocation}")
-
-//        val containerPath = command.attributePath.parent()
-//        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
 
         val attributeNotation = objectNotation.get(command.attributePath)!!
         val objectReference = ObjectReference.parse(attributeNotation.asString()!!)
@@ -518,31 +552,109 @@ class NotationAggregate(
 
         val builder = NotationAggregate(state)
 
+        val nestedObjectLocations = locateNestedObject(
+                objectLocation, newName, graphDefinition)
+
+        val nestedObjects = nestedObjectLocations.map {
+            nestedRenameObjectRefactor(
+                    it.key,
+                    it.value.objectPath.nesting,
+                    builder,
+                    graphDefinition
+            )
+        }
+
         val renamedObject = builder
                 .apply(RenameObjectCommand(objectLocation, newName))
                 as RenamedObjectEvent
 
-        val adjustedReferenceCommands = adjustReferenceCommands(
-                objectLocation, newName, graphDefinition)
+        val newObjectPath = objectLocation.objectPath.copy(name = newName)
+        val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
 
-        val adjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
-        adjustedReferenceCommands.forEach {
-            adjustedReferenceEvents.add(builder.apply(it) as UpdatedInAttributeEvent)
-        }
+        val adjustedReferenceCommands = adjustReferenceCommands(
+                objectLocation, newObjectLocation, graphDefinition)
+
+        val adjustedReferenceEvents = adjustedReferenceCommands
+                .map { builder.apply(it) as UpdatedInAttributeEvent }
+                .toList()
 
         return EventAndNotation(
-                RenamedObjectRefactorEvent(renamedObject, adjustedReferenceEvents),
+                RenamedObjectRefactorEvent(
+                        renamedObject,
+                        adjustedReferenceEvents,
+                        nestedObjects),
                 builder.state)
+    }
+
+
+    private fun locateNestedObject(
+            objectLocation: ObjectLocation,
+            newName: ObjectName,
+            graphDefinition: GraphDefinition
+    ): Map<ObjectLocation, ObjectLocation> {
+        return graphDefinition
+                .objectDefinitions
+                .values
+                .keys
+                .filter { it.startsWith(objectLocation) }
+                .map { it to renameNestedObject(objectLocation, newName, it) }
+                .toMap()
+    }
+
+
+    private fun renameNestedObject(
+            containerObjectLocation: ObjectLocation,
+            newName: ObjectName,
+            nestedObjectLocation: ObjectLocation
+    ): ObjectLocation {
+        val segments = nestedObjectLocation.objectPath.nesting.segments
+
+        val prefix = segments.subList(0, containerObjectLocation.objectPath.nesting.segments.size)
+
+        val containingSegment = segments[containerObjectLocation.objectPath.nesting.segments.size]
+        val renamedSegment = ObjectNestingSegment(
+                newName, containingSegment.attributePath)
+
+        val suffix = segments.subList(prefix.size + 2, segments.size)
+
+        return nestedObjectLocation.copy(
+                objectPath = nestedObjectLocation.objectPath.copy(
+                        nesting = ObjectNesting((
+                                prefix + listOf(renamedSegment) + suffix
+                        ).toPersistentList())
+                ))
+    }
+
+
+    private fun nestedRenameObjectRefactor(
+            objectLocation: ObjectLocation,
+            newObjectNesting: ObjectNesting,
+            builder: NotationAggregate,
+            graphDefinition: GraphDefinition
+    ): NestedObjectRename {
+        val renamedObject = builder
+                .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
+                as RenamedNestedObjectEvent
+
+        val newObjectLocation = renamedObject.newLocation()
+
+        val adjustedReferenceCommands = adjustReferenceCommands(
+                objectLocation, newObjectLocation, graphDefinition)
+
+        val adjustedReferenceEvents = adjustedReferenceCommands
+                .map { builder.apply(it) as UpdatedInAttributeEvent }
+                .toList()
+
+        return NestedObjectRename(
+                renamedObject, adjustedReferenceEvents)
     }
 
 
     private fun adjustReferenceCommands(
             objectLocation: ObjectLocation,
-            newName: ObjectName,
+            newObjectLocation: ObjectLocation,
             graphDefinition: GraphDefinition
     ): List<UpdateInAttributeCommand> {
-        val newObjectPath = objectLocation.objectPath.copy(name = newName)
-        val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
         val newFullReference = newObjectLocation.toReference()
 
         val commands = mutableListOf<UpdateInAttributeCommand>()
@@ -606,7 +718,6 @@ class NotationAggregate(
 
         return referencedLocation == targetLocation
     }
-
 
 
     //-----------------------------------------------------------------------------------------------------------------

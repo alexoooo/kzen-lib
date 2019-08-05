@@ -81,6 +81,29 @@ class RenameObjectRefactorTest {
     }
 
 
+    @Test
+    fun `Rename container should renamed nested objects`() {
+        val notationTree = GraphTestUtils.readNotation()
+        val graphDefinition = GraphTestUtils.grapDefinition(notationTree)
+
+        val aggregate = NotationAggregate(notationTree)
+
+        aggregate.apply(
+                RenameObjectRefactorCommand(
+                        location("main"), ObjectName("foo")),
+                graphDefinition)
+
+        val documentNotation = aggregate.state.documents.values[testPath]!!
+
+        assertEquals(1, documentNotation.indexOf(ObjectPath.parse("foo.addends/OldName")).value)
+        assertEquals(2, documentNotation.indexOf(ObjectPath.parse("foo.addends/SameName")).value)
+
+        assertEquals("foo.addends/OldName",
+                aggregate.state.getString(location("foo"),
+                        AttributePath.parse("addends.0")))
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     private fun location(objectPath: String): ObjectLocation {
         return ObjectLocation(

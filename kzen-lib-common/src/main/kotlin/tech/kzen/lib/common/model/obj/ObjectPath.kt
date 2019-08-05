@@ -42,6 +42,15 @@ data class ObjectPath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun startsWith(objectPath: ObjectPath): Boolean {
+        return nesting.segments.size > objectPath.nesting.segments.size &&
+                nesting.startswith(objectPath.nesting) &&
+                nesting.segments[
+                        objectPath.nesting.segments.size
+                ].objectName == objectPath.name
+    }
+
+
     fun nest(attributePath: AttributePath, nestedName: ObjectName): ObjectPath {
         val nestSegment = nesting.append(ObjectNestingSegment(name, attributePath))
         return ObjectPath(nestedName, nestSegment)

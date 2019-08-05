@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectName
+import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.structure.notation.model.AttributeNotation
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.ObjectNotation
@@ -84,6 +85,21 @@ data class RenamedObjectEvent(
     fun newLocation(): ObjectLocation {
         return objectLocation.copy(
                 objectPath = objectLocation.objectPath.copy(name = newName))
+    }
+}
+
+
+data class RenamedNestedObjectEvent(
+        val objectLocation: ObjectLocation,
+        val newObjectNesting: ObjectNesting
+): SingularNotationEvent() {
+    override val documentPath
+        get() = objectLocation.documentPath
+
+
+    fun newLocation(): ObjectLocation {
+        return objectLocation.copy(
+                objectPath = objectLocation.objectPath.copy(nesting = newObjectNesting))
     }
 }
 
@@ -180,15 +196,28 @@ data class RemovedObjectInAttributeEvent(
 //---------------------------------------------------------------------------------------------------------------------
 data class RenamedObjectRefactorEvent(
         val renamedObject: RenamedObjectEvent,
-        val adjustedReferences: List<UpdatedInAttributeEvent>
+        val adjustedReferences: List<UpdatedInAttributeEvent>,
+        val nestedObjectRenames: List<NestedObjectRename>
 ): CompoundNotationEvent(
-        listOf(renamedObject).plus(adjustedReferences)
+        listOf(renamedObject) +
+                adjustedReferences +
+                nestedObjectRenames.flatMap { it.singularEvents() }
 ) {
     override val documentPath: DocumentPath
         get() {
-            check(adjustedReferences.all { renamedObject.documentPath == it.documentPath })
+            check(singularEvents.all { renamedObject.documentPath == it.documentPath })
             return renamedObject.documentPath
         }
+}
+
+
+data class NestedObjectRename(
+        val renamedNestedObject: RenamedNestedObjectEvent,
+        val adjustedReferences: List<UpdatedInAttributeEvent>
+) {
+    fun singularEvents(): List<SingularNotationEvent> {
+        return listOf(renamedNestedObject).plus(adjustedReferences)
+    }
 }
 
 

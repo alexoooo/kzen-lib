@@ -12,7 +12,7 @@ data class ObjectReference(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        private const val nestingSeparator = "#"
+        const val nestingSeparator = "#"
 
 
         fun ofName(name: ObjectName): ObjectReference {

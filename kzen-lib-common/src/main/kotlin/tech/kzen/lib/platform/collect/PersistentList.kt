@@ -14,5 +14,6 @@ expect class PersistentList<out E>(): List<E>, RandomAccess
 
     fun removeAt(index: Int): PersistentList<E>
 
+    // NB: from inclusive, to exclusive (can't change their name here without triggering warning)
     override fun subList(fromIndex: Int, toIndex: Int): PersistentList<E>
 }
