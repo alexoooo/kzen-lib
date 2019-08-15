@@ -17,8 +17,7 @@ sealed class AttributeNotation {
 
     fun asBoolean(): Boolean? {
         @Suppress("MoveVariableDeclarationIntoWhen")
-        val asString = (this as? ScalarAttributeNotation)
-                ?.value
+        val asString = asString()
                 ?: return null
 
         return when (asString) {
@@ -26,6 +25,10 @@ sealed class AttributeNotation {
             "false" -> false
             else -> null
         }
+    }
+
+    fun asInt(): Int? {
+        return asString()?.toIntOrNull()
     }
 }
 
