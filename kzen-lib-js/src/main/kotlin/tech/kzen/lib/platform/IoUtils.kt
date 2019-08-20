@@ -4,9 +4,6 @@ import org.khronos.webgl.Uint8Array
 
 
 actual object IoUtils {
-    private val base64ChunkSize = 1024
-
-
     actual fun utf8Encode(utf8: String): ByteArray {
         // from kotlinx.serialization String.toUtf8Bytes
         val blck = js("unescape(encodeURIComponent(utf8))") as String
