@@ -39,17 +39,5 @@ module.exports = {
         ]
     },
     devtool: 'cheap-source-map',
-    plugins: [
-//        new webpack.optimize.CommonsChunkPlugin({
-//            name: 'vendor',
-//            filename: 'vendor.bundle.js'
-//        }),
-//        new BrowserSyncPlugin({
-//            host: 'localhost',
-//            port: 8080,
-//            server: {
-//                baseDir: ['./build/dist']
-//            }
-//        })
-    ]
+    plugins: []
 };

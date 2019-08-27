@@ -65,7 +65,7 @@ data class ObjectNotation(
                 ?: return null
 
         for (segment in notationPath.nesting.segments.dropLast(1)) {
-            println("get - next: $next - $segment")
+//            println("get - next: $next - $segment")
 
             val sub = next.get(segment.asString())
                     as? StructuredAttributeNotation

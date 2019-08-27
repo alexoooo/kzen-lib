@@ -33,16 +33,5 @@ module.exports = {
             path.resolve(__dirname, "src/main/web/")
         ]
     },
-    plugins: [
-//        new HtmlWebpackPlugin({
-//            title: 'Kzen Library'
-//        }),
-//        new UglifyJSPlugin({
-//            sourceMap: false,
-//            minimize: true,
-//            output: {
-//                comments: false
-//            }
-//        })
-    ]
+    plugins: []
 };
