@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
@@ -86,7 +87,8 @@ object GraphDefiner {
 //                println("^^^^^ objectName: $objectLocation")
 
                 val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
-                val definerLocation = graphStructure.graphNotation.coalesce.locate(objectLocation, definerReference)
+                val definerLocation = graphStructure.graphNotation.coalesce.locate(
+                        definerReference, ObjectReferenceHost.ofLocation(objectLocation))
                 val definer = definerAndRelatedInstances[definerLocation]?.reference as? ObjectDefiner
 
                 if (definer == null) {
@@ -120,7 +122,8 @@ object GraphDefiner {
                         ?: continue
 
 //                println("  $$ got definition for: $missingName")
-                val creatorLocation = graphStructure.graphNotation.coalesce.locate(missingLocation, definition.creator)
+                val creatorLocation = graphStructure.graphNotation.coalesce.locate(
+                        definition.creator)
 
                 var hasMissingCreatorInstances = false
                 if (! definerAndRelatedInstances.containsKey(creatorLocation)) {
@@ -132,7 +135,7 @@ object GraphDefiner {
 
                 for (creatorRequired in definition.creatorDependencies) {
                     val creatorReferenceLocation =
-                            graphStructure.graphNotation.coalesce.locate(missingLocation, creatorRequired)
+                            graphStructure.graphNotation.coalesce.locate(creatorRequired)
 
                     if (! definerAndRelatedInstances.containsKey(creatorReferenceLocation)) {
                         missingCreatorInstances.add(creatorReferenceLocation)

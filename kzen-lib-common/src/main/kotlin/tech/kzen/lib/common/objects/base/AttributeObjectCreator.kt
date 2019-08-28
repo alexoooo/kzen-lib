@@ -48,7 +48,7 @@ class AttributeObjectCreator: ObjectCreator {
                     ?: defaultParameterCreator
 
             val attributeCreatorLocation = partialGraphInstance.objects.locate(
-                    objectLocation, attributeCreatorReference)
+                    attributeCreatorReference)
 
             val attributeCreator = partialGraphInstance
                     .objects[attributeCreatorLocation]?.reference as AttributeCreator

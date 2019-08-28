@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.AttributeLocation
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectNestingSegment
@@ -217,7 +218,7 @@ class NotationAggregate(
 
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
 
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
 
         val removedFromCurrent = packageNotation.withoutObject(command.objectLocation.objectPath)
 
@@ -294,7 +295,7 @@ class NotationAggregate(
             command: UpsertAttributeCommand
     ): EventAndNotation {
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 AttributePath.ofName(command.attributeName), command.attributeNotation)
@@ -341,7 +342,7 @@ class NotationAggregate(
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
 
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
 
         val listInAttribute = state
                 .transitiveAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
@@ -370,7 +371,7 @@ class NotationAggregate(
             command: InsertMapEntryInAttributeCommand
     ): EventAndNotation {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
 
         val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
         val mapWithInsert = mapInAttribute.insert(command.value, command.mapKey, command.indexInMap)
@@ -399,7 +400,7 @@ class NotationAggregate(
             command: RemoveInAttributeCommand
     ): EventAndNotation {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
 
         val containerPath = command.attributePath.parent()
         val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
@@ -438,7 +439,7 @@ class NotationAggregate(
     private fun shiftInAttribute(
             command: ShiftInAttributeCommand
     ): EventAndNotation {
-        val objectNotation = state.coalesce.get(command.objectLocation)!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
 
         val containerPath = command.attributePath.parent()
         val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
@@ -522,7 +523,8 @@ class NotationAggregate(
 
         val attributeNotation = objectNotation.get(command.attributePath)!!
         val objectReference = ObjectReference.parse(attributeNotation.asString()!!)
-        val objectLocation = state.coalesce.locate(command.containingObjectLocation, objectReference)
+        val objectReferenceHost = ObjectReferenceHost.ofLocation(command.containingObjectLocation)
+        val objectLocation = state.coalesce.locate(objectReference, objectReferenceHost)
 
         val builder = NotationAggregate(state)
 
@@ -701,8 +703,8 @@ class NotationAggregate(
 
                 if (! isReferenced(
                                 objectLocation,
-                                e.key,
                                 attributeReference.value,
+                                ObjectReferenceHost.ofLocation(e.key),
                                 graphDefinition)) {
                     continue
                 }
@@ -718,13 +720,13 @@ class NotationAggregate(
 
     private fun isReferenced(
             targetLocation: ObjectLocation,
-            host: ObjectLocation,
             reference: ObjectReference,
+            host: ObjectReferenceHost,
             graphDefinition: GraphDefinition
     ): Boolean {
         val referencedLocation = graphDefinition
                 .objectDefinitions
-                .locateOptional(host, reference)
+                .locateOptional(reference, host)
 
         return referencedLocation == targetLocation
     }

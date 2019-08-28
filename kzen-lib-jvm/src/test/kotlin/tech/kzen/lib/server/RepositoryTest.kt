@@ -23,7 +23,6 @@ import kotlin.test.assertTrue
 
 
 class RepositoryTest {
-
     //-----------------------------------------------------------------------------------------------------------------
     private val yamlParser = YamlNotationParser()
     private val metadataReader = NotationMetadataReader()

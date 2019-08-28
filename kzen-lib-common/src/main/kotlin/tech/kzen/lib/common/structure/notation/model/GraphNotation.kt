@@ -4,10 +4,7 @@ import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.locate.AttributeLocation
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
-import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.locate.*
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.platform.collect.toPersistentMap
@@ -81,7 +78,7 @@ data class GraphNotation(
                         }
                     }
 
-            cursor = coalesce.locate(objectLocation, superReference)
+            cursor = coalesce.locate(superReference, ObjectReferenceHost.ofLocation(objectLocation))
         }
     }
 
@@ -142,7 +139,8 @@ data class GraphNotation(
                 }
 
 //        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
-        val superLocation = coalesce.locate(objectLocation, superReference)
+        val superLocation = coalesce.locate(
+                superReference, ObjectReferenceHost.ofLocation(objectLocation))
 
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
                 objectLocation == BootstrapConventions.bootstrapObjectLocation) {

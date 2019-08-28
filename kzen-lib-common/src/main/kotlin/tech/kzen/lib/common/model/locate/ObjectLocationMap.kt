@@ -17,8 +17,11 @@ data class ObjectLocationMap<T>(
     }
 
 
-    fun locate(host: ObjectLocation, reference: ObjectReference): ObjectLocation {
-        return locateOptional(host, reference)
+    fun locate(
+            reference: ObjectReference,
+            host: ObjectReferenceHost
+    ): ObjectLocation {
+        return locateOptional(reference, host)
                 ?: throw IllegalArgumentException("Missing: $host - $reference")
     }
 
@@ -34,8 +37,11 @@ data class ObjectLocationMap<T>(
     }
 
 
-    fun locateOptional(host: ObjectLocation, reference: ObjectReference): ObjectLocation? {
-        val matches = locateAll(host, reference)
+    fun locateOptional(
+            reference: ObjectReference,
+            host: ObjectReferenceHost
+    ): ObjectLocation? {
+        val matches = locateAll(reference, host)
 
         check(matches.values.size <= 1) { "Ambiguous: $host - $reference - $matches" }
 
@@ -47,6 +53,14 @@ data class ObjectLocationMap<T>(
 
 
     fun locateAll(reference: ObjectReference): ObjectLocationSet {
+        return locateAll(reference, ObjectReferenceHost.global)
+    }
+
+
+    fun locateAll(
+            reference: ObjectReference,
+            host: ObjectReferenceHost
+    ): ObjectLocationSet {
         val candidates = mutableSetOf<ObjectLocation>()
         for (candidate in values.keys) {
             if (reference.name != candidate.objectPath.name ||
@@ -57,13 +71,19 @@ data class ObjectLocationMap<T>(
 
             candidates.add(candidate)
         }
+
+        // TODO: perform reverse breadth first search
+        if (candidates.size > 1 && host.documentPath != null) {
+            val iterator = candidates.iterator()
+            while (iterator.hasNext()) {
+                val objectLocation = iterator.next()
+                if (host.documentPath != objectLocation.documentPath) {
+                    iterator.remove()
+                }
+            }
+        }
+
         return ObjectLocationSet(candidates)
-    }
-
-
-    fun locateAll(host: ObjectLocation, reference: ObjectReference): ObjectLocationSet {
-        // TODO: breadth-first-search from host
-        return locateAll(reference)
     }
 
 

@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.structure.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
 import tech.kzen.lib.common.structure.metadata.model.ObjectMetadata
@@ -47,6 +48,8 @@ class NotationMetadataReader(
 
         val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
 
+        val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
+
         for (superLocation in inheritanceChain) {
             val superNotation = graphNotation.coalesce[superLocation]!!
 
@@ -57,7 +60,7 @@ class NotationMetadataReader(
                     ?: continue
 
             for (e in metaAttribute.values) {
-                val attributeMetadata = readAttribute(objectLocation, e.value, graphNotation)
+                val attributeMetadata = readAttribute(e.value, objectReferenceHost, graphNotation)
                 builder[AttributeName(e.key.asString())] = attributeMetadata
             }
         }
@@ -68,7 +71,7 @@ class NotationMetadataReader(
                 continue
             }
 
-            inferMetadata(objectLocation, attributeName, graphNotation)?.let {
+            inferMetadata(objectLocation, attributeName, objectReferenceHost, graphNotation)?.let {
                 builder[attributeName] = it
             }
         }
@@ -80,6 +83,7 @@ class NotationMetadataReader(
     private fun inferMetadata(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
+            objectReferenceHost: ObjectReferenceHost,
             graphNotation: GraphNotation
     ): AttributeMetadata? {
         val attributeNotation = graphNotation
@@ -88,7 +92,7 @@ class NotationMetadataReader(
         if (attributeNotation is ScalarAttributeNotation) {
             val isValue = try {
                 val reference = ObjectReference.parse(attributeNotation.value)
-                graphNotation.coalesce.locate(objectLocation, reference)
+                graphNotation.coalesce.locate(reference, objectReferenceHost)
                 attributeNotation.value
             }
             catch (t: Throwable) {
@@ -96,7 +100,8 @@ class NotationMetadataReader(
                 return null
             }
 
-            val isLocation = graphNotation.coalesce.locate(objectLocation, ObjectReference.parse(isValue))
+            val isLocation = graphNotation.coalesce.locate(
+                    ObjectReference.parse(isValue), objectReferenceHost)
             val isClass = graphNotation
                     .transitiveAttribute(isLocation, NotationConventions.classAttributePath)
                     ?.asString()
@@ -115,8 +120,8 @@ class NotationMetadataReader(
 
 
     private fun readAttribute(
-            host: ObjectLocation,
             attributeNotation: AttributeNotation,
+            host: ObjectReferenceHost,
             graphNotation: GraphNotation
     ): AttributeMetadata {
         val inheritanceParent: String? =
@@ -127,7 +132,7 @@ class NotationMetadataReader(
                     null
                 }
                 else {
-                    graphNotation.coalesce.locate(host, ObjectReference.parse(inheritanceParent))
+                    graphNotation.coalesce.locate(ObjectReference.parse(inheritanceParent), host)
                 }
 
         val attributeMap = attributeNotation as? MapAttributeNotation
@@ -158,7 +163,7 @@ class NotationMetadataReader(
                     is ScalarAttributeNotation -> {
                         val value = genericsNotation.value
                         val reference = ObjectReference.parse(value)
-                        val objectLocation = graphNotation.coalesce.locate(host, reference)
+                        val objectLocation = graphNotation.coalesce.locate(reference, host)
                         val genericClassName = ClassName(
                                 graphNotation.getString(objectLocation, NotationConventions.classAttributePath))
 

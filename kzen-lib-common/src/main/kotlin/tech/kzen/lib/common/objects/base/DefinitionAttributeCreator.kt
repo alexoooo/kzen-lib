@@ -5,6 +5,7 @@ import tech.kzen.lib.common.context.definition.*
 import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.structure.GraphStructure
 
 
@@ -62,11 +63,11 @@ class DefinitionAttributeCreator: AttributeCreator {
                 
                 if (attributeDefinition.weak) {
                     graphStructure.graphNotation.coalesce.locate(
-                            objectLocation, objectReference)
+                            objectReference, ObjectReferenceHost.ofLocation(objectLocation))
                 }
                 else {
                     val location = partialGraphInstance.objects.locate(
-                            objectLocation, objectReference)
+                            objectReference, ObjectReferenceHost.ofLocation(objectLocation))
 
                     partialGraphInstance[location]?.reference
                 }

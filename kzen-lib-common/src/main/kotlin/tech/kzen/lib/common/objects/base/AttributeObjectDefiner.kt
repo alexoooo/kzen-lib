@@ -51,7 +51,7 @@ class AttributeObjectDefiner: ObjectDefiner {
 
             val attributeDefinerRef = attributeMetadata.definerReference ?: defaultAttributeDefiner
             val attributeDefinerLocation = graphStructure.graphNotation.coalesce
-                    .locateOptional(objectLocation, attributeDefinerRef)
+                    .locateOptional(attributeDefinerRef)
                     ?: return ObjectDefinitionAttempt.failure(
                             "Unknown attribute definer: $attributeDefinerRef")
 

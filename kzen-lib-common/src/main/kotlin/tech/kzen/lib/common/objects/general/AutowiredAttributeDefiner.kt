@@ -7,6 +7,7 @@ import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.model.AttributeMetadata
 import tech.kzen.lib.common.structure.notation.NotationConventions
@@ -41,7 +42,8 @@ class AutowiredAttributeDefiner(
                 ?: throw IllegalArgumentException("Metadata not found: $objectLocation - $attributeName")
 
         val findIs = ObjectReference.parse(findIs(attributeMetadata))
-        val findIsLocation = graphStructure.graphNotation.coalesce.locate(objectLocation, findIs)
+        val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
+        val findIsLocation = graphStructure.graphNotation.coalesce.locate(findIs, objectReferenceHost)
 
         val references = mutableListOf<AttributeDefinition>()
 
@@ -50,7 +52,7 @@ class AutowiredAttributeDefiner(
                     ?: continue
 
             val isLocation = graphStructure.graphNotation.coalesce
-                    .locate(location, ObjectReference.parse(isReference))
+                    .locate(ObjectReference.parse(isReference), objectReferenceHost)
             if (findIsLocation != isLocation) {
                 continue
             }
