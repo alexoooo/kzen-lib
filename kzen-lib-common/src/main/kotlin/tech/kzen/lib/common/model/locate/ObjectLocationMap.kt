@@ -61,29 +61,7 @@ data class ObjectLocationMap<T>(
             reference: ObjectReference,
             host: ObjectReferenceHost
     ): ObjectLocationSet {
-        val candidates = mutableSetOf<ObjectLocation>()
-        for (candidate in values.keys) {
-            if (reference.name != candidate.objectPath.name ||
-                    reference.path != null && reference.path != candidate.documentPath ||
-                    reference.nesting != null && reference.nesting != candidate.objectPath.nesting) {
-                continue
-            }
-
-            candidates.add(candidate)
-        }
-
-        // TODO: perform reverse breadth first search
-        if (candidates.size > 1 && host.documentPath != null) {
-            val iterator = candidates.iterator()
-            while (iterator.hasNext()) {
-                val objectLocation = iterator.next()
-                if (host.documentPath != objectLocation.documentPath) {
-                    iterator.remove()
-                }
-            }
-        }
-
-        return ObjectLocationSet(candidates)
+        return ObjectLocationSet.locateAll(values.keys, reference, host)
     }
 
 
