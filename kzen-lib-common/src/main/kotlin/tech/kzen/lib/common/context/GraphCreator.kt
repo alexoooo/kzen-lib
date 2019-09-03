@@ -62,7 +62,9 @@ object GraphCreator {
             val nextLevel = findSatisfied(open, closed, graphDefinition)
 
             check(nextLevel.isNotEmpty()) {
-                "unable to satisfy: $open"
+                val unsatisfied =
+                        findUnsatisfied(open, closed, graphDefinition)
+                "unable to satisfy: $open - $unsatisfied"
             }
 
             closed.addAll(nextLevel)
@@ -101,6 +103,37 @@ object GraphCreator {
             allSatisfied.add(candidate)
         }
         return allSatisfied
+    }
+
+
+    private fun findUnsatisfied(
+            open: Set<ObjectLocation>,
+            closed: Set<ObjectLocation>,
+            graphDefinition: GraphDefinition
+    ): Pair<List<ObjectLocation>, List<Pair<ObjectReferenceHost, ObjectReference>>> {
+        val unsatisfiedLocations = mutableSetOf<ObjectLocation>()
+        val unsatisfiedReferences =
+                mutableListOf<Pair<ObjectReferenceHost, ObjectReference>>()
+
+        for (candidate in open) {
+            val definition = graphDefinition.objectDefinitions[candidate]
+                    ?: throw IllegalArgumentException("Missing definition: $candidate")
+
+            val referenceHost = ObjectReferenceHost.ofLocation(candidate)
+
+            for (reference in definition.references()) {
+                val location = tryLocate(closed, reference, referenceHost)
+
+                if (location == null) {
+                    unsatisfiedReferences.add(referenceHost to reference)
+                }
+                else if (location !in closed) {
+                    unsatisfiedLocations.add(location)
+                }
+            }
+        }
+
+        return unsatisfiedLocations.toList() to unsatisfiedReferences
     }
 
 
