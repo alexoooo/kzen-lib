@@ -19,6 +19,6 @@ class DirectoryScannerTest {
             scanner.scan()
         }
 
-        assertTrue(NotationConventions.kzenBasePath in paths.values)
+        assertTrue(NotationConventions.kzenBasePath in paths.documents.values)
     }
 }

@@ -5,9 +5,11 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.notation.model.ObjectNotation
 import tech.kzen.lib.platform.IoUtils
 import tech.kzen.lib.platform.collect.persistentMapOf
 
@@ -19,15 +21,17 @@ abstract class NotationAggregateTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun parseDocument(doc: String): DocumentNotation {
-        return yamlParser.parseDocument(IoUtils.utf8Encode(doc))
+    fun parseDocument(doc: String): ObjectPathMap<ObjectNotation> {
+        return yamlParser.parseDocumentObjects(IoUtils.utf8Encode(doc))
     }
 
 
     fun parseGraph(doc: String): GraphNotation {
         val packageNotation = parseDocument(doc)
         return GraphNotation(DocumentPathMap(persistentMapOf(
-                testPath to packageNotation)))
+                testPath to DocumentNotation(
+                        packageNotation,
+                        null))))
     }
 
 

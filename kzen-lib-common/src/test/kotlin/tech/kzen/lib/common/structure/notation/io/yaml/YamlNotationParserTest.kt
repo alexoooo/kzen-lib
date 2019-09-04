@@ -5,9 +5,11 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.notation.model.ObjectNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 import tech.kzen.lib.platform.IoUtils
 import tech.kzen.lib.platform.collect.persistentMapOf
@@ -110,21 +112,26 @@ Foo:
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parseDocument(doc: String): DocumentNotation {
-        return yamlParser.parseDocument(IoUtils.utf8Encode(doc))
+    private fun parseDocumentObjects(doc: String): ObjectPathMap<ObjectNotation> {
+        return yamlParser.parseDocumentObjects(IoUtils.utf8Encode(doc))
     }
 
 
     private fun parseGraph(doc: String): GraphNotation {
-        val documentNotation = parseDocument(doc)
+        val documentNotation = parseDocumentObjects(doc)
         return GraphNotation(DocumentPathMap(persistentMapOf(
-                mainPath to documentNotation)))
+                mainPath to DocumentNotation(
+                        documentNotation,
+                        null))))
     }
 
 
     private fun deparse(initial: String, expected: String): String {
         return IoUtils.utf8Decode(yamlParser.deparseDocument(
-                yamlParser.parseDocument(IoUtils.utf8Encode(expected)),
+                DocumentNotation(
+                        yamlParser.parseDocumentObjects(IoUtils.utf8Encode(expected)),
+                        null
+                ),
                 IoUtils.utf8Encode(initial)))
     }
 

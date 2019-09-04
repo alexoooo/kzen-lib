@@ -16,7 +16,9 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 class YamlNotationParser: NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
-    override fun parseDocument(body: ByteArray): DocumentNotation {
+    override fun parseDocumentObjects(
+            body: ByteArray
+    ): ObjectPathMap<ObjectNotation> {
         @Suppress("MoveVariableDeclarationIntoWhen")
         val node = YamlNodeParser.parse(body)
 //        println("#!@#!@#!@#!@#!@ node = $node")
@@ -53,7 +55,7 @@ class YamlNotationParser: NotationParser {
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation
         }
-        return DocumentNotation(ObjectPathMap(objects.toPersistentMap()))
+        return ObjectPathMap(objects.toPersistentMap())
     }
 
 
@@ -75,9 +77,7 @@ class YamlNotationParser: NotationParser {
     override fun parseObject(value: String): ObjectNotation {
         val node = YamlNodeParser.parse(value)
 
-        if (node !is YamlMap) {
-            throw IllegalArgumentException("Map expected: $node")
-        }
+        require(node is YamlMap) { "Map expected: $node" }
 
         return parseObjectYaml(node)
     }
@@ -91,8 +91,6 @@ class YamlNotationParser: NotationParser {
 
     private fun yamlToAttribute(node: YamlNode): AttributeNotation {
         return when (node) {
-//            is YamlScalar ->
-//                ScalarAttributeNotation(node.value)
             is YamlString ->
                 ScalarAttributeNotation(node.value)
 
@@ -170,6 +168,7 @@ class YamlNotationParser: NotationParser {
         val yaml = objectToYaml(objectNotation)
         return yaml.asString()
     }
+
 
     override fun deparseAttribute(attributeNotation: AttributeNotation): String {
         val yaml = attributeToYaml(attributeNotation)

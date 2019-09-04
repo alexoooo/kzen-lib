@@ -5,16 +5,21 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.obj.ObjectPathMap
+import tech.kzen.lib.common.model.resource.ResourceListing
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentNotation(
-        val objects: ObjectPathMap<ObjectNotation>
+        val objects: ObjectPathMap<ObjectNotation>,
+        val resources: ResourceListing?
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val empty = DocumentNotation(ObjectPathMap(
-                mapOf<ObjectPath, ObjectNotation>().toPersistentMap()))
+        val emptyWithoutResources = DocumentNotation(
+                ObjectPathMap.empty(), null)
+
+        val emptyWithResources = DocumentNotation(
+                ObjectPathMap.empty(), ResourceListing.empty)
     }
 
 
@@ -62,7 +67,8 @@ data class DocumentNotation(
             objectNotation: ObjectNotation
     ): DocumentNotation {
         return DocumentNotation(
-                objects.updateEntry(objectPath, objectNotation))
+                objects.updateEntry(objectPath, objectNotation),
+                resources)
     }
 
 
@@ -71,7 +77,8 @@ data class DocumentNotation(
             objectNotation: ObjectNotation
     ): DocumentNotation {
         return DocumentNotation(
-                objects.insertEntry(positionedObjectPath, objectNotation))
+                objects.insertEntry(positionedObjectPath, objectNotation),
+                resources)
     }
 
 
@@ -79,7 +86,8 @@ data class DocumentNotation(
             objectPath: ObjectPath
     ): DocumentNotation {
         return DocumentNotation(
-                objects.removeKey(objectPath))
+                objects.removeKey(objectPath),
+                resources)
     }
 
 

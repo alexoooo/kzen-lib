@@ -23,7 +23,7 @@ sealed class SemanticNotationCommand: NotationCommand()
 //---------------------------------------------------------------------------------------------------------------------
 data class CreateDocumentCommand(
         val documentPath: DocumentPath,
-        val documentNotation: DocumentNotation = DocumentNotation.empty
+        val documentNotation: DocumentNotation = DocumentNotation.emptyWithoutResources
 ): StructuralNotationCommand()
 
 

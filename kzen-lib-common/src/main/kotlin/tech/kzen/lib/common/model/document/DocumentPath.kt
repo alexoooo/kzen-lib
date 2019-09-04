@@ -1,12 +1,14 @@
 package tech.kzen.lib.common.model.document
 
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
 data class DocumentPath(
         val name: DocumentName?,
         val nesting: DocumentNesting
-) {
+): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         const val delimiter = "/"
@@ -113,6 +115,12 @@ data class DocumentPath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(digester: Digest.Streaming) {
+        digester.addDigestible(name)
+        digester.addDigestible(nesting)
+    }
+
+
     override fun toString(): String {
         return asString()
     }

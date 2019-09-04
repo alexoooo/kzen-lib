@@ -2,11 +2,24 @@ package tech.kzen.lib.common.model.obj
 
 import tech.kzen.lib.common.structure.notation.model.PositionedObjectPath
 import tech.kzen.lib.platform.collect.PersistentMap
+import tech.kzen.lib.platform.collect.persistentMapOf
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class ObjectPathMap<T>(
         val values: PersistentMap<ObjectPath, T>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        private val empty = ObjectPathMap(mapOf<ObjectPath, Any>().toPersistentMap())
+
+        fun <T> empty(): ObjectPathMap<T> {
+            @Suppress("UNCHECKED_CAST")
+            return empty as ObjectPathMap<T>
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     operator fun get(objectPath: ObjectPath): T? {
         return values[objectPath]

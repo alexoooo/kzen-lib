@@ -3,6 +3,8 @@ package tech.kzen.lib.server.notation
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
+import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
+import tech.kzen.lib.common.structure.notation.io.model.NotationScan
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
@@ -34,7 +36,7 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): DocumentPathMap<Digest> {
+    override suspend fun scan(): NotationScan {
         val locationTimes = mutableMapOf<DocumentPath, Instant>()
 
         val roots = notationLocator.scanRoots()
@@ -42,7 +44,7 @@ class FileNotationMedia(
             directoryScan(root, locationTimes)
         }
 
-        val digested = mutableMapOf<DocumentPath, Digest>()
+        val digested = mutableMapOf<DocumentPath, DocumentScan>()
 
         for (e in locationTimes) {
             val timedDigest = digestCache[e.key]
@@ -50,7 +52,10 @@ class FileNotationMedia(
             if (timedDigest == null) {
                 val digest = digest(e.key)
                 digestCache[e.key] = TimedDigest(e.value, digest)
-                digested[e.key] = digest
+
+                digested[e.key] = DocumentScan(
+                        digest,
+                        null)
             }
             else {
                 if (timedDigest.modified != e.value) {
@@ -58,11 +63,13 @@ class FileNotationMedia(
                     timedDigest.modified = e.value
                 }
 
-                digested[e.key] = timedDigest.digest
+                digested[e.key] = DocumentScan(
+                        timedDigest.digest,
+                        null)
             }
         }
 
-        return DocumentPathMap(digested.toPersistentMap())
+        return NotationScan(DocumentPathMap(digested.toPersistentMap()))
     }
 
 

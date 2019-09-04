@@ -10,6 +10,7 @@ import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.structure.notation.io.NotationParser
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
@@ -22,7 +23,7 @@ class NotationRepository(
         private val metadataReader: NotationMetadataReader
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    private var scanCache = mutableMapOf<DocumentPath, Digest>()
+    private var scanCache = mutableMapOf<DocumentPath, DocumentScan>()
 
     // TODO: use notation from inside ProjectAggregate?
     private var projectNotationCache: GraphNotation? = null
@@ -44,7 +45,7 @@ class NotationRepository(
         val documents = mutableMapOf<DocumentPath, DocumentNotation>()
 
         scanCache.clear()
-        scanCache.putAll(notationMedia.scan().values)
+        scanCache.putAll(notationMedia.scan().documents.values)
 
         if (scanCache.size * 2 > fileCache.size) {
             fileCache.size = scanCache.size * 2
@@ -53,15 +54,15 @@ class NotationRepository(
         for (e in scanCache) {
             val projectPath = e.key
 
-            val bodyCache = fileCache.get(e.value)
+            val bodyCache = fileCache.get(e.value.documentDigest)
 
             val body = bodyCache
                     ?: notationMedia.read(projectPath)
 
             packageBytes[projectPath] = body
 
-            val documentNotation = notationParser.parseDocument(body)
-            documents[projectPath] = documentNotation
+            val documentNotation = notationParser.parseDocumentObjects(body)
+            documents[projectPath] = DocumentNotation(documentNotation, null)
         }
 
         return GraphNotation(DocumentPathMap(documents.toPersistentMap()))
@@ -136,7 +137,7 @@ class NotationRepository(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation
     ): Boolean {
-        val cachedDigest = scanCache[documentPath]
+        val cachedDigest = scanCache[documentPath]?.documentDigest
 
         var previousMissing = false
         val previousBody: ByteArray =
@@ -163,7 +164,10 @@ class NotationRepository(
         }
 
         notationMedia.write(documentPath, updatedBody)
-        scanCache[documentPath] = Digest.ofXoShiRo256StarStar(updatedBody)
+
+        scanCache[documentPath] = DocumentScan(
+                Digest.ofXoShiRo256StarStar(updatedBody),
+                null)
 
         return true
     }
@@ -183,18 +187,8 @@ class NotationRepository(
             read()
         }
 
-        val combiner = Digest.UnorderedCombiner()
-        val subCombiner = Digest.OrderedCombiner()
-
-        for (e in scanCache) {
-            subCombiner.add(Digest.ofXoShiRo256StarStar(e.key.asString()))
-            subCombiner.add(e.value)
-
-            combiner.add(subCombiner.combine())
-
-            subCombiner.clear()
-        }
-
-        return combiner.combine()
+        val digester = Digest.Streaming()
+        digester.addDigestibleUnorderedMap(scanCache)
+        return digester.digest()
     }
 }

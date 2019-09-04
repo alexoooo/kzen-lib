@@ -18,32 +18,6 @@ data class Digest(
         val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
 
 
-        private fun rotl(x: Int, k: Int): Int {
-            return x.shl(k) or (x ushr (32 - k))
-        }
-
-
-        private fun murmurHash3(value: Int): Int {
-            var x = value
-            x = x xor x.ushr(16)
-            x *= -0x7a143595
-            x = x xor x.ushr(13)
-            x *= -0x3d4d51cb
-            x = x xor x.ushr(16)
-            return x
-        }
-
-
-        private fun hashMapHash(value: Int): Int {
-            return value xor value.ushr(16)
-        }
-
-
-        private fun guavaHashingSmear(value: Int): Int {
-            return 461845907 * rotl(value * -862048943, 15)
-        }
-
-
         fun ofXoShiRo256StarStar(utf8: String?): Digest {
             if (utf8 == null) {
                 return missing
@@ -95,65 +69,31 @@ data class Digest(
                     parts[2].toInt(),
                     parts[3].toInt())
         }
-    }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
-    class UnorderedCombiner {
-        private var a: Int = 0
-        private var b: Int = 0
-        private var c: Int = 0
-        private var d: Int = 0
-
-
-        fun clear() {
-            a = 0
-            b = 0
-            c = 0
-            d = 0
+        private fun rotl(x: Int, k: Int): Int {
+            return x.shl(k) or (x ushr (32 - k))
         }
 
 
-        fun add(digest: Digest) {
-            a += digest.a
-            b += digest.b
-            c += digest.c
-            d += digest.d
+        private fun murmurHash3(value: Int): Int {
+            var x = value
+            x = x xor x.ushr(16)
+            x *= -0x7a143595
+            x = x xor x.ushr(13)
+            x *= -0x3d4d51cb
+            x = x xor x.ushr(16)
+            return x
         }
 
 
-        fun combine(): Digest {
-            return Digest(a, b, c, d)
-        }
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    class OrderedCombiner {
-        private var a: Int = 0
-        private var b: Int = 0
-        private var c: Int = 0
-        private var d: Int = 0
-
-
-        fun clear() {
-            a = 0
-            b = 0
-            c = 0
-            d = 0
+        private fun hashMapHash(value: Int): Int {
+            return value xor value.ushr(16)
         }
 
 
-        fun add(digest: Digest) {
-            a = a * 37 xor digest.a
-            b = b * 37 xor digest.b
-            c = c * 37 xor digest.c
-            d = d * 37 xor digest.d
-        }
-
-
-        fun combine(): Digest {
-            return Digest(a, b, c, d)
+        private fun guavaHashingSmear(value: Int): Int {
+            return 461845907 * rotl(value * -862048943, 15)
         }
     }
 
@@ -175,7 +115,7 @@ data class Digest(
 
 
         fun addMissing(): Streaming {
-            addDigest(missing)
+            addDigestDirect(missing)
             return this
         }
 
@@ -234,17 +174,70 @@ data class Digest(
         }
 
 
+        private fun addDigestDirect(digest: Digest): Streaming {
+            addInt(digest.a)
+            addInt(digest.b)
+            addInt(digest.c)
+            addInt(digest.d)
+            return this
+        }
+
+
         fun addDigest(digest: Digest?): Streaming {
             if (digest == null) {
                 addMissing()
             }
             else {
-                addInt(digest.a)
-                addInt(digest.b)
-                addInt(digest.c)
-                addInt(digest.d)
+                addDigestDirect(digest)
             }
             return this
+        }
+
+
+        fun addDigestible(digestible: Digestible?): Streaming {
+            if (digestible == null) {
+                addMissing()
+            }
+            else {
+                addDigestDirect(digestible.digest())
+            }
+            return this
+        }
+
+
+        fun addDigestibleList(digestibleList: List<Digestible>) {
+            addInt(digestibleList.size)
+            for (digestible in digestibleList) {
+                digestible.digest(this)
+            }
+        }
+
+
+        fun addDigestibleOrderedMap(digestibleMap: Map<out Digestible, Digestible>) {
+            addInt(digestibleMap.size)
+            for ((key, value) in digestibleMap) {
+                addDigestible(key)
+                addDigestible(value)
+            }
+        }
+
+
+        fun addDigestibleUnorderedMap(digestibleMap: Map<out Digestible, Digestible>) {
+            addInt(digestibleMap.size)
+
+            val unorderedCombiner = UnorderedCombiner()
+            val entryDigester = Streaming()
+
+            for ((key, value) in digestibleMap) {
+                entryDigester.clear()
+
+                entryDigester.addDigestible(key)
+                entryDigester.addDigestible(value)
+
+                unorderedCombiner.add(entryDigester.digest())
+            }
+
+            addDigestDirect(unorderedCombiner.combine())
         }
 
 
@@ -254,9 +247,17 @@ data class Digest(
             }
             else {
                 val bytes = IoUtils.utf8Encode(utf8)
-                addBytes(bytes)
+                addBytesDirect(bytes)
             }
             return this
+        }
+
+
+        private fun addBytesDirect(bytes: ByteArray) {
+            addInt(bytes.size)
+            bytes.forEach {
+                addByte(it)
+            }
         }
 
 
@@ -265,8 +266,7 @@ data class Digest(
                 addMissing()
             }
             else {
-                addInt(bytes.size)
-                bytes.forEach { addByte(it) }
+                addBytesDirect(bytes)
             }
             return this
         }
@@ -317,6 +317,87 @@ data class Digest(
                 else {
                     Digest(s0, s1, s2, s3)
                 }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    interface Combiner {
+        /**
+         * Reset state to zero
+         */
+        fun clear()
+
+
+        /**
+         * Update state to incorporate given digest
+         * @digest to be incorporated
+         */
+        fun add(digest: Digest)
+
+
+        /**
+         * Current state
+         * @return accumulated combination of add added digests
+         */
+        fun combine(): Digest
+    }
+
+
+    class UnorderedCombiner: Combiner {
+        private var a: Int = 0
+        private var b: Int = 0
+        private var c: Int = 0
+        private var d: Int = 0
+
+
+        override fun clear() {
+            a = 0
+            b = 0
+            c = 0
+            d = 0
+        }
+
+
+        override fun add(digest: Digest) {
+            a += digest.a
+            b += digest.b
+            c += digest.c
+            d += digest.d
+        }
+
+
+        override fun combine(): Digest {
+            return Digest(a, b, c, d)
+        }
+    }
+
+
+    class OrderedCombiner: Combiner {
+        private var a: Int = 0
+        private var b: Int = 0
+        private var c: Int = 0
+        private var d: Int = 0
+
+
+        override fun clear() {
+            a = 0
+            b = 0
+            c = 0
+            d = 0
+        }
+
+
+        override fun add(digest: Digest) {
+            a = a * 37 xor digest.a
+            b = b * 37 xor digest.b
+            c = c * 37 xor digest.c
+            d = d * 37 xor digest.d
+        }
+
+
+        override fun combine(): Digest {
+            return Digest(a, b, c, d)
+        }
     }
 
 

@@ -5,6 +5,8 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
+import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
+import tech.kzen.lib.common.structure.notation.io.model.NotationScan
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 
@@ -15,21 +17,24 @@ class ClasspathNotationMedia(
         private val loader: ClassLoader = Thread.currentThread().contextClassLoader
 ): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
-    private val cache: MutableMap<DocumentPath, Digest> = mutableMapOf()
+    private val cache: MutableMap<DocumentPath, DocumentScan> = mutableMapOf()
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun scan(): DocumentPathMap<Digest> {
+    override suspend fun scan(): NotationScan {
         if (cache.isEmpty()) {
             val paths = scanPaths()
 
             for (path in paths) {
                 val bytes = read(path)
                 val digest = Digest.ofXoShiRo256StarStar(bytes)
-                cache[path] = digest
+                cache[path] = DocumentScan(
+                        digest,
+                        null)
             }
         }
-        return DocumentPathMap(cache.toPersistentMap())
+        return NotationScan(
+                DocumentPathMap(cache.toPersistentMap()))
     }
 
 

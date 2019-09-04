@@ -3,19 +3,20 @@ package tech.kzen.lib.common.structure.notation.io.common
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
-import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
+import tech.kzen.lib.common.structure.notation.io.model.NotationScan
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class MultiNotationMedia(
         private val media: List<NotationMedia>
 ) : NotationMedia {
-    override suspend fun scan(): DocumentPathMap<Digest> {
-        val all = mutableMapOf<DocumentPath, Digest>()
+    override suspend fun scan(): NotationScan {
+        val all = mutableMapOf<DocumentPath, DocumentScan>()
         for (delegate in media) {
-            all.putAll(delegate.scan().values)
+            all.putAll(delegate.scan().documents.values)
         }
-        return DocumentPathMap(all.toPersistentMap())
+        return NotationScan(DocumentPathMap(all.toPersistentMap()))
     }
 
 

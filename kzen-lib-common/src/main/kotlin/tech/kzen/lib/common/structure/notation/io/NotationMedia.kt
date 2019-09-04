@@ -1,12 +1,11 @@
 package tech.kzen.lib.common.structure.notation.io
 
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.structure.notation.io.model.NotationScan
 
 
 interface NotationMedia {
-    suspend fun scan(): DocumentPathMap<Digest>
+    suspend fun scan(): NotationScan
 
     /**
      * Must exist
