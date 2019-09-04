@@ -9,11 +9,6 @@ data class GraphDefinition(
         val objectDefinitions: ObjectLocationMap<ObjectDefinition>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-//    fun get(attributeLocation: AttributeLocation): AttributeDefinition {
-//        val objectDefinition = objectDefinitions.get(attributeLocation.objectLocation)
-//        return objectDefinition?.get(attributeLocation.attributePath)
-//                ?: throw IllegalArgumentException("Missing attribute: $attributeLocation")
-//    }
     fun get(attributeLocation: AttributeLocation): AttributeDefinition? {
         return objectDefinitions[attributeLocation.objectLocation]
                 ?.get(attributeLocation.attributePath)
@@ -25,21 +20,13 @@ data class GraphDefinition(
     }
 
 
-//    fun get(name: ObjectName): ObjectDefinition {
-//        val matches = mutableListOf<ObjectDefinition>()
-//        for (e in objectDefinitions.entries) {
-//            if (e.key.name == name) {
-//                matches.add(e.value)
-//            }
-//        }
-//        check(matches.size == 1) { "Single object required: $matches" }
-//
-//        return matches[0]
-//    }
-
-
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun filter(predicate: (Pair<ObjectLocation, ObjectDefinition>) -> Boolean): GraphDefinition {
+        return GraphDefinition(objectDefinitions.filter(predicate))
+    }
+
+
     fun put(objectLocation: ObjectLocation, objectDefinition: ObjectDefinition): GraphDefinition {
         return GraphDefinition(objectDefinitions.put(objectLocation, objectDefinition))
     }

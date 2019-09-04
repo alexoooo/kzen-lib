@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.locate
 
 import tech.kzen.lib.platform.collect.PersistentMap
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class ObjectLocationMap<T>(
@@ -66,10 +67,6 @@ data class ObjectLocationMap<T>(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    fun names(): Set<ObjectName> =
-//            values.keys.map(ObjectLocation::name).toSet()
-
-
     fun containsKey(objectLocation: ObjectLocation): Boolean {
         return values.containsKey(objectLocation)
     }
@@ -79,45 +76,15 @@ data class ObjectLocationMap<T>(
         return values[objectLocation]
     }
 
-//    fun get(objectLocation: ObjectLocation): T {
-//        val instance = find(objectLocation)
-//        check(instance != null) { "Not found: $objectLocation" }
-//        return instance
-//    }
-//
-//
-//    fun find(objectLocation: ObjectLocation): T? {
-//        return values[objectLocation]
-//    }
-
-
-
-//    fun get(name: ObjectName): T {
-//        val instance = find(name)
-//        check(instance != null) { "Not found: $name" }
-//        return instance
-//    }
-//
-//
-//    fun find(name: ObjectName): T? {
-//        val candidates = mutableListOf<T>()
-//        for (e in values) {
-//            if (e.key.name == name) {
-//                candidates.add(e.value)
-//            }
-//        }
-//
-//        if (candidates.isEmpty()) {
-//            return null
-//        }
-//
-//        check(candidates.size == 1) { "Ambiguous: $name - $candidates" }
-//
-//        return candidates[0]
-//    }
-
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun filter(predicate: (Pair<ObjectLocation, T>) -> Boolean): ObjectLocationMap<T> {
+        return ObjectLocationMap(values
+                .filter { predicate(it.toPair()) }
+                .toPersistentMap())
+    }
+
+
     fun put(objectLocation: ObjectLocation, instance: T): ObjectLocationMap<T> {
         return ObjectLocationMap(values.put(objectLocation, instance))
     }

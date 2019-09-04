@@ -11,7 +11,6 @@ data class DocumentPath(
     companion object {
         const val delimiter = "/"
 
-        private val segmentPattern = Regex("[a-zA-Z0-9_\\- ]+")
         private val namePattern = Regex("[a-zA-Z0-9_\\- ]+(\\.([a-zA-Z0-9]+))?")
 
 //        private val resource = Regex(
@@ -27,14 +26,15 @@ data class DocumentPath(
 
             val pathMatches = segments
                     .subList(0, segments.size - 1)
-                    .all { segmentPattern.matches(it) }
+                    .all { DocumentSegment.segmentPattern.matches(it) }
             if (! pathMatches) {
                 return false
             }
 
             val last = segments.last()
-            return segmentPattern.matches(last) ||
-                    namePattern.matches(last)
+            return DocumentSegment.segmentPattern.matches(last) ||
+                    namePattern.matches(last) ||
+                    last.isEmpty()
         }
 
 
@@ -46,7 +46,7 @@ data class DocumentPath(
             if (parts.last().isEmpty()) {
                 return DocumentPath(
                         null,
-                        DocumentNesting(parts.map {
+                        DocumentNesting(parts.subList(0, parts.size - 1).map {
                             DocumentSegment(it)
                         }.toPersistentList()))
             }
