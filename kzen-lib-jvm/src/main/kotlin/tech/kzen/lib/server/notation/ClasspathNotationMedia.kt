@@ -13,7 +13,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 class ClasspathNotationMedia(
         private val prefix: String = NotationConventions.documentPathPrefix,
-        private val suffix: String = NotationConventions.documentPathSuffix,
+        private val suffix: String = NotationConventions.fileDocumentSuffix,
         private val loader: ClassLoader = Thread.currentThread().contextClassLoader
 ): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
@@ -27,7 +27,7 @@ class ClasspathNotationMedia(
 
             for (path in paths) {
                 val bytes = read(path)
-                val digest = Digest.ofXoShiRo256StarStar(bytes)
+                val digest = Digest.ofBytes(bytes)
                 cache[path] = DocumentScan(
                         digest,
                         null)

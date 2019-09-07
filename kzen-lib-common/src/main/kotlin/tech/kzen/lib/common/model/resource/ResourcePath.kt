@@ -11,7 +11,34 @@ data class ResourcePath(
         val resourceName: ResourceName,
         val resourceNesting: ResourceNesting
 ): Digestible {
-    override fun digest(digester: Digest.Streaming) {
+    //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        fun parse(asString: String): ResourcePath {
+            val nameIndex = asString.lastIndexOf(ResourceNesting.delimiter)
+            if (nameIndex == -1) {
+                return ResourcePath(
+                        ResourceName(asString),
+                        ResourceNesting.empty)
+            }
+
+            val nestingPrefix = asString.substring(0, nameIndex)
+            val nameSuffix = asString.substring(nameIndex + 1)
+
+            return ResourcePath(
+                    ResourceName(nameSuffix),
+                    ResourceNesting.parse(nestingPrefix))
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun asString(): String {
+        return resourceNesting.asString() + resourceName.value
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(digester: Digest.Builder) {
         digester.addDigestible(resourceName)
         digester.addDigestible(resourceNesting)
     }

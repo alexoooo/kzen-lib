@@ -25,13 +25,13 @@ class MapNotationMedia: NotationMedia {
     override suspend fun scan(): NotationScan {
         val documentScans = data.mapValues {
             DocumentScan(
-                    Digest.ofXoShiRo256StarStar(it.value.document),
+                    Digest.ofBytes(it.value.document),
                     it.value.resources?.let { resources ->
                         ResourceListing(
                                 resources.mapValues { e ->
                                     ResourceInfo(
                                             e.value.size,
-                                            Digest.ofXoShiRo256StarStar(e.value)
+                                            Digest.ofBytes(e.value)
                                     )
                                 })
                     }

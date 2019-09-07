@@ -13,7 +13,7 @@ class DigestCollisionTest {
         val value = Random().nextInt()
 //        val value = 0
 
-        val digest = Digest.Streaming()
+        val digest = Digest.Builder()
 
         for (i in 1 .. 1_000_000) {
             val current = digest.addInt(value).digest()
@@ -31,7 +31,7 @@ class DigestCollisionTest {
 
         val random = Random()
         val start = random.nextInt()
-        val digest = Digest.Streaming()
+        val digest = Digest.Builder()
 
         for (i in 1 .. 1_000_000) {
             val value = start + i
@@ -61,5 +61,5 @@ class DigestCollisionTest {
 
 
     private fun digest(value: String): Digest =
-            Digest.ofXoShiRo256StarStar(value)
+            Digest.ofUtf8(value)
 }

@@ -15,6 +15,18 @@ import tech.kzen.lib.platform.collect.persistentListOf
 
 
 object NotationConventions {
+    const val mainKey = "main"
+
+    const val pathDelimiter = "/"
+    const val notationFormat = YamlUtils.fileExtension
+
+    const val documentPathPrefix: String = "notation/"
+
+    const val fileDocumentSuffix: String = ".$notationFormat"
+
+    const val directoryDocumentName = "~$mainKey$fileDocumentSuffix"
+    const val directoryDocumentSuffix = "$pathDelimiter$directoryDocumentName"
+
     const val isKey = "is"
     val isAttributeSegment = AttributeSegment.ofKey(isKey)
     val isAttributeName = AttributeName(isKey)
@@ -44,18 +56,15 @@ object NotationConventions {
     val abstractAttributeName = AttributeName(abstractKey)
     val abstractAttributePath = AttributePath.ofName(abstractAttributeName)
 
-
-    const val documentPathPrefix: String = "notation/"
-    const val documentPathSuffix: String = "." + YamlUtils.fileExtension
-
     val kzenBasePath = DocumentPath.parse("base/kzen-base.yaml")
 
-    const val mainKey = "main"
     val mainObjectName = ObjectName(mainKey)
     val mainObjectPath = ObjectPath(mainObjectName, ObjectNesting.root)
-    val mainDocumentName = DocumentName.ofYaml(mainKey)
-    val mainDocumentPathSegment = DocumentSegment(mainKey)
-    val mainDocumentPath = DocumentPath(null, DocumentNesting(persistentListOf(mainDocumentPathSegment)))
+    val mainDocumentName = DocumentName(mainKey)
+    val mainDocumentSegment = DocumentSegment(mainKey)
+    val mainDocumentNesting = DocumentNesting(persistentListOf(mainDocumentSegment))
+//    val mainDocumentPath = DocumentPath(
+//            null, DocumentNesting(persistentListOf(mainDocumentPathSegment)), false)
 
 
     val specialAttributeNames = setOf(

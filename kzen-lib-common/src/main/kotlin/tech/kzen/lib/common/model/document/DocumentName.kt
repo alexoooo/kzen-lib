@@ -10,9 +10,15 @@ data class DocumentName(
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        fun ofYaml(filename: String): DocumentName {
-            return DocumentName("$filename${NotationConventions.documentPathSuffix}")
+        private val namePattern = Regex("[a-zA-Z0-9_\\- ]+")
+
+        fun matches(value: String): Boolean {
+            return namePattern.matches(value)
         }
+
+//        fun ofYaml(filename: String): DocumentName {
+//            return DocumentName("$filename${NotationConventions.fileDocumentSuffix}")
+//        }
     }
 
 
@@ -20,6 +26,9 @@ data class DocumentName(
     init {
         check(value.isNotEmpty()) {
             "Document name can't be empty"
+        }
+        check(matches(value)) {
+            "Document name not valid"
         }
     }
 
@@ -31,7 +40,7 @@ data class DocumentName(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Streaming) {
+    override fun digest(digester: Digest.Builder) {
         digester.addUtf8(value)
     }
 

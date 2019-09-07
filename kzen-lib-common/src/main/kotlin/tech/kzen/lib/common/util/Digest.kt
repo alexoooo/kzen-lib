@@ -18,17 +18,17 @@ data class Digest(
         val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
 
 
-        fun ofXoShiRo256StarStar(utf8: String?): Digest {
+        fun ofUtf8(utf8: String?): Digest {
             if (utf8 == null) {
                 return missing
             }
 
             val bytes = IoUtils.utf8Encode(utf8)
-            return ofXoShiRo256StarStar(bytes)
+            return ofBytes(bytes)
         }
 
 
-        fun ofXoShiRo256StarStar(bytes: ByteArray?): Digest {
+        fun ofBytes(bytes: ByteArray?): Digest {
             if (bytes == null) {
                 return missing
             }
@@ -43,7 +43,8 @@ data class Digest(
             var s3: Int = guavaHashingSmear(bytes.size)
 
             for (b in bytes) {
-                s0 += guavaHashingSmear(b.toInt())
+//                s0 += guavaHashingSmear(b.toInt())
+                s0 = s0 * 37 xor guavaHashingSmear(b.toInt())
 
                 val t = s1 shl 9
 
@@ -99,7 +100,7 @@ data class Digest(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    class Streaming {
+    class Builder {
         private var s0: Int = 0
         private var s1: Int = 0
         private var s2: Int = 0
@@ -114,13 +115,13 @@ data class Digest(
         }
 
 
-        fun addMissing(): Streaming {
+        fun addMissing(): Builder {
             addDigestDirect(missing)
             return this
         }
 
 
-        fun addBoolean(value: Boolean): Streaming {
+        fun addBoolean(value: Boolean): Builder {
             if (value) {
                 addInt(1)
             }
@@ -131,7 +132,7 @@ data class Digest(
         }
 
 
-        fun addBoolean(value: Boolean?): Streaming {
+        fun addBoolean(value: Boolean?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -142,31 +143,31 @@ data class Digest(
         }
 
 
-        fun addByte(value: Byte): Streaming {
+        fun addByte(value: Byte): Builder {
             addInt(value.toInt())
             return this
         }
 
 
-        fun addChar(value: Char): Streaming {
+        fun addChar(value: Char): Builder {
             addInt(value.toInt())
             return this
         }
 
 
-        fun addShort(value: Short): Streaming {
+        fun addShort(value: Short): Builder {
             addInt(value.toInt())
             return this
         }
 
 
-        fun addDouble(value: Double): Streaming {
+        fun addDouble(value: Double): Builder {
             addLong(value.toBits())
             return this
         }
 
 
-        fun addLong(value: Long): Streaming {
+        fun addLong(value: Long): Builder {
             // https://stackoverflow.com/a/12772968/1941359
             addInt(value.toInt())
             addInt((value shr Int.SIZE_BITS).toInt())
@@ -174,7 +175,7 @@ data class Digest(
         }
 
 
-        private fun addDigestDirect(digest: Digest): Streaming {
+        private fun addDigestDirect(digest: Digest): Builder {
             addInt(digest.a)
             addInt(digest.b)
             addInt(digest.c)
@@ -183,7 +184,7 @@ data class Digest(
         }
 
 
-        fun addDigest(digest: Digest?): Streaming {
+        fun addDigest(digest: Digest?): Builder {
             if (digest == null) {
                 addMissing()
             }
@@ -194,7 +195,7 @@ data class Digest(
         }
 
 
-        fun addDigestible(digestible: Digestible?): Streaming {
+        fun addDigestible(digestible: Digestible?): Builder {
             if (digestible == null) {
                 addMissing()
             }
@@ -226,7 +227,7 @@ data class Digest(
             addInt(digestibleMap.size)
 
             val unorderedCombiner = UnorderedCombiner()
-            val entryDigester = Streaming()
+            val entryDigester = Builder()
 
             for ((key, value) in digestibleMap) {
                 entryDigester.clear()
@@ -241,7 +242,7 @@ data class Digest(
         }
 
 
-        fun addUtf8(utf8: String?): Streaming {
+        fun addUtf8(utf8: String?): Builder {
             if (utf8 == null) {
                 addMissing()
             }
@@ -261,7 +262,7 @@ data class Digest(
         }
 
 
-        fun addBytes(bytes: ByteArray?): Streaming {
+        fun addBytes(bytes: ByteArray?): Builder {
             if (bytes == null) {
                 addMissing()
             }
@@ -272,12 +273,13 @@ data class Digest(
         }
 
 
-        fun addInt(value: Int): Streaming {
+        fun addInt(value: Int): Builder {
             if (isZero()) {
                 init(value)
             }
             else {
-                s0 += guavaHashingSmear(value)
+//                s0 += guavaHashingSmear(value)
+                s0 = s0 * 37 xor guavaHashingSmear(value)
 
                 val t = s1 shl 9
 

@@ -8,7 +8,7 @@ data class ResourceInfo(
         val contentLength: Int,
         val contentDigest: Digest
 ): Digestible {
-    override fun digest(digester: Digest.Streaming) {
+    override fun digest(digester: Digest.Builder) {
         digester.addDigest(contentDigest)
     }
 }

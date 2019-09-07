@@ -10,8 +10,8 @@ class DigestTest {
     @Test
     fun emptyDigest() {
         assertNotEquals(
-                Digest.Streaming().addInt(0).digest(),
-                Digest.Streaming().digest()
+                Digest.Builder().addInt(0).digest(),
+                Digest.Builder().digest()
         )
     }
 
@@ -19,7 +19,7 @@ class DigestTest {
     fun zeroIsDistinctFromEmpty() {
         assertNotEquals(
                 Digest.zero,
-                Digest.Streaming().digest()
+                Digest.Builder().digest()
         )
     }
 
@@ -28,7 +28,7 @@ class DigestTest {
     fun zeroIsDistinctFromZeroDigest() {
         assertNotEquals(
                 Digest.zero,
-                Digest.Streaming().addInt(0).digest()
+                Digest.Builder().addInt(0).digest()
         )
     }
 
@@ -36,7 +36,7 @@ class DigestTest {
     @Test
     fun digestSimpleValue() {
         assertEquals(
-                Digest(-1589863858, 1740563592, 714421289, -1869687948),
+                Digest(-1025110241, -1673702306, -104695459, 1543258038),
                 digest("foo"))
     }
 
@@ -45,9 +45,9 @@ class DigestTest {
     fun digestByteArray() {
         val plaintext = "foo"
 
-        val direct = Digest.ofXoShiRo256StarStar(plaintext)
+        val direct = Digest.ofUtf8(plaintext)
 
-        val streaming = Digest.Streaming()
+        val streaming = Digest.Builder()
         streaming.addUtf8(plaintext)
         val indirect = streaming.digest()
 
@@ -65,5 +65,5 @@ class DigestTest {
 
 
     private fun digest(value: String): Digest =
-            Digest.ofXoShiRo256StarStar(IoUtils.utf8Encode(value))
+            Digest.ofBytes(IoUtils.utf8Encode(value))
 }

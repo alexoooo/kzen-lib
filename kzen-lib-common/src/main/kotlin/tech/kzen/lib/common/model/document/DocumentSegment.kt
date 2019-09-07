@@ -26,7 +26,7 @@ data class DocumentSegment(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Streaming) {
+    override fun digest(digester: Digest.Builder) {
         digester.addUtf8(value)
     }
 

@@ -166,7 +166,7 @@ class NotationRepository(
         notationMedia.write(documentPath, updatedBody)
 
         scanCache[documentPath] = DocumentScan(
-                Digest.ofXoShiRo256StarStar(updatedBody),
+                Digest.ofBytes(updatedBody),
                 null)
 
         return true
@@ -187,7 +187,7 @@ class NotationRepository(
             read()
         }
 
-        val digester = Digest.Streaming()
+        val digester = Digest.Builder()
         digester.addDigestibleUnorderedMap(scanCache)
         return digester.digest()
     }

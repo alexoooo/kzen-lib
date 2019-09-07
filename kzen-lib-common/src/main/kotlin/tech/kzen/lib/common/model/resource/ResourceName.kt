@@ -7,7 +7,14 @@ import tech.kzen.lib.common.util.Digestible
 data class ResourceName(
         val value: String
 ): Digestible {
-    override fun digest(digester: Digest.Streaming) {
+    //-----------------------------------------------------------------------------------------------------------------
+    init {
+        check(value.isNotEmpty())
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(digester: Digest.Builder) {
         digester.addUtf8(value)
     }
 }

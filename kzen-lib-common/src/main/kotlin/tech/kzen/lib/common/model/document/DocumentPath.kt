@@ -1,95 +1,110 @@
 package tech.kzen.lib.common.model.document
 
+import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
-import tech.kzen.lib.platform.collect.toPersistentList
 
 
 data class DocumentPath(
-        val name: DocumentName?,
-        val nesting: DocumentNesting
+        val name: DocumentName,
+        val nesting: DocumentNesting,
+        val directory: Boolean
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        const val delimiter = "/"
-
-        private val namePattern = Regex("[a-zA-Z0-9_\\- ]+(\\.([a-zA-Z0-9]+))?")
-
 //        private val resource = Regex(
 //                "([a-zA-Z0-9_\\-]+/)*([a-zA-Z0-9_\\-]+\\.[a-zA-Z0-9]+)?")
 
 
         fun matches(relativeLocation: String): Boolean {
-            if (relativeLocation.isEmpty()) {
+            if (! relativeLocation.endsWith(NotationConventions.fileDocumentSuffix)) {
                 return false
             }
 
-            val segments = relativeLocation.split(delimiter)
+            val normalizedLocation =
+                    if (relativeLocation.endsWith(NotationConventions.directoryDocumentSuffix)) {
+                        relativeLocation.substring(
+                                0, relativeLocation.length - NotationConventions.directoryDocumentSuffix.length)
+                    }
+                    else {
+                        relativeLocation.substring(
+                                0, relativeLocation.length - NotationConventions.fileDocumentSuffix.length)
+                    }
 
-            val pathMatches = segments
-                    .subList(0, segments.size - 1)
-                    .all { DocumentSegment.segmentPattern.matches(it) }
-            if (! pathMatches) {
-                return false
+            val endOfNesting = normalizedLocation.lastIndexOf(NotationConventions.pathDelimiter)
+            if (endOfNesting == -1) {
+                return DocumentName.matches(normalizedLocation)
             }
 
-            val last = segments.last()
-            return DocumentSegment.segmentPattern.matches(last) ||
-                    namePattern.matches(last) ||
-                    last.isEmpty()
+            val nestingPrefix = normalizedLocation.substring(0, endOfNesting)
+            val nameSuffix = normalizedLocation.substring(endOfNesting + 1)
+
+            return DocumentNesting.matches(nestingPrefix) &&
+                    DocumentName.matches(nameSuffix)
         }
 
 
         fun parse(asString: String): DocumentPath {
             check(matches(asString)) { "Invalid path: $asString" }
 
-            val parts = asString.split(delimiter)
+            val directory = asString.endsWith(NotationConventions.directoryDocumentSuffix)
+            val normalizedLocation =
+                    if (directory) {
+                        asString.substring(0, asString.length - NotationConventions.directoryDocumentSuffix.length)
+                    }
+                    else {
+                        asString.substring(0, asString.length - NotationConventions.fileDocumentSuffix.length)
+                    }
 
-            if (parts.last().isEmpty()) {
+            val endOfNesting = normalizedLocation.lastIndexOf(NotationConventions.pathDelimiter)
+            if (endOfNesting == -1) {
                 return DocumentPath(
-                        null,
-                        DocumentNesting(parts.subList(0, parts.size - 1).map {
-                            DocumentSegment(it)
-                        }.toPersistentList()))
+                        DocumentName(normalizedLocation),
+                        DocumentNesting.empty,
+                        directory)
             }
 
-            val segmentParts = parts.subList(0, parts.size - 1)
-            val segments = segmentParts.map { DocumentSegment(it) }
+            val nestingPrefix = normalizedLocation.substring(0, endOfNesting)
+            val nameSuffix = normalizedLocation.substring(endOfNesting + 1)
 
-            val name = DocumentName(parts.last())
-
-            return DocumentPath(name, DocumentNesting(segments.toPersistentList()))
+            return DocumentPath(
+                    DocumentName(nameSuffix),
+                    DocumentNesting.parse(nestingPrefix),
+                    directory)
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun startsWith(prefix: DocumentPath): Boolean {
-        check(prefix.name == null) {
-            "Name not allowed: $prefix"
-        }
-        return nesting.startsWith(prefix.nesting)
+    fun startsWith(prefix: DocumentNesting): Boolean {
+        return nesting.startsWith(prefix)
     }
+//    fun startsWith(prefix: DocumentPath): Boolean {
+//        check(prefix.name == null) {
+//            "Name not allowed: $prefix"
+//        }
+//        return nesting.startsWith(prefix.nesting)
+//    }
 
 
-    fun parent(): DocumentPath {
-        if (name != null) {
-            return DocumentPath(null, nesting)
-        }
-        return DocumentPath(null, nesting.parent())
-    }
+//    fun parent(): DocumentPath {
+//        if (name != null) {
+//            return DocumentPath(null, nesting, false)
+//        }
+//        return DocumentPath(null, nesting.parent(), false)
+//    }
 
 
-    fun plus(segment: DocumentSegment): DocumentPath {
-        check(name == null) {
-            "Name not allowed: $this"
-        }
-        return DocumentPath(null, nesting.plus(segment))
-    }
+//    fun plus(segment: DocumentSegment): DocumentPath {
+//        check(name == null) {
+//            "Name not allowed: $this"
+//        }
+//        return DocumentPath(null, nesting.plus(segment), false)
+//    }
 
 
     fun withName(newName: DocumentName): DocumentPath {
-        return DocumentPath(newName, nesting)
+        return copy(name = newName)
     }
 
 
@@ -100,24 +115,33 @@ data class DocumentPath(
 
 
     fun asRelativeFile(): String {
-        val segmentParts = nesting.segments.map { it.value }
-
-        val parts =
-                if (name == null) {
-                    segmentParts.plus("")
+        val nestingPrefix =
+                if (nesting.segments.isEmpty()) {
+                    ""
                 }
                 else {
-                    segmentParts.plus(name.value)
+                    nesting.asString() + "/"
                 }
 
-        return parts.joinToString(delimiter)
+        val formatSuffix =
+                if (directory) {
+                    NotationConventions.directoryDocumentSuffix
+                }
+                else {
+                    NotationConventions.fileDocumentSuffix
+                }
+
+        return nestingPrefix +
+                name.value +
+                formatSuffix
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Streaming) {
+    override fun digest(digester: Digest.Builder) {
         digester.addDigestible(name)
         digester.addDigestible(nesting)
+        digester.addBoolean(directory)
     }
 
 

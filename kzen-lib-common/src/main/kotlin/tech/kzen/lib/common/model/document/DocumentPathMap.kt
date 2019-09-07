@@ -12,9 +12,8 @@ data class DocumentPathMap<T>(
     }
 
 
-    fun get(documentPath: DocumentPath): T? {
+    operator fun get(documentPath: DocumentPath): T? {
         return values[documentPath]
-//                ?: throw IllegalArgumentException("Missing: $documentPath")
     }
 
 

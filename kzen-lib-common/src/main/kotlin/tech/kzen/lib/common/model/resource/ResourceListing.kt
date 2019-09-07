@@ -14,7 +14,7 @@ data class ResourceListing(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Streaming) {
+    override fun digest(digester: Digest.Builder) {
         digester.addDigestibleUnorderedMap(values)
     }
 }
