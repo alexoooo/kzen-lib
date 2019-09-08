@@ -1,7 +1,6 @@
 package tech.kzen.lib.server
 
 import kotlinx.coroutines.runBlocking
-import org.junit.Assert
 import org.junit.Test
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
@@ -14,10 +13,6 @@ import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
 import tech.kzen.lib.common.structure.notation.io.common.MapNotationMedia
 import tech.kzen.lib.common.structure.notation.repo.NotationRepository
 import tech.kzen.lib.platform.IoUtils
-import tech.kzen.lib.server.objects.autowire.ObjectGroup
-import tech.kzen.lib.server.objects.autowire.StrongHolder
-import tech.kzen.lib.server.objects.autowire.WeakHolder
-import tech.kzen.lib.server.util.GraphTestUtils
 import kotlin.test.assertEquals
 
 
@@ -42,11 +37,11 @@ class LocateTest {
         val repo = NotationRepository(media, yamlParser, metadataReader)
 
         val notation = runBlocking {
-            media.write(aPath, IoUtils.utf8Encode("""
+            media.writeDocument(aPath, IoUtils.utf8Encode("""
 LocateName:
   value: "a"
 """))
-            media.write(bPath, IoUtils.utf8Encode("""
+            media.writeDocument(bPath, IoUtils.utf8Encode("""
 LocateName:
   value: "b"
 """))

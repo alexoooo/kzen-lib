@@ -33,7 +33,7 @@ object GraphTestUtils {
         return runBlocking {
             val notationProjectBuilder = mutableMapOf<DocumentPath, DocumentNotation>()
             for (notationPath in notationMedia.scan().documents.values) {
-                val notationModule = notationMedia.read(notationPath.key)
+                val notationModule = notationMedia.readDocument(notationPath.key)
                 notationProjectBuilder[notationPath.key] = DocumentNotation(
                         notationParser.parseDocumentObjects(notationModule),
                         null)

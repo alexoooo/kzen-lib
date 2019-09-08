@@ -33,6 +33,11 @@ data class ResourcePath(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun asString(): String {
+        return asRelativeFile()
+    }
+
+
+    fun asRelativeFile(): String {
         return resourceNesting.asString() + resourceName.value
     }
 

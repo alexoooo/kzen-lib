@@ -2,6 +2,7 @@ package tech.kzen.lib.common.structure.notation.io.common
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
+import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.model.resource.ResourceInfo
 import tech.kzen.lib.common.model.resource.ResourceListing
@@ -13,6 +14,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class MapNotationMedia: NotationMedia {
+    //-----------------------------------------------------------------------------------------------------------------
     private val data = mutableMapOf<DocumentPath, MapDocumentMedia>()
 
 
@@ -22,6 +24,7 @@ class MapNotationMedia: NotationMedia {
     )
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     override suspend fun scan(): NotationScan {
         val documentScans = data.mapValues {
             DocumentScan(
@@ -44,21 +47,58 @@ class MapNotationMedia: NotationMedia {
     }
 
 
-    override suspend fun read(location: DocumentPath): ByteArray {
-        return data[location]!!.document
+    //-----------------------------------------------------------------------------------------------------------------
+    override suspend fun readDocument(documentPath: DocumentPath): ByteArray {
+        return data[documentPath]!!.document
     }
 
 
-    override suspend fun write(location: DocumentPath, bytes: ByteArray) {
-        val documentMedia = data.getOrPut(location) {
+    override suspend fun writeDocument(documentPath: DocumentPath, contents: ByteArray) {
+        val documentMedia = data.getOrPut(documentPath) {
             MapDocumentMedia(byteArrayOf(), null)
         }
 
-        documentMedia.document = bytes
+        documentMedia.document = contents
     }
 
 
-    override suspend fun delete(location: DocumentPath) {
-        data.remove(location)
+    override suspend fun deleteDocument(documentPath: DocumentPath) {
+        data.remove(documentPath)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override suspend fun readResource(resourceLocation: ResourceLocation): ByteArray {
+        val documentData = data[resourceLocation.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        return documentData.resources?.get(resourceLocation.resourcePath)
+                ?: throw IllegalArgumentException("Not found: $resourceLocation")
+    }
+
+
+    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray) {
+        val documentData = data[resourceLocation.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val resources = documentData.resources
+                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+
+        resources[resourceLocation.resourcePath] = contents
+    }
+
+
+    override suspend fun deleteResource(resourceLocation: ResourceLocation) {
+        val documentData = data[resourceLocation.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val resources = documentData.resources
+                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+
+        check(resourceLocation.resourcePath in resources) {
+            "Resource missing: $resourceLocation"
+        }
+
+        resources.remove(resourceLocation.resourcePath)
     }
 }

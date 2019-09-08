@@ -1,7 +1,10 @@
 package tech.kzen.lib.server.notation
 
+import com.google.common.io.MoreFiles
+import com.google.common.io.RecursiveDeleteOption
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
+import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.resource.ResourceInfo
 import tech.kzen.lib.common.model.resource.ResourceListing
 import tech.kzen.lib.common.model.resource.ResourcePath
@@ -40,7 +43,7 @@ class FileNotationMedia(
     private suspend fun digest(
             path: DocumentPath
     ): Digest {
-        val bytes = read(path)
+        val bytes = readDocument(path)
         return Digest.ofBytes(bytes)
     }
 
@@ -175,9 +178,9 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun read(location: DocumentPath): ByteArray {
-        val path = notationLocator.locateExisting(location)
-                ?: throw IllegalArgumentException("Not found: $location")
+    override suspend fun readDocument(documentPath: DocumentPath): ByteArray {
+        val path = notationLocator.locateExisting(documentPath)
+                ?: throw IllegalArgumentException("Not found: $documentPath")
 
 //        println("GradleNotationMedia | read - moduleRoot: ${path.toAbsolutePath().normalize()}")
 
@@ -185,33 +188,80 @@ class FileNotationMedia(
     }
 
 
-    override suspend fun write(location: DocumentPath, bytes: ByteArray) {
-        val existingPath = notationLocator.locateExisting(location)
+    override suspend fun writeDocument(documentPath: DocumentPath, contents: ByteArray) {
+        val existingPath = notationLocator.locateExisting(documentPath)
 
         val path = if (existingPath != null) {
             existingPath
         }
         else {
-            val resolvedPath = notationLocator.resolveNew(location)
-                    ?: throw IllegalArgumentException("Unable to resolve: $location")
+            val resolvedPath = notationLocator.resolveNew(documentPath)
+                    ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
 
             val parent = resolvedPath.parent
-            println("GradleNotationMedia | write - creating parent directory: $parent")
+//            println("FileNotationMedia | write - creating parent directory: $parent")
             Files.createDirectories(parent)
 
             resolvedPath
         }
 
-        println("GradleNotationMedia | write - moduleRoot: $path | ${bytes.size}")
+//        println("FileNotationMedia | write - moduleRoot: $path | ${contents.size}")
 
-        Files.write(path, bytes)
+        Files.write(path, contents)
     }
 
 
-    override suspend fun delete(location: DocumentPath) {
-        val path = notationLocator.locateExisting(location)
-                ?: throw IllegalArgumentException("Not found: $location")
+    override suspend fun deleteDocument(documentPath: DocumentPath) {
+        val path = notationLocator.locateExisting(documentPath)
+                ?: throw IllegalArgumentException("Not found: $documentPath")
 
-        Files.delete(path)
+        if (documentPath.directory) {
+            MoreFiles.deleteRecursively(path.parent, RecursiveDeleteOption.ALLOW_INSECURE)
+        }
+        else {
+            Files.delete(path)
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override suspend fun readResource(resourceLocation: ResourceLocation): ByteArray {
+        val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val resourcePath = documentPath.resolve(resourceLocation.resourcePath.asRelativeFile())
+
+        return Files.readAllBytes(resourcePath)
+    }
+
+
+    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray) {
+        val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val resourcePath = documentPath.resolve(resourceLocation.resourcePath.asRelativeFile())
+
+        Files.createDirectories(resourcePath.parent)
+
+        Files.write(resourcePath, contents)
+    }
+
+
+    override suspend fun deleteResource(resourceLocation: ResourceLocation) {
+        val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val resourcePath = documentPath.resolve(resourceLocation.resourcePath.asRelativeFile())
+        check(Files.exists(resourcePath)) {
+            "Resource not found: $resourceLocation"
+        }
+
+        Files.delete(resourcePath)
+
+        var dirCursor = resourcePath.parent
+        while (MoreFiles.listFiles(dirCursor).isEmpty()) {
+            Files.delete(dirCursor)
+            dirCursor = dirCursor.parent
+        }
     }
 }

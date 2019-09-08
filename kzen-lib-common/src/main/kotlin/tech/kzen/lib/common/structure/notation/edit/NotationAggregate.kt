@@ -154,7 +154,7 @@ class NotationAggregate(
             "Does not exist: ${command.sourceDocumentPath} - ${state.documents.values.keys}"
         }
 
-        val document = state.documents.get(command.sourceDocumentPath)!!
+        val document = state.documents[command.sourceDocumentPath]!!
 
         val nextState = state
                 .withNewDocument(command.destinationDocumentPath, document)
@@ -542,8 +542,7 @@ class NotationAggregate(
 
         val nestedObjectLocations = builder
                 .state
-                .documents
-                .get(containingDocumentPath)!!
+                .documents[containingDocumentPath]!!
                 .objects
                 .values
                 .keys

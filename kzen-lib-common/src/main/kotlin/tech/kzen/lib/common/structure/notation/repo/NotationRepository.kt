@@ -3,6 +3,7 @@ package tech.kzen.lib.common.structure.notation.repo
 import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
+import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.structure.GraphStructure
 import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.structure.notation.edit.*
@@ -57,7 +58,7 @@ class NotationRepository(
             val bodyCache = fileCache.get(e.value.documentDigest)
 
             val body = bodyCache
-                    ?: notationMedia.read(projectPath)
+                    ?: notationMedia.readDocument(projectPath)
 
             packageBytes[projectPath] = body
 
@@ -76,7 +77,6 @@ class NotationRepository(
         }
         return projectAggregateCache!!
     }
-
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -106,7 +106,6 @@ class NotationRepository(
                     }
                 }
 
-
         val newDocuments = aggregate.state.documents
 
         var writtenAny = false
@@ -116,9 +115,12 @@ class NotationRepository(
                 continue
             }
 
-            val written = writeIfRequired(updatedDocument.key, updatedDocument.value)
+            val written = writeIfRequired(
+                    updatedDocument.key, updatedDocument.value, command)
+
             writtenAny = writtenAny || written
         }
+
         for (removed in oldDocuments.values.keys.minus(newDocuments.values.keys)) {
             delete(removed)
             writtenAny = true
@@ -135,18 +137,21 @@ class NotationRepository(
 
     private suspend fun writeIfRequired(
             documentPath: DocumentPath,
-            documentNotation: DocumentNotation
+            documentNotation: DocumentNotation,
+            command: NotationCommand
     ): Boolean {
-        val cachedDigest = scanCache[documentPath]?.documentDigest
+        val previousDocumentScan = scanCache[documentPath]
+        val previousDigest = previousDocumentScan?.documentDigest
+        val previousResources = previousDocumentScan?.resources
 
         var previousMissing = false
         val previousBody: ByteArray =
-                if (cachedDigest == null) {
+                if (previousDigest == null) {
                     previousMissing = true
                     ByteArray(0)
                 }
                 else {
-                    val cached = fileCache.get(cachedDigest)
+                    val cached = fileCache.get(previousDigest)
                     if (cached == null) {
                         previousMissing = true
                         ByteArray(0)
@@ -159,24 +164,45 @@ class NotationRepository(
         val updatedBody = notationParser.deparseDocument(documentNotation, previousBody)
 //        println("!!! updatedBody: ${IoUtils.utf8ToString(updatedBody)}")
 
-        if (updatedBody.contentEquals(previousBody) && ! previousMissing) {
-            return false
+        var modified = false
+
+        if (! updatedBody.contentEquals(previousBody) || previousMissing) {
+            notationMedia.writeDocument(documentPath, updatedBody)
+            modified = true
         }
 
-        notationMedia.write(documentPath, updatedBody)
+        val updatedResources =
+                if (command is CopyDocumentCommand) {
+                    val originalDocumentPath = command.sourceDocumentPath
+                    val originalResources = scanCache[originalDocumentPath]?.resources!!
+
+                    for (resourcePath in originalResources.values.keys) {
+                        val contents = notationMedia.readResource(
+                                ResourceLocation(originalDocumentPath, resourcePath))
+
+                        notationMedia.writeResource(
+                                ResourceLocation(documentPath, resourcePath),
+                                contents)
+                    }
+
+                    originalResources
+                }
+                else {
+                    previousResources
+                }
 
         scanCache[documentPath] = DocumentScan(
                 Digest.ofBytes(updatedBody),
-                null)
+                updatedResources)
 
-        return true
+        return modified
     }
 
 
     private suspend fun delete(
             documentPath: DocumentPath
     ) {
-        notationMedia.delete(documentPath)
+        notationMedia.deleteDocument(documentPath)
         scanCache.remove(documentPath)
     }
 
