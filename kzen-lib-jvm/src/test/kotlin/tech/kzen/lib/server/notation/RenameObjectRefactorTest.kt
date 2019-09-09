@@ -10,9 +10,6 @@ import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
 import tech.kzen.lib.common.structure.notation.edit.RenameObjectRefactorCommand
-import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.model.DocumentNotation
-import tech.kzen.lib.platform.IoUtils
 import tech.kzen.lib.server.util.GraphTestUtils
 import kotlin.test.assertEquals
 

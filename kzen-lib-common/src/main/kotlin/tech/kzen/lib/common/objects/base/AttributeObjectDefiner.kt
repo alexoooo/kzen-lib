@@ -9,7 +9,6 @@ import tech.kzen.lib.common.context.definition.ObjectDefinitionAttempt
 import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
-import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationSet
 import tech.kzen.lib.common.model.locate.ObjectReference

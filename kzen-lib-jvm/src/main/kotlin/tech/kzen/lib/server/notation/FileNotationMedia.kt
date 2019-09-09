@@ -5,7 +5,6 @@ import com.google.common.io.RecursiveDeleteOption
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
-import tech.kzen.lib.common.model.resource.ResourceInfo
 import tech.kzen.lib.common.model.resource.ResourceListing
 import tech.kzen.lib.common.model.resource.ResourcePath
 import tech.kzen.lib.common.structure.notation.NotationConventions
@@ -150,7 +149,7 @@ class FileNotationMedia(
                 .resolve(documentPath.nesting.asString())
                 .resolve(documentPath.name.value)
 
-        val listing = mutableMapOf<ResourcePath, ResourceInfo>()
+        val listing = mutableMapOf<ResourcePath, Digest>()
 
         Files.walkFileTree(resolvedDocumentDir, object : SimpleFileVisitor<Path>() {
             override fun visitFile(file: Path?, attrs: BasicFileAttributes?): FileVisitResult {
@@ -165,15 +164,13 @@ class FileNotationMedia(
                 val resourcePath = ResourcePath.parse(normalized)
                 val digest = Digest.ofBytes(Files.readAllBytes(file))
 
-                listing[resourcePath] = ResourceInfo(
-                        attrs!!.size().toInt(),
-                        digest)
+                listing[resourcePath] = digest
 
                 return FileVisitResult.CONTINUE
             }
         })
 
-        return ResourceListing(listing)
+        return ResourceListing(listing.toPersistentMap())
     }
 
 

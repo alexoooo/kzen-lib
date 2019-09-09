@@ -6,6 +6,8 @@ import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.model.resource.ResourceListing
+import tech.kzen.lib.common.model.resource.ResourcePath
+import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -66,9 +68,7 @@ data class DocumentNotation(
             objectPath: ObjectPath,
             objectNotation: ObjectNotation
     ): DocumentNotation {
-        return DocumentNotation(
-                objects.updateEntry(objectPath, objectNotation),
-                resources)
+        return copy(objects = objects.updateEntry(objectPath, objectNotation))
     }
 
 
@@ -76,23 +76,42 @@ data class DocumentNotation(
             positionedObjectPath: PositionedObjectPath,
             objectNotation: ObjectNotation
     ): DocumentNotation {
-        return DocumentNotation(
-                objects.insertEntry(positionedObjectPath, objectNotation),
-                resources)
+        return copy(objects = objects.insertEntry(positionedObjectPath, objectNotation))
     }
 
 
     fun withoutObject(
             objectPath: ObjectPath
     ): DocumentNotation {
-        return DocumentNotation(
-                objects.removeKey(objectPath),
-                resources)
+        return copy(objects = objects.removeKey(objectPath))
+    }
+
+
+    fun withNewResource(
+            resourcePath: ResourcePath,
+            contentDigest: Digest
+    ): DocumentNotation {
+        val resources = resources
+                ?: throw IllegalStateException("Resources not allowed")
+
+        return copy(resources = resources
+                .withNewResource(resourcePath, contentDigest))
+    }
+
+
+    fun withoutResource(
+            resourcePath: ResourcePath
+    ): DocumentNotation {
+        val resources = resources
+                ?: throw IllegalStateException("Resources not allowed")
+
+        return copy(resources = resources
+                .withoutResource(resourcePath))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
-        return objects.toString()
+        return "[$objects | $resources]"
     }
 }

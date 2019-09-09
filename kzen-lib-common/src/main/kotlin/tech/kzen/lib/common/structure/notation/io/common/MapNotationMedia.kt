@@ -3,10 +3,9 @@ package tech.kzen.lib.common.structure.notation.io.common
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
-import tech.kzen.lib.common.structure.notation.io.NotationMedia
-import tech.kzen.lib.common.model.resource.ResourceInfo
 import tech.kzen.lib.common.model.resource.ResourceListing
 import tech.kzen.lib.common.model.resource.ResourcePath
+import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
 import tech.kzen.lib.common.structure.notation.io.model.NotationScan
 import tech.kzen.lib.common.util.Digest
@@ -32,11 +31,8 @@ class MapNotationMedia: NotationMedia {
                     it.value.resources?.let { resources ->
                         ResourceListing(
                                 resources.mapValues { e ->
-                                    ResourceInfo(
-                                            e.value.size,
-                                            Digest.ofBytes(e.value)
-                                    )
-                                })
+                                    Digest.ofBytes(e.value)
+                                }.toPersistentMap())
                     }
             )
         }
@@ -55,7 +51,15 @@ class MapNotationMedia: NotationMedia {
 
     override suspend fun writeDocument(documentPath: DocumentPath, contents: ByteArray) {
         val documentMedia = data.getOrPut(documentPath) {
-            MapDocumentMedia(byteArrayOf(), null)
+            val resources =
+                    if (documentPath.directory) {
+                        mutableMapOf<ResourcePath, ByteArray>()
+                    }
+                    else {
+                        null
+                    }
+
+            MapDocumentMedia(byteArrayOf(), resources)
         }
 
         documentMedia.document = contents

@@ -7,8 +7,10 @@ import tech.kzen.lib.common.model.document.DocumentName
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
+import tech.kzen.lib.common.model.resource.ResourceContent
 import tech.kzen.lib.common.structure.notation.model.*
 
 
@@ -18,12 +20,13 @@ sealed class NotationCommand
 
 sealed class StructuralNotationCommand: NotationCommand()
 sealed class SemanticNotationCommand: NotationCommand()
+sealed class ResourceNotationCommand: StructuralNotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class CreateDocumentCommand(
         val documentPath: DocumentPath,
-        val documentNotation: DocumentNotation = DocumentNotation.emptyWithoutResources
+        val documentNotation: DocumentNotation
 ): StructuralNotationCommand()
 
 
@@ -191,3 +194,34 @@ data class RenameDocumentRefactorCommand(
 //        val objectLocation: ObjectLocation,
 //        val newName: ObjectName
 //): ProjectCommand()
+
+
+//---------------------------------------------------------------------------------------------------------------------
+data class AddResourceCommand(
+        val resourceLocation: ResourceLocation,
+        val resourceContent: ResourceContent
+): ResourceNotationCommand()
+
+
+data class RemoveResourceCommand(
+        val resourceLocation: ResourceLocation
+): ResourceNotationCommand()
+
+
+//data class ReplaceResourceCommand(
+//        val resourceLocation: ResourceLocation,
+//        val newResourceContent: ResourceContent
+//): ResourceNotationCommand()
+//
+//
+//data class RenameResourceCommand(
+//        val resourceLocation: ResourceLocation,
+//        val newName: ResourceName
+//): ResourceNotationCommand()
+//
+//
+//data class MoveResourceCommand(
+//        val resourceLocation: ResourceLocation,
+//        val newPath: ResourcePath
+//): ResourceNotationCommand()
+

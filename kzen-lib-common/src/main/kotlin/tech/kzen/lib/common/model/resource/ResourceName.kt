@@ -14,7 +14,7 @@ data class ResourceName(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Builder) {
-        digester.addUtf8(value)
+    override fun digest(builder: Digest.Builder) {
+        builder.addUtf8(value)
     }
 }

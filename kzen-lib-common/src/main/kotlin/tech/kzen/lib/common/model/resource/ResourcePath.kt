@@ -42,9 +42,13 @@ data class ResourcePath(
     }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Builder) {
-        digester.addDigestible(resourceName)
-        digester.addDigestible(resourceNesting)
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigestible(resourceName)
+        builder.addDigestible(resourceNesting)
+    }
+
+
+    override fun toString(): String {
+        return asString()
     }
 }

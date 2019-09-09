@@ -10,7 +10,7 @@ data class Digest(
         val b: Int,
         val c: Int,
         val d: Int
-) {
+): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val zero = Digest(0, 0, 0, 0)
@@ -404,6 +404,16 @@ data class Digest(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(): Digest {
+        return this
+    }
+
+
+    override fun digest(builder: Builder) {
+        builder.addDigest(this)
+    }
+
+
     fun asString(): String {
         return "${a}_${b}_${c}_$d"
     }

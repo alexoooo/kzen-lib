@@ -5,12 +5,14 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.structure.notation.model.AttributeNotation
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.ObjectNotation
 import tech.kzen.lib.common.structure.notation.model.PositionIndex
+import tech.kzen.lib.common.util.Digest
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -230,4 +232,22 @@ data class RenamedDocumentRefactorEvent(
 ) {
     override val documentPath: DocumentPath
         get() = removedUnderOldName.documentPath
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+data class AddedResourceEvent(
+        val resourceLocation: ResourceLocation,
+        val contentDigest: Digest
+): SingularNotationEvent() {
+    override val documentPath
+        get() = resourceLocation.documentPath
+}
+
+
+data class RemovedResourceEvent(
+        val resourceLocation: ResourceLocation
+): SingularNotationEvent() {
+    override val documentPath
+        get() = resourceLocation.documentPath
 }

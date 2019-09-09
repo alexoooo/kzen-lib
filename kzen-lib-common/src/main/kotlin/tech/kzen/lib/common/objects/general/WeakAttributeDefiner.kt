@@ -1,13 +1,15 @@
 package tech.kzen.lib.common.objects.general
 
 import tech.kzen.lib.common.api.AttributeDefiner
-import tech.kzen.lib.common.context.definition.*
+import tech.kzen.lib.common.context.definition.AttributeDefinitionAttempt
+import tech.kzen.lib.common.context.definition.GraphDefinition
+import tech.kzen.lib.common.context.definition.ListAttributeDefinition
+import tech.kzen.lib.common.context.definition.ReferenceAttributeDefinition
 import tech.kzen.lib.common.context.instance.GraphInstance
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.structure.GraphStructure
-import tech.kzen.lib.common.structure.notation.model.GraphNotation
 import tech.kzen.lib.common.structure.notation.model.ListAttributeNotation
 import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
 

@@ -94,8 +94,16 @@ class NotationAggregate(
             is RemoveObjectInAttributeCommand ->
                 removeObjectInAttribute(command)
 
+
+            is AddResourceCommand ->
+                addResource(command)
+
+            is RemoveResourceCommand ->
+                removeResource(command)
+
+
             else ->
-                throw UnsupportedOperationException("Unknown: $command")
+                throw UnsupportedOperationException("Unknown command: $command")
         }
     }
 
@@ -175,13 +183,13 @@ class NotationAggregate(
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
-        val modifiedProjectNotation =
+        val modifiedDocumentNotation =
                 documentNotation.withNewObject(
                         PositionedObjectPath(command.objectLocation.objectPath, command.indexInDocument),
                         command.body)
 
         val nextState = state.withModifiedDocument(
-                command.objectLocation.documentPath, modifiedProjectNotation)
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         return EventAndNotation(
                 AddedObjectEvent(
@@ -197,13 +205,13 @@ class NotationAggregate(
     ): EventAndNotation {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
-        val modifiedProjectNotation =
-                packageNotation.withoutObject(command.objectLocation.objectPath)
+        val modifiedDocumentNotation =
+                documentNotation.withoutObject(command.objectLocation.objectPath)
 
         val nextState = state.withModifiedDocument(
-                command.objectLocation.documentPath, modifiedProjectNotation)
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         return EventAndNotation(
                 RemovedObjectEvent(command.objectLocation),
@@ -294,17 +302,17 @@ class NotationAggregate(
     private fun upsertAttribute(
             command: UpsertAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 AttributePath.ofName(command.attributeName), command.attributeNotation)
 
-        val modifiedProjectNotation = packageNotation.withModifiedObject(
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
         val nextState = state.withModifiedDocument(
-                command.objectLocation.documentPath, modifiedProjectNotation)
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         return EventAndNotation(
                 UpsertedAttributeEvent(
@@ -316,18 +324,18 @@ class NotationAggregate(
     private fun updateInAttribute(
             command: UpdateInAttributeCommand
     ): EventAndNotation {
-        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.attributePath, command.attributeNotation)
 
-        val modifiedProjectNotation = packageNotation.withModifiedObject(
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
         val nextState = state.withModifiedDocument(
-                command.objectLocation.documentPath, modifiedProjectNotation)
+                command.objectLocation.documentPath, modifiedDocumentNotation)
 
         return EventAndNotation(
                 UpdatedInAttributeEvent(
@@ -767,5 +775,68 @@ class NotationAggregate(
                         removedUnderOldName
                 ),
                 builder.state)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun addResource(
+            command: AddResourceCommand
+    ): EventAndNotation {
+        val documentNotation = state.documents.values[command.resourceLocation.documentPath]
+
+        checkNotNull(documentNotation) {
+            "Document '${command.resourceLocation.documentPath}' does not exist"
+        }
+        checkNotNull(documentNotation.resources) {
+            "Document '${command.resourceLocation.documentPath}' does not have resources"
+        }
+        check(command.resourceLocation.resourcePath !in documentNotation.resources.values) {
+            "Resource '${command.resourceLocation}' already exists"
+        }
+
+        val contentDigest = command.resourceContent.digest()
+
+        val modifiedDocumentNotation =
+                documentNotation.withNewResource(
+                        command.resourceLocation.resourcePath,
+                        contentDigest)
+
+        val nextState = state.withModifiedDocument(
+                command.resourceLocation.documentPath, modifiedDocumentNotation)
+
+        return EventAndNotation(
+                AddedResourceEvent(
+                        command.resourceLocation,
+                        contentDigest),
+                nextState)
+    }
+
+
+    private fun removeResource(
+            command: RemoveResourceCommand
+    ): EventAndNotation {
+        val documentNotation = state.documents.values[command.resourceLocation.documentPath]
+
+        checkNotNull(documentNotation) {
+            "Document '${command.resourceLocation.documentPath}' does not exist"
+        }
+        checkNotNull(documentNotation.resources) {
+            "Document '${command.resourceLocation.documentPath}' does not have resources"
+        }
+        check(command.resourceLocation.resourcePath in documentNotation.resources.values) {
+            "Resource '${command.resourceLocation}' does not exists"
+        }
+
+        val modifiedDocumentNotation =
+                documentNotation.withoutResource(
+                        command.resourceLocation.resourcePath)
+
+        val nextState = state.withModifiedDocument(
+                command.resourceLocation.documentPath, modifiedDocumentNotation)
+
+        return EventAndNotation(
+                RemovedResourceEvent(
+                        command.resourceLocation),
+                nextState)
     }
 }

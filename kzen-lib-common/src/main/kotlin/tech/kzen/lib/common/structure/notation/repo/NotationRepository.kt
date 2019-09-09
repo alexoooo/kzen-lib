@@ -9,9 +9,9 @@ import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
 import tech.kzen.lib.common.structure.notation.edit.*
 import tech.kzen.lib.common.structure.notation.io.NotationMedia
 import tech.kzen.lib.common.structure.notation.io.NotationParser
+import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
 import tech.kzen.lib.common.structure.notation.model.DocumentNotation
 import tech.kzen.lib.common.structure.notation.model.GraphNotation
-import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
@@ -63,7 +63,7 @@ class NotationRepository(
             packageBytes[projectPath] = body
 
             val documentNotation = notationParser.parseDocumentObjects(body)
-            documents[projectPath] = DocumentNotation(documentNotation, null)
+            documents[projectPath] = DocumentNotation(documentNotation, e.value.resources)
         }
 
         return GraphNotation(DocumentPathMap(documents.toPersistentMap()))
@@ -110,8 +110,11 @@ class NotationRepository(
 
         var writtenAny = false
         for (updatedDocument in newDocuments.values) {
-            if (oldDocuments.values.containsKey(updatedDocument.key) &&
-                    updatedDocument.value.objects.equalsInOrder(oldDocuments.values[updatedDocument.key]!!.objects)) {
+            val oldDocument = oldDocuments.values[updatedDocument.key]
+
+            if (oldDocument != null &&
+                    updatedDocument.value.objects.equalsInOrder(oldDocument.objects) &&
+                    updatedDocument.value.resources == oldDocument.resources) {
                 continue
             }
 
@@ -171,29 +174,42 @@ class NotationRepository(
             modified = true
         }
 
-        val updatedResources =
-                if (command is CopyDocumentCommand) {
-                    val originalDocumentPath = command.sourceDocumentPath
-                    val originalResources = scanCache[originalDocumentPath]?.resources!!
+        when (command) {
+            is CopyDocumentCommand -> {
+                val originalDocumentPath = command.sourceDocumentPath
+                val originalResources = scanCache[originalDocumentPath]?.resources!!
 
-                    for (resourcePath in originalResources.values.keys) {
-                        val contents = notationMedia.readResource(
-                                ResourceLocation(originalDocumentPath, resourcePath))
+                for (resourcePath in originalResources.values.keys) {
+                    val contents = notationMedia.readResource(
+                            ResourceLocation(originalDocumentPath, resourcePath))
 
+                    notationMedia.writeResource(
+                            ResourceLocation(documentPath, resourcePath),
+                            contents)
+                }
+            }
+
+            is ResourceNotationCommand -> {
+                when (command) {
+                    is AddResourceCommand -> {
                         notationMedia.writeResource(
-                                ResourceLocation(documentPath, resourcePath),
-                                contents)
+                                command.resourceLocation,
+                                command.resourceContent.value)
                     }
 
-                    originalResources
+                    is RemoveResourceCommand -> {
+                        notationMedia.deleteResource(command.resourceLocation)
+                    }
                 }
-                else {
-                    previousResources
-                }
+
+                modified = true
+            }
+
+        }
 
         scanCache[documentPath] = DocumentScan(
                 Digest.ofBytes(updatedBody),
-                updatedResources)
+                documentNotation.resources)
 
         return modified
     }

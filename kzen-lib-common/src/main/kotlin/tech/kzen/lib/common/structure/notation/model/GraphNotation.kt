@@ -171,7 +171,12 @@ data class GraphNotation(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation
     ): GraphNotation {
-        check(documentPath !in documents.values) {"Already exists: $documentPath"}
+        check(documentPath !in documents.values) {
+            "Already exists: $documentPath"
+        }
+        check(documentPath.directory == (documentNotation.resources != null)) {
+            "Unexpected resources for path: $documentPath - ${documentNotation.resources}"
+        }
         return GraphNotation(
                 documents.put(documentPath, documentNotation))
     }
@@ -181,7 +186,9 @@ data class GraphNotation(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation
     ): GraphNotation {
-        check(documentPath in documents) {"Not found: $documentPath"}
+        check(documentPath in documents) {
+            "Not found: $documentPath"
+        }
         return GraphNotation(
                 documents.put(documentPath, documentNotation))
     }
@@ -190,7 +197,9 @@ data class GraphNotation(
     fun withoutDocument(
             documentPath: DocumentPath
     ): GraphNotation {
-        check(documentPath in documents) {"Already absent: $documentPath"}
+        check(documentPath in documents) {
+            "Already absent: $documentPath"
+        }
         return GraphNotation(
                 documents.remove(documentPath))
     }

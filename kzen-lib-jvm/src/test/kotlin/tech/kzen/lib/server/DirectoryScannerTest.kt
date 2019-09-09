@@ -38,8 +38,7 @@ class DirectoryScannerTest {
         val dirDocResources = dirDocScan.resources
         assertNotNull(dirDocResources)
 
-        val blobInfo = dirDocResources.values[blobResourcePath]!!
-        assertEquals(blobContent.length, blobInfo.contentLength)
-        assertEquals(Digest.ofUtf8(blobContent), blobInfo.contentDigest)
+        val blobDigest = dirDocResources.values[blobResourcePath]!!
+        assertEquals(Digest.ofUtf8(blobContent), blobDigest)
     }
 }

@@ -1,7 +1,7 @@
 package tech.kzen.lib.platform.collect
 
 
-// NB: iteration in same order as keys were inserted
+// NB: iteration in same order as keys were inserted, although equality is unordered
 expect class PersistentMap<K, out V>(): Map<K, V> {
     fun put(key: K, value: @UnsafeVariance V): PersistentMap<K, V>
 

@@ -1,6 +1,5 @@
 package tech.kzen.lib.common.model.document
 
-import tech.kzen.lib.common.structure.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
 
@@ -40,8 +39,8 @@ data class DocumentName(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(digester: Digest.Builder) {
-        digester.addUtf8(value)
+    override fun digest(builder: Digest.Builder) {
+        builder.addUtf8(value)
     }
 
 

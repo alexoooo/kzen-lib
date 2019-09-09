@@ -1,7 +1,6 @@
 package tech.kzen.lib.common.model.locate
 
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 
 
