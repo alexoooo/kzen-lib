@@ -4,11 +4,15 @@ import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
-import tech.kzen.lib.common.structure.notation.edit.*
-import tech.kzen.lib.common.structure.notation.model.ListAttributeNotation
-import tech.kzen.lib.common.structure.notation.model.MapAttributeNotation
-import tech.kzen.lib.common.structure.notation.model.PositionIndex
-import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.UpdateInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.UpsertAttributeCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -165,7 +169,7 @@ Foo:
 Foo:
   hello: []
   bar: []
-""".trim(), deparseDocument(project.state))
+""".trim(), unparseDocument(project.state))
     }
 
 
@@ -194,6 +198,6 @@ Foo:
             Foo:
               hello: {}
               bar: {}
-            """.trimIndent(), deparseDocument(project.state))
+            """.trimIndent(), unparseDocument(project.state))
     }
 }

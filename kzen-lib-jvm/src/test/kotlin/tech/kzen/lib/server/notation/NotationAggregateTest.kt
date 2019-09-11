@@ -6,11 +6,10 @@ import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.obj.ObjectPathMap
-import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.model.DocumentNotation
-import tech.kzen.lib.common.structure.notation.model.GraphNotation
-import tech.kzen.lib.common.structure.notation.model.ObjectNotation
-import tech.kzen.lib.platform.IoUtils
+import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.GraphNotation
+import tech.kzen.lib.common.model.structure.notation.ObjectNotation
+import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.persistentMapOf
 
 
@@ -22,7 +21,7 @@ abstract class NotationAggregateTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun parseDocument(doc: String): ObjectPathMap<ObjectNotation> {
-        return yamlParser.parseDocumentObjects(IoUtils.utf8Encode(doc))
+        return yamlParser.parseDocumentObjects(doc)
     }
 
 
@@ -35,14 +34,13 @@ abstract class NotationAggregateTest {
     }
 
 
-    fun deparseDocument(graphNotation: GraphNotation): String {
-        return deparseDocument(graphNotation.documents.values[testPath]!!)
+    fun unparseDocument(graphNotation: GraphNotation): String {
+        return unparseDocument(graphNotation.documents.values[testPath]!!)
     }
 
 
-    fun deparseDocument(documentNotation: DocumentNotation): String {
-        return IoUtils.utf8Decode(
-                yamlParser.deparseDocument(documentNotation, ByteArray(0)))
+    fun unparseDocument(documentNotation: DocumentNotation): String {
+        return yamlParser.unparseDocument(documentNotation, "")
     }
 
 

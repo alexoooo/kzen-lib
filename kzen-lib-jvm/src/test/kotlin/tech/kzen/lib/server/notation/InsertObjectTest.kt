@@ -4,10 +4,10 @@ import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.structure.notation.edit.InsertObjectInListAttributeCommand
-import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
-import tech.kzen.lib.common.structure.notation.model.ObjectNotation
-import tech.kzen.lib.common.structure.notation.model.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.ObjectNotation
+import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.cqrs.InsertObjectInListAttributeCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
 import kotlin.test.assertEquals
 
 
@@ -44,15 +44,15 @@ InsertInto:
                         attribute("foo.1")
                 ))
 
-        val deparsed = deparseDocument(documentNotation)
+        val unparsed = unparseDocument(documentNotation)
         assertEquals("""
 InsertInto:
   foo:
     - Bar
-    - "InsertInto.foo/Inserted"
+    - InsertInto.foo/Inserted
 
-"InsertInto.foo/Inserted":
+InsertInto.foo/Inserted:
   is: DoubleValue
-""".trimIndent(), deparsed)
+""".trimIndent(), unparsed)
     }
 }

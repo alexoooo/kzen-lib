@@ -5,12 +5,12 @@ import com.google.common.io.RecursiveDeleteOption
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
-import tech.kzen.lib.common.model.resource.ResourceListing
-import tech.kzen.lib.common.model.resource.ResourcePath
-import tech.kzen.lib.common.structure.notation.NotationConventions
-import tech.kzen.lib.common.structure.notation.io.NotationMedia
-import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
-import tech.kzen.lib.common.structure.notation.io.model.NotationScan
+import tech.kzen.lib.common.model.structure.resource.ResourceListing
+import tech.kzen.lib.common.model.structure.resource.ResourcePath
+import tech.kzen.lib.common.model.structure.scan.DocumentScan
+import tech.kzen.lib.common.model.structure.scan.NotationScan
+import tech.kzen.lib.common.service.media.NotationMedia
+import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
@@ -43,7 +43,7 @@ class FileNotationMedia(
             path: DocumentPath
     ): Digest {
         val bytes = readDocument(path)
-        return Digest.ofBytes(bytes)
+        return Digest.ofUtf8(bytes)
     }
 
 
@@ -175,17 +175,18 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readDocument(documentPath: DocumentPath): ByteArray {
+    override suspend fun readDocument(documentPath: DocumentPath): String {
         val path = notationLocator.locateExisting(documentPath)
                 ?: throw IllegalArgumentException("Not found: $documentPath")
 
 //        println("GradleNotationMedia | read - moduleRoot: ${path.toAbsolutePath().normalize()}")
 
-        return Files.readAllBytes(path)
+//        return Files.readAllBytes(path)
+        return String(Files.readAllBytes(path), Charsets.UTF_8)
     }
 
 
-    override suspend fun writeDocument(documentPath: DocumentPath, contents: ByteArray) {
+    override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
         val existingPath = notationLocator.locateExisting(documentPath)
 
         val path = if (existingPath != null) {
@@ -203,8 +204,8 @@ class FileNotationMedia(
         }
 
 //        println("FileNotationMedia | write - moduleRoot: $path | ${contents.size}")
-
-        Files.write(path, contents)
+//        Files.write(path, contents)
+        Files.write(path, contents.toByteArray())
     }
 
 

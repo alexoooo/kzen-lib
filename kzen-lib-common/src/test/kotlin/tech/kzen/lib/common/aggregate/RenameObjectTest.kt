@@ -3,8 +3,8 @@ package tech.kzen.lib.common.aggregate
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
-import tech.kzen.lib.common.structure.notation.edit.RenameObjectCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
+import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectCommand
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

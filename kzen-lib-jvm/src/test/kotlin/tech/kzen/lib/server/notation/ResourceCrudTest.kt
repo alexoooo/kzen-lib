@@ -6,18 +6,19 @@ import tech.kzen.lib.common.model.document.DocumentName
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ResourceLocation
-import tech.kzen.lib.common.model.resource.ResourceContent
-import tech.kzen.lib.common.model.resource.ResourceName
-import tech.kzen.lib.common.model.resource.ResourceNesting
-import tech.kzen.lib.common.model.resource.ResourcePath
-import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
-import tech.kzen.lib.common.structure.notation.edit.AddResourceCommand
-import tech.kzen.lib.common.structure.notation.edit.CreateDocumentCommand
-import tech.kzen.lib.common.structure.notation.edit.RemoveResourceCommand
-import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.io.common.MapNotationMedia
-import tech.kzen.lib.common.structure.notation.model.DocumentNotation
-import tech.kzen.lib.common.structure.notation.repo.NotationRepository
+import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.AddResourceCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveResourceCommand
+import tech.kzen.lib.common.model.structure.resource.ResourceContent
+import tech.kzen.lib.common.model.structure.resource.ResourceName
+import tech.kzen.lib.common.model.structure.resource.ResourceNesting
+import tech.kzen.lib.common.model.structure.resource.ResourcePath
+import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.common.service.context.NotationRepository
+import tech.kzen.lib.common.service.media.MapNotationMedia
+import tech.kzen.lib.common.service.metadata.NotationMetadataReader
+import tech.kzen.lib.common.service.parse.YamlNotationParser
 import kotlin.test.assertTrue
 
 
@@ -42,7 +43,8 @@ class ResourceCrudTest {
         val repo = NotationRepository(
                 media,
                 YamlNotationParser(),
-                NotationMetadataReader())
+                NotationMetadataReader(),
+                GraphDefiner())
 
         val resource = runBlocking {
             repo.apply(CreateDocumentCommand(
@@ -67,7 +69,8 @@ class ResourceCrudTest {
         val repo = NotationRepository(
                 media,
                 YamlNotationParser(),
-                NotationMetadataReader())
+                NotationMetadataReader(),
+                GraphDefiner())
 
         val graphNotation = runBlocking {
             repo.apply(CreateDocumentCommand(

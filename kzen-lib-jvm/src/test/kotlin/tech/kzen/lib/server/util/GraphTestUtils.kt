@@ -1,22 +1,21 @@
 package tech.kzen.lib.server.util
 
 import kotlinx.coroutines.runBlocking
-import tech.kzen.lib.common.context.GraphCreator
-import tech.kzen.lib.common.context.GraphDefiner
-import tech.kzen.lib.common.context.definition.GraphDefinition
-import tech.kzen.lib.common.context.instance.GraphInstance
+import tech.kzen.lib.common.model.definition.GraphDefinition
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.structure.GraphStructure
-import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
-import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
-import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.io.NotationParser
-import tech.kzen.lib.common.structure.notation.io.common.MultiNotationMedia
-import tech.kzen.lib.common.structure.notation.model.DocumentNotation
-import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.model.instance.GraphInstance
+import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
+import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.GraphNotation
+import tech.kzen.lib.common.service.context.GraphCreator
+import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.common.service.media.MultiNotationMedia
+import tech.kzen.lib.common.service.metadata.NotationMetadataReader
+import tech.kzen.lib.common.service.parse.NotationParser
+import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.toPersistentMap
-import tech.kzen.lib.server.notation.ClasspathNotationMedia
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
 
@@ -25,8 +24,8 @@ object GraphTestUtils {
     fun readNotation(): GraphNotation {
         val locator = GradleLocator(true)
         val notationMedia = MultiNotationMedia(listOf(
-                FileNotationMedia(locator),
-                ClasspathNotationMedia()))
+                FileNotationMedia(locator)/*,
+                ClasspathNotationMedia()*/))
 
         val notationParser: NotationParser = YamlNotationParser()
 
@@ -52,7 +51,7 @@ object GraphTestUtils {
 
     fun grapDefinition(graphNotation: GraphNotation): GraphDefinition {
         val graphMetadata = grapMetadata(graphNotation)
-        return GraphDefiner.define(
+        return GraphDefiner().define(
                 GraphStructure(graphNotation, graphMetadata))
     }
 
@@ -61,9 +60,9 @@ object GraphTestUtils {
         val graphMetadata = grapMetadata(graphNotation)
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
-        val graphDefinition = GraphDefiner.define(graphStructure)
+        val graphDefinition = GraphDefiner().define(graphStructure)
 
-        return GraphCreator
+        return GraphCreator()
                 .createGraph(graphStructure, graphDefinition)
     }
 

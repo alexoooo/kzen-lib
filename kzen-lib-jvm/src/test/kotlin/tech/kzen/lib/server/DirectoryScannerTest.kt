@@ -3,8 +3,8 @@ package tech.kzen.lib.server
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.resource.ResourcePath
-import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.common.model.structure.resource.ResourcePath
+import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator

@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.model.obj
 
-import tech.kzen.lib.common.structure.notation.model.PositionedObjectPath
+import tech.kzen.lib.common.model.structure.notation.PositionedObjectPath
 import tech.kzen.lib.platform.collect.PersistentMap
 import tech.kzen.lib.platform.collect.toPersistentMap
 

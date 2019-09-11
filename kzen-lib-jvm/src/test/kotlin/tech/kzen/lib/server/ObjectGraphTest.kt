@@ -2,14 +2,14 @@ package tech.kzen.lib.server
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import tech.kzen.lib.common.context.GraphCreator
-import tech.kzen.lib.common.context.GraphDefiner
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.structure.GraphStructure
-import tech.kzen.lib.common.structure.metadata.model.GraphMetadata
-import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
+import tech.kzen.lib.common.model.structure.notation.GraphNotation
+import tech.kzen.lib.common.service.context.GraphCreator
+import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.server.objects.LocationAware
 import tech.kzen.lib.server.objects.StringHolder
 import tech.kzen.lib.server.objects.StringHolderRef
@@ -21,9 +21,9 @@ class ObjectGraphTest {
     fun `ObjectGraph can be empty`() {
         val emptyStructure = GraphStructure(GraphNotation.empty, GraphMetadata.empty)
 
-        val emptyDefinition = GraphDefiner.define(emptyStructure)
+        val emptyDefinition = GraphDefiner().define(emptyStructure)
 
-        val emptyGraph = GraphCreator.createGraph(
+        val emptyGraph = GraphCreator().createGraph(
                 emptyStructure, emptyDefinition)
 
         assertEquals(

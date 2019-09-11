@@ -4,10 +4,10 @@ import com.google.common.reflect.ClassPath
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
-import tech.kzen.lib.common.structure.notation.NotationConventions
-import tech.kzen.lib.common.structure.notation.io.NotationMedia
-import tech.kzen.lib.common.structure.notation.io.model.DocumentScan
-import tech.kzen.lib.common.structure.notation.io.model.NotationScan
+import tech.kzen.lib.common.model.structure.scan.DocumentScan
+import tech.kzen.lib.common.model.structure.scan.NotationScan
+import tech.kzen.lib.common.service.media.NotationMedia
+import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 
@@ -28,7 +28,7 @@ class ClasspathNotationMedia(
 
             for (path in paths) {
                 val bytes = readDocument(path)
-                val digest = Digest.ofBytes(bytes)
+                val digest = Digest.ofUtf8(bytes)
                 cache[path] = DocumentScan(
                         digest,
                         null)
@@ -58,18 +58,19 @@ class ClasspathNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readDocument(documentPath: DocumentPath): ByteArray {
+    override suspend fun readDocument(documentPath: DocumentPath): String {
         val resourcePath = prefix + "/" + documentPath.asRelativeFile()
 
         @Suppress("UnnecessaryVariable")
-        val bytes = loader.getResource(resourcePath).readBytes()
+//        val bytes = loader.getResource(resourcePath).readBytes()
+        val bytes = loader.getResource(resourcePath).readText()
 
 //        println("ClasspathNotationMedia - read ${bytes.size}")
         return bytes
     }
 
 
-    override suspend fun writeDocument(documentPath: DocumentPath, contents: ByteArray) {
+    override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
         throw UnsupportedOperationException("Classpath writing not supported")
     }
 

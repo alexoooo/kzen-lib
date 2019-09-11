@@ -1,8 +1,8 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
-import tech.kzen.lib.common.structure.notation.edit.RemoveObjectCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
+import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveObjectCommand
 import kotlin.test.assertEquals
 
 

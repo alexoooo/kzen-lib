@@ -1,11 +1,11 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.structure.notation.edit.CreateDocumentCommand
-import tech.kzen.lib.common.structure.notation.edit.DeleteDocumentCommand
-import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
-import tech.kzen.lib.common.structure.notation.model.DocumentNotation
-import tech.kzen.lib.common.structure.notation.model.GraphNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.DeleteDocumentCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
+import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

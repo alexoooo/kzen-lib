@@ -8,23 +8,16 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
-import tech.kzen.lib.common.structure.notation.edit.RenameObjectRefactorCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectRefactorCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
 import tech.kzen.lib.server.util.GraphTestUtils
 import kotlin.test.assertEquals
 
 
 class RenameObjectRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
-//    private val yamlParser = YamlNotationParser()
     private val testPath = DocumentPath.parse("test/refactor-test.yaml")
 
-    
-//    fun deparseDocument(documentNotation: DocumentNotation): String {
-//        return IoUtils.utf8Decode(
-//                yamlParser.deparseDocument(documentNotation, ByteArray(0)))
-//    }
-    
 
     //-----------------------------------------------------------------------------------------------------------------
     @Test

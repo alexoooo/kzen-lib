@@ -10,14 +10,14 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.structure.metadata.read.NotationMetadataReader
-import tech.kzen.lib.common.structure.notation.edit.RenameObjectCommand
-import tech.kzen.lib.common.structure.notation.edit.ShiftObjectCommand
-import tech.kzen.lib.common.structure.notation.format.YamlNotationParser
-import tech.kzen.lib.common.structure.notation.io.common.MapNotationMedia
-import tech.kzen.lib.common.structure.notation.model.PositionIndex
-import tech.kzen.lib.common.structure.notation.repo.NotationRepository
-import tech.kzen.lib.platform.IoUtils
+import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
+import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.common.service.context.NotationRepository
+import tech.kzen.lib.common.service.media.MapNotationMedia
+import tech.kzen.lib.common.service.metadata.NotationMetadataReader
+import tech.kzen.lib.common.service.parse.YamlNotationParser
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -35,15 +35,15 @@ class RepositoryTest {
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser, metadataReader)
+                media, yamlParser, metadataReader, GraphDefiner())
 
         runBlocking {
-            media.writeDocument(mainPath, IoUtils.utf8Encode("""
+            media.writeDocument(mainPath, """
 A:
   hello: "a"
 B:
   hello: "b"
-"""))
+""")
 
             val aLocation = location("A")
 
@@ -66,19 +66,19 @@ B:
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser, metadataReader)
+                media, yamlParser, metadataReader, GraphDefiner())
 
         runBlocking {
-            media.writeDocument(mainPath, IoUtils.utf8Encode("""
+            media.writeDocument(mainPath, """
 A:
   hello: "a"
-"""))
+""")
 
             val aLocation = location("A")
 
             repo.apply(RenameObjectCommand(aLocation, ObjectName("Foo Bar")))
 
-            val modified = IoUtils.utf8Decode(media.readDocument(mainPath))
+            val modified = media.readDocument(mainPath)
 
             assertTrue(modified.startsWith("\"Foo Bar\":"),
                     "Encoded key expected: $modified")
@@ -92,20 +92,20 @@ A:
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser, metadataReader)
+                media, yamlParser, metadataReader, GraphDefiner())
 
         runBlocking {
-            media.writeDocument(mainPath, IoUtils.utf8Encode("""
+            media.writeDocument(mainPath, """
 A:
   hello: "a"
-"""))
+""")
 
             val aLocation = location("A")
             val newName = ObjectName("/")
 
             repo.apply(RenameObjectCommand(aLocation, newName))
 
-            val modified = IoUtils.utf8Decode(media.readDocument(mainPath))
+            val modified = media.readDocument(mainPath)
 
             assertEquals("""
                 "\\/":

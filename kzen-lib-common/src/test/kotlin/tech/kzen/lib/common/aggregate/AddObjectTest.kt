@@ -1,11 +1,11 @@
 package tech.kzen.lib.common.aggregate
 
 import tech.kzen.lib.common.model.obj.ObjectName
-import tech.kzen.lib.common.structure.notation.NotationConventions
-import tech.kzen.lib.common.structure.notation.edit.AddObjectCommand
-import tech.kzen.lib.common.structure.notation.edit.NotationAggregate
-import tech.kzen.lib.common.structure.notation.model.PositionIndex
-import tech.kzen.lib.common.structure.notation.model.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.AddObjectCommand
+import tech.kzen.lib.common.service.notation.NotationAggregate
+import tech.kzen.lib.common.service.notation.NotationConventions
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -32,10 +32,10 @@ class AddObjectTest: AggregateTest() {
         val isValue = (objectNotation.get(NotationConventions.isAttributePath) as ScalarAttributeNotation).value
         assertEquals("Parent", isValue)
 
-        val deparsedDocument = deparseDocument(documentNotation)
+        val unparsedDocument = unparseDocument(documentNotation)
         assertEquals("""
             Foo:
               is: Parent
-        """.trimIndent(), deparsedDocument)
+        """.trimIndent(), unparsedDocument)
     }
 }

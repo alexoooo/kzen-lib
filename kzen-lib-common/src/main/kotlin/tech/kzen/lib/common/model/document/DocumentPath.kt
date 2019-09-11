@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.model.document
 
-import tech.kzen.lib.common.structure.notation.NotationConventions
+import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
 
