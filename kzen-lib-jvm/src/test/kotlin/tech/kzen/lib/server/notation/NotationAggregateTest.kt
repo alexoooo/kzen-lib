@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
+import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.persistentMapOf
 
@@ -17,6 +18,7 @@ abstract class NotationAggregateTest {
     //-----------------------------------------------------------------------------------------------------------------
     val yamlParser = YamlNotationParser()
     val testPath = DocumentPath.parse("test.yaml")
+    val reducer = NotationReducer()
 
 
     //-----------------------------------------------------------------------------------------------------------------

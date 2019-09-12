@@ -60,7 +60,7 @@ class AutowiredTest {
         val objectGraph = GraphTestUtils.newObjectGraph()
 
         val location = location("ObjectGroup")
-        val objectGroup = objectGraph.objects[location]?.reference as ObjectGroup
+        val objectGroup = objectGraph.objectInstances[location]?.reference as ObjectGroup
 
         assertEquals(2, objectGroup.children.size)
     }

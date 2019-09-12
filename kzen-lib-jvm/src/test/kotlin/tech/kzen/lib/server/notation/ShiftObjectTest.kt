@@ -2,9 +2,8 @@ package tech.kzen.lib.server.notation
 
 import org.junit.Test
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.service.notation.NotationAggregate
-import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -21,12 +20,12 @@ B:
   hello: "b"
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                ShiftObjectCommand(
+                        location("B"), PositionIndex(0)))
 
-        project.apply(ShiftObjectCommand(
-                location("B"), PositionIndex(0)))
-
-        val packageNotation = project.state.documents.values[testPath]!!
+        val packageNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
         assertFalse(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
@@ -41,12 +40,12 @@ B:
   hello: "b"
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                ShiftObjectCommand(
+                        location("A"), PositionIndex(1)))
 
-        project.apply(ShiftObjectCommand(
-                location("A"), PositionIndex(1)))
-
-        val packageNotation = project.state.documents.values[testPath]!!
+        val packageNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
         assertFalse(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }
@@ -61,12 +60,12 @@ B:
   hello: "b"
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                ShiftObjectCommand(
+                        location("A"), PositionIndex(0)))
 
-        project.apply(ShiftObjectCommand(
-                location("A"), PositionIndex(0)))
-
-        val packageNotation = project.state.documents.values[testPath]!!
+        val packageNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
         assertTrue(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
     }

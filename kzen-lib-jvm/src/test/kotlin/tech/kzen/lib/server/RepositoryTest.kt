@@ -17,6 +17,7 @@ import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.context.NotationRepository
 import tech.kzen.lib.common.service.media.MapNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
+import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -35,7 +36,7 @@ class RepositoryTest {
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser, metadataReader, GraphDefiner())
+                media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         runBlocking {
             media.writeDocument(mainPath, """
@@ -66,7 +67,7 @@ B:
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser, metadataReader, GraphDefiner())
+                media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         runBlocking {
             media.writeDocument(mainPath, """
@@ -92,7 +93,7 @@ A:
         val media = MapNotationMedia()
 
         val repo = NotationRepository(
-                media, yamlParser, metadataReader, GraphDefiner())
+                media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         runBlocking {
             media.writeDocument(mainPath, """
@@ -117,7 +118,7 @@ A:
                             mainPath,
                             ObjectPath(newName, ObjectNesting.root)
                     ),
-                    repo.aggregate().state.coalesce.locate(ObjectReference(newName, null, null)))
+                    repo.notation().coalesce.locate(ObjectReference(newName, null, null)))
         }
     }
 

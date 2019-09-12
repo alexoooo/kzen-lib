@@ -18,7 +18,6 @@ import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.platform.collect.PersistentMap
 import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.reflect.KClass
 
@@ -70,7 +69,8 @@ class GraphDefiner {
                 }.toMutableSet()
 
 //        val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
-        var closedDefinitions = GraphDefinition(ObjectLocationMap(PersistentMap()))
+        var closedDefinitions = GraphDefinition.empty
+                .copy(graphStructure = graphStructure)
 
         val missingInstances = mutableSetOf<ObjectLocation>()
 

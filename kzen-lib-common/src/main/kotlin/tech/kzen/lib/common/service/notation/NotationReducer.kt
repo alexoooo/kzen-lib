@@ -17,90 +17,88 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.*
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
-class NotationAggregate(
-        var state: GraphNotation
-) {
+class NotationReducer {
     //-----------------------------------------------------------------------------------------------------------------
-    private data class EventAndNotation(
-            val event: NotationEvent,
-            val notation: GraphNotation)
+//    companion object {
+//        fun buffer()
+//    }
 
-
-    //-----------------------------------------------------------------------------------------------------------------
-    fun apply(command: StructuralNotationCommand): NotationEvent {
-        val eventAndNotation = handle(command)
-        state = eventAndNotation.notation
-        return eventAndNotation.event
-    }
-
-
-    fun apply(command: SemanticNotationCommand, graphDefinition: GraphDefinition): NotationEvent {
-        val eventAndNotation = handle(command, graphDefinition)
-        state = eventAndNotation.notation
-        return eventAndNotation.event
+    private inner class Buffer(
+            var state: GraphNotation
+    ) {
+        fun apply(
+                command: StructuralNotationCommand
+        ): NotationEvent {
+            val transition = apply(state, command)
+            state = transition.graphNotation
+            return transition.notationEvent
+        }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun handle(command: StructuralNotationCommand): EventAndNotation {
+    fun apply(
+            state: GraphNotation,
+            command: StructuralNotationCommand
+    ): NotationTransition {
         return when (command) {
             is CreateDocumentCommand ->
-                createDocument(command)
+                createDocument(state, command)
 
             is DeleteDocumentCommand ->
-                deleteDocument(command)
+                deleteDocument(state, command)
 
             is CopyDocumentCommand ->
-                copyDocument(command)
+                copyDocument(state, command)
 
 
             is AddObjectCommand ->
-                addObject(command)
+                addObject(state, command)
 
             is RemoveObjectCommand ->
-                removeObject(command)
+                removeObject(state, command)
 
             is ShiftObjectCommand ->
-                shiftObject(command)
+                shiftObject(state, command)
 
             is RenameObjectCommand ->
-                renameObject(command)
+                renameObject(state, command)
 
             is RenameNestedObjectCommand ->
-                renameNestedObject(command)
+                renameNestedObject(state, command)
 
 
             is UpsertAttributeCommand ->
-                upsertAttribute(command)
+                upsertAttribute(state, command)
 
             is UpdateInAttributeCommand ->
-                updateInAttribute(command)
+                updateInAttribute(state, command)
 
             is InsertListItemInAttributeCommand ->
-                insertListItemInAttribute(command)
+                insertListItemInAttribute(state, command)
 
             is InsertMapEntryInAttributeCommand ->
-                insertMapEntryInAttribute(command)
+                insertMapEntryInAttribute(state, command)
 
             is RemoveInAttributeCommand ->
-                removeInAttribute(command)
+                removeInAttribute(state, command)
 
 
             is ShiftInAttributeCommand ->
-                shiftInAttribute(command)
+                shiftInAttribute(state, command)
 
             is InsertObjectInListAttributeCommand ->
-                insertObjectInListAttribute(command)
+                insertObjectInListAttribute(state, command)
 
             is RemoveObjectInAttributeCommand ->
-                removeObjectInAttribute(command)
+                removeObjectInAttribute(state, command)
 
 
             is AddResourceCommand ->
-                addResource(command)
+                addResource(state, command)
 
             is RemoveResourceCommand ->
-                removeResource(command)
+                removeResource(state, command)
 
 
             else ->
@@ -109,24 +107,26 @@ class NotationAggregate(
     }
 
 
-    private fun handle(
-            command: SemanticNotationCommand,
-            graphDefinition: GraphDefinition
-    ): EventAndNotation {
+    fun apply(
+            graphDefinition: GraphDefinition,
+            command: SemanticNotationCommand
+    ): NotationTransition {
+        val state = graphDefinition.graphStructure.graphNotation
         return when (command) {
             is RenameObjectRefactorCommand ->
-                renameObjectRefactor(command.objectLocation, command.newName, graphDefinition)
+                renameObjectRefactor(state, command.objectLocation, command.newName, graphDefinition)
 
             is RenameDocumentRefactorCommand ->
-                renameDocumentRefactor(command.documentPath, command.newName/*, graphDefinition*/)
+                renameDocumentRefactor(state, command.documentPath, command.newName/*, graphDefinition*/)
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun createDocument(
+            state: GraphNotation,
             command: CreateDocumentCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(! state.documents.values.containsKey(command.documentPath)) {
             "Already exists: ${command.documentPath}"
         }
@@ -137,28 +137,30 @@ class NotationAggregate(
         val event = CreatedDocumentEvent(
                 command.documentPath, command.documentNotation)
 
-        return EventAndNotation(event, nextState)
+        return NotationTransition(event, nextState)
     }
 
 
     private fun deleteDocument(
+            state: GraphNotation,
             command: DeleteDocumentCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(state.documents.values.containsKey(command.documentPath)) {
             "Does not exist: ${command.documentPath} - ${state.documents.values.keys}"
         }
 
         val nextState = state.withoutDocument(command.documentPath)
 
-        return EventAndNotation(
+        return NotationTransition(
                 DeletedDocumentEvent(command.documentPath),
                 nextState)
     }
 
 
     private fun copyDocument(
+            state: GraphNotation,
             command: CopyDocumentCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(command.sourceDocumentPath in state.documents.values) {
             "Does not exist: ${command.sourceDocumentPath} - ${state.documents.values.keys}"
         }
@@ -168,7 +170,7 @@ class NotationAggregate(
         val nextState = state
                 .withNewDocument(command.destinationDocumentPath, document)
 
-        return EventAndNotation(
+        return NotationTransition(
                 CopiedDocumentEvent(command.sourceDocumentPath, command.destinationDocumentPath),
                 nextState)
     }
@@ -176,8 +178,9 @@ class NotationAggregate(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun addObject(
+            state: GraphNotation,
             command: AddObjectCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(command.objectLocation !in state.coalesce.values) {
             "Object named '${command.objectLocation}' already exists"
         }
@@ -192,7 +195,7 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        return EventAndNotation(
+        return NotationTransition(
                 AddedObjectEvent(
                         command.objectLocation,
                         command.indexInDocument,
@@ -202,8 +205,9 @@ class NotationAggregate(
 
 
     private fun removeObject(
+            state: GraphNotation,
             command: RemoveObjectCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
@@ -214,15 +218,16 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        return EventAndNotation(
+        return NotationTransition(
                 RemovedObjectEvent(command.objectLocation),
                 nextState)
     }
 
 
     private fun shiftObject(
+            state: GraphNotation,
             command: ShiftObjectCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
         val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
@@ -238,15 +243,16 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, addedToNew)
 
-        return EventAndNotation(
+        return NotationTransition(
                 ShiftedObjectEvent(command.objectLocation, command.newPositionInDocument),
                 nextState)
     }
 
 
     private fun renameObject(
+            state: GraphNotation,
             command: RenameObjectCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
@@ -265,15 +271,16 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, addedWithNewName)
 
-        return EventAndNotation(
+        return NotationTransition(
                 RenamedObjectEvent(command.objectLocation, command.newName),
                 nextState)
     }
 
 
     private fun renameNestedObject(
+            state: GraphNotation,
             command: RenameNestedObjectCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
@@ -292,7 +299,7 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, addedWithNewNesting)
 
-        return EventAndNotation(
+        return NotationTransition(
                 RenamedNestedObjectEvent(
                         command.objectLocation, command.newObjectNesting),
                 nextState)
@@ -301,8 +308,9 @@ class NotationAggregate(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun upsertAttribute(
+            state: GraphNotation,
             command: UpsertAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
@@ -315,7 +323,7 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        return EventAndNotation(
+        return NotationTransition(
                 UpsertedAttributeEvent(
                         command.objectLocation, command.attributeName, command.attributeNotation),
                 nextState)
@@ -323,8 +331,9 @@ class NotationAggregate(
 
 
     private fun updateInAttribute(
+            state: GraphNotation,
             command: UpdateInAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
@@ -338,7 +347,7 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        return EventAndNotation(
+        return NotationTransition(
                 UpdatedInAttributeEvent(
                         command.objectLocation, command.attributePath, command.attributeNotation),
                 nextState)
@@ -346,8 +355,9 @@ class NotationAggregate(
 
 
     private fun insertListItemInAttribute(
+            state: GraphNotation,
             command: InsertListItemInAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
 
@@ -372,13 +382,14 @@ class NotationAggregate(
         val event = InsertedListItemInAttributeEvent(
                 command.objectLocation, command.containingList, command.indexInList, listInAttribute)
 
-        return EventAndNotation(event, nextState)
+        return NotationTransition(event, nextState)
     }
 
 
     private fun insertMapEntryInAttribute(
+            state: GraphNotation,
             command: InsertMapEntryInAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
@@ -401,13 +412,14 @@ class NotationAggregate(
                 command.mapKey,
                 command.value)
 
-        return EventAndNotation(event, nextState)
+        return NotationTransition(event, nextState)
     }
 
 
     private fun removeInAttribute(
+            state: GraphNotation,
             command: RemoveInAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
@@ -440,14 +452,15 @@ class NotationAggregate(
         val event = RemovedInAttributeEvent(
                 command.objectLocation, command.attributePath)
 
-        return EventAndNotation(event, nextState)
+        return NotationTransition(event, nextState)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun shiftInAttribute(
+            state: GraphNotation,
             command: ShiftInAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val objectNotation = state.coalesce[command.objectLocation]!!
 
         val containerPath = command.attributePath.parent()
@@ -455,7 +468,7 @@ class NotationAggregate(
 
         val attributeNotation = objectNotation.get(command.attributePath)!!
 
-        val builder = NotationAggregate(state)
+        val builder = Buffer(state)
 
         val removedInAttribute = builder
                 .apply(RemoveInAttributeCommand(command.objectLocation, command.attributePath))
@@ -482,23 +495,24 @@ class NotationAggregate(
                 .apply(insertCommand)
                 as InsertedInAttributeEvent
 
-        return EventAndNotation(
+        return NotationTransition(
                 ShiftedInAttributeEvent(removedInAttribute, reinsertedInAttribute),
                 builder.state)
     }
 
 
     private fun insertObjectInListAttribute(
+            state: GraphNotation,
             command: InsertObjectInListAttributeCommand
-    ): EventAndNotation {
-        val builder = NotationAggregate(state)
+    ): NotationTransition {
+        val buffer = Buffer(state)
 
         val objectPath = command.containingObjectLocation.objectPath.nest(
                 command.containingList, command.objectName)
 
         val objectLocation = ObjectLocation(command.containingObjectLocation.documentPath, objectPath)
 
-        val objectAdded = builder
+        val objectAdded = buffer
                 .apply(AddObjectCommand(
                         objectLocation,
                         command.positionInDocument,
@@ -514,19 +528,20 @@ class NotationAggregate(
                 command.indexInList,
                 ScalarAttributeNotation(addendReference.asString()))
 
-        val insertedInAttribute = builder
+        val insertedInAttribute = buffer
                 .apply(insertInAttributeCommand)
                 as InsertedListItemInAttributeEvent
 
-        return EventAndNotation(
+        return NotationTransition(
                 InsertedObjectInListAttributeEvent(objectAdded, insertedInAttribute),
-                builder.state)
+                buffer.state)
     }
 
 
     private fun removeObjectInAttribute(
+            state: GraphNotation,
             command: RemoveObjectInAttributeCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val objectNotation = state.coalesce[command.containingObjectLocation]
                 ?: throw IllegalArgumentException("Containing object not found: ${command.containingObjectLocation}")
 
@@ -535,21 +550,21 @@ class NotationAggregate(
         val objectReferenceHost = ObjectReferenceHost.ofLocation(command.containingObjectLocation)
         val objectLocation = state.coalesce.locate(objectReference, objectReferenceHost)
 
-        val builder = NotationAggregate(state)
+        val buffer = Buffer(state)
 
-        val removedInAttribute = builder
+        val removedInAttribute = buffer
                 .apply(RemoveInAttributeCommand(
                         command.containingObjectLocation, command.attributePath))
                 as RemovedInAttributeEvent
 
-        val removedObject = builder
+        val removedObject = buffer
                 .apply(RemoveObjectCommand(
                         objectLocation))
                 as RemovedObjectEvent
 
         val containingDocumentPath = command.containingObjectLocation.documentPath
 
-        val nestedObjectLocations = builder
+        val nestedObjectLocations = buffer
                 .state
                 .documents[containingDocumentPath]!!
                 .objects
@@ -560,27 +575,28 @@ class NotationAggregate(
 
         val removedNestedObjects = nestedObjectLocations
                 .map {
-                    builder.apply(RemoveObjectCommand(
+                    buffer.apply(RemoveObjectCommand(
                             ObjectLocation(containingDocumentPath, it)
                     )) as RemovedObjectEvent
                 }
 
-        return EventAndNotation(
+        return NotationTransition(
                 RemovedObjectInAttributeEvent(
                         removedInAttribute, removedObject, removedNestedObjects),
-                builder.state)
+                buffer.state)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun renameObjectRefactor(
+            state: GraphNotation,
             objectLocation: ObjectLocation,
             newName: ObjectName,
             graphDefinition: GraphDefinition
-    ): EventAndNotation {
+    ): NotationTransition {
         check(objectLocation in state.coalesce.values)
 
-        val builder = NotationAggregate(state)
+        val buffer = Buffer(state)
 
         val nestedObjectLocations = graphDefinition
                 .objectDefinitions
@@ -594,12 +610,12 @@ class NotationAggregate(
             nestedRenameObjectRefactor(
                     it.key,
                     it.value.objectPath.nesting,
-                    builder,
+                    buffer,
                     graphDefinition
             )
         }
 
-        val renamedObject = builder
+        val renamedObject = buffer
                 .apply(RenameObjectCommand(objectLocation, newName))
                 as RenamedObjectEvent
 
@@ -610,15 +626,15 @@ class NotationAggregate(
                 objectLocation, newObjectLocation, graphDefinition)
 
         val adjustedReferenceEvents = adjustedReferenceCommands
-                .map { builder.apply(it) as UpdatedInAttributeEvent }
+                .map { buffer.apply(it) as UpdatedInAttributeEvent }
                 .toList()
 
-        return EventAndNotation(
+        return NotationTransition(
                 RenamedObjectRefactorEvent(
                         renamedObject,
                         adjustedReferenceEvents,
                         nestedObjects),
-                builder.state)
+                buffer.state)
     }
 
 
@@ -649,10 +665,10 @@ class NotationAggregate(
     private fun nestedRenameObjectRefactor(
             objectLocation: ObjectLocation,
             newObjectNesting: ObjectNesting,
-            builder: NotationAggregate,
+            buffer: NotationReducer.Buffer,
             graphDefinition: GraphDefinition
     ): NestedObjectRename {
-        val renamedObject = builder
+        val renamedObject = buffer
                 .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
                 as RenamedNestedObjectEvent
 
@@ -662,7 +678,7 @@ class NotationAggregate(
                 objectLocation, newObjectLocation, graphDefinition)
 
         val adjustedReferenceEvents = adjustedReferenceCommands
-                .map { builder.apply(it) as UpdatedInAttributeEvent }
+                .map { buffer.apply(it) as UpdatedInAttributeEvent }
                 .toList()
 
         return NestedObjectRename(
@@ -742,23 +758,26 @@ class NotationAggregate(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun renameDocumentRefactor(
+            state: GraphNotation,
             documentPath: DocumentPath,
             newName: DocumentName/*,
             graphDefinition: GraphDefinition*/
-    ): EventAndNotation {
-        check(documentPath in state.documents.values)
-        val builder = NotationAggregate(state)
+    ): NotationTransition {
+        require(documentPath in state.documents.values) {
+            "documentPath missing: $documentPath - ${state.documents.values.keys}"
+        }
+        val buffer = Buffer(state)
 
         val newDocumentPath = documentPath.withName(newName)
 
-        val createdWithNewName = builder
+        val createdWithNewName = buffer
                 .apply(CopyDocumentCommand(
                         documentPath,
                         newDocumentPath
                 ))
                 as CopiedDocumentEvent
 
-        val removedUnderOldName = builder
+        val removedUnderOldName = buffer
                 .apply(DeleteDocumentCommand(documentPath))
                 as DeletedDocumentEvent
 
@@ -770,19 +789,20 @@ class NotationAggregate(
 //            adjustedReferenceEvents.add(builder.apply(it) as UpdatedInAttributeEvent)
 //        }
 //
-        return EventAndNotation(
+        return NotationTransition(
                 RenamedDocumentRefactorEvent(
                         createdWithNewName,
                         removedUnderOldName
                 ),
-                builder.state)
+                buffer.state)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun addResource(
+            state: GraphNotation,
             command: AddResourceCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.resourceLocation.documentPath]
 
         checkNotNull(documentNotation) {
@@ -805,7 +825,7 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.resourceLocation.documentPath, modifiedDocumentNotation)
 
-        return EventAndNotation(
+        return NotationTransition(
                 AddedResourceEvent(
                         command.resourceLocation,
                         contentDigest),
@@ -814,8 +834,9 @@ class NotationAggregate(
 
 
     private fun removeResource(
+            state: GraphNotation,
             command: RemoveResourceCommand
-    ): EventAndNotation {
+    ): NotationTransition {
         val documentNotation = state.documents.values[command.resourceLocation.documentPath]
 
         checkNotNull(documentNotation) {
@@ -835,7 +856,7 @@ class NotationAggregate(
         val nextState = state.withModifiedDocument(
                 command.resourceLocation.documentPath, modifiedDocumentNotation)
 
-        return EventAndNotation(
+        return NotationTransition(
                 RemovedResourceEvent(
                         command.resourceLocation),
                 nextState)

@@ -4,8 +4,8 @@ import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.AddObjectCommand
-import tech.kzen.lib.common.service.notation.NotationAggregate
 import tech.kzen.lib.common.service.notation.NotationConventions
+import tech.kzen.lib.common.service.notation.NotationReducer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -16,15 +16,15 @@ class AddObjectTest: AggregateTest() {
     fun addObjectOfParent() {
         val notation = parseGraph("")
 
-        val project = NotationAggregate(notation)
+        val project = NotationReducer()
 
-        project.apply(AddObjectCommand.ofParent(
+        val transition = project.apply(notation, AddObjectCommand.ofParent(
                 location("Foo"),
                 PositionIndex(0),
                 ObjectName("Parent")
         ))
 
-        val documentNotation = project.state.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(1, documentNotation.objects.values.size)
 
         val objectNotation = documentNotation.objects.values.values.iterator().next()

@@ -12,7 +12,6 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveInAttributeComma
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftInAttributeCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.UpdateInAttributeCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.UpsertAttributeCommand
-import tech.kzen.lib.common.service.notation.NotationAggregate
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -26,14 +25,15 @@ Foo:
   hello: "bar"
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                UpsertAttributeCommand(
+                        location("Foo"),
+                        AttributeName("hello"),
+                        ScalarAttributeNotation("world")))
 
-        project.apply(UpsertAttributeCommand(
-                location("Foo"),
-                AttributeName("hello"),
-                ScalarAttributeNotation("world")))
-
-        val value = project.state.getString(location("Foo"), attribute("hello"))
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello"))
         assertEquals("world", value)
     }
 
@@ -45,14 +45,15 @@ Foo:
   hello: "bar"
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                UpsertAttributeCommand(
+                        location("Foo"),
+                        AttributeName("foo"),
+                        ScalarAttributeNotation("baz")))
 
-        project.apply(UpsertAttributeCommand(
-                location("Foo"),
-                AttributeName("foo"),
-                ScalarAttributeNotation("baz")))
-
-        val value = project.state.getString(location("Foo"), attribute("foo"))
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("foo"))
         assertEquals("baz", value)
     }
 
@@ -65,14 +66,15 @@ Foo:
     world: bar
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                UpdateInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.world"),
+                        ScalarAttributeNotation("baz")))
 
-        project.apply(UpdateInAttributeCommand(
-                location("Foo"),
-                AttributePath.parse("hello.world"),
-                ScalarAttributeNotation("baz")))
-
-        val value = project.state.getString(location("Foo"), attribute("hello.world"))
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello.world"))
         assertEquals("baz", value)
     }
 
@@ -85,14 +87,15 @@ Foo:
     - bar
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                UpdateInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.0"),
+                        ScalarAttributeNotation("baz")))
 
-        project.apply(UpdateInAttributeCommand(
-                location("Foo"),
-                AttributePath.parse("hello.0"),
-                ScalarAttributeNotation("baz")))
-
-        val value = project.state.getString(location("Foo"), attribute("hello.0"))
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello.0"))
         assertEquals("baz", value)
     }
 
@@ -106,15 +109,15 @@ Foo:
     - baz
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                ShiftInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.0"),
+                        PositionIndex(1)))
 
-        project.apply(ShiftInAttributeCommand(
-                location("Foo"),
-                AttributePath.parse("hello.0"),
-                PositionIndex(1)
-        ))
-
-        val value = project.state.getString(location("Foo"), attribute("hello.0"))
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello.0"))
         assertEquals("baz", value)
     }
 
@@ -128,16 +131,17 @@ Foo:
     bar: 2
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                ShiftInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.foo"),
+                        PositionIndex(1)))
 
-        project.apply(ShiftInAttributeCommand(
-                location("Foo"),
-                AttributePath.parse("hello.foo"),
-                PositionIndex(1)
-        ))
-
-        val objectNotation = project.state.coalesce.values[location("Foo")]!!
-        val containerNotation = objectNotation.get(attribute("hello")) as MapAttributeNotation
+        val objectNotation =
+                transition.graphNotation.coalesce.values[location("Foo")]!!
+        val containerNotation =
+                objectNotation.get(attribute("hello")) as MapAttributeNotation
 
         val fooIndex = containerNotation.values.keys.indexOf(AttributeSegment.ofKey("foo"))
         assertEquals(1, fooIndex)
@@ -153,15 +157,16 @@ Foo:
   bar: []
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                RemoveInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.0")))
 
-        project.apply(RemoveInAttributeCommand(
-                location("Foo"),
-                AttributePath.parse("hello.0")
-        ))
-
-        val newObjectNotation = project.state.coalesce.values[location("Foo")]!!
-        val emptyList = newObjectNotation.attributes.values[AttributeName("hello")] as ListAttributeNotation
+        val newObjectNotation =
+                transition.graphNotation.coalesce.values[location("Foo")]!!
+        val emptyList =
+                newObjectNotation.attributes.values[AttributeName("hello")] as ListAttributeNotation
 
         assertTrue(emptyList.values.isEmpty())
 
@@ -169,7 +174,7 @@ Foo:
 Foo:
   hello: []
   bar: []
-""".trim(), unparseDocument(project.state))
+""".trim(), unparseDocument(transition.graphNotation))
     }
 
 
@@ -182,15 +187,16 @@ Foo:
               bar: {}
             """.trimIndent())
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                RemoveInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.foo")))
 
-        project.apply(RemoveInAttributeCommand(
-                location("Foo"),
-                AttributePath.parse("hello.foo")
-        ))
-
-        val newObjectNotation = project.state.coalesce.values[location("Foo")]!!
-        val emptyMap = newObjectNotation.attributes.values[AttributeName("hello")] as MapAttributeNotation
+        val newObjectNotation =
+                transition.graphNotation.coalesce.values[location("Foo")]!!
+        val emptyMap =
+                newObjectNotation.attributes.values[AttributeName("hello")] as MapAttributeNotation
 
         assertTrue(emptyMap.values.isEmpty())
 
@@ -198,6 +204,6 @@ Foo:
             Foo:
               hello: {}
               bar: {}
-            """.trimIndent(), unparseDocument(project.state))
+            """.trimIndent(), unparseDocument(transition.graphNotation))
     }
 }

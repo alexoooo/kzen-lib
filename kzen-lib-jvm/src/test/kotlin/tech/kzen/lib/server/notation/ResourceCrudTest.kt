@@ -18,6 +18,7 @@ import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.context.NotationRepository
 import tech.kzen.lib.common.service.media.MapNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
+import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import kotlin.test.assertTrue
 
@@ -44,7 +45,8 @@ class ResourceCrudTest {
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
-                GraphDefiner())
+                GraphDefiner(),
+                NotationReducer())
 
         val resource = runBlocking {
             repo.apply(CreateDocumentCommand(
@@ -70,7 +72,8 @@ class ResourceCrudTest {
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
-                GraphDefiner())
+                GraphDefiner(),
+                NotationReducer())
 
         val graphNotation = runBlocking {
             repo.apply(CreateDocumentCommand(

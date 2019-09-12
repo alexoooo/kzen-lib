@@ -10,7 +10,7 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.*
 import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
-import tech.kzen.lib.common.service.notation.NotationAggregate
+import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.NotationParser
 import tech.kzen.lib.common.util.Cache
 import tech.kzen.lib.common.util.Digest
@@ -22,14 +22,15 @@ class NotationRepository(
         private val notationMedia: NotationMedia,
         private val notationParser: NotationParser,
         private val metadataReader: NotationMetadataReader,
-        private val graphDefiner: GraphDefiner
+        private val graphDefiner: GraphDefiner,
+        private val notationReducer: NotationReducer
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     private var scanCache = mutableMapOf<DocumentPath, DocumentScan>()
 
     // TODO: use notation from inside ProjectAggregate?
     private var projectNotationCache: GraphNotation? = null
-    private var projectAggregateCache: NotationAggregate? = null
+//    private var projectAggregateCache: NotationReducer? = null
     private var fileCache = Cache<String>(10)
 
 
@@ -72,42 +73,42 @@ class NotationRepository(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun aggregate(): NotationAggregate {
-        if (projectAggregateCache == null) {
-            projectAggregateCache = NotationAggregate(notation())
-        }
-        return projectAggregateCache!!
-    }
+//    suspend fun aggregate(): NotationReducer {
+//        if (projectAggregateCache == null) {
+//            projectAggregateCache = NotationReducer(notation())
+//        }
+//        return projectAggregateCache!!
+//    }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun clearCache() {
         scanCache.clear()
         projectNotationCache = null
-        projectAggregateCache = null
+//        projectAggregateCache = null
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun apply(command: NotationCommand): NotationEvent {
         val notation = notation()
-        val aggregate = aggregate()
 
         val oldDocuments = notation.documents
 
-        val event =
+        val transition =
                 when (command) {
                     is StructuralNotationCommand ->
-                        aggregate.apply(command)
+                        notationReducer.apply(notation, command)
 
                     is SemanticNotationCommand -> {
                         val graphMetadata = metadataReader.read(notation)
-                        val graphDefinition = graphDefiner.define(GraphStructure(notation, graphMetadata))
-                        aggregate.apply(command, graphDefinition)
+                        val graphDefinition =
+                                graphDefiner.define(GraphStructure(notation, graphMetadata))
+                        notationReducer.apply(graphDefinition, command)
                     }
                 }
 
-        val newDocuments = aggregate.state.documents
+        val newDocuments = transition.graphNotation.documents
 
         var writtenAny = false
         for (updatedDocument in newDocuments.values) {
@@ -135,7 +136,7 @@ class NotationRepository(
             clearCache()
         }
 
-        return event
+        return transition.notationEvent
     }
 
 

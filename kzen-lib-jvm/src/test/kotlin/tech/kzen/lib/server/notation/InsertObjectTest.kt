@@ -7,7 +7,6 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
 import tech.kzen.lib.common.model.structure.notation.cqrs.InsertObjectInListAttributeCommand
-import tech.kzen.lib.common.service.notation.NotationAggregate
 import kotlin.test.assertEquals
 
 
@@ -21,25 +20,24 @@ InsertInto:
   - Bar
 """)
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation,
+                InsertObjectInListAttributeCommand(
+                        location("InsertInto"),
+                        AttributePath.parse("foo"),
+                        PositionIndex(1),
+                        ObjectName("Inserted"),
+                        PositionIndex(1),
+                        ObjectNotation.ofParent(ObjectName("DoubleValue"))))
 
-        project.apply(InsertObjectInListAttributeCommand(
-                location("InsertInto"),
-                AttributePath.parse("foo"),
-                PositionIndex(1),
-                ObjectName("Inserted"),
-                PositionIndex(1),
-                ObjectNotation.ofParent(ObjectName("DoubleValue"))
-        ))
-
-        val documentNotation = project.state.documents.get(testPath)!!
+        val documentNotation = transition.graphNotation.documents.get(testPath)!!
 
         assertEquals(1, documentNotation.indexOf(
                 ObjectPath.parse("InsertInto.foo/Inserted")
         ).value)
 
         assertEquals("InsertInto.foo/Inserted",
-                project.state.getString(
+                transition.graphNotation.getString(
                         location("InsertInto"),
                         attribute("foo.1")
                 ))

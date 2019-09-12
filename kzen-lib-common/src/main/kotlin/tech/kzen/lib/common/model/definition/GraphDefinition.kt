@@ -3,11 +3,22 @@ package tech.kzen.lib.common.model.definition
 import tech.kzen.lib.common.model.locate.AttributeLocation
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.platform.collect.PersistentMap
 
 
 data class GraphDefinition(
-        val objectDefinitions: ObjectLocationMap<ObjectDefinition>
+        val objectDefinitions: ObjectLocationMap<ObjectDefinition>,
+        val graphStructure: GraphStructure
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        val empty = GraphDefinition(
+                ObjectLocationMap(PersistentMap()),
+                GraphStructure.empty)
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributeLocation: AttributeLocation): AttributeDefinition? {
         return objectDefinitions[attributeLocation.objectLocation]
@@ -22,11 +33,15 @@ data class GraphDefinition(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun filter(predicate: (Pair<ObjectLocation, ObjectDefinition>) -> Boolean): GraphDefinition {
-        return GraphDefinition(objectDefinitions.filter(predicate))
+        return GraphDefinition(
+                objectDefinitions.filter(predicate),
+                graphStructure)
     }
 
 
     fun put(objectLocation: ObjectLocation, objectDefinition: ObjectDefinition): GraphDefinition {
-        return GraphDefinition(objectDefinitions.put(objectLocation, objectDefinition))
+        return GraphDefinition(
+                objectDefinitions.put(objectLocation, objectDefinition),
+                graphStructure)
     }
 }

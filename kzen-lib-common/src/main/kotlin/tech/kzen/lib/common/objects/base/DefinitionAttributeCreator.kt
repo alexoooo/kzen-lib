@@ -66,7 +66,7 @@ class DefinitionAttributeCreator: AttributeCreator {
                             objectReference, ObjectReferenceHost.ofLocation(objectLocation))
                 }
                 else {
-                    val location = partialGraphInstance.objects.locate(
+                    val location = partialGraphInstance.objectInstances.locate(
                             objectReference, ObjectReferenceHost.ofLocation(objectLocation))
 
                     partialGraphInstance[location]?.reference

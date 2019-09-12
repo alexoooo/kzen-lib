@@ -1,11 +1,10 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
-import tech.kzen.lib.common.model.structure.notation.cqrs.DeleteDocumentCommand
-import tech.kzen.lib.common.service.notation.NotationAggregate
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.DeleteDocumentCommand
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -14,11 +13,11 @@ class EditDocumentTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Create document`() {
-        val project = NotationAggregate(GraphNotation.empty)
+        val transition = reducer.apply(
+                GraphNotation.empty,
+                CreateDocumentCommand(testPath, DocumentNotation.emptyWithoutResources))
 
-        project.apply(CreateDocumentCommand(testPath, DocumentNotation.emptyWithoutResources))
-
-        val documentNotation = project.state.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(0, documentNotation.objects.values.size)
     }
 
@@ -27,10 +26,9 @@ class EditDocumentTest: NotationAggregateTest() {
     fun `Delete document`() {
         val notation = parseGraph("")
 
-        val project = NotationAggregate(notation)
+        val transition = reducer.apply(
+                notation, DeleteDocumentCommand(testPath))
 
-        project.apply(DeleteDocumentCommand(testPath))
-
-        assertTrue(project.state.documents.values.isEmpty())
+        assertTrue(transition.graphNotation.documents.values.isEmpty())
     }
 }

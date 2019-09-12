@@ -12,6 +12,7 @@ import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.context.NotationRepository
 import tech.kzen.lib.common.service.media.MapNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
+import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import kotlin.test.assertEquals
 
@@ -34,7 +35,8 @@ class LocateTest {
     @Test
     fun `locate in document`() {
         val media = MapNotationMedia()
-        val repo = NotationRepository(media, yamlParser, metadataReader, GraphDefiner())
+        val repo = NotationRepository(
+                media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         val notation = runBlocking {
             media.writeDocument(aPath, """
