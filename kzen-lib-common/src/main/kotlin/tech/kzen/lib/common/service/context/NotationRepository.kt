@@ -27,19 +27,16 @@ class NotationRepository(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     private var scanCache = mutableMapOf<DocumentPath, DocumentScan>()
-
-    // TODO: use notation from inside ProjectAggregate?
-    private var projectNotationCache: GraphNotation? = null
-//    private var projectAggregateCache: NotationReducer? = null
+    private var graphNotationCache: GraphNotation? = null
     private var fileCache = Cache<String>(10)
 
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun notation(): GraphNotation {
-        if (projectNotationCache == null) {
-            projectNotationCache = read()
+        if (graphNotationCache == null) {
+            graphNotationCache = read()
         }
-        return projectNotationCache!!
+        return graphNotationCache!!
     }
 
 
@@ -84,7 +81,7 @@ class NotationRepository(
     //-----------------------------------------------------------------------------------------------------------------
     fun clearCache() {
         scanCache.clear()
-        projectNotationCache = null
+        graphNotationCache = null
 //        projectAggregateCache = null
     }
 

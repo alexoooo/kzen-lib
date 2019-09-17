@@ -93,4 +93,10 @@ class ClasspathNotationMedia(
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
         throw UnsupportedOperationException("Classpath deleting not supported")
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun invalidate() {
+        // NB: NOOP because classpath resources can't change
+    }
 }

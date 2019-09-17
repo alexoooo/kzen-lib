@@ -262,4 +262,10 @@ class FileNotationMedia(
             dirCursor = dirCursor.parent
         }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun invalidate() {
+        // NB: currently NOOP, but would apply to scan cache (if it were implemented)
+    }
 }

@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.service.context
+package tech.kzen.lib.common.service.store
 
 import tech.kzen.lib.common.model.definition.GraphDefinition
 import tech.kzen.lib.common.model.document.DocumentPath
@@ -8,10 +8,12 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
+import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.NotationParser
+import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -23,61 +25,28 @@ class LocalGraphStore(
         private val notationReducer: NotationReducer
 ) {
     //-----------------------------------------------------------------------------------------------------------------
-    interface Observer {
-        suspend fun onGraphDefinition(
-                graphDefinition: GraphDefinition,
-                event: NotationEvent?)
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-//    private var notationAggregate = NotationAggregate(GraphNotation.empty)
-//    private var graphDefinitionCache: GraphDefinition? = null
-    private val observers = mutableSetOf<Observer>()
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    suspend fun observe(observer: Observer) {
-        observers.add(observer)
-
-//        if (mostRecent != null) {
-//            subscriber.handleModel(mostRecent!!, null)
-//        }
-
-        observer.onGraphDefinition(
-                graphDefinition(), null)
-    }
-
-
-    fun unobserve(observer: Observer) {
-        observers.remove(observer)
-    }
-
-
-    private suspend fun publish(event: NotationEvent?) {
-        val graphDefinition = graphDefinition()
-
-        for (subscriber in observers) {
-            subscriber.onGraphDefinition(graphDefinition, event)
-        }
-    }
+    private var graphNotationCacheDigest: Digest? = null
+    private var graphNotationCache: GraphNotation? = null
 
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun graphNotation(): GraphNotation {
+        val digest = digest()
+
+        if (graphNotationCacheDigest != digest) {
+            graphNotationCacheDigest = digest
+            graphNotationCache = graphNotationImpl()
+        }
+
+        return graphNotationCache!!
+    }
+
+
+    private suspend fun graphNotationImpl(): GraphNotation {
         val documentBodies = mutableMapOf<DocumentPath, String>()
         val documents = mutableMapOf<DocumentPath, DocumentNotation>()
 
-//        scanCache.clear()
-//        scanCache.putAll(notationMedia.scan().documents.values)
-//
-//        if (scanCache.size * 2 > fileCache.size) {
-//            fileCache.size = scanCache.size * 2
-//        }
-
-        val notationScan = notationMedia.scan()
-
-        for (e in notationScan.documents.values) {
+        for (e in notationMedia.scan().documents.values) {
             val projectPath = e.key
 
             val body = notationMedia.readDocument(projectPath)
@@ -127,12 +96,18 @@ class LocalGraphStore(
     }
 
 
+    suspend fun digest(): Digest {
+        return notationMedia.scan().digest()
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun apply(
             command: NotationCommand
     ): NotationEvent {
+        @Suppress("UnnecessaryVariable")
         val notationEvent = applyInPlace(command)
-        publish(notationEvent)
+//        publish(notationEvent)
         return notationEvent
     }
 
@@ -162,13 +137,7 @@ class LocalGraphStore(
         for (updatedDocument in newGraphNotation.documents.values) {
             val oldDocument = graphNotation.documents.values[updatedDocument.key]
 
-            if (oldDocument != null &&
-                    updatedDocument.value.objects.equalsInOrder(oldDocument.objects) &&
-                    updatedDocument.value.resources == oldDocument.resources) {
-                continue
-            }
-
-//            val written =
+            /*val written =*/
             writeIfRequired(
                     updatedDocument.key,
                     updatedDocument.value,
@@ -188,7 +157,7 @@ class LocalGraphStore(
 
 //        if (writtenAny) {
 //            // TODO: avoid needless clearing
-//            clearCache()
+//            refresh()
 //        }
 
         return transition.notationEvent
@@ -201,6 +170,12 @@ class LocalGraphStore(
             command: NotationCommand,
             originalDocument: DocumentNotation?
     ): Boolean {
+        if (originalDocument != null &&
+                documentNotation.objects.equalsInOrder(originalDocument.objects) &&
+                documentNotation.resources == originalDocument.resources) {
+            return false
+        }
+
 //        val previousDocumentScan = scanCache[documentPath]
 //        val previousDocumentScan = scanCache[documentPath]
 //        val previousDigest = previousDocumentScan?.documentDigest
@@ -254,7 +229,6 @@ class LocalGraphStore(
 
                 modified = true
             }
-
         }
 
 //        scanCache[documentPath] = DocumentScan(
@@ -269,9 +243,13 @@ class LocalGraphStore(
             documentPath: DocumentPath
     ) {
         notationMedia.deleteDocument(documentPath)
-//        scanCache.remove(documentPath)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun refresh() {
+        notationMedia.invalidate()
+        graphNotationCacheDigest = null
+        graphNotationCache = null
+    }
 }

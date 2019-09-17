@@ -121,4 +121,12 @@ class MultiNotationMedia(
 
         throw IllegalArgumentException("Unable to delete: $resourceLocation")
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun invalidate() {
+        for (medium in media) {
+            medium.invalidate()
+        }
+    }
 }

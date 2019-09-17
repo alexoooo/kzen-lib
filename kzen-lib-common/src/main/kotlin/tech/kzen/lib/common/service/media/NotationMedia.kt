@@ -37,4 +37,11 @@ interface NotationMedia {
 
 
     suspend fun deleteResource(resourceLocation: ResourceLocation)
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    /**
+     * Refresh any caches to reflect the source of truth
+     */
+    fun invalidate()
 }

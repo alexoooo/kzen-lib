@@ -104,4 +104,21 @@ class MapNotationMedia: NotationMedia {
 
         resources.remove(resourceLocation.resourcePath)
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun invalidate() {
+        // NB: NOOP because map notation is a source of truth all its own
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+//    fun isEmpty(): Boolean {
+//        return data.isEmpty()
+//    }
+//
+//
+//    fun clear() {
+//        data.clear()
+//    }
 }
