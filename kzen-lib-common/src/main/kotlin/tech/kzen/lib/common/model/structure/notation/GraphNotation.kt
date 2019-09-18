@@ -2,6 +2,7 @@ package tech.kzen.lib.common.model.structure.notation
 
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.*
@@ -206,6 +207,12 @@ data class GraphNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun filter(allowed: Set<DocumentNesting>): GraphNotation {
+        return GraphNotation(
+                documents.filter(allowed))
+    }
+
+
     fun filterPaths(predicate: (DocumentPath) -> Boolean): GraphNotation {
         val filteredDocuments = mutableMapOf<DocumentPath, DocumentNotation>()
 

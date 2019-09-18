@@ -5,5 +5,5 @@ import tech.kzen.lib.common.util.Digest
 
 
 interface RemoteGraphStore {
-    fun apply(command: NotationCommand): Digest
+    suspend fun apply(command: NotationCommand): Digest
 }

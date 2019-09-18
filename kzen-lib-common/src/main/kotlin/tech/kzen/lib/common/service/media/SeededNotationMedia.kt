@@ -15,14 +15,12 @@ class SeededNotationMedia(
         private val underlying: NotationMedia
 ): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
-//    private val delegate = MapNotationMedia()
     private val data = mutableMapOf<DocumentPath, SeededDocumentMedia>()
     private var notationScanCache: NotationScan? = null
 
 
     private class SeededDocumentMedia(
             var document: String,
-//            var resources: MutableMap<ResourcePath, ByteArray>?
             var resources: MutableMap<ResourcePath, Digest>?
     )
 
@@ -153,24 +151,18 @@ class SeededNotationMedia(
         val scan = underlying.scan()
 
         for (e in scan.documents.values) {
-            val document = readDocument(e.key)
+            val document = underlying.readDocument(e.key)
 
             val resources =
-                    seedResources(e.key, e.value)
+                    if (e.key.directory) {
+                        e.value.resources!!.values.toMutableMap()
+                    }
+                    else {
+                        null
+                    }
 
             data[e.key] = SeededDocumentMedia(
                     document, resources)
         }
-    }
-
-
-    private fun seedResources(
-            documentPath: DocumentPath,
-            documentScan: DocumentScan
-    ): MutableMap<ResourcePath, Digest>? {
-        if (! documentPath.directory) {
-            return null
-        }
-        return documentScan.resources!!.values.toMutableMap()
     }
 }

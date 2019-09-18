@@ -23,7 +23,7 @@ class CommonTest {
         val emptyDefinition = GraphDefiner().define(graphStructure)
 
         val emptyGraph = GraphCreator().createGraph(
-                graphStructure, emptyDefinition)
+                emptyDefinition)
 
         assertEquals(
                 GraphDefiner.bootstrapObjects.size,

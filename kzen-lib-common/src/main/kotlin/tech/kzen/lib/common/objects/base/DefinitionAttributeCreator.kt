@@ -23,7 +23,6 @@ class DefinitionAttributeCreator: AttributeCreator {
             partialGraphInstance: GraphInstance
     ): Any? {
         val attributeDefinition = objectDefinition.attributeDefinitions.values[attributeName]
-//                ?: inferDefinition(objectLocation, attributeName, graphStructure)
                 ?: throw IllegalArgumentException("Attribute definition missing: $objectLocation - $attributeName")
 
         return createDefinition(

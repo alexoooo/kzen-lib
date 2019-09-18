@@ -56,7 +56,8 @@ object NotationConventions {
     val abstractAttributeName = AttributeName(abstractKey)
     val abstractAttributePath = AttributePath.ofName(abstractAttributeName)
 
-    val kzenBasePath = DocumentPath.parse("base/kzen-base.yaml")
+    val kzenBaseDocumentNesting = DocumentNesting.parse("base/")
+    val kzenBasePath = DocumentPath(DocumentName("kzen-base"), kzenBaseDocumentNesting, false)
 
     val mainObjectName = ObjectName(mainKey)
     val mainObjectPath = ObjectPath(mainObjectName, ObjectNesting.root)

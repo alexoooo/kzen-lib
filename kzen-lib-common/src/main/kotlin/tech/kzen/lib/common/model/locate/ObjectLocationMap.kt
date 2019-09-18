@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.model.locate
 
+import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.platform.collect.PersistentMap
 import tech.kzen.lib.platform.collect.toPersistentMap
 
@@ -78,6 +79,13 @@ data class ObjectLocationMap<T>(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun filter(allowed: Set<DocumentNesting>): ObjectLocationMap<T> {
+        return ObjectLocationMap(values
+                .filter { e -> allowed.any(e.key.documentPath::startsWith) }
+                .toPersistentMap())
+    }
+
+
     fun filter(predicate: (Pair<ObjectLocation, T>) -> Boolean): ObjectLocationMap<T> {
         return ObjectLocationMap(values
                 .filter { predicate(it.toPair()) }

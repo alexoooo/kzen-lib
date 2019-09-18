@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.document
 
 import tech.kzen.lib.platform.collect.PersistentMap
+import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentPathMap<T>(
@@ -27,6 +28,13 @@ data class DocumentPathMap<T>(
     fun remove(documentPath: DocumentPath): DocumentPathMap<T> {
         return DocumentPathMap(
                 values.remove(documentPath))
+    }
+
+
+    fun filter(allowed: Set<DocumentNesting>): DocumentPathMap<T> {
+        return DocumentPathMap(values
+                .filter { e -> allowed.any(e.key::startsWith) }
+                .toPersistentMap())
     }
 
 

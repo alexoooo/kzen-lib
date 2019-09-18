@@ -24,7 +24,7 @@ class ObjectGraphTest {
         val emptyDefinition = GraphDefiner().define(emptyStructure)
 
         val emptyGraph = GraphCreator().createGraph(
-                emptyStructure, emptyDefinition)
+                emptyDefinition)
 
         assertEquals(
                 GraphDefiner.bootstrapObjects.size,

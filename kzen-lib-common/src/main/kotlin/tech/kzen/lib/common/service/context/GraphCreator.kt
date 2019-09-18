@@ -8,15 +8,15 @@ import tech.kzen.lib.common.model.locate.ObjectLocationSet
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.model.structure.GraphStructure
 
 
 class GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
-            graphStructure: GraphStructure,
+//            graphStructure: GraphStructure,
             graphDefinition: GraphDefinition
     ): GraphInstance {
+        val graphStructure = graphDefinition.graphStructure
         var partialObjectGraph = GraphDefiner.bootstrapObjects
 
         val levels = constructionLevels(graphDefinition)

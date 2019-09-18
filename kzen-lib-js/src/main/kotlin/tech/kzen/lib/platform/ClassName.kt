@@ -7,4 +7,9 @@ actual data class ClassName actual constructor(
     actual fun get(): String {
         return jvmClassName.replace('$', '.')
     }
+
+
+    override fun toString(): String {
+        return jvmClassName
+    }
 }
