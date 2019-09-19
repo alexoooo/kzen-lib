@@ -51,7 +51,8 @@ class NotationMetadataReader(
         val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
 
         for (superLocation in inheritanceChain) {
-            val superNotation = graphNotation.coalesce[superLocation]!!
+            val superNotation = graphNotation.coalesce[superLocation]
+                    ?: continue
 
             allAttributes.addAll(superNotation.attributes.values.keys)
 

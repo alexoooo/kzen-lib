@@ -4,6 +4,7 @@ import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.api.ObjectDefiner
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.definition.GraphDefinition
+import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
@@ -19,6 +20,7 @@ import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.platform.collect.persistentMapOf
+import tech.kzen.lib.platform.collect.toPersistentMap
 import kotlin.reflect.KClass
 
 
@@ -55,10 +57,18 @@ class GraphDefiner {
     fun define(
             graphStructure: GraphStructure
     ): GraphDefinition {
-//        val definerAndRelatedInstances = mutableMapOf<ObjectLocation, Any>()
-        var definerAndRelatedInstances = bootstrapObjects
+        val attempt = tryDefine(graphStructure)
+        require(! attempt.hasErrors()) {
+            "Definition errors: ${attempt.errors}"
+        }
+        return attempt.successful
+    }
 
-//        definerAndRelatedInstances.putAll(bootstrapObjects)
+
+    fun tryDefine(
+            graphStructure: GraphStructure
+    ): GraphDefinitionAttempt {
+        var definerAndRelatedInstances = bootstrapObjects
 
         val openDefinitions: MutableSet<ObjectLocation> = graphStructure
                 .graphNotation
@@ -68,7 +78,6 @@ class GraphDefiner {
                             !isAbstract(it, graphStructure.graphNotation)
                 }.toMutableSet()
 
-//        val closedDefinitions = mutableMapOf<ObjectLocation, ObjectDefinition>()
         var closedDefinitions = GraphDefinition.empty
                 .copy(graphStructure = graphStructure)
 
@@ -77,7 +86,7 @@ class GraphDefiner {
         val levelClosed = mutableSetOf<ObjectLocation>()
         val levelCreated = mutableSetOf<ObjectLocation>()
         val missingCreatorInstances = mutableSetOf<ObjectLocation>()
-        val levelErrors = mutableListOf<String>()
+        val levelErrors = mutableMapOf<ObjectLocation, String>()
 
         var levelCount = 0
         while (openDefinitions.isNotEmpty()) {
@@ -89,6 +98,11 @@ class GraphDefiner {
 //                println("^^^^^ objectName: $objectLocation")
 
                 val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
+                if (definerReference == null) {
+                    levelErrors[objectLocation] = "Definer missing"
+                    continue
+                }
+
                 val definerLocation = graphStructure.graphNotation.coalesce.locate(
                         definerReference, ObjectReferenceHost.ofLocation(objectLocation))
                 val definer = definerAndRelatedInstances[definerLocation]?.reference as? ObjectDefiner
@@ -107,7 +121,7 @@ class GraphDefiner {
 
                 if (definition.isError()) {
 //                    println(" !! definition error: ${definition.errorMessage}")
-                    levelErrors.add(definition.errorMessage!!)
+                    levelErrors[objectLocation] = definition.errorMessage!!
                     missingInstances.addAll(definition.missingObjects.values)
                     continue
                 }
@@ -169,8 +183,10 @@ class GraphDefiner {
             missingInstances.addAll(missingCreatorInstances)
             missingInstances.removeAll(levelCreated)
 
-            check(levelClosed.isNotEmpty() || levelCreated.isNotEmpty()) {
-                "Graph cycle ($levelCount)? $openDefinitions - $levelErrors"
+            if (levelClosed.isEmpty() && levelCreated.isEmpty()) {
+                return GraphDefinitionAttempt(
+                        closedDefinitions,
+                        ObjectLocationMap(levelErrors.toPersistentMap()))
             }
 
             openDefinitions.removeAll(levelClosed)
@@ -180,16 +196,20 @@ class GraphDefiner {
             missingCreatorInstances.clear()
             levelErrors.clear()
         }
-        return closedDefinitions
+
+        return GraphDefinitionAttempt(
+                closedDefinitions,
+                ObjectLocationMap(persistentMapOf()))
     }
 
 
     private fun definerReference(
             objectLocation: ObjectLocation,
             projectNotation: GraphNotation
-    ): ObjectReference {
-        return ObjectReference.parse(
-                projectNotation.getString(objectLocation, NotationConventions.definerAttributePath))
+    ): ObjectReference? {
+        return projectNotation.transitiveAttribute(objectLocation, NotationConventions.definerAttributePath)
+                ?.asString()
+                ?.let { ObjectReference.parse(it) }
     }
 
 

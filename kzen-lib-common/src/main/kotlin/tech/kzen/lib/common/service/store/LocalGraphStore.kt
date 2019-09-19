@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.service.store
 
-import tech.kzen.lib.common.model.definition.GraphDefinition
+import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.NotationCommand
@@ -12,14 +12,14 @@ interface LocalGraphStore {
     interface Observer {
         suspend fun onCommandSuccess(
                 event: NotationEvent,
-                graphDefinition: GraphDefinition)
+                graphDefinition: GraphDefinitionAttempt)
 
         suspend fun onCommandFailure(
                 command: NotationCommand,
                 cause: Throwable)
 
         suspend fun onStoreRefresh(
-                graphDefinition: GraphDefinition)
+                graphDefinition: GraphDefinitionAttempt)
     }
 
 
@@ -34,5 +34,5 @@ interface LocalGraphStore {
 
     suspend fun graphStructure(): GraphStructure
 
-    suspend fun graphDefinition(): GraphDefinition
+    suspend fun graphDefinition(): GraphDefinitionAttempt
 }

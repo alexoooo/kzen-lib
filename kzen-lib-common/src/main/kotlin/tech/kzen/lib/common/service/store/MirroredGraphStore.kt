@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.service.store
 
-import tech.kzen.lib.common.model.definition.GraphDefinition
+import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.NotationCommand
@@ -65,7 +65,7 @@ class MirroredGraphStore(
     }
 
 
-    override suspend fun graphDefinition(): GraphDefinition {
+    override suspend fun graphDefinition(): GraphDefinitionAttempt {
         return localGraphStore.graphDefinition()
     }
 

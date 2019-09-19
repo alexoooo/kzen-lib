@@ -15,11 +15,11 @@ import tech.kzen.lib.common.model.structure.resource.ResourceName
 import tech.kzen.lib.common.model.structure.resource.ResourceNesting
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.service.context.GraphDefiner
-import tech.kzen.lib.common.service.context.NotationRepository
 import tech.kzen.lib.common.service.media.MapNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
+import tech.kzen.lib.common.service.store.DirectGraphStore
 import kotlin.test.assertTrue
 
 
@@ -41,7 +41,7 @@ class ResourceCrudTest {
     fun `Add a resource`() {
         val media = MapNotationMedia()
 
-        val repo = NotationRepository(
+        val repo = DirectGraphStore(
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
@@ -68,7 +68,7 @@ class ResourceCrudTest {
     fun `Remove a resource`() {
         val media = MapNotationMedia()
 
-        val repo = NotationRepository(
+        val repo = DirectGraphStore(
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
@@ -86,7 +86,7 @@ class ResourceCrudTest {
 
             repo.apply(RemoveResourceCommand(resourceLocation))
 
-            repo.notation()
+            repo.graphNotation()
         }
 
         assertTrue(resourcePath !in graphNotation.documents[dirDocPath]!!.resources!!.values)

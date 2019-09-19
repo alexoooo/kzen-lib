@@ -65,11 +65,13 @@ data class GraphNotation(
             @Suppress("MoveVariableDeclarationIntoWhen")
             val isAttribute = notation.get(NotationConventions.isAttributePath)
 
+            if (isAttribute == null) {
+                consumer.invoke(BootstrapConventions.rootObjectLocation)
+                return
+            }
+
             val superReference =
                     when (isAttribute) {
-                        null ->
-                            BootstrapConventions.rootObjectReference
-
                         !is ScalarAttributeNotation ->
                             TODO()
 
@@ -140,10 +142,11 @@ data class GraphNotation(
                 }
 
 //        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
-        val superLocation = coalesce.locate(
+        val superLocation = coalesce.locateOptional(
                 superReference, ObjectReferenceHost.ofLocation(objectLocation))
 
-        if (objectLocation == BootstrapConventions.rootObjectLocation ||
+        if (superLocation == null ||
+                objectLocation == BootstrapConventions.rootObjectLocation ||
                 objectLocation == BootstrapConventions.bootstrapObjectLocation) {
             return null
         }

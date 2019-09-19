@@ -14,11 +14,11 @@ import tech.kzen.lib.common.model.structure.notation.PositionIndex
 import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
 import tech.kzen.lib.common.service.context.GraphDefiner
-import tech.kzen.lib.common.service.context.NotationRepository
 import tech.kzen.lib.common.service.media.MapNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
+import tech.kzen.lib.common.service.store.DirectGraphStore
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -35,7 +35,7 @@ class RepositoryTest {
     fun `Move down and back up`() {
         val media = MapNotationMedia()
 
-        val repo = NotationRepository(
+        val repo = DirectGraphStore(
                 media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         runBlocking {
@@ -50,12 +50,16 @@ B:
 
             repo.apply(ShiftObjectCommand(aLocation, PositionIndex(1)))
 
-            assertEquals(1, repo.notation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
+            assertEquals(
+                    1,
+                    repo.graphNotation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "First move down")
 
             repo.apply(ShiftObjectCommand(aLocation, PositionIndex(0)))
 
-            assertEquals(0, repo.notation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
+            assertEquals(
+                    0,
+                    repo.graphNotation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "Second move back up")
         }
     }
@@ -66,7 +70,7 @@ B:
     fun `Rename with space`() {
         val media = MapNotationMedia()
 
-        val repo = NotationRepository(
+        val repo = DirectGraphStore(
                 media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         runBlocking {
@@ -92,7 +96,7 @@ A:
     fun `Rename with slash`() {
         val media = MapNotationMedia()
 
-        val repo = NotationRepository(
+        val repo = DirectGraphStore(
                 media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
 
         runBlocking {
@@ -118,7 +122,7 @@ A:
                             mainPath,
                             ObjectPath(newName, ObjectNesting.root)
                     ),
-                    repo.notation().coalesce.locate(ObjectReference(newName, null, null)))
+                    repo.graphNotation().coalesce.locate(ObjectReference(newName, null, null)))
         }
     }
 

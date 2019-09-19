@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.service.store
 
-import tech.kzen.lib.common.model.definition.GraphDefinition
+import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
@@ -116,7 +116,7 @@ class DirectGraphStore(
     }
 
 
-    override suspend fun graphDefinition(): GraphDefinition {
+    override suspend fun graphDefinition(): GraphDefinitionAttempt {
         val graphStructure = graphStructure()
         return graphDefinition(graphStructure)
     }
@@ -124,7 +124,7 @@ class DirectGraphStore(
 
     private fun graphDefinition(
             graphNotation: GraphNotation
-    ): GraphDefinition {
+    ): GraphDefinitionAttempt {
         val graphStructure = graphStructure(graphNotation)
         return graphDefinition(graphStructure)
     }
@@ -132,8 +132,8 @@ class DirectGraphStore(
 
     private fun graphDefinition(
             graphStructure: GraphStructure
-    ): GraphDefinition {
-        return graphDefiner.define(graphStructure)
+    ): GraphDefinitionAttempt {
+        return graphDefiner.tryDefine(graphStructure)
     }
 
 
@@ -165,24 +165,20 @@ class DirectGraphStore(
 
                     is SemanticNotationCommand -> {
                         val graphDefinition = graphDefinition(graphNotation)
-                        notationReducer.apply(graphDefinition, command)
+                        notationReducer.apply(graphDefinition.successful, command)
                     }
                 }
 
         val newGraphNotation = transition.graphNotation
 
-//        var writtenAny = false
         for (updatedDocument in newGraphNotation.documents.values) {
             val oldDocument = graphNotation.documents.values[updatedDocument.key]
 
-            /*val written =*/
             writeIfRequired(
                     updatedDocument.key,
                     updatedDocument.value,
                     command,
                     oldDocument)
-
-//            writtenAny = writtenAny || written
         }
 
         val removedDocumentPaths = graphNotation.documents.values.keys.minus(
@@ -190,13 +186,7 @@ class DirectGraphStore(
 
         for (removed in removedDocumentPaths) {
             delete(removed)
-//            writtenAny = true
         }
-
-//        if (writtenAny) {
-//            // TODO: avoid needless clearing
-//            refresh()
-//        }
 
         return transition.notationEvent
     }
@@ -214,9 +204,6 @@ class DirectGraphStore(
             return false
         }
 
-//        val previousDocumentScan = scanCache[documentPath]
-//        val previousDocumentScan = scanCache[documentPath]
-//        val previousDigest = previousDocumentScan?.documentDigest
         val previouslyPresent = originalDocument != null
 
         val previousBody: String =
