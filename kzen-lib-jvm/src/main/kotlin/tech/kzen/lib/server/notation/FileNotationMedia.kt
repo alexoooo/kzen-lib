@@ -227,7 +227,8 @@ class FileNotationMedia(
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
-        val resourcePath = documentPath.resolve(resourceLocation.resourcePath.asRelativeFile())
+        val resourcePath = documentPath.parent.resolve(
+                resourceLocation.resourcePath.asRelativeFile())
 
         return Files.readAllBytes(resourcePath)
     }
