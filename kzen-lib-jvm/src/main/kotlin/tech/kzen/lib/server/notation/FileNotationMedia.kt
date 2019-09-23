@@ -227,7 +227,7 @@ class FileNotationMedia(
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
-        val resourcePath = documentPath.parent.resolve(
+        val resourcePath = documentPath.resolveSibling(
                 resourceLocation.resourcePath.asRelativeFile())
 
         return Files.readAllBytes(resourcePath)
@@ -238,7 +238,8 @@ class FileNotationMedia(
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
-        val resourcePath = documentPath.resolve(resourceLocation.resourcePath.asRelativeFile())
+        val resourcePath = documentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
 
         Files.createDirectories(resourcePath.parent)
 
@@ -250,7 +251,8 @@ class FileNotationMedia(
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
-        val resourcePath = documentPath.resolve(resourceLocation.resourcePath.asRelativeFile())
+        val resourcePath = documentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
         check(Files.exists(resourcePath)) {
             "Resource not found: $resourceLocation"
         }
