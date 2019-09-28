@@ -19,10 +19,6 @@ import tech.kzen.lib.platform.collect.toPersistentList
 
 class NotationReducer {
     //-----------------------------------------------------------------------------------------------------------------
-//    companion object {
-//        fun buffer()
-//    }
-
     private inner class Buffer(
             var state: GraphNotation
     ) {
