@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.notation
 
 import org.junit.Test
-import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.DeleteDocumentCommand
@@ -15,10 +15,10 @@ class EditDocumentTest: NotationAggregateTest() {
     fun `Create document`() {
         val transition = reducer.apply(
                 GraphNotation.empty,
-                CreateDocumentCommand(testPath, DocumentNotation.emptyWithoutResources))
+                CreateDocumentCommand(testPath, DocumentObjectNotation.empty))
 
         val documentNotation = transition.graphNotation.documents.values[testPath]!!
-        assertEquals(0, documentNotation.objects.values.size)
+        assertEquals(0, documentNotation.objects.notations.values.size)
     }
 
 

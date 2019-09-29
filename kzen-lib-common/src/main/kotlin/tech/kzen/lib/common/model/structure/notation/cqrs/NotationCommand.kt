@@ -26,9 +26,8 @@ sealed class ResourceNotationCommand: StructuralNotationCommand()
 //---------------------------------------------------------------------------------------------------------------------
 data class CreateDocumentCommand(
         val documentPath: DocumentPath,
-        val documentNotation: DocumentNotation
+        val documentObjectNotation: DocumentObjectNotation
 ): StructuralNotationCommand()
-
 
 
 data class DeleteDocumentCommand(

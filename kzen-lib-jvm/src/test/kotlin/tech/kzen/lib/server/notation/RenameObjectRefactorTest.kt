@@ -24,7 +24,7 @@ class RenameObjectRefactorTest {
     @Test
     fun `Rename should update references`() {
         val notationTree = GraphTestUtils.readNotation()
-        val graphDefinition = GraphTestUtils.grapDefinition(notationTree)
+        val graphDefinition = GraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.apply(
                 graphDefinition,
@@ -49,7 +49,7 @@ class RenameObjectRefactorTest {
         val weirdPath = ObjectPath(weirdName, ObjectNesting.parse("main.addends"))
 
         val notationTree = GraphTestUtils.readNotation()
-        val graphDefinition = GraphTestUtils.grapDefinition(notationTree)
+        val graphDefinition = GraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.apply(
                 graphDefinition,
@@ -72,7 +72,7 @@ class RenameObjectRefactorTest {
     @Test
     fun `Rename container should renamed nested objects`() {
         val notationTree = GraphTestUtils.readNotation()
-        val graphDefinition = GraphTestUtils.grapDefinition(notationTree)
+        val graphDefinition = GraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.apply(
                 graphDefinition,

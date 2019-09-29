@@ -30,7 +30,7 @@ InsertInto:
                         PositionIndex(1),
                         ObjectNotation.ofParent(ObjectName("DoubleValue"))))
 
-        val documentNotation = transition.graphNotation.documents.get(testPath)!!
+        val documentNotation = transition.graphNotation.documents[testPath]!!
 
         assertEquals(1, documentNotation.indexOf(
                 ObjectPath.parse("InsertInto.foo/Inserted")
@@ -42,7 +42,7 @@ InsertInto:
                         attribute("foo.1")
                 ))
 
-        val unparsed = unparseDocument(documentNotation)
+        val unparsed = unparseDocument(documentNotation.objects)
         assertEquals("""
 InsertInto:
   foo:

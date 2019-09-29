@@ -127,11 +127,14 @@ class NotationReducer {
             "Already exists: ${command.documentPath}"
         }
 
+        val documentNotation = DocumentNotation.ofObjectsWithEmptyOrNullResources(
+                command.documentObjectNotation, command.documentPath.directory)
+
         val nextState = state.withNewDocument(
-                command.documentPath, command.documentNotation)
+                command.documentPath, documentNotation)
 
         val event = CreatedDocumentEvent(
-                command.documentPath, command.documentNotation)
+                command.documentPath, command.documentObjectNotation)
 
         return NotationTransition(event, nextState)
     }
@@ -163,12 +166,12 @@ class NotationReducer {
 
         val document = state.documents[command.sourceDocumentPath]!!
 
-        val nextState = state
+        val withDocumentNotationCopy = state
                 .withNewDocument(command.destinationDocumentPath, document)
 
         return NotationTransition(
                 CopiedDocumentEvent(command.sourceDocumentPath, command.destinationDocumentPath),
-                nextState)
+                withDocumentNotationCopy)
     }
 
 
@@ -564,6 +567,7 @@ class NotationReducer {
                 .state
                 .documents[containingDocumentPath]!!
                 .objects
+                .notations
                 .values
                 .keys
                 .filter { it.startsWith(objectLocation.objectPath) }
@@ -807,7 +811,7 @@ class NotationReducer {
         checkNotNull(documentNotation.resources) {
             "Document '${command.resourceLocation.documentPath}' does not have resources"
         }
-        check(command.resourceLocation.resourcePath !in documentNotation.resources.values) {
+        check(command.resourceLocation.resourcePath !in documentNotation.resources.digests) {
             "Resource '${command.resourceLocation}' already exists"
         }
 
@@ -841,7 +845,7 @@ class NotationReducer {
         checkNotNull(documentNotation.resources) {
             "Document '${command.resourceLocation.documentPath}' does not have resources"
         }
-        check(command.resourceLocation.resourcePath in documentNotation.resources.values) {
+        check(command.resourceLocation.resourcePath in documentNotation.resources.digests) {
             "Resource '${command.resourceLocation}' does not exists"
         }
 

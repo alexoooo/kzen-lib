@@ -26,20 +26,21 @@ data class ObjectPathMap<T>(
 
     
     fun equalsInOrder(other: ObjectPathMap<T>): Boolean {
-        if (values != other.values) {
-            return false
-        }
-
-        val iteratorA = values.keys.iterator()
-        val iteratorB = other.values.keys.iterator()
-
-        while (iteratorA.hasNext()) {
-            if (iteratorA.next() != iteratorB.next()) {
-                return false
-            }
-        }
-
-        return true
+        return values.equalsInOrder(other.values)
+//        if (values != other.values) {
+//            return false
+//        }
+//
+//        val iteratorA = values.keys.iterator()
+//        val iteratorB = other.values.keys.iterator()
+//
+//        while (iteratorA.hasNext()) {
+//            if (iteratorA.next() != iteratorB.next()) {
+//                return false
+//            }
+//        }
+//
+//        return true
     }
 
 

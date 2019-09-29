@@ -25,14 +25,15 @@ class AddObjectTest: AggregateTest() {
         ))
 
         val documentNotation = transition.graphNotation.documents.values[testPath]!!
-        assertEquals(1, documentNotation.objects.values.size)
+        assertEquals(1, documentNotation.objects.notations.values.size)
 
-        val objectNotation = documentNotation.objects.values.values.iterator().next()
+        val objectNotation =
+                documentNotation.objects.notations.values.values.iterator().next()
 
         val isValue = (objectNotation.get(NotationConventions.isAttributePath) as ScalarAttributeNotation).value
         assertEquals("Parent", isValue)
 
-        val unparsedDocument = unparseDocument(documentNotation)
+        val unparsedDocument = unparseDocument(documentNotation.objects)
         assertEquals("""
             Foo:
               is: Parent

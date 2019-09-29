@@ -5,10 +5,9 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
-import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.persistentMapOf
@@ -22,7 +21,7 @@ abstract class NotationAggregateTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun parseDocument(doc: String): ObjectPathMap<ObjectNotation> {
+    fun parseDocument(doc: String): DocumentObjectNotation {
         return yamlParser.parseDocumentObjects(doc)
     }
 
@@ -37,11 +36,11 @@ abstract class NotationAggregateTest {
 
 
     fun unparseDocument(graphNotation: GraphNotation): String {
-        return unparseDocument(graphNotation.documents.values[testPath]!!)
+        return unparseDocument(graphNotation.documents.values[testPath]!!.objects)
     }
 
 
-    fun unparseDocument(documentNotation: DocumentNotation): String {
+    fun unparseDocument(documentNotation: DocumentObjectNotation): String {
         return yamlParser.unparseDocument(documentNotation, "")
     }
 

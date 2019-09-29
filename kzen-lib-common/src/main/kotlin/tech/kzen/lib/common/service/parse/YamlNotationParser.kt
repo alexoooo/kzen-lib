@@ -17,7 +17,7 @@ class YamlNotationParser: NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
     override fun parseDocumentObjects(
             document: String
-    ): ObjectPathMap<ObjectNotation> {
+    ): DocumentObjectNotation {
         @Suppress("MoveVariableDeclarationIntoWhen")
         val node = YamlParser.parse(document)
 
@@ -53,7 +53,7 @@ class YamlNotationParser: NotationParser {
             val objectNotation = parseObjectYaml(objectMap)
             objects[objectPath] = objectNotation
         }
-        return ObjectPathMap(objects.toPersistentMap())
+        return DocumentObjectNotation(ObjectPathMap(objects.toPersistentMap()))
     }
 
 
@@ -107,11 +107,11 @@ class YamlNotationParser: NotationParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun unparseDocument(notation: DocumentNotation, previousDocument: String): String {
+    override fun unparseDocument(notation: DocumentObjectNotation, previousDocument: String): String {
         val buffer = StringBuilder()
 
         var first = true
-        for ((objectPath, objectNotation) in notation.objects.values) {
+        for ((objectPath, objectNotation) in notation.notations.values) {
             if (! first) {
                 buffer.append("\n\n")
             }

@@ -5,10 +5,9 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
-import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.persistentMapOf
@@ -111,7 +110,7 @@ Foo:
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parseDocumentObjects(doc: String): ObjectPathMap<ObjectNotation> {
+    private fun parseDocumentObjects(doc: String): DocumentObjectNotation {
         return yamlParser.parseDocumentObjects(doc)
     }
 
@@ -127,10 +126,7 @@ Foo:
 
     private fun unparse(initial: String, expected: String): String {
         return yamlParser.unparseDocument(
-                DocumentNotation(
-                        yamlParser.parseDocumentObjects(expected),
-                        null
-                ),
+                yamlParser.parseDocumentObjects(expected),
                 initial)
     }
 

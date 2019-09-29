@@ -5,10 +5,9 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
-import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.persistentMapOf
 
@@ -20,26 +19,26 @@ abstract class AggregateTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun parseDocumentObjects(doc: String): ObjectPathMap<ObjectNotation> {
+    fun parseDocumentObjects(doc: String): DocumentObjectNotation {
         return yamlParser.parseDocumentObjects(doc)
     }
 
 
     fun parseGraph(doc: String): GraphNotation {
-        val packageNotation = parseDocumentObjects(doc)
+        val notations = parseDocumentObjects(doc)
         return GraphNotation(DocumentPathMap(persistentMapOf(
                 testPath to DocumentNotation(
-                        packageNotation,
+                        notations,
                         null))))
     }
 
 
     fun unparseDocument(notationTree: GraphNotation): String {
-        return unparseDocument(notationTree.documents.values[testPath]!!)
+        return unparseDocument(notationTree.documents.values[testPath]!!.objects)
     }
 
 
-    fun unparseDocument(documentNotation: DocumentNotation): String {
+    fun unparseDocument(documentNotation: DocumentObjectNotation): String {
         return yamlParser.unparseDocument(documentNotation, "")
     }
 

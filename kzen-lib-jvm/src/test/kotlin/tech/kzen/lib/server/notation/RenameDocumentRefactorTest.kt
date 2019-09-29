@@ -20,7 +20,7 @@ class RenameDocumentRefactorTest {
     @Test
     fun renameDocumentShouldUpdateDocumentPath() {
         val notationTree = GraphTestUtils.readNotation()
-        val graphDefinition = GraphTestUtils.grapDefinition(notationTree)
+        val graphDefinition = GraphTestUtils.graphDefinition(notationTree)
 
         val originalDocument = notationTree.documents.values[testPath]
 

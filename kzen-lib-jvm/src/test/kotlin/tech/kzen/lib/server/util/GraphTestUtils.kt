@@ -33,8 +33,9 @@ object GraphTestUtils {
             val notationProjectBuilder = mutableMapOf<DocumentPath, DocumentNotation>()
             for (notationPath in notationMedia.scan().documents.values) {
                 val notationModule = notationMedia.readDocument(notationPath.key)
+                val objects = notationParser.parseDocumentObjects(notationModule)
                 notationProjectBuilder[notationPath.key] = DocumentNotation(
-                        notationParser.parseDocumentObjects(notationModule),
+                        objects,
                         null)
             }
             GraphNotation(DocumentPathMap(
@@ -43,21 +44,21 @@ object GraphTestUtils {
     }
 
 
-    fun grapMetadata(graphNotation: GraphNotation): GraphMetadata {
+    fun graphMetadata(graphNotation: GraphNotation): GraphMetadata {
         val notationMetadataReader = NotationMetadataReader()
         return notationMetadataReader.read(graphNotation)
     }
 
 
-    fun grapDefinition(graphNotation: GraphNotation): GraphDefinition {
-        val graphMetadata = grapMetadata(graphNotation)
+    fun graphDefinition(graphNotation: GraphNotation): GraphDefinition {
+        val graphMetadata = graphMetadata(graphNotation)
         return GraphDefiner().define(
                 GraphStructure(graphNotation, graphMetadata))
     }
 
 
     fun newObjectGraph(graphNotation: GraphNotation): GraphInstance {
-        val graphMetadata = grapMetadata(graphNotation)
+        val graphMetadata = graphMetadata(graphNotation)
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val graphDefinition = GraphDefiner().define(graphStructure)

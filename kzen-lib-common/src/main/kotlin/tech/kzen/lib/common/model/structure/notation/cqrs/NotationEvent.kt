@@ -9,7 +9,7 @@ import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.structure.notation.AttributeNotation
-import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
 import tech.kzen.lib.common.util.Digest
@@ -33,7 +33,7 @@ sealed class CompoundNotationEvent(
 //---------------------------------------------------------------------------------------------------------------------
 data class CreatedDocumentEvent(
         override val documentPath: DocumentPath,
-        val documentNotation: DocumentNotation
+        val documentNotation: DocumentObjectNotation
 ): SingularNotationEvent()
 
 

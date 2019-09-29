@@ -6,10 +6,11 @@ import tech.kzen.lib.common.model.document.DocumentName
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ResourceLocation
-import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.AddResourceCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveResourceCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.RenameDocumentRefactorCommand
 import tech.kzen.lib.common.model.structure.resource.ResourceContent
 import tech.kzen.lib.common.model.structure.resource.ResourceName
 import tech.kzen.lib.common.model.structure.resource.ResourceNesting
@@ -34,6 +35,14 @@ class ResourceCrudTest {
                 ResourceName("blob.txt"), ResourceNesting.empty)
 
         private val resourceLocation = ResourceLocation(dirDocPath, resourcePath)
+
+
+        private val renameDocPath = DocumentPath(
+                DocumentName("test2"),
+                DocumentNesting.empty,
+                true)
+
+        private val renamedResourceLocation = ResourceLocation(renameDocPath, resourcePath)
     }
 
 
@@ -51,7 +60,7 @@ class ResourceCrudTest {
         val resource = runBlocking {
             repo.apply(CreateDocumentCommand(
                     dirDocPath,
-                    DocumentNotation.emptyWithResources))
+                    DocumentObjectNotation.empty))
 
             repo.apply(AddResourceCommand(
                     resourceLocation,
@@ -78,7 +87,7 @@ class ResourceCrudTest {
         val graphNotation = runBlocking {
             repo.apply(CreateDocumentCommand(
                     dirDocPath,
-                    DocumentNotation.emptyWithResources))
+                    DocumentObjectNotation.empty))
 
             repo.apply(AddResourceCommand(
                     resourceLocation,
@@ -89,6 +98,38 @@ class ResourceCrudTest {
             repo.graphNotation()
         }
 
-        assertTrue(resourcePath !in graphNotation.documents[dirDocPath]!!.resources!!.values)
+        assertTrue(resourcePath !in graphNotation.documents[dirDocPath]!!.resources!!.digests)
+    }
+
+
+    @Test
+    fun `Rename document with resource`() {
+        val media = MapNotationMedia()
+
+        val repo = DirectGraphStore(
+                media,
+                YamlNotationParser(),
+                NotationMetadataReader(),
+                GraphDefiner(),
+                NotationReducer())
+
+        val resource = runBlocking {
+            repo.apply(CreateDocumentCommand(
+                    dirDocPath,
+                    DocumentObjectNotation.empty))
+
+            repo.apply(AddResourceCommand(
+                    resourceLocation,
+                    ResourceContent("foo".toByteArray())))
+
+            repo.apply(RenameDocumentRefactorCommand(
+                    dirDocPath,
+                    renameDocPath.name
+            ))
+
+            media.readResource(renamedResourceLocation)
+        }
+
+        assertTrue(resource.contentEquals("foo".toByteArray()))
     }
 }

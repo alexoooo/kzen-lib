@@ -185,4 +185,27 @@ actual class PersistentMap<K, out V> private constructor(
 
         return builder
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    actual fun equalsInOrder(other: PersistentMap<K, @UnsafeVariance V>): Boolean {
+        if (size != other.size) {
+            return false
+        }
+
+        val keyIterator = keys.iterator()
+        val otherKeyIterator = other.keys.iterator()
+
+        while (keyIterator.hasNext()) {
+            val key = keyIterator.next()
+            val otherKey = otherKeyIterator.next()
+
+            if (key != otherKey ||
+                    get(key) != other[key]) {
+                return false
+            }
+        }
+
+        return true
+    }
 }

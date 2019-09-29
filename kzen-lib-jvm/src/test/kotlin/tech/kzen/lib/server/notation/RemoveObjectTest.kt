@@ -20,6 +20,6 @@ A:
                         location("A")))
 
         val packageNotation = transition.graphNotation.documents.values[testPath]!!
-        assertEquals(0, packageNotation.objects.values.size)
+        assertEquals(0, packageNotation.objects.notations.values.size)
     }
 }

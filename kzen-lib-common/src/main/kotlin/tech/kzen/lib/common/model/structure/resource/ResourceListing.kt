@@ -7,11 +7,22 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 data class ResourceListing(
-        val values: PersistentMap<ResourcePath, Digest>
+        val digests: PersistentMap<ResourcePath, Digest>
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = ResourceListing(persistentMapOf())
+
+
+        fun emptyOrNull(directory: Boolean): ResourceListing? {
+            return when {
+                directory ->
+                    empty
+
+                else ->
+                    null
+            }
+        }
     }
 
 
@@ -20,29 +31,29 @@ data class ResourceListing(
             resourcePath: ResourcePath,
             contentDigest: Digest
     ): ResourceListing {
-        check(resourcePath !in values) {
+        check(resourcePath !in digests) {
             "Resource already exists: $resourcePath"
         }
 
         return ResourceListing(
-                values.put(resourcePath, contentDigest))
+                digests.put(resourcePath, contentDigest))
     }
 
 
     fun withoutResource(
             resourcePath: ResourcePath
     ): ResourceListing {
-        check(resourcePath in values) {
+        check(resourcePath in digests) {
             "Resource missing: $resourcePath"
         }
 
         return ResourceListing(
-                values.remove(resourcePath))
+                digests.remove(resourcePath))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleUnorderedMap(values)
+        builder.addDigestibleUnorderedMap(digests)
     }
 }

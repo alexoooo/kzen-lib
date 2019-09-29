@@ -5,8 +5,7 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import kotlin.test.assertNotEquals
 
 
 class ShiftObjectTest: NotationAggregateTest() {
@@ -27,7 +26,7 @@ B:
 
         val packageNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
-        assertFalse(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertNotEquals(notation.documents.values[testPath]!!.objects, packageNotation.objects)
     }
 
 
@@ -47,7 +46,7 @@ B:
 
         val packageNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertFalse(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertNotEquals(notation.documents.values[testPath]!!.objects, packageNotation.objects)
     }
 
 
@@ -67,6 +66,6 @@ B:
 
         val packageNotation = transition.graphNotation.documents.values[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertTrue(notation.documents.values[testPath]!!.objects.equalsInOrder(packageNotation.objects))
+        assertEquals(notation.documents.values[testPath]!!.objects, packageNotation.objects)
     }
 }

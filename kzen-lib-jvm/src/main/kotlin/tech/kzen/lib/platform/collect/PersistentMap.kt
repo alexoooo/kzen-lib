@@ -7,6 +7,7 @@ import com.google.common.collect.Maps
 
 
 // https://stackoverflow.com/a/9313962/1941359
+// https://youtu.be/lcI-jmh5Cf0
 actual class PersistentMap<K, out V> private constructor(
         private val delegate: HashMap<K, Pair<V, Long>>,
         private val orderDelegate: TreeMap<Long, K>,
@@ -171,5 +172,28 @@ actual class PersistentMap<K, out V> private constructor(
         }
 
         return builder
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    actual fun equalsInOrder(other: PersistentMap<K, @UnsafeVariance V>): Boolean {
+        if (size != other.size) {
+            return false
+        }
+
+        val orderIterator = orderDelegate.values().iterator()
+        val otherOrderIterator = other.orderDelegate.values().iterator()
+
+        while (orderIterator.hasNext()) {
+            val nextKey = orderIterator.next()
+            val otherNextKey = otherOrderIterator.next()
+
+            if (nextKey != otherNextKey ||
+                    get(nextKey) != other[nextKey]) {
+                return false
+            }
+        }
+
+        return true
     }
 }

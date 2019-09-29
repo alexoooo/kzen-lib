@@ -4,7 +4,6 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.model.obj.ObjectPathMap
 import tech.kzen.lib.common.model.structure.resource.ResourceListing
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.util.Digest
@@ -12,16 +11,26 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentNotation(
-        val objects: ObjectPathMap<ObjectNotation>,
+        val objects: DocumentObjectNotation,
         val resources: ResourceListing?
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        val emptyWithoutResources = DocumentNotation(
-                ObjectPathMap.empty(), null)
+//        val emptyWithoutResources = DocumentNotation(
+//                DocumentObjectNotation.empty, null)
+//
+//        val emptyWithResources = DocumentNotation(
+//                DocumentObjectNotation.empty, ResourceListing.empty)
 
-        val emptyWithResources = DocumentNotation(
-                ObjectPathMap.empty(), ResourceListing.empty)
+
+        fun ofObjectsWithEmptyOrNullResources(
+                objects: DocumentObjectNotation,
+                directory: Boolean
+        ): DocumentNotation {
+            return DocumentNotation(
+                    objects,
+                    ResourceListing.emptyOrNull(directory))
+        }
     }
 
 
@@ -29,7 +38,7 @@ data class DocumentNotation(
     fun expand(path: DocumentPath): ObjectLocationMap<ObjectNotation> {
         val values = mutableMapOf<ObjectLocation, ObjectNotation>()
 
-        for (e in objects.values) {
+        for (e in objects.notations.values) {
             values[ObjectLocation(path, e.key)] = e.value
         }
 
@@ -53,7 +62,7 @@ data class DocumentNotation(
 
 
     fun indexOf(objectPath: ObjectPath): PositionIndex {
-        return PositionIndex(objects.values.keys.indexOf(objectPath))
+        return PositionIndex(objects.notations.values.keys.indexOf(objectPath))
     }
 
 
@@ -68,7 +77,8 @@ data class DocumentNotation(
             objectPath: ObjectPath,
             objectNotation: ObjectNotation
     ): DocumentNotation {
-        return copy(objects = objects.updateEntry(objectPath, objectNotation))
+        return copy(objects = objects
+                .withModifiedObject(objectPath, objectNotation))
     }
 
 
@@ -76,14 +86,16 @@ data class DocumentNotation(
             positionedObjectPath: PositionedObjectPath,
             objectNotation: ObjectNotation
     ): DocumentNotation {
-        return copy(objects = objects.insertEntry(positionedObjectPath, objectNotation))
+        return copy(objects = objects
+                .withNewObject(positionedObjectPath, objectNotation))
     }
 
 
     fun withoutObject(
             objectPath: ObjectPath
     ): DocumentNotation {
-        return copy(objects = objects.removeKey(objectPath))
+        return copy(objects = objects
+                .withoutObject(objectPath))
     }
 
 

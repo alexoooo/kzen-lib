@@ -181,6 +181,7 @@ data class GraphNotation(
         check(documentPath.directory == (documentNotation.resources != null)) {
             "Unexpected resources for path: $documentPath - ${documentNotation.resources}"
         }
+
         return GraphNotation(
                 documents.put(documentPath, documentNotation))
     }

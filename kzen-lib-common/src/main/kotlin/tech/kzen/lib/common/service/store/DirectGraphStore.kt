@@ -171,18 +171,10 @@ class DirectGraphStore(
 
         val newGraphNotation = transition.graphNotation
 
-        for (updatedDocument in newGraphNotation.documents.values) {
-            val oldDocument = graphNotation.documents.values[updatedDocument.key]
+        writeModified(graphNotation, newGraphNotation, command, transition)
 
-            writeIfRequired(
-                    updatedDocument.key,
-                    updatedDocument.value,
-                    command,
-                    oldDocument)
-        }
-
-        val removedDocumentPaths = graphNotation.documents.values.keys.minus(
-                newGraphNotation.documents.values.keys)
+        val removedDocumentPaths = graphNotation.documents.values.keys
+                .minus(newGraphNotation.documents.values.keys)
 
         for (removed in removedDocumentPaths) {
             delete(removed)
@@ -192,16 +184,75 @@ class DirectGraphStore(
     }
 
 
+    private suspend fun writeModified(
+            oldGraphNotation: GraphNotation,
+            newGraphNotation: GraphNotation,
+            command: NotationCommand,
+            transition: NotationTransition
+    ) {
+        val copiedDocumentEvents =
+                (transition.notationEvent as? CompoundNotationEvent)
+                        ?.singularEvents
+                        ?.filterIsInstance<CopiedDocumentEvent>()
+                        ?: listOf()
+
+        for (updatedDocument in newGraphNotation.documents.values) {
+            val oldDocument = oldGraphNotation.documents.values[updatedDocument.key]
+
+            val copiedDocumentEvent =
+                    if (oldDocument != null) {
+                        null
+                    }
+                    else {
+                        copiedDocumentEvents.find { it.destination == updatedDocument.key }
+                    }
+
+            if (copiedDocumentEvent != null) {
+                writeCopy(oldGraphNotation, copiedDocumentEvent)
+            }
+            else {
+                writeIfRequired(
+                        updatedDocument.key,
+                        updatedDocument.value,
+                        command,
+                        oldDocument)
+            }
+        }
+    }
+
+
+    private suspend fun writeCopy(
+            oldGraphNotation: GraphNotation,
+            copiedDocumentEvent: CopiedDocumentEvent
+    ) {
+        val sourceDocumentPath = copiedDocumentEvent.documentPath
+        val destinationDocumentPath = copiedDocumentEvent.destination
+
+        val sourceDocumentContents = notationMedia.readDocument(sourceDocumentPath)
+        notationMedia.writeDocument(destinationDocumentPath, sourceDocumentContents)
+
+        val sourceDocument = oldGraphNotation.documents[sourceDocumentPath]!!
+        if (sourceDocument.resources != null) {
+            for (resourcePath in sourceDocument.resources.digests.keys) {
+                val contents = notationMedia.readResource(
+                        ResourceLocation(sourceDocumentPath, resourcePath))
+
+                notationMedia.writeResource(
+                        ResourceLocation(destinationDocumentPath, resourcePath),
+                        contents)
+            }
+        }
+    }
+
+
     private suspend fun writeIfRequired(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation,
             command: NotationCommand,
             originalDocument: DocumentNotation?
-    ): Boolean {
-        if (originalDocument != null &&
-                documentNotation.objects.equalsInOrder(originalDocument.objects) &&
-                documentNotation.resources == originalDocument.resources) {
-            return false
+    ) {
+        if (documentNotation == originalDocument) {
+            return
         }
 
         val previouslyPresent = originalDocument != null
@@ -214,30 +265,27 @@ class DirectGraphStore(
                     ""
                 }
 
-        val updatedBody = notationParser.unparseDocument(documentNotation, previousBody)
+        val updatedBody = notationParser.unparseDocument(documentNotation.objects, previousBody)
 //        println("!!! updatedBody: ${IoUtils.utf8ToString(updatedBody)}")
-
-        var modified = false
 
         if (updatedBody != previousBody || ! previouslyPresent) {
             notationMedia.writeDocument(documentPath, updatedBody)
-            modified = true
         }
 
         when (command) {
-            is CopyDocumentCommand -> {
-                val originalDocumentPath = command.sourceDocumentPath
-                val originalResources = originalDocument?.resources!!
-
-                for (resourcePath in originalResources.values.keys) {
-                    val contents = notationMedia.readResource(
-                            ResourceLocation(originalDocumentPath, resourcePath))
-
-                    notationMedia.writeResource(
-                            ResourceLocation(documentPath, resourcePath),
-                            contents)
-                }
-            }
+//            is CopyDocumentCommand -> {
+//                val originalDocumentPath = command.sourceDocumentPath
+//                val originalResources = originalDocument?.resources!!
+//
+//                for (resourcePath in originalResources.digests.keys) {
+//                    val contents = notationMedia.readResource(
+//                            ResourceLocation(originalDocumentPath, resourcePath))
+//
+//                    notationMedia.writeResource(
+//                            ResourceLocation(documentPath, resourcePath),
+//                            contents)
+//                }
+//            }
 
             is ResourceNotationCommand -> {
                 when (command) {
@@ -251,16 +299,8 @@ class DirectGraphStore(
                         notationMedia.deleteResource(command.resourceLocation)
                     }
                 }
-
-                modified = true
             }
         }
-
-//        scanCache[documentPath] = DocumentScan(
-//                Digest.ofUtf8(updatedBody),
-//                documentNotation.resources)
-
-        return modified
     }
 
 

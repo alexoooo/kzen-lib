@@ -155,7 +155,7 @@ class SeededNotationMedia(
 
             val resources =
                     if (e.key.directory) {
-                        e.value.resources!!.values.toMutableMap()
+                        e.value.resources!!.digests.toMutableMap()
                     }
                     else {
                         null
