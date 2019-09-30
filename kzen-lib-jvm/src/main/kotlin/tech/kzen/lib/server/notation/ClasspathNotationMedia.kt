@@ -90,6 +90,11 @@ class ClasspathNotationMedia(
     }
 
 
+    override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
+        throw UnsupportedOperationException("Classpath copying not supported")
+    }
+
+
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
         throw UnsupportedOperationException("Classpath deleting not supported")
     }

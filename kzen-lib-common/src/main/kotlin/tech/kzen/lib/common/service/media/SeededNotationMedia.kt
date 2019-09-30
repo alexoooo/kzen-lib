@@ -67,20 +67,31 @@ class SeededNotationMedia(
     override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
         seedIfRequired()
 
-        val documentMedia = data.getOrPut(documentPath) {
-            val resources =
-                    if (documentPath.directory) {
-                        mutableMapOf<ResourcePath, Digest>()
-                    }
-                    else {
-                        null
-                    }
-
-            SeededDocumentMedia("", resources)
-        }
+        val documentMedia = getOrInitDocumentMedia(documentPath)
 
         documentMedia.document = contents
         notationScanCache = null
+    }
+
+
+    override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
+        seedIfRequired()
+
+        val sourceDocumentMedia = data[resourceLocation.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val sourceResources = sourceDocumentMedia.resources
+                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+
+        val sourceResourceDigest = sourceResources[resourceLocation.resourcePath]
+                ?: throw IllegalArgumentException("Resource not found: $resourceLocation")
+
+        val destinationDocumentMedia = getOrInitDocumentMedia(destination.documentPath)
+
+        val destinationResources = destinationDocumentMedia.resources
+                ?: throw IllegalArgumentException("No resources: $destination")
+
+        destinationResources[destination.resourcePath] = sourceResourceDigest
     }
 
 
@@ -93,6 +104,21 @@ class SeededNotationMedia(
 
         data.remove(documentPath)
         notationScanCache = null
+    }
+
+
+    private fun getOrInitDocumentMedia(documentPath: DocumentPath): SeededDocumentMedia {
+        return data.getOrPut(documentPath) {
+            val resources =
+                    if (documentPath.directory) {
+                        mutableMapOf<ResourcePath, Digest>()
+                    }
+                    else {
+                        null
+                    }
+
+            SeededDocumentMedia("", resources)
+        }
     }
 
 

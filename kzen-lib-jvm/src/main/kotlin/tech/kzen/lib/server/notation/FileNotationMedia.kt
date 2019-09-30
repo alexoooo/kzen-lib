@@ -247,6 +247,23 @@ class FileNotationMedia(
     }
 
 
+    override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
+        val sourceDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val sourceResourcePath = sourceDocumentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
+
+        val destinationDocumentPath = notationLocator.locateExisting(destination.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
+
+        val destinationResourcePath = destinationDocumentPath.resolveSibling(
+                destination.resourcePath.asRelativeFile())
+
+        Files.copy(sourceResourcePath, destinationResourcePath)
+    }
+
+
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")

@@ -91,6 +91,26 @@ class MapNotationMedia: NotationMedia {
     }
 
 
+    override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
+        val sourceDocumentData = data[resourceLocation.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+
+        val sourceResources = sourceDocumentData.resources
+                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+
+        val sourceContents = sourceResources[resourceLocation.resourcePath]
+                ?: throw IllegalArgumentException("Not found: $resourceLocation")
+
+        val destinationDocumentData = data[destination.documentPath]
+                ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
+
+        val destinationResources = destinationDocumentData.resources
+                ?: throw IllegalArgumentException("No resources: $destination")
+
+        destinationResources[destination.resourcePath] = sourceContents
+    }
+
+
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
         val documentData = data[resourceLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")

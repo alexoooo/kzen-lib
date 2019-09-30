@@ -234,12 +234,9 @@ class DirectGraphStore(
         val sourceDocument = oldGraphNotation.documents[sourceDocumentPath]!!
         if (sourceDocument.resources != null) {
             for (resourcePath in sourceDocument.resources.digests.keys) {
-                val contents = notationMedia.readResource(
-                        ResourceLocation(sourceDocumentPath, resourcePath))
-
-                notationMedia.writeResource(
-                        ResourceLocation(destinationDocumentPath, resourcePath),
-                        contents)
+                notationMedia.copyResource(
+                        ResourceLocation(sourceDocumentPath, resourcePath),
+                        ResourceLocation(destinationDocumentPath, resourcePath))
             }
         }
     }

@@ -36,6 +36,10 @@ interface NotationMedia {
     suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray)
 
 
+    // NB: allows to bypass readResource on client in MirroredGraphStore
+    suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation)
+
+
     suspend fun deleteResource(resourceLocation: ResourceLocation)
 
 

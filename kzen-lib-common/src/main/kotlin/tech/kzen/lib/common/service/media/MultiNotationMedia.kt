@@ -64,6 +64,20 @@ class MultiNotationMedia(
     }
 
 
+    override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
+        for (medium in media) {
+            try {
+                return medium.copyResource(resourceLocation, destination)
+            }
+            catch (ignored: Exception) {
+//                println("MultiNotationMedia - Can't write in $medium - ${ignored.message}")
+            }
+        }
+
+        throw IllegalArgumentException("Unable to copy: $resourceLocation - $destination")
+    }
+
+
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         for (medium in media) {
             try {
