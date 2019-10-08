@@ -17,18 +17,24 @@ NumericStringHolder:
   value: 123
 
 
-LocationAware:
+SelfAware:
   abstract: true
-  class: tech.kzen.lib.server.objects.LocationAware
+  class: tech.kzen.lib.server.objects.SelfAware
   meta:
     objectLocation:
       is: ObjectLocation
-      by: SelfLocation
+      by: Self
+    objectNotation:
+      is: ObjectNotation
+      by: Self
+    documentNotation:
+      is: DocumentNotation
+      by: Self
 
 
 FooNamed:
-  is: LocationAware
-  foo: ''
+  is: SelfAware
+  foo: 'foo'
   meta:
     foo: String
 

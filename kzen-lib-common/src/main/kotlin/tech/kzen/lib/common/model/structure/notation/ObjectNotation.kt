@@ -7,6 +7,7 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.service.notation.NotationConventions
+import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.persistentMapOf
 
 
@@ -15,6 +16,10 @@ data class ObjectNotation(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        val className = ClassName(
+                "tech.kzen.lib.common.model.structure.notation.ObjectNotation")
+
+
         fun ofParent(name: ObjectName): ObjectNotation {
             return ofParent(ObjectReference.ofName(name))
         }

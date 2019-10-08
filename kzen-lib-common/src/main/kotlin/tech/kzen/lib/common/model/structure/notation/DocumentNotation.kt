@@ -7,6 +7,7 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.resource.ResourceListing
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -16,11 +17,8 @@ data class DocumentNotation(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-//        val emptyWithoutResources = DocumentNotation(
-//                DocumentObjectNotation.empty, null)
-//
-//        val emptyWithResources = DocumentNotation(
-//                DocumentObjectNotation.empty, ResourceListing.empty)
+        val className = ClassName(
+                "tech.kzen.lib.common.model.structure.notation.DocumentNotation")
 
 
         fun ofObjectsWithEmptyOrNullResources(

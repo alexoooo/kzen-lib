@@ -65,7 +65,7 @@ class ClasspathNotationMedia(
 //        val bytes = loader.getResource(resourcePath).readBytes()
         val bytes = loader.getResource(resourcePath).readText()
 
-//        println("ClasspathNotationMedia - read ${bytes.size}")
+//        println("ClasspathNotationMedia - read $documentPath - ${bytes.size}")
         return bytes
     }
 

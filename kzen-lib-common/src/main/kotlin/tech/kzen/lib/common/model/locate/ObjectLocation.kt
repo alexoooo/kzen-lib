@@ -2,6 +2,7 @@ package tech.kzen.lib.common.model.locate
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.platform.ClassName
 
 
 data class ObjectLocation(
@@ -10,6 +11,10 @@ data class ObjectLocation(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        val className = ClassName(
+                "tech.kzen.lib.common.model.locate.ObjectLocation")
+
+
         fun parse(asString: String): ObjectLocation {
             val asReference = ObjectReference.parse(asString)
             check(asReference.isAbsolute()) { "Must be absolute: $asString" }
