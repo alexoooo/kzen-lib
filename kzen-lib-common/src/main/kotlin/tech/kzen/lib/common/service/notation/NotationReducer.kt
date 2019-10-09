@@ -519,7 +519,7 @@ class NotationReducer {
                 as AddedObjectEvent
 
         val addendReference = objectLocation.toReference()
-                .crop(retainNesting = true, retainPath = false)
+                .crop(retainPath = false)
 
         val insertInAttributeCommand = InsertListItemInAttributeCommand(
                 command.containingObjectLocation,
@@ -701,8 +701,7 @@ class NotationReducer {
             val existingReferenceDefinition = graphDefinition.get(referenceLocation)
             val existingReference = (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
 
-            val newReference = newFullReference.crop(
-                    existingReference.hasNesting(), existingReference.hasPath())
+            val newReference = newFullReference.crop(existingReference.hasPath())
             val newReferenceNotation = ScalarAttributeNotation(newReference.asString())
 
             commands.add(UpdateInAttributeCommand(

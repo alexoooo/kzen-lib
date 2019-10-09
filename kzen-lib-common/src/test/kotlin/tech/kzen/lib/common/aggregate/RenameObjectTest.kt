@@ -70,6 +70,6 @@ C:
         assertEquals("b", transition.graphNotation.getString(location(objectPathAsString), attribute("hello")))
 
         assertEquals(location(objectPathAsString),
-                transition.graphNotation.coalesce.locate(ObjectReference(newName, null, null)))
+                transition.graphNotation.coalesce.locate(ObjectReference.ofRootName(newName)))
     }
 }

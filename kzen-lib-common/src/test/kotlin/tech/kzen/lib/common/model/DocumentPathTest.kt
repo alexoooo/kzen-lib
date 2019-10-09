@@ -19,6 +19,16 @@ class DocumentPathTest {
 
 
     @Test
+    fun parseDirDocumentPath() {
+        val testPath = DocumentPath.parse("foo/bar/~main.yaml")
+
+        assertEquals("foo", testPath.nesting.segments.first().value)
+        assertEquals("bar", testPath.name.value)
+        assertTrue(testPath.directory)
+    }
+
+
+    @Test
     fun startsWith() {
         val testPath = DocumentPath.parse("foo/bar.yaml")
         assertEquals("foo/bar.yaml", testPath.asString())

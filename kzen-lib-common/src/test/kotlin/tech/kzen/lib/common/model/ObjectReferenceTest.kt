@@ -10,7 +10,7 @@ class ObjectReferenceTest {
     @Test
     fun parseWeirdName() {
         val weirdName = ObjectName("/")
-        val literal = ObjectReference(weirdName, null, null)
+        val literal = ObjectReference.ofRootName(weirdName)
         assertEquals("\\/", literal.asString())
         assertEquals(literal, ObjectReference.parse(literal.asString()))
     }

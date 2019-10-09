@@ -21,7 +21,7 @@ data class ObjectNotation(
 
 
         fun ofParent(name: ObjectName): ObjectNotation {
-            return ofParent(ObjectReference.ofName(name))
+            return ofParent(ObjectReference.ofRootName(name))
         }
 
 

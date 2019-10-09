@@ -56,7 +56,7 @@ data class AddObjectCommand(
             return ofParent(
                     objectLocation,
                     indexInDocument,
-                    ObjectReference.ofName(parentName))
+                    ObjectReference.ofRootName(parentName))
         }
 
 

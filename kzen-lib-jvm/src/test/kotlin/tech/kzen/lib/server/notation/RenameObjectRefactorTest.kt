@@ -59,7 +59,8 @@ class RenameObjectRefactorTest {
         val documentNotation = transition.graphNotation.documents.values[testPath]!!
 
         assertEquals(location("main.addends/\\/"),
-                transition.graphNotation.coalesce.locate(ObjectReference(weirdName, null, null)))
+                transition.graphNotation.coalesce.locate(ObjectReference(
+                        weirdName, weirdPath.nesting, null)))
 
         assertEquals(1, documentNotation.indexOf(weirdPath).value)
 

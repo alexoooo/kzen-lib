@@ -135,6 +135,11 @@ data class ObjectNesting(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun isRoot(): Boolean {
+        return segments.isEmpty()
+    }
+
+
     fun startswith(objectNesting: ObjectNesting): Boolean {
         if (segments.size < objectNesting.segments.size) {
             return false

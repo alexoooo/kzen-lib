@@ -122,7 +122,7 @@ A:
                             mainPath,
                             ObjectPath(newName, ObjectNesting.root)
                     ),
-                    repo.graphNotation().coalesce.locate(ObjectReference(newName, null, null)))
+                    repo.graphNotation().coalesce.locate(ObjectReference.ofRootName(newName)))
         }
     }
 

@@ -7,7 +7,7 @@ import tech.kzen.lib.common.model.obj.ObjectNesting
 
 data class ObjectReference(
         val name: ObjectName,
-        val nesting: ObjectNesting?,
+        val nesting: ObjectNesting,
         val path: DocumentPath?
 ) {
     //-----------------------------------------------------------------------------------------------------------------
@@ -15,8 +15,8 @@ data class ObjectReference(
         const val nestingSeparator = "#"
 
 
-        fun ofName(name: ObjectName): ObjectReference {
-            return ObjectReference(name, null, null)
+        fun ofRootName(name: ObjectName): ObjectReference {
+            return ObjectReference(name, ObjectNesting.root, null)
         }
 
 
@@ -37,8 +37,9 @@ data class ObjectReference(
 
             val nameSegment: String = ObjectNesting.extractNameSuffix(nestingAsString)
 
-            val nesting: ObjectNesting? = ObjectNesting.extractSegments(nestingAsString)
+            val nesting: ObjectNesting = ObjectNesting.extractSegments(nestingAsString)
                     ?.let { ObjectNesting.parse(it) }
+                    ?: ObjectNesting.root
 
             return ObjectReference(ObjectName(nameSegment), nesting, path)
         }
@@ -47,32 +48,30 @@ data class ObjectReference(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun isAbsolute(): Boolean {
-        return hasNesting() &&
-                hasPath()
+        return hasPath()
     }
 
     fun hasPath(): Boolean {
         return path != null
     }
 
-    fun hasNesting(): Boolean {
-        return nesting != null
-    }
+//    fun hasNesting(): Boolean {
+//        return nesting != null
+//    }
 
 
-    fun crop(retainNesting: Boolean, retainPath: Boolean): ObjectReference {
-        if (hasNesting() == retainNesting &&
-                hasPath() == retainPath) {
+    fun crop(retainPath: Boolean): ObjectReference {
+        if (hasPath() == retainPath) {
             return this
         }
 
-        val croppedNesting =
-                if (retainNesting) {
-                    nesting
-                }
-                else {
-                    null
-                }
+//        val croppedNesting =
+//                if (retainNesting) {
+//                    nesting
+//                }
+//                else {
+//                    null
+//                }
 
         val croppedPath =
                 if (retainPath) {
@@ -82,7 +81,7 @@ data class ObjectReference(
                     null
                 }
 
-        return ObjectReference(name, croppedNesting, croppedPath)
+        return ObjectReference(name, nesting, croppedPath)
     }
 
 
@@ -96,7 +95,7 @@ data class ObjectReference(
                 }
 
         val nestingInfix =
-                if (nesting == null) {
+                if (nesting.isRoot()) {
                     ""
                 }
                 else {

@@ -142,7 +142,7 @@ class GraphCreator {
         if (reference.isAbsolute()) {
             return ObjectLocation(
                     reference.path!!,
-                    ObjectPath(reference.name, reference.nesting!!))
+                    ObjectPath(reference.name, reference.nesting))
         }
 
         val objectLocations = ObjectLocationSet.locateAll(closed, reference, referenceHost)

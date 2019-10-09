@@ -20,10 +20,7 @@ data class ObjectLocation(
             check(asReference.isAbsolute()) { "Must be absolute: $asString" }
             return ObjectLocation(
                     asReference.path!!,
-                    ObjectPath(
-                            asReference.name,
-                            asReference.nesting!!
-                    ))
+                    ObjectPath(asReference.name, asReference.nesting))
         }
     }
 
