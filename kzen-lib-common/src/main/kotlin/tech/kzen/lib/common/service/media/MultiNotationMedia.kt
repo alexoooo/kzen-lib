@@ -5,6 +5,7 @@ import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.model.structure.scan.NotationScan
+import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -94,7 +95,7 @@ class MultiNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readResource(resourceLocation: ResourceLocation): ByteArray {
+    override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         for (source in media) {
             try {
                 return source.readResource(resourceLocation)
@@ -109,7 +110,7 @@ class MultiNotationMedia(
     }
 
 
-    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray) {
+    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         for (medium in media) {
             try {
                 return medium.writeResource(resourceLocation, contents)

@@ -11,7 +11,6 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.AddResourceCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveResourceCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.RenameDocumentRefactorCommand
-import tech.kzen.lib.common.model.structure.resource.ResourceContent
 import tech.kzen.lib.common.model.structure.resource.ResourceName
 import tech.kzen.lib.common.model.structure.resource.ResourceNesting
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
@@ -21,6 +20,8 @@ import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.common.service.store.DirectGraphStore
+import tech.kzen.lib.common.util.ImmutableByteArray
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 
@@ -64,12 +65,12 @@ class ResourceCrudTest {
 
             repo.apply(AddResourceCommand(
                     resourceLocation,
-                    ResourceContent("foo".toByteArray())))
+                    ImmutableByteArray.wrap("foo".toByteArray())))
 
             media.readResource(resourceLocation)
         }
 
-        assertTrue(resource.contentEquals("foo".toByteArray()))
+        assertEquals(resource, ImmutableByteArray.wrap("foo".toByteArray()))
     }
 
 
@@ -91,7 +92,7 @@ class ResourceCrudTest {
 
             repo.apply(AddResourceCommand(
                     resourceLocation,
-                    ResourceContent("foo".toByteArray())))
+                    ImmutableByteArray.wrap("foo".toByteArray())))
 
             repo.apply(RemoveResourceCommand(resourceLocation))
 
@@ -120,7 +121,7 @@ class ResourceCrudTest {
 
             repo.apply(AddResourceCommand(
                     resourceLocation,
-                    ResourceContent("foo".toByteArray())))
+                    ImmutableByteArray.wrap("foo".toByteArray())))
 
             repo.apply(RenameDocumentRefactorCommand(
                     dirDocPath,
@@ -130,6 +131,6 @@ class ResourceCrudTest {
             media.readResource(renamedResourceLocation)
         }
 
-        assertTrue(resource.contentEquals("foo".toByteArray()))
+        assertEquals(resource, ImmutableByteArray.wrap("foo".toByteArray()))
     }
 }

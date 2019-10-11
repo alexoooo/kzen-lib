@@ -3,6 +3,7 @@ package tech.kzen.lib.common.service.media
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.structure.scan.NotationScan
+import tech.kzen.lib.common.util.ImmutableByteArray
 
 
 interface NotationMedia {
@@ -30,10 +31,10 @@ interface NotationMedia {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun readResource(resourceLocation: ResourceLocation): ByteArray
+    suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray
 
 
-    suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray)
+    suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray)
 
 
     // NB: allows to bypass readResource on client in MirroredGraphStore

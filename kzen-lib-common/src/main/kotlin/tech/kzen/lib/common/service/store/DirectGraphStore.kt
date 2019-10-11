@@ -289,7 +289,7 @@ class DirectGraphStore(
                     is AddResourceCommand -> {
                         notationMedia.writeResource(
                                 command.resourceLocation,
-                                command.resourceContent.value)
+                                command.resourceContent)
                     }
 
                     is RemoveResourceCommand -> {

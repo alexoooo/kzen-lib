@@ -11,7 +11,7 @@ import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.structure.notation.*
-import tech.kzen.lib.common.model.structure.resource.ResourceContent
+import tech.kzen.lib.common.util.ImmutableByteArray
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -198,7 +198,7 @@ data class RenameDocumentRefactorCommand(
 //---------------------------------------------------------------------------------------------------------------------
 data class AddResourceCommand(
         val resourceLocation: ResourceLocation,
-        val resourceContent: ResourceContent
+        val resourceContent: ImmutableByteArray
 ): ResourceNotationCommand()
 
 

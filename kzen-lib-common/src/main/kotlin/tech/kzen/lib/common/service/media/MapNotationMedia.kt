@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -18,7 +19,7 @@ class MapNotationMedia: NotationMedia {
 
     private class MapDocumentMedia(
             var document: String,
-            var resources: MutableMap<ResourcePath, ByteArray>?
+            var resources: MutableMap<ResourcePath, ImmutableByteArray>?
     )
 
 
@@ -30,7 +31,7 @@ class MapNotationMedia: NotationMedia {
                     it.value.resources?.let { resources ->
                         ResourceListing(
                                 resources.mapValues { e ->
-                                    Digest.ofBytes(e.value)
+                                    e.value.digest()
                                 }.toPersistentMap())
                     }
             )
@@ -52,7 +53,7 @@ class MapNotationMedia: NotationMedia {
         val documentMedia = data.getOrPut(documentPath) {
             val resources =
                     if (documentPath.directory) {
-                        mutableMapOf<ResourcePath, ByteArray>()
+                        mutableMapOf<ResourcePath, ImmutableByteArray>()
                     }
                     else {
                         null
@@ -71,7 +72,7 @@ class MapNotationMedia: NotationMedia {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readResource(resourceLocation: ResourceLocation): ByteArray {
+    override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         val documentData = data[resourceLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
@@ -80,7 +81,7 @@ class MapNotationMedia: NotationMedia {
     }
 
 
-    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray) {
+    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         val documentData = data[resourceLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 

@@ -12,12 +12,11 @@ import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.collect.toPersistentMap
+import tech.kzen.lib.platform.toInputStream
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
-import java.nio.file.FileVisitResult
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.SimpleFileVisitor
+import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
 
@@ -223,18 +222,18 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readResource(resourceLocation: ResourceLocation): ByteArray {
+    override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resourcePath = documentPath.resolveSibling(
                 resourceLocation.resourcePath.asRelativeFile())
 
-        return Files.readAllBytes(resourcePath)
+        return ImmutableByteArray.wrap(Files.readAllBytes(resourcePath))
     }
 
 
-    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray) {
+    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
@@ -243,7 +242,7 @@ class FileNotationMedia(
 
         Files.createDirectories(resourcePath.parent)
 
-        Files.write(resourcePath, contents)
+        Files.copy(contents.toInputStream(), resourcePath, StandardCopyOption.REPLACE_EXISTING)
     }
 
 

@@ -17,7 +17,7 @@ data class ObjectLocationSet(
             for (candidate in universe) {
                 if (reference.name != candidate.objectPath.name ||
                         reference.path != null && reference.path != candidate.documentPath ||
-                        reference.nesting != null && reference.nesting != candidate.objectPath.nesting) {
+                        reference.nesting != candidate.objectPath.nesting) {
                     continue
                 }
 

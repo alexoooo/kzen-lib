@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -123,13 +124,13 @@ class SeededNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readResource(resourceLocation: ResourceLocation): ByteArray {
+    override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         seedIfRequired()
         return underlying.readResource(resourceLocation)
     }
 
 
-    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ByteArray) {
+    override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         seedIfRequired()
 
         val documentMedia = data[resourceLocation.documentPath]
@@ -138,7 +139,7 @@ class SeededNotationMedia(
         val resources = documentMedia.resources
                 ?: throw IllegalArgumentException("Directory document expected: ${resourceLocation.documentPath}")
 
-        resources[resourceLocation.resourcePath] = Digest.ofBytes(contents)
+        resources[resourceLocation.resourcePath] = contents.digest()
         notationScanCache = null
     }
 
