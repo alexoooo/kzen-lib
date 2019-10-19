@@ -226,9 +226,11 @@ data class NestedObjectRename(
 
 data class RenamedDocumentRefactorEvent(
         val createdWithNewName: CopiedDocumentEvent,
-        val removedUnderOldName: DeletedDocumentEvent
+        val removedUnderOldName: DeletedDocumentEvent,
+        val adjustedReferences: List<UpdatedInAttributeEvent>
 ): CompoundNotationEvent(
-        listOf(createdWithNewName, removedUnderOldName)
+        listOf(createdWithNewName, removedUnderOldName) +
+                adjustedReferences
 ) {
     override val documentPath: DocumentPath
         get() = removedUnderOldName.documentPath

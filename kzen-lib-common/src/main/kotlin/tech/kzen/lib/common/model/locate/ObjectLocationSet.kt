@@ -24,7 +24,7 @@ data class ObjectLocationSet(
                 candidates.add(candidate)
             }
 
-            // TODO: perform reverse breadth first search
+            // TODO: perform reverse breadth first search?
             if (candidates.size > 1 && host.documentPath != null) {
                 val iterator = candidates.iterator()
                 while (iterator.hasNext()) {

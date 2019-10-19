@@ -139,7 +139,7 @@ class GraphCreator {
             reference: ObjectReference,
             referenceHost: ObjectReferenceHost
     ): ObjectLocation? {
-        if (reference.isAbsolute()) {
+        if (reference.hasPath()) {
             return ObjectLocation(
                     reference.path!!,
                     ObjectPath(reference.name, reference.nesting))

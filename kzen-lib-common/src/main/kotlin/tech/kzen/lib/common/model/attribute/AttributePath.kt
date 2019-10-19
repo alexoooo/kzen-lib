@@ -20,7 +20,7 @@ data class AttributePath(
                     return i
                 }
             }
-            if (! encodedObjectPath.isEmpty() && encodedObjectPath[0] == '.') {
+            if (encodedObjectPath.isNotEmpty() && encodedObjectPath[0] == '.') {
                 return 0
             }
             return -1

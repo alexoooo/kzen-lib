@@ -17,7 +17,7 @@ data class ObjectLocation(
 
         fun parse(asString: String): ObjectLocation {
             val asReference = ObjectReference.parse(asString)
-            check(asReference.isAbsolute()) { "Must be absolute: $asString" }
+            check(asReference.hasPath()) { "Must be absolute: $asString" }
             return ObjectLocation(
                     asReference.path!!,
                     ObjectPath(asReference.name, asReference.nesting))

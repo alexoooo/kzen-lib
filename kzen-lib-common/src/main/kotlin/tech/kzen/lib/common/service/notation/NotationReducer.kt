@@ -113,7 +113,7 @@ class NotationReducer {
                 renameObjectRefactor(state, command.objectLocation, command.newName, graphDefinition)
 
             is RenameDocumentRefactorCommand ->
-                renameDocumentRefactor(state, command.documentPath, command.newName/*, graphDefinition*/)
+                renameDocumentRefactor(state, command.documentPath, command.newName, graphDefinition)
         }
     }
 
@@ -665,7 +665,7 @@ class NotationReducer {
     private fun nestedRenameObjectRefactor(
             objectLocation: ObjectLocation,
             newObjectNesting: ObjectNesting,
-            buffer: NotationReducer.Buffer,
+            buffer: Buffer,
             graphDefinition: GraphDefinition
     ): NestedObjectRename {
         val renamedObject = buffer
@@ -699,9 +699,15 @@ class NotationReducer {
 
         for (referenceLocation in referenceLocations) {
             val existingReferenceDefinition = graphDefinition.get(referenceLocation)
-            val existingReference = (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
+            val existingReference =
+                    (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
 
             val newReference = newFullReference.crop(existingReference.hasPath())
+
+            if (existingReference == newReference) {
+                continue
+            }
+
             val newReferenceNotation = ScalarAttributeNotation(newReference.asString())
 
             commands.add(UpdateInAttributeCommand(
@@ -722,8 +728,9 @@ class NotationReducer {
         val referenceLocations = mutableSetOf<AttributeLocation>()
 
         for (e in graphDefinition.objectDefinitions.values) {
-            for (attributeReference in e.value.attributeReferencesIncludingWeak()) {
+            val attributeReferences = e.value.attributeReferencesIncludingWeak()
 
+            for (attributeReference in attributeReferences) {
                 if (! isReferenced(
                                 objectLocation,
                                 attributeReference.value,
@@ -759,10 +766,11 @@ class NotationReducer {
     private fun renameDocumentRefactor(
             state: GraphNotation,
             documentPath: DocumentPath,
-            newName: DocumentName/*,
-            graphDefinition: GraphDefinition*/
+            newName: DocumentName,
+            graphDefinition: GraphDefinition
     ): NotationTransition {
-        require(documentPath in state.documents.values) {
+        val documentNotation = state.documents.values[documentPath]
+        require(documentNotation != null) {
             "documentPath missing: $documentPath - ${state.documents.values.keys}"
         }
         val buffer = Buffer(state)
@@ -780,20 +788,50 @@ class NotationReducer {
                 .apply(DeleteDocumentCommand(documentPath))
                 as DeletedDocumentEvent
 
-//        val adjustedReferenceCommands = adjustReferenceCommands(
-//                objectLocation, newName, graphDefinition)
-//
-//        val adjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
-//        adjustedReferenceCommands.forEach {
-//            adjustedReferenceEvents.add(builder.apply(it) as UpdatedInAttributeEvent)
-//        }
-//
+        val adjustedReferenceEvents = adjustReferencesForRenamedDocument(
+                documentPath, newDocumentPath, documentNotation, graphDefinition, buffer)
+
         return NotationTransition(
                 RenamedDocumentRefactorEvent(
                         createdWithNewName,
-                        removedUnderOldName
+                        removedUnderOldName,
+                        adjustedReferenceEvents
                 ),
                 buffer.state)
+    }
+
+
+    private fun adjustReferencesForRenamedDocument(
+            documentPath: DocumentPath,
+            newDocumentPath: DocumentPath,
+            documentNotation: DocumentNotation,
+            graphDefinition: GraphDefinition,
+            buffer: Buffer
+    ): List<UpdatedInAttributeEvent> {
+        // NB: only top-level (root) objects cross-document reference are currently supported
+        val rootObjectPaths = documentNotation
+                .objects
+                .notations
+                .values
+                .keys
+                .filter { it.nesting.isRoot() }
+
+        val allAdjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
+
+        for (adjustedObjectPath in rootObjectPaths) {
+            val rootObjectLocation = ObjectLocation(documentPath, adjustedObjectPath)
+            val newObjectLocation = ObjectLocation(newDocumentPath, adjustedObjectPath)
+
+            val adjustedReferenceCommands = adjustReferenceCommands(
+                    rootObjectLocation, newObjectLocation, graphDefinition)
+
+            val adjustedReferenceEvents = adjustedReferenceCommands
+                    .map { buffer.apply(it) as UpdatedInAttributeEvent }
+
+            allAdjustedReferenceEvents.addAll(adjustedReferenceEvents)
+        }
+
+        return allAdjustedReferenceEvents
     }
 
 
