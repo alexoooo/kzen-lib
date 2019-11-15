@@ -310,8 +310,11 @@ class NotationReducer {
             state: GraphNotation,
             command: UpsertAttributeCommand
     ): NotationTransition {
-        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
-        val objectNotation = state.coalesce[command.objectLocation]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]
+                ?: throw IllegalArgumentException("Unknown document path: ${command.objectLocation.documentPath}")
+
+        val objectNotation = state.coalesce[command.objectLocation]
+                ?: throw IllegalArgumentException("Unknown object location: ${command.objectLocation}")
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 AttributePath.ofName(command.attributeName), command.attributeNotation)

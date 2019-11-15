@@ -10,11 +10,6 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 
 
 class DefinitionAttributeCreator: AttributeCreator {
-//    companion object {
-//        private val defaultDefiner = StructuralAttributeDefiner()
-//    }
-
-
     override fun create(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -30,16 +25,6 @@ class DefinitionAttributeCreator: AttributeCreator {
     }
 
 
-//    private fun inferDefinition(
-//            objectLocation: ObjectLocation,
-//            attributeName: AttributeName,
-//            graphStructure: GraphStructure
-//    ): AttributeDefinition {
-//        return defaultDefiner.define(
-//                objectLocation, attributeName, graphStructure)
-//    }
-
-
     private fun createDefinition(
             objectLocation: ObjectLocation,
             attributeDefinition: AttributeDefinition,
@@ -48,12 +33,6 @@ class DefinitionAttributeCreator: AttributeCreator {
     ): Any? {
         return when (attributeDefinition) {
             is ValueAttributeDefinition -> {
-//                if (parameterMetadata.type?.className == ClassNames.kotlinString) {
-//                    parameterDefinition.value.toString()
-//                }
-//                else {
-//                    parameterDefinition.value
-//                }
                 attributeDefinition.value
             }
 
@@ -71,7 +50,6 @@ class DefinitionAttributeCreator: AttributeCreator {
                     partialGraphInstance[location]?.reference
                 }
             }
-
 
             is ListAttributeDefinition ->
                 attributeDefinition.values.map {
