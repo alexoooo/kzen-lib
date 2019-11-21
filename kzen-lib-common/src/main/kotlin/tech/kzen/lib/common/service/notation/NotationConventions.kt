@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.service.notation
 
 import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.document.DocumentName
@@ -55,6 +56,11 @@ object NotationConventions {
     val abstractAttributeSegment = AttributeSegment.ofKey(abstractKey)
     val abstractAttributeName = AttributeName(abstractKey)
     val abstractAttributePath = AttributePath.ofName(abstractAttributeName)
+
+
+    const val refValue = "ref"
+    val refAttributeSegment = AttributeSegment.ofKey(refValue)
+    val refAttributePath = AttributePath(metaAttributeName, AttributeNesting(persistentListOf(refAttributeSegment)))
 
     val kzenBaseDocumentNesting = DocumentNesting.parse("base/")
     val kzenBasePath = DocumentPath(DocumentName("kzen-base"), kzenBaseDocumentNesting, false)

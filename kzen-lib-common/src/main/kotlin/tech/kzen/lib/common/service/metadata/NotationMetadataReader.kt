@@ -61,6 +61,10 @@ class NotationMetadataReader(
                     ?: continue
 
             for (e in metaAttribute.values) {
+                if (e.key == NotationConventions.refAttributeSegment) {
+                    continue
+                }
+
                 val attributeMetadata = readAttribute(e.value, objectReferenceHost, graphNotation)
                 builder[AttributeName(e.key.asString())] = attributeMetadata
             }
@@ -136,8 +140,15 @@ class NotationMetadataReader(
                     graphNotation.coalesce.locate(ObjectReference.parse(inheritanceParent), host)
                 }
 
-        val attributeMap = attributeNotation as? MapAttributeNotation
+        val directAttributeMap = attributeNotation as? MapAttributeNotation
                 ?: MapAttributeNotation.empty
+
+        val refAttributeMap = inheritanceParentLocation
+                ?.let { resolveMetadataRef(it, graphNotation) }
+                ?: MapAttributeNotation.empty
+
+        val attributeMap = MapAttributeNotation(
+                refAttributeMap.values.putAll(directAttributeMap.values))
 
         val classNotation = metadataAttribute(
                 NotationConventions.classAttributePath, inheritanceParentLocation, attributeMap, graphNotation)
@@ -186,6 +197,16 @@ class NotationMetadataReader(
     }
 
 
+    private fun resolveMetadataRef(
+            objectLocation: ObjectLocation,
+            graphNotation: GraphNotation
+    ): MapAttributeNotation {
+        return graphNotation.transitiveAttribute(objectLocation, NotationConventions.refAttributePath)
+                as? MapAttributeNotation
+                ?: MapAttributeNotation.empty
+    }
+
+
     private fun attributeInheritanceParent(
             attributeNotation: AttributeNotation
     ): String? {
@@ -215,16 +236,14 @@ class NotationMetadataReader(
             attributeMap: MapAttributeNotation,
             projectNotation: GraphNotation
     ): AttributeNotation? {
-        val paramNotation = attributeMap.get(attributePath)
+        val attributeNotation = attributeMap.get(attributePath)
 
-        return if (paramNotation == null && inheritanceParent != null) {
+        return if (attributeNotation == null && inheritanceParent != null) {
             projectNotation.transitiveAttribute(
                     inheritanceParent, attributePath)
         }
         else {
-            paramNotation
+            attributeNotation
         }
-
-//        val className = (classNotation as? ScalarParameterNotation)?.value
     }
 }

@@ -8,7 +8,7 @@ package tech.kzen.lib.platform.collect
 expect class PersistentMap<K, out V>(): Map<K, V> {
     fun put(key: K, value: @UnsafeVariance V): PersistentMap<K, V>
 
-//    fun putAll(from: Map<K, @UnsafeVariance V>): PersistentMap<K, V>
+    fun putAll(from: Map<K, @UnsafeVariance V>): PersistentMap<K, V>
 
     fun remove(key: K): PersistentMap<K, V>
 

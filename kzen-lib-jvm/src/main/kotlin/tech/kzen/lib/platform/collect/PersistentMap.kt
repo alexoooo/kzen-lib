@@ -117,13 +117,13 @@ actual class PersistentMap<K, out V> private constructor(
     }
 
 
-//    actual fun putAll(from: Map<K, @UnsafeVariance V>): PersistentMap<K, V> {
-//        var builder = this
-//        from.forEach { (k, v) ->
-//            builder = builder.put(k, v)
-//        }
-//        return builder
-//    }
+    actual fun putAll(from: Map<K, @UnsafeVariance V>): PersistentMap<K, V> {
+        var buffer = this
+        for (e in from) {
+            buffer = buffer.put(e.key, e.value)
+        }
+        return buffer
+    }
 
 
     actual fun remove(key: K): PersistentMap<K, V> {
