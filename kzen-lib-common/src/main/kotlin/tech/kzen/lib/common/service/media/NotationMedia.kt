@@ -3,6 +3,7 @@ package tech.kzen.lib.common.service.media
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.structure.scan.NotationScan
+import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.ImmutableByteArray
 
 
@@ -15,7 +16,7 @@ interface NotationMedia {
     /**
      * Must exist
      */
-    suspend fun readDocument(documentPath: DocumentPath): String
+    suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest? = null): String
 
 
     /**

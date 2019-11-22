@@ -44,7 +44,7 @@ class MapNotationMedia: NotationMedia {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readDocument(documentPath: DocumentPath): String {
+    override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
         return data[documentPath]!!.document
     }
 

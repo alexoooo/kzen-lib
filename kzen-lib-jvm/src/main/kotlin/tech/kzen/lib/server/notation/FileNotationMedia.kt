@@ -1,5 +1,7 @@
 package tech.kzen.lib.server.notation
 
+import com.google.common.cache.Cache
+import com.google.common.cache.CacheBuilder
 import com.google.common.io.MoreFiles
 import com.google.common.io.RecursiveDeleteOption
 import tech.kzen.lib.common.model.document.DocumentPath
@@ -23,9 +25,15 @@ import java.time.Instant
 
 class FileNotationMedia(
         private val notationLocator: FileNotationLocator
-) : NotationMedia {
+): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
     private val digestCache: MutableMap<DocumentPath, TimedDigest> = mutableMapOf()
+
+    private val documentCache: Cache<Digest, String> = CacheBuilder
+            .newBuilder()
+            .maximumWeight(1024 * 1024)
+            .weigher { _: Digest, value: String -> value.length }
+            .build()
 
 
     private data class TimedDigest(
@@ -41,7 +49,7 @@ class FileNotationMedia(
     private suspend fun digest(
             path: DocumentPath
     ): Digest {
-        val bytes = readDocument(path)
+        val bytes = readDocument(path, null)
         return Digest.ofUtf8(bytes)
     }
 
@@ -174,14 +182,30 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readDocument(documentPath: DocumentPath): String {
+    override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
+        if (expectedDigest != null) {
+            val cached = documentCache.getIfPresent(expectedDigest)
+            if (cached != null) {
+                return cached
+            }
+        }
+
         val path = notationLocator.locateExisting(documentPath)
                 ?: throw IllegalArgumentException("Not found: $documentPath")
 
-//        println("GradleNotationMedia | read - moduleRoot: ${path.toAbsolutePath().normalize()}")
+        @Suppress("BlockingMethodInNonBlockingContext")
+        val body = String(Files.readAllBytes(path), Charsets.UTF_8)
 
-//        return Files.readAllBytes(path)
-        return String(Files.readAllBytes(path), Charsets.UTF_8)
+        val digest = Digest.ofUtf8(body)
+        if (expectedDigest != null) {
+            check(digest == expectedDigest) {
+                "Unexpected digest: $documentPath - $expectedDigest - $digest"
+            }
+        }
+
+        documentCache.put(digest, body)
+
+        return body
     }
 
 

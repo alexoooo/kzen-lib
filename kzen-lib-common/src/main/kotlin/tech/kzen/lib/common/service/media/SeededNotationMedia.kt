@@ -55,7 +55,7 @@ class SeededNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun readDocument(documentPath: DocumentPath): String {
+    override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
         seedIfRequired()
 
         val documentMedia = data[documentPath]
@@ -178,7 +178,7 @@ class SeededNotationMedia(
         val scan = underlying.scan()
 
         for (e in scan.documents.values) {
-            val document = underlying.readDocument(e.key)
+            val document = underlying.readDocument(e.key, e.value.documentDigest)
 
             val resources =
                     if (e.key.directory) {

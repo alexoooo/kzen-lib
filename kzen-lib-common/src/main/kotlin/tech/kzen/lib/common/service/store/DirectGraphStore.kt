@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
 import tech.kzen.lib.common.service.context.GraphDefiner
@@ -14,6 +15,7 @@ import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.NotationParser
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.DigestCache
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -27,6 +29,7 @@ class DirectGraphStore(
     //-----------------------------------------------------------------------------------------------------------------
     private var graphNotationCacheDigest: Digest? = null
     private var graphNotationCache: GraphNotation? = null
+    private val documentObjectCache = DigestCache<DocumentObjectNotation>(128)
 
     private val observers = mutableSetOf<LocalGraphStore.Observer>()
 
@@ -90,12 +93,20 @@ class DirectGraphStore(
         for (e in notationMedia.scan().documents.values) {
             val projectPath = e.key
 
-            val body = notationMedia.readDocument(projectPath)
+            val body = notationMedia.readDocument(projectPath, e.value.documentDigest)
 
             documentBodies[projectPath] = body
 
-            val documentNotation = notationParser.parseDocumentObjects(body)
-            documents[projectPath] = DocumentNotation(documentNotation, e.value.resources)
+            val cachedDocumentObjectNotation = documentObjectCache.get(e.value.documentDigest)
+            if (cachedDocumentObjectNotation != null) {
+                documents[projectPath] = DocumentNotation(cachedDocumentObjectNotation, e.value.resources)
+            }
+            else {
+                val documentObjectNotation = notationParser.parseDocumentObjects(body)
+                documents[projectPath] = DocumentNotation(documentObjectNotation, e.value.resources)
+
+                documentObjectCache.put(e.value.documentDigest, documentObjectNotation)
+            }
         }
 
         return GraphNotation(DocumentPathMap(documents.toPersistentMap()))
@@ -228,7 +239,7 @@ class DirectGraphStore(
         val sourceDocumentPath = copiedDocumentEvent.documentPath
         val destinationDocumentPath = copiedDocumentEvent.destination
 
-        val sourceDocumentContents = notationMedia.readDocument(sourceDocumentPath)
+        val sourceDocumentContents = notationMedia.readDocument(sourceDocumentPath, null)
         notationMedia.writeDocument(destinationDocumentPath, sourceDocumentContents)
 
         val sourceDocument = oldGraphNotation.documents[sourceDocumentPath]!!
@@ -256,7 +267,7 @@ class DirectGraphStore(
 
         val previousBody: String =
                 if (previouslyPresent) {
-                    notationMedia.readDocument(documentPath)
+                    notationMedia.readDocument(documentPath, null)
                 }
                 else {
                     ""

@@ -2,7 +2,7 @@ package tech.kzen.lib.common.util
 
 
 
-class Cache<T>(
+class DigestCache<T>(
         size: Int
 ) {
     //-----------------------------------------------------------------------------------------------------------------
