@@ -9,6 +9,9 @@ data class ObjectLocationMap<T>(
         val values: PersistentMap<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    private var locatorCache: ObjectLocationSet.Locator? = null
+
+
     val size: Int
         get() = values.size
 
@@ -32,7 +35,10 @@ data class ObjectLocationMap<T>(
 
     fun locateOptional(reference: ObjectReference): ObjectLocation? {
         val matches = locateAll(reference)
-        check(matches.values.size <= 1) { "Ambiguous: $reference - $matches" }
+
+        check(matches.values.size <= 1) {
+            "Ambiguous: $reference - $matches"
+        }
 
         if (matches.values.isEmpty()) {
             return null
@@ -47,7 +53,9 @@ data class ObjectLocationMap<T>(
     ): ObjectLocation? {
         val matches = locateAll(reference, host)
 
-        check(matches.values.size <= 1) { "Ambiguous: $host - $reference - $matches" }
+        check(matches.values.size <= 1) {
+            "Ambiguous: $host - $reference - $matches"
+        }
 
         if (matches.values.isEmpty()) {
             return null
@@ -65,7 +73,12 @@ data class ObjectLocationMap<T>(
             reference: ObjectReference,
             host: ObjectReferenceHost
     ): ObjectLocationSet {
-        return ObjectLocationSet.locateAll(values.keys, reference, host)
+        if (locatorCache == null) {
+            locatorCache = ObjectLocationSet.Locator()
+            locatorCache!!.addAll(values.keys)
+        }
+
+        return locatorCache!!.locateAll(reference, host)
     }
 
 

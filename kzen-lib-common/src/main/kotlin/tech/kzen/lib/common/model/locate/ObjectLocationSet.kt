@@ -1,22 +1,47 @@
 package tech.kzen.lib.common.model.locate
 
+import tech.kzen.lib.common.model.obj.ObjectName
+
 
 data class ObjectLocationSet(
         val values: Set<ObjectLocation>
 ) {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = ObjectLocationSet(setOf())
+    }
 
 
-        fun locateAll(
-                universe: Collection<ObjectLocation>,
-                reference: ObjectReference,
-                host: ObjectReferenceHost
-        ): ObjectLocationSet {
+    //-----------------------------------------------------------------------------------------------------------------
+    class Locator {
+        private val byName = mutableMapOf<ObjectName, MutableList<ObjectLocation>>()
+
+
+        fun add(objectLocation: ObjectLocation) {
+            val sameNameLocations = byName
+                    .getOrPut(objectLocation.objectPath.name) {
+                        mutableListOf()
+                    }
+
+            sameNameLocations.add(objectLocation)
+        }
+
+
+        fun addAll(objectLocations: Collection<ObjectLocation>) {
+            for (objectLocation in objectLocations) {
+                add(objectLocation)
+            }
+        }
+
+
+        fun locateAll(reference: ObjectReference, host: ObjectReferenceHost): ObjectLocationSet {
+            val sameNameLocations = byName[reference.name]
+                    ?: return empty
+
             val candidates = mutableSetOf<ObjectLocation>()
-            for (candidate in universe) {
-                if (reference.name != candidate.objectPath.name ||
-                        reference.path != null && reference.path != candidate.documentPath ||
+
+            for (candidate in sameNameLocations) {
+                if (reference.path != null && reference.path != candidate.documentPath ||
                         reference.nesting != candidate.objectPath.nesting) {
                     continue
                 }

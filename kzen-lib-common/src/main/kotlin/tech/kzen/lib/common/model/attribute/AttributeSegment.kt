@@ -1,10 +1,13 @@
 package tech.kzen.lib.common.model.attribute
 
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
+
 
 @Suppress("DataClassPrivateConstructor")
 data class AttributeSegment private constructor(
         private val asString: String
-) {
+): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): AttributeSegment {
@@ -34,6 +37,11 @@ data class AttributeSegment private constructor(
 
     fun asString(): String {
         return AttributePath.encodeDelimiter(asString)
+    }
+
+
+    override fun digest(builder: Digest.Builder) {
+        builder.addUtf8(asString)
     }
 
 

@@ -2,6 +2,8 @@ package tech.kzen.lib.common.model.structure.notation
 
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.platform.collect.PersistentMap
 import tech.kzen.lib.platform.collect.persistentListOf
@@ -9,7 +11,7 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 //---------------------------------------------------------------------------------------------------------------------
-sealed class AttributeNotation {
+sealed class AttributeNotation: Digestible {
     fun asString(): String? {
         return (this as? ScalarAttributeNotation)
                 ?.value
@@ -37,6 +39,11 @@ sealed class AttributeNotation {
 data class ScalarAttributeNotation(
         val value: String
 ): AttributeNotation() {
+    override fun digest(builder: Digest.Builder) {
+        builder.addUtf8(value)
+    }
+
+
     override fun toString(): String {
         return value
     }
@@ -110,6 +117,11 @@ data class ListAttributeNotation(
     }
 
 
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigestibleList(values)
+    }
+
+
     override fun toString(): String {
         return values.toString()
     }
@@ -122,6 +134,9 @@ data class MapAttributeNotation(
     companion object {
         val empty = MapAttributeNotation(persistentMapOf())
     }
+
+
+    private var digest: Digest? = null
 
 
     override fun get(key: String): AttributeNotation? {
@@ -160,6 +175,21 @@ data class MapAttributeNotation(
     ): MapAttributeNotation {
         return MapAttributeNotation(
                 values.remove(key))
+    }
+
+
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigest(digest)
+    }
+
+
+    override fun digest(): Digest {
+        if (digest == null) {
+            val builder = Digest.Builder()
+            builder.addDigestibleOrderedMap(values)
+            digest = builder.digest()
+        }
+        return digest!!
     }
 
 

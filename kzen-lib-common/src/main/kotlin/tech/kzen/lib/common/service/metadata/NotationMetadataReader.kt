@@ -11,11 +11,10 @@ import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.metadata.ObjectMetadata
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
-import tech.kzen.lib.common.model.structure.notation.AttributeNotation
-import tech.kzen.lib.common.model.structure.notation.GraphNotation
-import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
-import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.service.notation.NotationConventions
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.DigestCache
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.ClassNames
 import tech.kzen.lib.platform.collect.persistentMapOf
@@ -25,6 +24,9 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 class NotationMetadataReader(
 //        private val mirrorMetadataReader: MirrorMetadataReader
 ) {
+    private val metadataCache = DigestCache<ObjectMetadata>(1024)
+
+
     fun read(graphNotation: GraphNotation): GraphMetadata {
         val builder = mutableMapOf<ObjectLocation, ObjectMetadata>()
 
@@ -42,13 +44,41 @@ class NotationMetadataReader(
             objectLocation: ObjectLocation,
             graphNotation: GraphNotation
     ): ObjectMetadata {
+//        if (objectLocation.objectPath.name.value == "StringHolderRef") {
+//            println("fooo")
+//        }
+
+        val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
+        val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
+        val objectNotations = graphNotation.coalesce
+
+        val metadataDigest = metadataDigest(
+                objectLocation, objectReferenceHost, inheritanceChain, graphNotation, objectNotations)
+
+        val cached = metadataCache.get(metadataDigest)
+        if (cached != null) {
+            return cached
+        }
+
+        val objectMetadata = readObjectImpl(
+                objectLocation, objectReferenceHost, inheritanceChain, graphNotation)
+
+        metadataCache.put(metadataDigest, objectMetadata)
+
+        return objectMetadata
+    }
+
+
+    private fun readObjectImpl(
+            objectLocation: ObjectLocation,
+            objectReferenceHost: ObjectReferenceHost,
+            inheritanceChain: List<ObjectLocation>,
+            graphNotation: GraphNotation
+    ): ObjectMetadata {
+
         val allAttributes = mutableSetOf<AttributeName>()
 
         val builder = mutableMapOf<AttributeName, AttributeMetadata>()
-
-        val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
-
-        val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
 
         for (superLocation in inheritanceChain) {
             val superNotation = graphNotation.coalesce[superLocation]
@@ -82,6 +112,85 @@ class NotationMetadataReader(
         }
 
         return ObjectMetadata(AttributeNameMap(builder.toPersistentMap()))
+    }
+
+
+    private fun metadataDigest(
+            objectLocation: ObjectLocation,
+            objectReferenceHost: ObjectReferenceHost,
+            inheritanceChain: List<ObjectLocation>,
+            graphNotation: GraphNotation,
+            objectNotations: ObjectLocationMap<ObjectNotation>
+    ): Digest {
+        val metadataDependencies = metadataDependencies(
+                objectLocation, objectReferenceHost, inheritanceChain, graphNotation, objectNotations)
+
+        val builder = Digest.UnorderedCombiner()
+
+        for (dependencyObjectLocation in metadataDependencies) {
+            val dependencyNotation = objectNotations[dependencyObjectLocation]
+                    ?: continue
+
+            if (dependencyObjectLocation == objectLocation) {
+                // NB: factor in inferred metadata
+                builder.add(dependencyNotation.digest())
+            }
+            else {
+                val dependencyMetaAttribute = dependencyNotation
+                        .get(NotationConventions.metaAttributePath)
+                        as? MapAttributeNotation
+                        ?: continue
+
+                builder.add(dependencyMetaAttribute.digest())
+            }
+        }
+
+        return builder.combine()
+    }
+
+
+    private fun metadataDependencies(
+            objectLocation: ObjectLocation,
+            objectReferenceHost: ObjectReferenceHost,
+            inheritanceChain: List<ObjectLocation>,
+            graphNotation: GraphNotation,
+            objectNotations: ObjectLocationMap<ObjectNotation>
+    ): Set<ObjectLocation> {
+        val builder = mutableSetOf<ObjectLocation>()
+
+        builder.add(objectLocation)
+
+        for (superLocation in inheritanceChain) {
+            val superNotation = objectNotations[superLocation]
+                    ?: continue
+
+            val metaAttribute = superNotation
+                    .get(NotationConventions.metaAttributePath)
+                    as? MapAttributeNotation
+                    ?: continue
+
+            builder.add(superLocation)
+
+            for (e in metaAttribute.values) {
+                if (e.key == NotationConventions.refAttributeSegment) {
+                    continue
+                }
+
+                val inheritanceParent: String =
+                        attributeInheritanceParent(e.value)
+                        ?: continue
+
+                val inheritanceParentLocation = objectNotations
+                        .locate(ObjectReference.parse(inheritanceParent), objectReferenceHost)
+
+                val attributeInheritanceChain = graphNotation
+                        .inheritanceChain(inheritanceParentLocation)
+
+                builder.addAll(attributeInheritanceChain)
+            }
+        }
+
+        return builder
     }
 
 

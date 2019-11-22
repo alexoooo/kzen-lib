@@ -13,20 +13,21 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 class GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
-//            graphStructure: GraphStructure,
             graphDefinition: GraphDefinition
     ): GraphInstance {
         val graphStructure = graphDefinition.graphStructure
         var partialObjectGraph = GraphDefiner.bootstrapObjects
 
-        val levels = constructionLevels(graphDefinition)
+        val closedLocator = ObjectLocationSet.Locator()
+
+        val levels = constructionLevels(closedLocator, graphDefinition)
 
         for (objectLocation in levels.flatten()) {
             val objectDefinition = graphDefinition.objectDefinitions[objectLocation]
                     ?: throw IllegalArgumentException("Missing object definition: $objectLocation")
 
             val creatorPath = tryLocate(
-                    graphStructure.graphMetadata.objectMetadata.values.keys,
+                    closedLocator,
                     objectDefinition.creator,
                     ObjectReferenceHost.global
             ) ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
@@ -48,23 +49,29 @@ class GraphCreator {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun constructionLevels(graphDefinition: GraphDefinition): List<List<ObjectLocation>> {
+    private fun constructionLevels(
+            closedLocator: ObjectLocationSet.Locator,
+            graphDefinition: GraphDefinition
+    ): List<List<ObjectLocation>> {
         val closed = mutableSetOf<ObjectLocation>()
         closed.addAll(GraphDefiner.bootstrapObjects.keys)
+        closedLocator.addAll(closed)
 
         val open = graphDefinition.objectDefinitions.values.keys.toMutableSet()
 
         val levels = mutableListOf<List<ObjectLocation>>()
         while (open.isNotEmpty()) {
-            val nextLevel = findSatisfied(open, closed, graphDefinition)
+            val nextLevel = findSatisfied(open, closed, closedLocator, graphDefinition)
 
             check(nextLevel.isNotEmpty()) {
                 val unsatisfied =
-                        findUnsatisfied(open, closed, graphDefinition)
+                        findUnsatisfied(open, closed, closedLocator, graphDefinition)
                 "unable to satisfy: $open - $unsatisfied"
             }
 
             closed.addAll(nextLevel)
+            closedLocator.addAll(nextLevel)
+
             open.removeAll(nextLevel)
 
             levels.add(nextLevel)
@@ -77,6 +84,7 @@ class GraphCreator {
     private fun findSatisfied(
             open: Set<ObjectLocation>,
             closed: Set<ObjectLocation>,
+            closedLocator: ObjectLocationSet.Locator,
             graphDefinition: GraphDefinition
     ): List<ObjectLocation> {
         val allSatisfied = mutableListOf<ObjectLocation>()
@@ -88,7 +96,7 @@ class GraphCreator {
 
             val satisfied = definition
                     .references()
-                    .map { reference -> tryLocate(closed, reference, referenceHost) }
+                    .map { reference -> tryLocate(closedLocator, reference, referenceHost) }
                     .all { location -> location in closed }
 
             if (! satisfied) {
@@ -106,6 +114,7 @@ class GraphCreator {
     private fun findUnsatisfied(
             open: Set<ObjectLocation>,
             closed: Set<ObjectLocation>,
+            closedLocator: ObjectLocationSet.Locator,
             graphDefinition: GraphDefinition
     ): Pair<List<ObjectLocation>, List<Pair<ObjectReferenceHost, ObjectReference>>> {
         val unsatisfiedLocations = mutableSetOf<ObjectLocation>()
@@ -119,7 +128,7 @@ class GraphCreator {
             val referenceHost = ObjectReferenceHost.ofLocation(candidate)
 
             for (reference in definition.references()) {
-                val location = tryLocate(closed, reference, referenceHost)
+                val location = tryLocate(closedLocator, reference, referenceHost)
 
                 if (location == null) {
                     unsatisfiedReferences.add(referenceHost to reference)
@@ -135,7 +144,7 @@ class GraphCreator {
 
 
     private fun tryLocate(
-            closed: Set<ObjectLocation>,
+            closedLocator: ObjectLocationSet.Locator,
             reference: ObjectReference,
             referenceHost: ObjectReferenceHost
     ): ObjectLocation? {
@@ -145,7 +154,7 @@ class GraphCreator {
                     ObjectPath(reference.name, reference.nesting))
         }
 
-        val objectLocations = ObjectLocationSet.locateAll(closed, reference, referenceHost)
+        val objectLocations = closedLocator.locateAll(reference, referenceHost)
 
         if (objectLocations.values.isEmpty()) {
             return null

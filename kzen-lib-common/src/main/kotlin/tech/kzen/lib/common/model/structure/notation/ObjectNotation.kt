@@ -7,13 +7,15 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.service.notation.NotationConventions
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 data class ObjectNotation(
         val attributes: AttributeNameMap<AttributeNotation>
-) {
+): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val className = ClassName(
@@ -32,6 +34,10 @@ data class ObjectNotation(
                     NotationConventions.isAttributePath.attribute to attributeNotation)))
         }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private var digest: Digest? = null
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -146,6 +152,22 @@ data class ObjectNotation(
                 next.put(nextPathSegment, nextValue)
             }
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigest(digest())
+    }
+
+
+    override fun digest(): Digest {
+        if (digest == null) {
+            val builder = Digest.Builder()
+            builder.addDigestibleOrderedMap(attributes.values)
+            digest = builder.digest()
+        }
+        return digest!!
     }
 
 

@@ -36,53 +36,59 @@ data class GraphNotation(
     }
 
 
+    private val inheritanceChainCache = mutableMapOf<ObjectLocation, List<ObjectLocation>>()
+
+
     //-----------------------------------------------------------------------------------------------------------------
     fun inheritanceChain(objectLocation: ObjectLocation): List<ObjectLocation> {
-        val builder = mutableListOf<ObjectLocation>()
-        inheritanceChain(objectLocation) {
-            builder.add(it)
+        val cached = inheritanceChainCache[objectLocation]
+        if (cached != null) {
+            return cached
         }
+
+        val builder = mutableListOf<ObjectLocation>()
+
+        builder.add(objectLocation)
+
+        val parentLocation = inheritanceParent(objectLocation)
+        if (parentLocation != null) {
+            val parentInheritanceChain = inheritanceChain(parentLocation)
+            builder.addAll(parentInheritanceChain)
+        }
+
+        inheritanceChainCache[objectLocation] = builder
+
         return builder
     }
 
 
-    fun inheritanceChain(
-            objectLocation: ObjectLocation,
-            consumer: (ObjectLocation) -> Unit
-    ) {
-        var cursor = objectLocation
-        while (true) {
-            val notation = coalesce.values[cursor]
-                    ?: throw IllegalStateException("Missing: $cursor")
-
-            consumer.invoke(cursor)
-
-            if (cursor == BootstrapConventions.rootObjectLocation ||
-                    cursor == BootstrapConventions.bootstrapObjectLocation) {
-                break
-            }
-
-            @Suppress("MoveVariableDeclarationIntoWhen")
-            val isAttribute = notation.get(NotationConventions.isAttributePath)
-
-            if (isAttribute == null) {
-                consumer.invoke(BootstrapConventions.rootObjectLocation)
-                return
-            }
-
-            val superReference =
-                    when (isAttribute) {
-                        !is ScalarAttributeNotation ->
-                            TODO()
-
-                        else -> {
-                            val isValue = isAttribute.value
-                            ObjectReference.parse(isValue)
-                        }
-                    }
-
-            cursor = coalesce.locate(superReference, ObjectReferenceHost.ofLocation(objectLocation))
+    private fun inheritanceParent(
+            objectLocation: ObjectLocation
+    ): ObjectLocation? {
+        if (objectLocation == BootstrapConventions.rootObjectLocation ||
+                objectLocation == BootstrapConventions.bootstrapObjectLocation) {
+            return null
         }
+
+        val notation = coalesce.values[objectLocation]
+                ?: throw IllegalArgumentException("Missing: $objectLocation")
+
+        @Suppress("MoveVariableDeclarationIntoWhen")
+        val isAttribute = notation.get(NotationConventions.isAttributePath)
+                ?: return BootstrapConventions.rootObjectLocation
+
+        val superReference =
+                when (isAttribute) {
+                    !is ScalarAttributeNotation ->
+                        TODO()
+
+                    else -> {
+                        val isValue = isAttribute.value
+                        ObjectReference.parse(isValue)
+                    }
+                }
+
+        return coalesce.locate(superReference, ObjectReferenceHost.ofLocation(objectLocation))
     }
 
 
