@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
+import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
@@ -75,22 +76,28 @@ class DirectGraphStore(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun graphNotation(): GraphNotation {
-        val digest = digest()
+        val notationScan = notationMedia.scan()
+        return graphNotation(notationScan)
+    }
+
+
+    private suspend fun graphNotation(notationScan: NotationScan): GraphNotation {
+        val digest = notationScan.digest()
 
         if (graphNotationCacheDigest != digest) {
             graphNotationCacheDigest = digest
-            graphNotationCache = graphNotationImpl()
+            graphNotationCache = graphNotationImpl(notationScan)
         }
 
         return graphNotationCache!!
     }
 
 
-    private suspend fun graphNotationImpl(): GraphNotation {
+    private suspend fun graphNotationImpl(notationScan: NotationScan): GraphNotation {
         val documentBodies = mutableMapOf<DocumentPath, String>()
         val documents = mutableMapOf<DocumentPath, DocumentNotation>()
 
-        for (e in notationMedia.scan().documents.values) {
+        for (e in notationScan.documents.values) {
             val projectPath = e.key
 
             val body = notationMedia.readDocument(projectPath, e.value.documentDigest)
@@ -167,7 +174,8 @@ class DirectGraphStore(
     private suspend fun applyInPlace(
             command: NotationCommand
     ): NotationEvent {
-        val graphNotation = graphNotation()
+        val notationScan = notationMedia.scan()
+        val graphNotation = graphNotation(notationScan)
 
         val transition =
                 when (command) {
@@ -182,7 +190,7 @@ class DirectGraphStore(
 
         val newGraphNotation = transition.graphNotation
 
-        writeModified(graphNotation, newGraphNotation, command, transition)
+        writeModified(graphNotation, newGraphNotation, command, transition, notationScan)
 
         val removedDocumentPaths = graphNotation.documents.values.keys
                 .minus(newGraphNotation.documents.values.keys)
@@ -199,7 +207,8 @@ class DirectGraphStore(
             oldGraphNotation: GraphNotation,
             newGraphNotation: GraphNotation,
             command: NotationCommand,
-            transition: NotationTransition
+            transition: NotationTransition,
+            oldNotationScan: NotationScan
     ) {
         val copiedDocumentEvents =
                 (transition.notationEvent as? CompoundNotationEvent)
@@ -219,14 +228,22 @@ class DirectGraphStore(
                     }
 
             if (copiedDocumentEvent != null) {
-                writeCopy(oldGraphNotation, copiedDocumentEvent)
+                val oldDocumentScan = oldNotationScan.documents[copiedDocumentEvent.documentPath]
+
+                writeCopy(
+                        oldGraphNotation,
+                        copiedDocumentEvent,
+                        oldDocumentScan?.documentDigest)
             }
             else {
+                val oldDocumentScan = oldNotationScan.documents[updatedDocument.key]
+
                 writeIfRequired(
                         updatedDocument.key,
                         updatedDocument.value,
                         command,
-                        oldDocument)
+                        oldDocument,
+                        oldDocumentScan?.documentDigest)
             }
         }
     }
@@ -234,12 +251,15 @@ class DirectGraphStore(
 
     private suspend fun writeCopy(
             oldGraphNotation: GraphNotation,
-            copiedDocumentEvent: CopiedDocumentEvent
+            copiedDocumentEvent: CopiedDocumentEvent,
+            originalDocumentDigest: Digest?
     ) {
         val sourceDocumentPath = copiedDocumentEvent.documentPath
         val destinationDocumentPath = copiedDocumentEvent.destination
 
-        val sourceDocumentContents = notationMedia.readDocument(sourceDocumentPath, null)
+        val sourceDocumentContents = notationMedia
+                .readDocument(sourceDocumentPath, originalDocumentDigest)
+
         notationMedia.writeDocument(destinationDocumentPath, sourceDocumentContents)
 
         val sourceDocument = oldGraphNotation.documents[sourceDocumentPath]!!
@@ -257,7 +277,8 @@ class DirectGraphStore(
             documentPath: DocumentPath,
             documentNotation: DocumentNotation,
             command: NotationCommand,
-            originalDocument: DocumentNotation?
+            originalDocument: DocumentNotation?,
+            originalDocumentDigest: Digest?
     ) {
         if (documentNotation == originalDocument) {
             return
@@ -267,7 +288,7 @@ class DirectGraphStore(
 
         val previousBody: String =
                 if (previouslyPresent) {
-                    notationMedia.readDocument(documentPath, null)
+                    notationMedia.readDocument(documentPath, originalDocumentDigest)
                 }
                 else {
                     ""

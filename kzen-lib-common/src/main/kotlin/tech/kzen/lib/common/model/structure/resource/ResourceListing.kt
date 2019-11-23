@@ -27,6 +27,15 @@ data class ResourceListing(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun withResource(
+            resourcePath: ResourcePath,
+            contentDigest: Digest
+    ): ResourceListing {
+        return ResourceListing(
+                digests.put(resourcePath, contentDigest))
+    }
+
+
     fun withNewResource(
             resourcePath: ResourcePath,
             contentDigest: Digest

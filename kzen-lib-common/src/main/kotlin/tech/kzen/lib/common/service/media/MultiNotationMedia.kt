@@ -12,16 +12,33 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 class MultiNotationMedia(
         private val media: List<NotationMedia>
-) : NotationMedia {
+): NotationMedia {
+    //-----------------------------------------------------------------------------------------------------------------
+    private var scanCache: NotationScan? = null
+    private var scanCacheDigest = Digest.zero
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun scan(): NotationScan {
+        val digestBuilder = Digest.Builder()
+
+        val scans = mutableListOf<NotationScan>()
+        for (delegate in media) {
+            val scan = delegate.scan()
+            scans.add(scan)
+            digestBuilder.addDigest(scan.digest())
+        }
+
+        val cacheDigest = digestBuilder.digest()
+        if (scanCacheDigest == cacheDigest) {
+            return scanCache!!
+        }
+
         val duplicates = mutableSetOf<DocumentPath>()
 
         val all = mutableMapOf<DocumentPath, DocumentScan>()
-        for (delegate in media) {
-
-            val delegateScan = delegate.scan().documents.values
-            for (e in delegateScan) {
+        for (scan in scans) {
+            for (e in scan.documents.values) {
                 if (all.containsKey(e.key)) {
                     duplicates.add(e.key)
                 }
@@ -33,7 +50,12 @@ class MultiNotationMedia(
 
         check(duplicates.isEmpty()) { "Duplicates detected: $duplicates" }
 
-        return NotationScan(DocumentPathMap(all.toPersistentMap()))
+        val consolidated = NotationScan(DocumentPathMap(all.toPersistentMap()))
+
+        scanCache = consolidated
+        scanCacheDigest = cacheDigest
+
+        return consolidated
     }
 
 

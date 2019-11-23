@@ -75,7 +75,6 @@ class NotationMetadataReader(
             inheritanceChain: List<ObjectLocation>,
             graphNotation: GraphNotation
     ): ObjectMetadata {
-
         val allAttributes = mutableSetOf<AttributeName>()
 
         val builder = mutableMapOf<AttributeName, AttributeMetadata>()
