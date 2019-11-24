@@ -13,8 +13,19 @@ data class Digest(
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        /**
+         * Clear state, hashing any data will never produce this
+         */
         val zero = Digest(0, 0, 0, 0)
+
+        /**
+         * Initial state, result of digesting zero bytes or empty string
+         */
         val empty = Digest(1, 0, 0, 0)
+
+        /**
+         * Data to be digested is absent or missing, e.g. null
+         */
         val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
 
 

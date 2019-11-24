@@ -44,6 +44,10 @@ class FileNotationMedia(
             .weigher { _: Digest, value: String -> value.length }
             .build()
 
+    private val resourceInfoCache: Cache<ResourceLocation, FileInfo> = CacheBuilder
+            .newBuilder()
+            .maximumSize(1024)
+            .build()
 
     private data class FileInfo(
             val path: Path,
@@ -193,7 +197,26 @@ class FileNotationMedia(
                 val normalized = relative.replace('\\', '/')
 
                 val resourcePath = ResourcePath.parse(normalized)
-                val digest = Digest.ofBytes(Files.readAllBytes(file))
+
+                val resourceLocation = ResourceLocation(documentPath, resourcePath)
+
+                val modified = Files.getLastModifiedTime(file).toInstant()
+
+                val cachedResourceInfo = resourceInfoCache.get(resourceLocation) {
+                    FileInfo(file, Instant.MIN, Digest.zero)
+                }
+
+                val digest =
+                        if (cachedResourceInfo.modified == modified) {
+                            cachedResourceInfo.digest
+                        }
+                        else {
+                            val bytes = Files.readAllBytes(file)
+                            val newDigest = Digest.ofBytes(bytes)
+                            cachedResourceInfo.digest = newDigest
+                            cachedResourceInfo.modified = modified
+                            newDigest
+                        }
 
                 builder[resourcePath] = digest
 
@@ -330,6 +353,9 @@ class FileNotationMedia(
                 resourceLocation.resourcePath.asRelativeFile())
 
         val bytes = Files.readAllBytes(resolvedResourcePath)
+
+//        val resourceCache
+
         return ImmutableByteArray.wrap(bytes)
     }
 
@@ -347,7 +373,10 @@ class FileNotationMedia(
         Files.copy(contents.toInputStream(), resourcePath, StandardCopyOption.REPLACE_EXISTING)
 
         val digest = contents.digest()
-        invalidateUpsertResource(resourceLocation, digest)
+        val modified = Files.getLastModifiedTime(resourcePath).toInstant()
+
+        invalidateUpsertResource(
+                resourcePath, resourceLocation, digest, modified)
     }
 
 
@@ -371,8 +400,11 @@ class FileNotationMedia(
         Files.copy(ByteArrayInputStream(contents), destinationResourcePath)
         // Files.copy(sourceResourcePath, destinationResourcePath)
 
+        val modified = Files.getLastModifiedTime(destinationResourcePath).toInstant()
         val digest = Digest.ofBytes(contents)
-        invalidateUpsertResource(resourceLocation, digest)
+
+        invalidateUpsertResource(
+                destinationResourcePath, resourceLocation, digest, modified)
     }
 
 
@@ -457,15 +489,27 @@ class FileNotationMedia(
         invalidateResource(resourceLocation) {
             it.withoutResource(resourceLocation.resourcePath)
         }
+
+        resourceInfoCache.invalidate(resourceLocation)
     }
 
 
     private fun invalidateUpsertResource(
+            resolvedResourcePath: Path,
             resourceLocation: ResourceLocation,
-            resourceDigest: Digest
+            resourceDigest: Digest,
+            resourceModified: Instant
     ) {
         invalidateResource(resourceLocation) {
             it.withResource(resourceLocation.resourcePath, resourceDigest)
+        }
+
+        val cachedResourceInfo = resourceInfoCache.getIfPresent(resourceLocation)
+                ?: FileInfo(resolvedResourcePath, Instant.MIN, Digest.zero)
+
+        if (cachedResourceInfo.modified != resourceModified) {
+            cachedResourceInfo.modified = resourceModified
+            cachedResourceInfo.digest = resourceDigest
         }
     }
 
