@@ -73,7 +73,6 @@ class FileNotationMedia(
             scanRootIntoMirror(root)
         }
 
-        check(notationScanMirror.isNotEmpty())
         notationScanCache = NotationScan(DocumentPathMap(notationScanMirror.toPersistentMap()))
         return notationScanCache!!
     }
