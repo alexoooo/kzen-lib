@@ -7,6 +7,7 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.NotationCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.NotationEvent
 
 
+@Suppress("unused")
 class MirroredGraphStore(
         private val localGraphStore: DirectGraphStore,
         private val remoteGraphStore: RemoteGraphStore

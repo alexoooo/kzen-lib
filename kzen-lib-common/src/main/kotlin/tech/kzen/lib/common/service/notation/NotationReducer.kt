@@ -509,10 +509,7 @@ class NotationReducer {
     ): NotationTransition {
         val buffer = Buffer(state)
 
-        val objectPath = command.containingObjectLocation.objectPath.nest(
-                command.containingList, command.objectName)
-
-        val objectLocation = ObjectLocation(command.containingObjectLocation.documentPath, objectPath)
+        val objectLocation = command.insertedObjectLocation()
 
         val objectAdded = buffer
                 .apply(AddObjectCommand(

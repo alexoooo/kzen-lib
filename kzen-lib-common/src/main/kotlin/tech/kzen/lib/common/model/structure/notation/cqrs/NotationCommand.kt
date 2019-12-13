@@ -160,7 +160,12 @@ data class InsertObjectInListAttributeCommand(
         val objectName: ObjectName,
         val positionInDocument: PositionIndex,
         val body: ObjectNotation
-): StructuralNotationCommand()
+): StructuralNotationCommand() {
+    fun insertedObjectLocation(): ObjectLocation {
+        val objectPath = containingObjectLocation.objectPath.nest(containingList, objectName)
+        return ObjectLocation(containingObjectLocation.documentPath, objectPath)
+    }
+}
 
 
 data class RemoveObjectInAttributeCommand(

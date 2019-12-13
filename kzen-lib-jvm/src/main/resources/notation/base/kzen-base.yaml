@@ -104,13 +104,19 @@ ParentPointer:
     order: Int
 
 
-ChildContainer:
+ChildList:
   abstract: true
   meta:
-    children:
+    ref:
       is: List
       of: ParentPointer
       by: ParentChild
+
+
+ChildContainer:
+  abstract: true
+  meta:
+    children: ChildList
 
 
 ###########################################################

@@ -2,7 +2,8 @@ package tech.kzen.lib.common.util.yaml
 
 
 /**
- * Similar to: https://github.com/crdoconnor/strictyaml/
+ * Similar to https://github.com/crdoconnor/strictyaml/ but with [] and {}
+ * TODO: consider space in bare string
  */
 object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
