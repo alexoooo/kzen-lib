@@ -17,14 +17,6 @@ NumericStringHolder:
   value: 123
 
 
-SelfLocation:
-  abstract: true
-  is: ObjectLocation
-  meta:
-    ref:
-      by: Self
-
-
 SelfAware:
   abstract: true
   class: tech.kzen.lib.server.objects.SelfAware

@@ -137,8 +137,19 @@ DocumentNotation:
   class: tech.kzen.lib.common.model.structure.notation.DocumentNotation
 
 
+###########################################################
+
+
 Self:
   class: tech.kzen.lib.common.objects.general.SelfAttributeDefiner
+
+
+SelfLocation:
+  abstract: true
+  is: ObjectLocation
+  meta:
+    ref:
+      by: Self
 
 
 ###########################################################
