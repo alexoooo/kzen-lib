@@ -3,8 +3,6 @@ apply plugin: 'kotlin-dce-js'
 apply plugin: 'com.moowork.node'
 
 dependencies {
-//    def kotlinxHtmlVersion = "0.6.9"
-
     expectedBy project(':kzen-lib-common')
 
     compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-js', version: kotlinVersion

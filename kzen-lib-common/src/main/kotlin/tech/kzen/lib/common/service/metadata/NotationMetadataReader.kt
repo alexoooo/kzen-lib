@@ -220,6 +220,8 @@ class NotationMetadataReader(
                     ?.asString()
                     ?: ClassNames.kotlinAny.get()
 
+            // TODO: add support for Nominal definer if constructor argument is ObjectLocation
+
             return AttributeMetadata(
                     MapAttributeNotation(persistentMapOf(
                             NotationConventions.isAttributeSegment to ScalarAttributeNotation(isValue))),

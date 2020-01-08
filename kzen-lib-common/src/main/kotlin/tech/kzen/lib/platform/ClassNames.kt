@@ -9,4 +9,12 @@ object ClassNames {
     val kotlinDouble = ClassName("kotlin.Double")
 
     val kotlinList = ClassName("kotlin.collections.List")
+
+
+    fun isPrimitive(className: ClassName): Boolean {
+        return className == kotlinString ||
+                className == kotlinBoolean ||
+                className == kotlinInt ||
+                className == kotlinDouble;
+    }
 }

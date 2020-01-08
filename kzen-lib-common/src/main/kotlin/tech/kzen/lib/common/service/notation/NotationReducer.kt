@@ -363,7 +363,8 @@ class NotationReducer {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
 
-        val objectNotation = state.coalesce[command.objectLocation]!!
+        val objectNotation = state.coalesce[command.objectLocation]
+                ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
         val listInAttribute = state
                 .transitiveAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
