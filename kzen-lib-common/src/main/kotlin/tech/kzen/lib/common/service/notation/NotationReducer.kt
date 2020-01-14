@@ -673,7 +673,7 @@ class NotationReducer {
                 .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
                 as RenamedNestedObjectEvent
 
-        val newObjectLocation = renamedObject.newLocation()
+        val newObjectLocation = renamedObject.newObjectLocation()
 
         val adjustedReferenceCommands = adjustReferenceCommands(
                 objectLocation, newObjectLocation, graphDefinition)

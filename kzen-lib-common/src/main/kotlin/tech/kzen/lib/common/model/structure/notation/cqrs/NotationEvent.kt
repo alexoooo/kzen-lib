@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.AttributeNotation
 import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
@@ -82,11 +83,18 @@ data class RenamedObjectEvent(
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
-    
-    
-    fun newLocation(): ObjectLocation {
+
+
+    @Suppress("MemberVisibilityCanBePrivate")
+    fun newObjectPath(): ObjectPath {
+        return objectLocation.objectPath.copy(name = newName)
+    }
+
+
+    @Suppress("unused")
+    fun newObjectLocation(): ObjectLocation {
         return objectLocation.copy(
-                objectPath = objectLocation.objectPath.copy(name = newName))
+                objectPath = newObjectPath())
     }
 }
 
@@ -99,9 +107,15 @@ data class RenamedNestedObjectEvent(
         get() = objectLocation.documentPath
 
 
-    fun newLocation(): ObjectLocation {
+    @Suppress("MemberVisibilityCanBePrivate")
+    fun newObjectPath(): ObjectPath {
+        return objectLocation.objectPath.copy(nesting = newObjectNesting)
+    }
+
+
+    fun newObjectLocation(): ObjectLocation {
         return objectLocation.copy(
-                objectPath = objectLocation.objectPath.copy(nesting = newObjectNesting))
+                objectPath = newObjectPath())
     }
 }
 
