@@ -62,7 +62,7 @@ object GraphTestUtils {
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val graphDefinition =
-                GraphDefiner().tryDefine(graphStructure).successful
+                GraphDefiner().tryDefine(graphStructure).transitiveSuccessful()
 
         return GraphCreator()
                 .createGraph(graphDefinition)

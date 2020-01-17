@@ -92,8 +92,9 @@ class RenameObjectRefactorTest {
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     @Test
-    fun `Rename should update partial references`() {
+    fun `Rename should update references in partial object`() {
         val notationTree = GraphTestUtils.readNotation()
         val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
 
@@ -117,6 +118,27 @@ class RenameObjectRefactorTest {
         val divisorDependency = partialDivisionDivisor.get(AttributeName("divisor"))?.asString()!!
 
         assertEquals("main.addends/NewName", divisorDependency)
+    }
+
+
+    @Test
+    fun `Rename should update references to partial object`() {
+        val notationTree = GraphTestUtils.readNotation()
+        val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
+
+        val transition = reducer.apply(
+                graphDefinitionAttempt,
+                RenameObjectRefactorCommand(
+                        location("PartialDivisionDividend"), ObjectName("NewName")))
+
+        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+
+        val divisionOfPartial =
+                documentNotation.objects.notations[ObjectPath.parse("DivisionOfPartial")]!!
+
+        val dividendDependency = divisionOfPartial.get(AttributeName("dividend"))?.asString()!!
+
+        assertEquals("NewName", dividendDependency)
     }
 
 

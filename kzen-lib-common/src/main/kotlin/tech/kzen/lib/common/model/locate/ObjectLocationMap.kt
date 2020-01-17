@@ -27,6 +27,11 @@ data class ObjectLocationMap<T>(
         get() = values.size
 
 
+    fun isEmpty(): Boolean {
+        return values.isEmpty()
+    }
+
+
     fun locate(reference: ObjectReference): ObjectLocation {
         return locateOptional(reference)
                 ?: throw IllegalArgumentException(

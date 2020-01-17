@@ -40,3 +40,9 @@ PartialDivisionDividend:
 PartialDivisionDivisor:
   is: DivideOperation
   divisor: "main.addends/OldName"
+
+
+DivisionOfPartial:
+  is: DivideOperation
+  dividend: PartialDivisionDividend
+  divisor: PartialDivisionDivisor
