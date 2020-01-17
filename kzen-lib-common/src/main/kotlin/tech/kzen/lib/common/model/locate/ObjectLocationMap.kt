@@ -9,6 +9,17 @@ data class ObjectLocationMap<T>(
         val values: PersistentMap<ObjectLocation, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        private val empty = ObjectLocationMap(mapOf<ObjectLocation, Any>().toPersistentMap())
+
+        fun <T> empty(): ObjectLocationMap<T> {
+            @Suppress("UNCHECKED_CAST")
+            return empty as ObjectLocationMap<T>
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private var locatorCache: ObjectLocationSet.Locator? = null
 
 

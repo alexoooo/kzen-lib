@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.util
 
 import kotlinx.coroutines.runBlocking
-import tech.kzen.lib.common.model.definition.GraphDefinition
+import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.instance.GraphInstance
@@ -50,9 +50,9 @@ object GraphTestUtils {
     }
 
 
-    fun graphDefinition(graphNotation: GraphNotation): GraphDefinition {
+    fun graphDefinition(graphNotation: GraphNotation): GraphDefinitionAttempt {
         val graphMetadata = graphMetadata(graphNotation)
-        return GraphDefiner().define(
+        return GraphDefiner().tryDefine(
                 GraphStructure(graphNotation, graphMetadata))
     }
 
@@ -61,7 +61,8 @@ object GraphTestUtils {
         val graphMetadata = graphMetadata(graphNotation)
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
-        val graphDefinition = GraphDefiner().define(graphStructure)
+        val graphDefinition =
+                GraphDefiner().tryDefine(graphStructure).successful
 
         return GraphCreator()
                 .createGraph(graphDefinition)

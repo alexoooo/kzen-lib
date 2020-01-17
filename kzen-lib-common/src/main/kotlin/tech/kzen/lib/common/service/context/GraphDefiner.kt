@@ -5,6 +5,8 @@ import tech.kzen.lib.common.api.ObjectDefiner
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.definition.GraphDefinition
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
+import tech.kzen.lib.common.model.definition.ObjectDefinitionFailure
+import tech.kzen.lib.common.model.definition.ObjectDefinitionSuccess
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
@@ -59,7 +61,7 @@ class GraphDefiner {
     ): GraphDefinition {
         val attempt = tryDefine(graphStructure)
         require(! attempt.hasErrors()) {
-            "Definition errors: ${attempt.errors}"
+            "Definition errors: ${attempt.failures}"
         }
         return attempt.successful
     }
@@ -87,6 +89,8 @@ class GraphDefiner {
         val levelCreated = mutableSetOf<ObjectLocation>()
         val missingCreatorInstances = mutableSetOf<ObjectLocation>()
         val levelErrors = mutableMapOf<ObjectLocation, String>()
+        val levelFailures =
+                mutableMapOf<ObjectLocation, ObjectDefinitionFailure>()
 
         var levelCount = 0
         while (openDefinitions.isNotEmpty()) {
@@ -119,16 +123,19 @@ class GraphDefiner {
                         definerAndRelatedInstances)
 //                println("  >> definition: $definition")
 
-                if (definition.isError()) {
-//                    println(" !! definition error: ${definition.errorMessage}")
-                    levelErrors[objectLocation] = definition.errorMessage!!
-                    missingInstances.addAll(definition.missingObjects.values)
-                    continue
+                when (definition) {
+                    is ObjectDefinitionSuccess -> {
+                        closedDefinitions = closedDefinitions.put(objectLocation, definition.value)
+                        levelClosed.add(objectLocation)
+                    }
+
+                    is ObjectDefinitionFailure -> {
+                        levelErrors[objectLocation] = definition.errorMessage
+                        missingInstances.addAll(definition.missingObjects.values)
+
+                        levelFailures[objectLocation] = definition
+                    }
                 }
-
-                closedDefinitions = closedDefinitions.put(objectLocation, definition.value!!)
-
-                levelClosed.add(objectLocation)
             }
 
 //            println("--- missingInstances: $missingInstances")
@@ -184,9 +191,13 @@ class GraphDefiner {
             missingInstances.removeAll(levelCreated)
 
             if (levelClosed.isEmpty() && levelCreated.isEmpty()) {
+//                for ((objectLocation, partialDefinition) in levelPartial) {
+//                    closedDefinitions = closedDefinitions.put(objectLocation, partialDefinition)
+//                }
+
                 return GraphDefinitionAttempt(
                         closedDefinitions,
-                        ObjectLocationMap(levelErrors.toPersistentMap()))
+                        ObjectLocationMap(levelFailures.toPersistentMap()))
             }
 
             openDefinitions.removeAll(levelClosed)
@@ -195,11 +206,12 @@ class GraphDefiner {
             levelClosed.clear()
             missingCreatorInstances.clear()
             levelErrors.clear()
+            levelFailures.clear()
         }
 
         return GraphDefinitionAttempt(
                 closedDefinitions,
-                ObjectLocationMap(persistentMapOf()))
+                ObjectLocationMap.empty())
     }
 
 

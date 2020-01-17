@@ -16,3 +16,27 @@ main:
   is: DoubleValue
   value: 3
 
+
+DivideOperation:
+  abstract: true
+  is: DoubleExpression
+  class: tech.kzen.lib.server.objects.ast.DivideOperation
+  meta:
+    dividend: DoubleExpression
+    divisor: DoubleExpression
+
+
+CompleteDivision:
+  is: DivideOperation
+  dividend: "main.addends/OldName"
+  divisor: "main.addends/SameName"
+
+
+PartialDivisionDividend:
+  is: DivideOperation
+  dividend: "main.addends/OldName"
+
+
+PartialDivisionDivisor:
+  is: DivideOperation
+  divisor: "main.addends/OldName"

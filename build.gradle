@@ -17,7 +17,7 @@ allprojects {
 
 subprojects {
     group = 'tech.kzen.lib'
-    version = '0.12.2'
+    version = '0.12.3-SNAPSHOT'
 
     repositories {
         mavenLocal()

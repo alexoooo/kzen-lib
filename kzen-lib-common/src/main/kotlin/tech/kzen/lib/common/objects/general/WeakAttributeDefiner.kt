@@ -2,10 +2,7 @@ package tech.kzen.lib.common.objects.general
 
 import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.model.attribute.AttributeName
-import tech.kzen.lib.common.model.definition.AttributeDefinitionAttempt
-import tech.kzen.lib.common.model.definition.GraphDefinition
-import tech.kzen.lib.common.model.definition.ListAttributeDefinition
-import tech.kzen.lib.common.model.definition.ReferenceAttributeDefinition
+import tech.kzen.lib.common.model.definition.*
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
@@ -59,17 +56,22 @@ class WeakAttributeDefiner(
         for (itemAttributeNotation in attributeNotation.values) {
             if (itemAttributeNotation is ScalarAttributeNotation) {
                 val definitionAttempt = defineScalar(
-                        objectLocation, attributeName, /*graphStructure.graphNotation,*/ itemAttributeNotation)
+                        objectLocation, attributeName, itemAttributeNotation)
 
-                if (definitionAttempt.isError()) {
-                    return definitionAttempt
+                when (definitionAttempt) {
+                    is AttributeDefinitionSuccess -> {
+                        val attributeDefinition =
+                                definitionAttempt.value as? ReferenceAttributeDefinition
+                                ?: TODO("ValueAttributeDefinition expected: ${definitionAttempt.value} - " +
+                                        "$objectLocation - $attributeName - $attributeNotation")
+
+                        items.add(attributeDefinition)
+                    }
+
+                    is AttributeDefinitionFailure -> {
+                        return definitionAttempt
+                    }
                 }
-
-                val attributeDefinition = definitionAttempt.value as? ReferenceAttributeDefinition
-                        ?: TODO("ValueAttributeDefinition expected: " +
-                                "${definitionAttempt.value} - $objectLocation - $attributeName - $attributeNotation ")
-
-                items.add(attributeDefinition)
             }
             else {
                 TODO("List of ScalarAttributeNotation expected: " +
@@ -86,7 +88,6 @@ class WeakAttributeDefiner(
     private fun defineScalar(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
-//            graphNotation: GraphNotation,
             scalarAttributeNotation: ScalarAttributeNotation
     ): AttributeDefinitionAttempt {
         val objectReference = scalarAttributeNotation.asString()?.let { ObjectReference.parse(it) }

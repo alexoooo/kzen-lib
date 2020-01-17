@@ -183,8 +183,8 @@ class DirectGraphStore(
                         notationReducer.apply(graphNotation, command)
 
                     is SemanticNotationCommand -> {
-                        val graphDefinition = graphDefinition(graphNotation)
-                        notationReducer.apply(graphDefinition.successful, command)
+                        val graphDefinitionAttempt = graphDefinition(graphNotation)
+                        notationReducer.apply(graphDefinitionAttempt, command)
                     }
                 }
 

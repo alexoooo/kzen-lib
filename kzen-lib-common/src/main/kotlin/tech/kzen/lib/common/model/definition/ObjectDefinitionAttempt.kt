@@ -1,37 +1,54 @@
 package tech.kzen.lib.common.model.definition
 
+import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.locate.ObjectLocationSet
 
 
-data class ObjectDefinitionAttempt(
-        val value: ObjectDefinition?,
-        val missingObjects: ObjectLocationSet,
-        val errorMessage: String?
-) {
+sealed class ObjectDefinitionAttempt {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        fun success(definition: ObjectDefinition) =
-                ObjectDefinitionAttempt(
-                        definition,
-                        ObjectLocationSet.empty,
-                        null)
-
-        fun missingObjectsFailure(missingObjects: ObjectLocationSet) =
-                ObjectDefinitionAttempt(
-                        null,
-                        missingObjects,
-                        "Missing objects: $missingObjects")
-
-        fun failure(error: String) =
-                ObjectDefinitionAttempt(
-                        null,
-                        ObjectLocationSet.empty,
-                        error)
-    }
+        fun success(definition: ObjectDefinition): ObjectDefinitionSuccess {
+            return ObjectDefinitionSuccess(definition)
+        }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
-    fun isError(): Boolean {
-        return value == null
+        fun missingObjectsFailure(
+                errorMessage: String,
+                attributeErrors: Map<AttributeName, String>,
+                missingObjects: ObjectLocationSet,
+                partialDefinition: ObjectDefinition
+        ): ObjectDefinitionFailure {
+            return ObjectDefinitionFailure(
+                    partialDefinition,
+                    missingObjects,
+                    errorMessage,
+                    attributeErrors)
+        }
+
+
+        fun failure(
+                errorMessage: String,
+                attributeErrors: Map<AttributeName, String>,
+                partialDefinition: ObjectDefinition?
+        ): ObjectDefinitionFailure {
+            return ObjectDefinitionFailure(
+                    partialDefinition,
+                    ObjectLocationSet.empty,
+                    errorMessage,
+                    attributeErrors)
+        }
     }
 }
+
+
+data class ObjectDefinitionSuccess(
+        val value: ObjectDefinition
+): ObjectDefinitionAttempt()
+
+
+data class ObjectDefinitionFailure(
+        val partial: ObjectDefinition?,
+        val missingObjects: ObjectLocationSet,
+        val errorMessage: String,
+        val attributeErrors: Map<AttributeName, String>
+): ObjectDefinitionAttempt()

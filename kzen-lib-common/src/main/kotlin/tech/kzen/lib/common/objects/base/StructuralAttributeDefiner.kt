@@ -1,9 +1,9 @@
 package tech.kzen.lib.common.objects.base
 
 import tech.kzen.lib.common.api.AttributeDefiner
+import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.definition.*
 import tech.kzen.lib.common.model.instance.GraphInstance
-import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
@@ -87,10 +87,18 @@ class StructuralAttributeDefiner: AttributeDefiner {
 
             val definitions = mutableListOf<AttributeDefinition>()
             for (value in attributeNotation.values) {
+                @Suppress("MoveVariableDeclarationIntoWhen")
                 val definitionAttempt = defineRecursively(value, listGeneric)
-                val definition = definitionAttempt.value
-                        ?: return definitionAttempt
-                definitions.add(definition)
+
+                when (definitionAttempt) {
+                    is AttributeDefinitionSuccess -> {
+                        definitions.add(definitionAttempt.value)
+                    }
+
+                    is AttributeDefinitionFailure -> {
+                        return definitionAttempt
+                    }
+                }
             }
             return AttributeDefinitionAttempt.success(
                     ListAttributeDefinition(definitions))
