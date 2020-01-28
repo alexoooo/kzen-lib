@@ -65,17 +65,21 @@ class StructuralAttributeDefiner: AttributeDefiner {
                             ValueAttributeDefinition(false))
                 }
                 return AttributeDefinitionAttempt.failure(
-                        "Boolean expected: $attributeNotation")
+                        "Boolean expected: ${attributeNotation.value}")
             }
 
             if (className == ClassNames.kotlinInt) {
-                return AttributeDefinitionAttempt.success(
-                        ValueAttributeDefinition(attributeNotation.value.toInt()))
+                val value = attributeNotation.value.toIntOrNull()
+                return value
+                        ?.let { AttributeDefinitionAttempt.success(ValueAttributeDefinition(it)) }
+                        ?: AttributeDefinitionAttempt.failure("Integer expected: ${attributeNotation.value}")
             }
 
             if (className == ClassNames.kotlinDouble) {
-                return AttributeDefinitionAttempt.success(
-                        ValueAttributeDefinition(attributeNotation.value.toDouble()))
+                val value = attributeNotation.value.toDoubleOrNull()
+                return value
+                        ?.let { AttributeDefinitionAttempt.success(ValueAttributeDefinition(it)) }
+                        ?: AttributeDefinitionAttempt.failure("Number expected: ${attributeNotation.value}")
             }
 
             return AttributeDefinitionAttempt.success(

@@ -11,9 +11,9 @@ data class GraphDefinitionAttempt(
         val failures: ObjectLocationMap<ObjectDefinitionFailure>
 ) {
     fun transitiveSuccessful(): GraphDefinition {
-        if (failures.isEmpty()) {
-            return successful
-        }
+//        if (failures.isEmpty()) {
+//            return successful
+//        }
 
         val failedObjectLocations = failures.values.keys.toMutableSet()
         var open = successful.objectDefinitions.values

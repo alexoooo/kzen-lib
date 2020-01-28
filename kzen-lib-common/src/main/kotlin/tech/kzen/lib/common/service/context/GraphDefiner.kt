@@ -77,7 +77,7 @@ class GraphDefiner {
                 .objectLocations
                 .filter {
                     ! bootstrapObjects.containsKey(it) &&
-                            !isAbstract(it, graphStructure.graphNotation)
+                            ! isAbstract(it, graphStructure.graphNotation)
                 }.toMutableSet()
 
         var closedDefinitions = GraphDefinition.empty
