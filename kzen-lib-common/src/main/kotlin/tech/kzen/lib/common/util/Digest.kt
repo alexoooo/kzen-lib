@@ -127,7 +127,7 @@ data class Digest(
 
 
         fun addMissing(): Builder {
-            addDigestDirect(missing)
+            addDigest(missing)
             return this
         }
 
@@ -143,7 +143,7 @@ data class Digest(
         }
 
 
-        fun addBoolean(value: Boolean?): Builder {
+        fun addBooleanNullable(value: Boolean?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -160,8 +160,30 @@ data class Digest(
         }
 
 
+        fun addByteNullable(value: Byte?): Builder {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addByte(value)
+            }
+            return this
+        }
+
+
         fun addChar(value: Char): Builder {
             addInt(value.toInt())
+            return this
+        }
+
+
+        fun addCharNullable(value: Char?): Builder {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addChar(value)
+            }
             return this
         }
 
@@ -171,9 +193,30 @@ data class Digest(
             return this
         }
 
+        fun addShortNullable(value: Short?): Builder {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addShort(value)
+            }
+            return this
+        }
+
 
         fun addDouble(value: Double): Builder {
             addLong(value.toBits())
+            return this
+        }
+
+
+        fun addDoubleNullable(value: Double?): Builder {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addDouble(value)
+            }
             return this
         }
 
@@ -186,7 +229,18 @@ data class Digest(
         }
 
 
-        private fun addDigestDirect(digest: Digest): Builder {
+        fun addLongNullable(value: Long?): Builder {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addLong(value)
+            }
+            return this
+        }
+
+
+        fun addDigest(digest: Digest): Builder {
             addInt(digest.a)
             addInt(digest.b)
             addInt(digest.c)
@@ -195,23 +249,31 @@ data class Digest(
         }
 
 
-        fun addDigest(digest: Digest?): Builder {
+        fun addDigestNullable(digest: Digest?): Builder {
             if (digest == null) {
-                addMissing()
+                addBoolean(false)
             }
             else {
-                addDigestDirect(digest)
+                addBoolean(true)
+                addDigest(digest)
             }
             return this
         }
 
 
-        fun addDigestible(digestible: Digestible?): Builder {
+        fun addDigestible(digestible: Digestible): Builder {
+            digestible.digest(this)
+            return this
+        }
+
+
+        fun addDigestibleNullable(digestible: Digestible?): Builder {
             if (digestible == null) {
-                addMissing()
+                addBoolean(false)
             }
             else {
-                addDigestDirect(digestible.digest())
+                addBoolean(true)
+                addDigestible(digestible)
             }
             return this
         }
@@ -249,36 +311,45 @@ data class Digest(
                 unorderedCombiner.add(entryDigester.digest())
             }
 
-            addDigestDirect(unorderedCombiner.combine())
+            addDigest(unorderedCombiner.combine())
         }
 
 
-        fun addUtf8(utf8: String?): Builder {
+        fun addUtf8(utf8: String): Builder {
+            val bytes = IoUtils.utf8Encode(utf8)
+            addBytes(bytes)
+            return this
+        }
+
+
+        fun addUtf8Nullable(utf8: String?): Builder {
             if (utf8 == null) {
-                addMissing()
+                addBoolean(false)
             }
             else {
-                val bytes = IoUtils.utf8Encode(utf8)
-                addBytesDirect(bytes)
+                addBoolean(true)
+                addUtf8(utf8)
             }
             return this
         }
 
 
-        private fun addBytesDirect(bytes: ByteArray) {
+        fun addBytes(bytes: ByteArray): Builder {
             addInt(bytes.size)
             bytes.forEach {
                 addByte(it)
             }
+            return this
         }
 
 
-        fun addBytes(bytes: ByteArray?): Builder {
+        fun addBytesNullable(bytes: ByteArray?): Builder {
             if (bytes == null) {
-                addMissing()
+                addBoolean(false)
             }
             else {
-                addBytesDirect(bytes)
+                addBoolean(true)
+                addBytes(bytes)
             }
             return this
         }
@@ -302,6 +373,17 @@ data class Digest(
                 s2 = s2 xor t
 
                 s3 = rotl(s3, 11)
+            }
+            return this
+        }
+
+
+        fun addIntNullable(value: Int?): Builder {
+            if (value == null) {
+                addMissing()
+            }
+            else {
+                addInt(value)
             }
             return this
         }

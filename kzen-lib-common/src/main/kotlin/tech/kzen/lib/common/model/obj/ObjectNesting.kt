@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.model.obj
 
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.platform.collect.toPersistentList
 
@@ -9,7 +11,9 @@ import tech.kzen.lib.platform.collect.toPersistentList
  */
 data class ObjectNesting(
         val segments: PersistentList<ObjectNestingSegment>
-) {
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         const val delimiter = "/"
@@ -182,6 +186,11 @@ data class ObjectNesting(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigestibleList(segments)
+    }
+
+
     override fun toString(): String {
         return asString()
     }

@@ -1,12 +1,16 @@
 package tech.kzen.lib.common.model.obj
 
 import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 
 
 data class ObjectNestingSegment(
         val objectName: ObjectName,
         val attributePath: AttributePath
-) {
+):
+        Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): ObjectNestingSegment {
@@ -34,6 +38,12 @@ data class ObjectNestingSegment(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        objectName.digest(builder)
+        attributePath.digest(builder)
+    }
+
+
     override fun toString(): String {
         return asString()
     }

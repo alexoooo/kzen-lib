@@ -7,7 +7,9 @@ import tech.kzen.lib.common.util.Digestible
 @Suppress("DataClassPrivateConstructor")
 data class AttributeSegment private constructor(
         private val asString: String
-): Digestible {
+):
+        Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         fun parse(asString: String): AttributeSegment {

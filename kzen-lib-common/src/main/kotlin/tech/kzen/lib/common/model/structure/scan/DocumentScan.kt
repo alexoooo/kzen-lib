@@ -11,6 +11,6 @@ data class DocumentScan(
 ): Digestible {
     override fun digest(builder: Digest.Builder) {
         builder.addDigest(documentDigest)
-        builder.addDigestible(resources)
+        builder.addDigestibleNullable(resources)
     }
 }

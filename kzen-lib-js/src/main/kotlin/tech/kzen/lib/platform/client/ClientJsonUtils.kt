@@ -43,7 +43,7 @@ object ClientJsonUtils {
                 value
 
             is Array<*> ->
-                toList(value as Array<Json>)
+                toList(value)
 
             // NB: following doesn't work because Json is an external interface
             // is Json ->

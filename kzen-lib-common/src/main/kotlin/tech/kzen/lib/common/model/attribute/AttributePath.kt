@@ -1,12 +1,16 @@
 package tech.kzen.lib.common.model.attribute
 
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
 data class AttributePath(
         val attribute: AttributeName,
         val nesting: AttributeNesting
-) {
+):
+        Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         // TODO: change to "$" or something for better IntelliJ support?
@@ -94,6 +98,12 @@ data class AttributePath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        attribute.digest(builder)
+        nesting.digest(builder)
+    }
+
+
     override fun toString(): String {
         return asString()
     }

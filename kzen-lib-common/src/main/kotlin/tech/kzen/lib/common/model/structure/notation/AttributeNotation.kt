@@ -179,7 +179,7 @@ data class MapAttributeNotation(
 
 
     override fun digest(builder: Digest.Builder) {
-        builder.addDigest(digest)
+        builder.addDigest(digest())
     }
 
 

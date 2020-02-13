@@ -6,7 +6,9 @@ import tech.kzen.lib.common.util.Digestible
 
 data class AttributeName(
         val value: String
-): Digestible {
+):
+        Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     fun asAttributeNesting(): AttributePath {
         return AttributePath.ofName(this)
