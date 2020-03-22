@@ -7,13 +7,24 @@ import tech.kzen.lib.common.model.definition.GraphDefinition
 import tech.kzen.lib.common.model.definition.ValueAttributeDefinition
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 
 
 @Suppress("unused")
 class SelfAttributeDefiner: AttributeDefiner {
+    companion object {
+        private val selfObjectName = ObjectName("Self")
+
+        fun isSelf(attributeMetadata: AttributeMetadata): Boolean {
+            return attributeMetadata.definerReference?.name == selfObjectName
+        }
+    }
+
+
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -33,6 +44,7 @@ class SelfAttributeDefiner: AttributeDefiner {
                 ?: return AttributeDefinitionAttempt.failure(
                         "Attribute type missing: $objectLocation - $attributeName")
 
+        @Suppress("IMPLICIT_CAST_TO_ANY")
         val attributeValue = when (attributeType.className) {
             ObjectLocation.className ->
                 objectLocation

@@ -140,6 +140,7 @@ DocumentNotation:
 ###########################################################
 
 
+# NB: 'Self' name referenced in Kotlin code: SelfAttributeDefiner
 Self:
   class: tech.kzen.lib.common.objects.general.SelfAttributeDefiner
 
