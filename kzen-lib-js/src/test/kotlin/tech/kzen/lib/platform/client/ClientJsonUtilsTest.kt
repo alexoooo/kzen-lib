@@ -1,5 +1,6 @@
 package tech.kzen.lib.platform.client
 
+import tech.kzen.lib.client.ClientJsonUtils
 import kotlin.js.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals

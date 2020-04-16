@@ -1,6 +1,5 @@
-//@file:Suppress("unused")
-//
-//package tech.kzen.lib.client
+@file:Suppress("unused")
+package tech.kzen.lib.client
 //
 //import tech.kzen.lib.common.getAnswer
 //import kotlin.browser.window
