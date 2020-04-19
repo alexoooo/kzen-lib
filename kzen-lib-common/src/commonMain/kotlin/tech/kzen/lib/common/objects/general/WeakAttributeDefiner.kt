@@ -9,9 +9,10 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.reflect.Reflect
 
 
-@Suppress("unused")
+@Reflect
 class WeakAttributeDefiner(
 //        private val reference: Boolean
 ): AttributeDefiner {

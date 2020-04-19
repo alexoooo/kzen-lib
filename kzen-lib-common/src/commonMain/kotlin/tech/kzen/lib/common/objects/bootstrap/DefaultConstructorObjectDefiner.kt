@@ -11,9 +11,11 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.platform.ClassName
 
 
+@Reflect
 object DefaultConstructorObjectDefiner: ObjectDefiner {
     override fun define(
             objectLocation: ObjectLocation,

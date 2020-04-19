@@ -12,9 +12,10 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.reflect.Reflect
 
 
-@Suppress("unused")
+@Reflect
 class ParentChildAttributeDefiner: AttributeDefiner {
     companion object {
         private val parentAttributePath = AttributePath.ofName(

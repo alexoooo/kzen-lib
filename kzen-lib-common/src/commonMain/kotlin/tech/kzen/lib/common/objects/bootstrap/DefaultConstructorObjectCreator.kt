@@ -7,9 +7,11 @@ import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
-import tech.kzen.lib.platform.Mirror
+import tech.kzen.lib.common.reflect.Reflect
+import tech.kzen.lib.platform.PlatformMirror
 
 
+@Reflect
 object DefaultConstructorObjectCreator: ObjectCreator {
     override fun create(
             objectLocation: ObjectLocation,
@@ -17,7 +19,7 @@ object DefaultConstructorObjectCreator: ObjectCreator {
             objectDefinition: ObjectDefinition,
             partialGraphInstance: GraphInstance
     ): ObjectInstance {
-        val instance = Mirror
+        val instance = PlatformMirror
                 .create(objectDefinition.className, emptyList())
 
         return ObjectInstance(

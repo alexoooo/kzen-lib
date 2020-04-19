@@ -10,12 +10,13 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationSet
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
-@Suppress("unused")
+@Reflect
 class AttributeObjectDefiner: ObjectDefiner {
     companion object {
         private val defaultAttributeDefiner = ObjectReference.parse(

@@ -11,9 +11,11 @@ import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.model.structure.notation.AttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.platform.ClassNames
 
 
+@Reflect
 class StructuralAttributeDefiner: AttributeDefiner {
     override fun define(
             objectLocation: ObjectLocation,

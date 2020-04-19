@@ -12,9 +12,10 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
+import tech.kzen.lib.common.reflect.Reflect
 
 
-@Suppress("unused")
+@Reflect
 class SelfAttributeDefiner: AttributeDefiner {
     companion object {
         private val selfObjectName = ObjectName("Self")

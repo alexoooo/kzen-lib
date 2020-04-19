@@ -1,28 +1,25 @@
 package tech.kzen.lib.platform
 
+import tech.kzen.lib.common.reflect.ClassMirror
 import tech.kzen.lib.platform.client.ModuleRegistry
 
 
-actual object Mirror {
+actual object PlatformMirror: ClassMirror {
     private val cache: MutableMap<String, Metadata?> = mutableMapOf()
 
 
-    actual fun contains(className: ClassName): Boolean {
+    actual override fun contains(className: ClassName): Boolean {
         return reflect(className.get()) != null
     }
 
-    actual fun constructorArgumentNames(className: ClassName): List<String> {
+    actual override fun constructorArgumentNames(className: ClassName): List<String> {
         val metadata = reflect(className.get())
                 ?: throw IllegalArgumentException("Not found: $className (${className.get()})")
 
         return metadata.constructorArgumentNames
     }
 
-//    actual fun singletonClassNames(): List<String> {
-//        return emptyList()
-//    }
-
-    actual fun create(className: ClassName, constructorArguments: List<Any?>): Any {
+    actual override fun create(className: ClassName, constructorArguments: List<Any?>): Any {
         val metadata = reflect(className.get())
                 ?: throw IllegalArgumentException("Not found: $className")
 
@@ -127,7 +124,8 @@ actual object Mirror {
 
     private data class Metadata(
             val constructorFunction: dynamic,
-            val constructorArgumentNames: List<String>)
+            val constructorArgumentNames: List<String>
+    )
 
 
     private object JsParser {
