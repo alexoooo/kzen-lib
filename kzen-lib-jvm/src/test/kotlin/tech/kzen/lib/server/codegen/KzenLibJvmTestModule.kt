@@ -14,6 +14,7 @@ import tech.kzen.lib.server.objects.autowire.ObjectItem
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
 import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.server.objects.NestedObject
 import tech.kzen.lib.server.objects.SelfAware
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
@@ -78,6 +79,13 @@ reflectionRegistry.put(
     listOf("locations")
 ) { args ->
     WeakHolder(args[0] as List<ObjectLocation>)
+}
+
+reflectionRegistry.put(
+    "tech.kzen.lib.server.objects.NestedObject\$Nested",
+    listOf("foo")
+) { args ->
+    NestedObject.Nested(args[0] as Int)
 }
 
 reflectionRegistry.put(

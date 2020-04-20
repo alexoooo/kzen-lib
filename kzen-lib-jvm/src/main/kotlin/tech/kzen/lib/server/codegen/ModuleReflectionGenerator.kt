@@ -4,8 +4,12 @@ import tech.kzen.lib.common.reflect.ModuleReflection
 import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.common.reflect.ReflectionRegistry
 import tech.kzen.lib.platform.ClassName
+import tech.kzen.lib.platform.ClassNames.asTopLevelImport
+import tech.kzen.lib.platform.ClassNames.nested
+import tech.kzen.lib.platform.ClassNames.nestedInSimple
 import tech.kzen.lib.platform.ClassNames.packageName
 import tech.kzen.lib.platform.ClassNames.simple
+import java.lang.IllegalArgumentException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -18,6 +22,8 @@ object ModuleReflectionGenerator
     private const val kotlinExtension = ".kt"
     private const val packagePrefix = "package "
     private const val importPrefix = "import "
+    private const val classPrefix = "class "
+    private const val objectPrefix = "object "
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -97,6 +103,10 @@ object ModuleReflectionGenerator
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
 
         for ((sourceFile, sourceCode) in reflectSources) {
+//            if (sourceFile.fileName.toString() == "NestedObject.kt") {
+//                println("foo")
+//            }
+
             val packageIndex = sourceCode.indexOf("package ")
             val startOfPackage = packageIndex + packagePrefix.length
 
@@ -106,13 +116,36 @@ object ModuleReflectionGenerator
             val fileName = sourceFile.fileName.toString()
             val simpleName = fileName.substring(0, fileName.length - kotlinExtension.length)
 
-            val sourceClassName = ClassName("$packagePath.$simpleName")
-            val constructorReflection = reflectConstructor(sourceClassName, sourceFile, sourceCode)
+            val topClassName = ClassName("$packagePath.$simpleName")
+            val sourceClassName = reflectedClassName(topClassName, sourceCode)
+
+            val constructorReflection =
+                    reflectConstructor(sourceClassName, sourceFile, sourceCode)
 
             builder[sourceClassName] = constructorReflection
         }
 
         return builder
+    }
+
+
+    private fun reflectedClassName(
+            sourceClassName: ClassName,
+            sourceCode: String
+    ): ClassName {
+        val reflectAnnotationIndex = sourceCode.indexOf("@${Reflect.simpleName}")
+        val sourceConstructorIndex = sourceCode.indexOf(sourceClassName.simple())
+
+        if (reflectAnnotationIndex < sourceConstructorIndex) {
+            return sourceClassName
+        }
+
+        val startOfClass = sourceCode.indexOf(classPrefix, reflectAnnotationIndex) + classPrefix.length
+        val endOfClass = sourceCode.indexOfAny(" \r\n({".toCharArray(), startOfClass)
+
+        val simpleName = sourceCode.substring(startOfClass, endOfClass).trim()
+
+        return ClassName(sourceClassName.get() + "$" + simpleName)
     }
 
 
@@ -124,15 +157,23 @@ object ModuleReflectionGenerator
     ):
             ConstructorReflection
     {
-        val simpleName = sourceClass.simple()
-        val startOfConstructor = sourceCode.indexOf(simpleName)
-        val startOfParams = startOfConstructor + simpleName.length
+        val nestedName = sourceClass.nested()
+        val nestedNameMatch = Regex(
+                "\\W" + Regex.escape(nestedName) + "(\\W|$)",
+                RegexOption.MULTILINE
+        ).find(sourceCode)
+                ?: throw IllegalArgumentException("Unable to find: $sourceClass")
+
+//        val startOfConstructor = sourceCode.indexOf(nestedName)
+//        val startOfParams = startOfConstructor + nestedName.length
+        val startOfConstructor = nestedNameMatch.range.first
+        val startOfParams = nestedNameMatch.range.last
 
         if (sourceCode.length <= startOfParams ||
             sourceCode[startOfParams] != '(')
         {
             val beforeConstructor = sourceCode.substring(0, startOfConstructor)
-            return if (beforeConstructor.endsWith("object ")) {
+            return if (beforeConstructor.endsWith(objectPrefix)) {
                 ConstructorReflection.emptyObject
             }
             else {
@@ -230,7 +271,7 @@ object ModuleReflectionGenerator
 
             val instantiation =
                     if (e.value.isObject) {
-                        e.key.simple()
+                        e.key.nestedInSimple()
                     }
                     else {
                         val argumentCast = e
@@ -240,7 +281,7 @@ object ModuleReflectionGenerator
                                 .withIndex()
                                 .joinToString(", ") { "args[${it.index}] as ${it.value}" }
 
-                        e.key.simple() + "($argumentCast)"
+                        e.key.nestedInSimple() + "($argumentCast)"
                     }
 
             registerStatements.add("""
@@ -253,11 +294,16 @@ object ModuleReflectionGenerator
             """.trimIndent())
         }
 
+        val uniqueTopLevelImports = imports
+                .map { it.asTopLevelImport() }
+                .toSet()
+                .joinToString("\n") { "$importPrefix$it" }
+
         return """
 // **DO NOT EDIT, CHANGES WILL BE LOST** automatically generated by ModuleReflectionGenerator
 package ${moduleReflectionName.packageName()}
 
-${imports.joinToString("\n") { "$importPrefix${it.get()}" }}
+$uniqueTopLevelImports
 
 
 @Suppress("UNCHECKED_CAST")
@@ -270,6 +316,6 @@ ${registerStatements.joinToString("\n\n")}
     }
 
     private fun generateString(rawValue: String): String {
-        return "\"$rawValue\""
+        return "\"${rawValue.replace("$", "\\$")}\""
     }
 }
