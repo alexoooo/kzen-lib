@@ -15,7 +15,7 @@ import tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner
 import tech.kzen.lib.common.objects.general.SelfAttributeDefiner
 import tech.kzen.lib.common.objects.general.WeakAttributeDefiner
 
-object KzenLibCommon: ModuleReflection {
+object KzenLibCommonModule: ModuleReflection {
     override fun register(reflectionRegistry: ReflectionRegistry) {
 reflectionRegistry.put(
     "tech.kzen.lib.common.objects.base.AttributeObjectCreator",

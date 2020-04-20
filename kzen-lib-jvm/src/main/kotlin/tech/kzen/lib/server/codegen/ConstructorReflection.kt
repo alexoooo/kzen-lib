@@ -2,14 +2,14 @@ package tech.kzen.lib.server.codegen
 
 
 data class ConstructorReflection(
-        val arguments: List<Pair<String, String>>,
+        val arguments: List<ArgumentReflection>,
         val isObject: Boolean
 ) {
     companion object {
         val emptyClass = ConstructorReflection(listOf(), false)
         val emptyObject = ConstructorReflection(listOf(), true)
 
-        fun ofClass(arguments: List<Pair<String, String>>): ConstructorReflection {
+        fun ofClass(arguments: List<ArgumentReflection>): ConstructorReflection {
             if (arguments.isEmpty()) {
                 return emptyClass
             }

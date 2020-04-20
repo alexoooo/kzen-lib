@@ -1,7 +1,9 @@
 package tech.kzen.lib.server.objects.ast
 
+import tech.kzen.lib.common.reflect.Reflect
 
-@Suppress("unused")
+
+@Reflect
 class DivideOperation(
         private val dividend: DoubleExpression,
         private val divisor: DoubleExpression

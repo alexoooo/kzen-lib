@@ -1,7 +1,9 @@
 package tech.kzen.lib.server.objects.ast
 
+import tech.kzen.lib.common.reflect.Reflect
 
-@Suppress("unused")
+
+@Reflect
 class PlusOperation(
         private val addends: List<DoubleExpression>
 ): DoubleExpression {

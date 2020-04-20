@@ -5,8 +5,8 @@ import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
 import tech.kzen.lib.common.model.structure.metadata.ObjectMetadata
 import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
+import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.platform.ClassName
-import tech.kzen.lib.platform.PlatformMirror
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -22,7 +22,7 @@ class MirrorMetadataReader {
 
 
     fun read(className: ClassName): ObjectMetadata {
-        val parameterNames = PlatformMirror.constructorArgumentNames(className)
+        val parameterNames = GlobalMirror.constructorArgumentNames(className)
 
         val attributes = mutableMapOf<AttributeName, AttributeMetadata>()
 

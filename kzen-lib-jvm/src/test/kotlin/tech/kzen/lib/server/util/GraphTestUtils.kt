@@ -1,6 +1,7 @@
 package tech.kzen.lib.server.util
 
 import kotlinx.coroutines.runBlocking
+import tech.kzen.lib.common.codegen.KzenLibCommonModule
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
@@ -16,11 +17,18 @@ import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.parse.NotationParser
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.toPersistentMap
+import tech.kzen.lib.server.codegen.KzenLibJvmTestModule
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
 
 
 object GraphTestUtils {
+    init {
+        KzenLibCommonModule.register()
+        KzenLibJvmTestModule.register()
+    }
+
+
     fun readNotation(): GraphNotation {
         val locator = GradleLocator(true)
         val notationMedia = MultiNotationMedia(listOf(

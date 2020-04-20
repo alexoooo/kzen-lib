@@ -7,8 +7,8 @@ import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect
-import tech.kzen.lib.platform.PlatformMirror
 
 
 @Reflect
@@ -19,7 +19,7 @@ object DefaultConstructorObjectCreator: ObjectCreator {
             objectDefinition: ObjectDefinition,
             partialGraphInstance: GraphInstance
     ): ObjectInstance {
-        val instance = PlatformMirror
+        val instance = GlobalMirror
                 .create(objectDefinition.className, emptyList())
 
         return ObjectInstance(

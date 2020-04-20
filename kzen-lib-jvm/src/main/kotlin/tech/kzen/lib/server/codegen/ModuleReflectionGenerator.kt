@@ -9,6 +9,7 @@ import tech.kzen.lib.platform.ClassNames.simple
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.util.stream.Collectors
 
 
 object ModuleReflectionGenerator
@@ -16,6 +17,7 @@ object ModuleReflectionGenerator
     //-----------------------------------------------------------------------------------------------------------------
     private const val kotlinExtension = ".kt"
     private const val packagePrefix = "package "
+    private const val importPrefix = "import "
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -83,7 +85,7 @@ object ModuleReflectionGenerator
 
 
     private fun filterReflectSource(sourceCode: String): Boolean {
-        return sourceCode.contains("import ${Reflect.qualifiedName}") &&
+        return sourceCode.contains("$importPrefix${Reflect.qualifiedName}") &&
                 sourceCode.contains("@${Reflect.simpleName}")
     }
 
@@ -104,10 +106,10 @@ object ModuleReflectionGenerator
             val fileName = sourceFile.fileName.toString()
             val simpleName = fileName.substring(0, fileName.length - kotlinExtension.length)
 
-            val className = ClassName("$packagePath.$simpleName")
-            val constructorReflection = reflectConstructor(className, sourceCode)
+            val sourceClassName = ClassName("$packagePath.$simpleName")
+            val constructorReflection = reflectConstructor(sourceClassName, sourceFile, sourceCode)
 
-            builder[className] = constructorReflection
+            builder[sourceClassName] = constructorReflection
         }
 
         return builder
@@ -116,14 +118,19 @@ object ModuleReflectionGenerator
 
     //-----------------------------------------------------------------------------------------------------------------
     fun reflectConstructor(
-            className: ClassName, sourceCode: String
-    ): ConstructorReflection {
-        val simpleName = className.simple()
+        sourceClass: ClassName,
+        sourceFile: Path,
+        sourceCode: String
+    ):
+            ConstructorReflection
+    {
+        val simpleName = sourceClass.simple()
         val startOfConstructor = sourceCode.indexOf(simpleName)
         val startOfParams = startOfConstructor + simpleName.length
 
-        val paramOpenBracket = sourceCode[startOfParams]
-        if (paramOpenBracket != '(') {
+        if (sourceCode.length <= startOfParams ||
+            sourceCode[startOfParams] != '(')
+        {
             val beforeConstructor = sourceCode.substring(0, startOfConstructor)
             return if (beforeConstructor.endsWith("object ")) {
                 ConstructorReflection.emptyObject
@@ -146,10 +153,52 @@ object ModuleReflectionGenerator
             val endOfName = it.indexOf(":")
             val argumentName = it.substring(0, endOfName).trim().substringAfterLast(' ')
             val argumentType = it.substring(endOfName + 1).trim()
-            argumentName to argumentType
+
+            val typeImports = findImports(argumentType, sourceClass, sourceFile, sourceCode)
+            ArgumentReflection(argumentName, argumentType, typeImports)
         }
 
         return ConstructorReflection.ofClass(argumentPairs)
+    }
+
+
+    private fun findImports(
+        argumentType: String,
+        sourceClass: ClassName,
+        sourceFile: Path,
+        sourceCode: String
+    ): Set<ClassName> {
+        val builder = mutableSetOf<ClassName>()
+
+        val importedPaths = sourceCode
+            .split("\n")
+            .filter { it.startsWith(importPrefix) }
+            .map { it.substring(importPrefix.length).trim() }
+
+        for (importPath in importedPaths) {
+            val suffix = importPath.substring(importPath.lastIndexOf(".") + 1)
+            if (argumentType.contains(suffix)) {
+                builder.add(ClassName(importPath))
+            }
+        }
+
+        val siblingClasses = Files
+            .list(sourceFile.parent)
+            .use { dir ->
+                dir.map { it.fileName.toString() }
+                    .filter { it.endsWith(kotlinExtension) }
+                    .map { it.substring(0, it.length - kotlinExtension.length) }
+                    .collect(Collectors.toList())
+            }
+
+        for (siblingClass in siblingClasses) {
+            if (argumentType.contains(siblingClass)) {
+                val simplingQualifiedName = sourceClass.packageName() + ".$siblingClass"
+                builder.add(ClassName(simplingQualifiedName))
+            }
+        }
+
+        return builder
     }
 
 
@@ -167,8 +216,9 @@ object ModuleReflectionGenerator
 
         for (e in reflectConstructors) {
             imports.add(e.key)
+            imports.addAll(e.value.arguments.flatMap { it.typeClasses })
 
-            val argumentNames = e.value.arguments.map { generateString(it.first) }
+            val argumentNames = e.value.arguments.map { generateString(it.name) }
 
             val argsDeclaration =
                     if (e.value.arguments.isEmpty()) {
@@ -186,7 +236,7 @@ object ModuleReflectionGenerator
                         val argumentCast = e
                                 .value
                                 .arguments
-                                .map { it.second }
+                                .map { it.type }
                                 .withIndex()
                                 .joinToString(", ") { "args[${it.index}] as ${it.value}" }
 
@@ -207,8 +257,10 @@ object ModuleReflectionGenerator
 // **DO NOT EDIT, CHANGES WILL BE LOST** automatically generated by ModuleReflectionGenerator
 package ${moduleReflectionName.packageName()}
 
-${imports.joinToString("\n") { "import ${it.get()}" }}
+${imports.joinToString("\n") { "$importPrefix${it.get()}" }}
 
+
+@Suppress("UNCHECKED_CAST")
 object ${moduleReflectionName.simple()}: ${ModuleReflection.simpleName} {
     override fun register(reflectionRegistry: ReflectionRegistry) {
 ${registerStatements.joinToString("\n\n")}
