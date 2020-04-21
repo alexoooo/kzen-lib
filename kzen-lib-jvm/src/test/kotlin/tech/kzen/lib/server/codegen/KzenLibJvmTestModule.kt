@@ -14,7 +14,8 @@ import tech.kzen.lib.server.objects.autowire.ObjectItem
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
 import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.server.objects.NestedObject
+import tech.kzen.lib.server.objects.nested.NestedObject
+import tech.kzen.lib.server.objects.nested.user.NestedUser
 import tech.kzen.lib.server.objects.SelfAware
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
@@ -82,10 +83,24 @@ reflectionRegistry.put(
 }
 
 reflectionRegistry.put(
-    "tech.kzen.lib.server.objects.NestedObject\$Nested",
+    "tech.kzen.lib.server.objects.nested.NestedObject\$Nested",
     listOf("foo")
 ) { args ->
     NestedObject.Nested(args[0] as Int)
+}
+
+reflectionRegistry.put(
+    "tech.kzen.lib.server.objects.nested.user.NestedUser\$Nested",
+    listOf("objectLocation", "delegate")
+) { args ->
+    NestedUser.Nested(args[0] as ObjectLocation, args[1] as NestedObject.Nested)
+}
+
+reflectionRegistry.put(
+    "tech.kzen.lib.server.objects.nested.user.NestedUser\$Nested2",
+    listOf("delegate")
+) { args ->
+    NestedUser.Nested2(args[0] as NestedUser.Nested)
 }
 
 reflectionRegistry.put(

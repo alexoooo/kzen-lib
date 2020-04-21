@@ -9,6 +9,7 @@ import tech.kzen.lib.platform.ClassNames.nested
 import tech.kzen.lib.platform.ClassNames.nestedInSimple
 import tech.kzen.lib.platform.ClassNames.packageName
 import tech.kzen.lib.platform.ClassNames.simple
+import tech.kzen.lib.platform.ClassNames.topLevel
 import java.lang.IllegalArgumentException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -117,35 +118,46 @@ object ModuleReflectionGenerator
             val simpleName = fileName.substring(0, fileName.length - kotlinExtension.length)
 
             val topClassName = ClassName("$packagePath.$simpleName")
-            val sourceClassName = reflectedClassName(topClassName, sourceCode)
+            val sourceClassNames = reflectedClassNames(topClassName, sourceCode)
 
-            val constructorReflection =
-                    reflectConstructor(sourceClassName, sourceFile, sourceCode)
+            for (sourceClassName in sourceClassNames) {
+                val constructorReflection =
+                        reflectConstructor(sourceClassName, sourceFile, sourceCode)
 
-            builder[sourceClassName] = constructorReflection
+                builder[sourceClassName] = constructorReflection
+            }
         }
 
         return builder
     }
 
 
-    private fun reflectedClassName(
+    private fun reflectedClassNames(
             sourceClassName: ClassName,
             sourceCode: String
-    ): ClassName {
-        val reflectAnnotationIndex = sourceCode.indexOf("@${Reflect.simpleName}")
+    ): List<ClassName> {
+        val firstReflectAnnotationIndex = sourceCode.indexOf("@${Reflect.simpleName}")
         val sourceConstructorIndex = sourceCode.indexOf(sourceClassName.simple())
 
-        if (reflectAnnotationIndex < sourceConstructorIndex) {
-            return sourceClassName
+        if (firstReflectAnnotationIndex < sourceConstructorIndex) {
+            return listOf(sourceClassName)
         }
 
-        val startOfClass = sourceCode.indexOf(classPrefix, reflectAnnotationIndex) + classPrefix.length
-        val endOfClass = sourceCode.indexOfAny(" \r\n({".toCharArray(), startOfClass)
+        val builder = mutableListOf<ClassName>()
+        var nextReflectAnnotationIndex = firstReflectAnnotationIndex
+        while (nextReflectAnnotationIndex != -1) {
+            val startOfClass = sourceCode.indexOf(classPrefix, nextReflectAnnotationIndex) + classPrefix.length
+            val endOfClass = sourceCode.indexOfAny(" \r\n({".toCharArray(), startOfClass)
 
-        val simpleName = sourceCode.substring(startOfClass, endOfClass).trim()
+            val simpleName = sourceCode.substring(startOfClass, endOfClass).trim()
 
-        return ClassName(sourceClassName.get() + "$" + simpleName)
+            builder.add(ClassName(sourceClassName.get() + "$" + simpleName))
+
+            nextReflectAnnotationIndex = sourceCode.indexOf(
+                    "@${Reflect.simpleName}", nextReflectAnnotationIndex + 1)
+        }
+
+        return builder
     }
 
 
@@ -159,13 +171,11 @@ object ModuleReflectionGenerator
     {
         val nestedName = sourceClass.nested()
         val nestedNameMatch = Regex(
-                "\\W" + Regex.escape(nestedName) + "(\\W|$)",
+                "($classPrefix|$objectPrefix)" + Regex.escape(nestedName) + "(\\W|$)",
                 RegexOption.MULTILINE
         ).find(sourceCode)
                 ?: throw IllegalArgumentException("Unable to find: $sourceClass")
 
-//        val startOfConstructor = sourceCode.indexOf(nestedName)
-//        val startOfParams = startOfConstructor + nestedName.length
         val startOfConstructor = nestedNameMatch.range.first
         val startOfParams = nestedNameMatch.range.last
 
@@ -181,7 +191,7 @@ object ModuleReflectionGenerator
             }
         }
 
-        val endOfParams = sourceCode.indexOf(')', startIndex = startOfParams + 1)
+        val endOfParams = findMatchingBracket(sourceCode, startOfParams + 1, '(', ')')
         val arguments = sourceCode.substring(startOfParams + 1, endOfParams)
 
         if (! arguments.contains(":")) {
@@ -190,7 +200,7 @@ object ModuleReflectionGenerator
 
         val argumentList = arguments.split(",")
 
-        val argumentPairs = argumentList.map {
+        val argumentReflections = argumentList.map {
             val endOfName = it.indexOf(":")
             val argumentName = it.substring(0, endOfName).trim().substringAfterLast(' ')
             val argumentType = it.substring(endOfName + 1).trim()
@@ -199,10 +209,37 @@ object ModuleReflectionGenerator
             ArgumentReflection(argumentName, argumentType, typeImports)
         }
 
-        return ConstructorReflection.ofClass(argumentPairs)
+        return ConstructorReflection.ofClass(argumentReflections)
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun findMatchingBracket(
+            sourceCode: String,
+            startIndex: Int,
+            open: Char,
+            close: Char
+    ): Int {
+        val openClose: CharArray = charArrayOf(open, close)
+        val nextIndex = sourceCode.indexOfAny(openClose, startIndex)
+
+        if (nextIndex == -1) {
+            return -1
+        }
+
+        val next = sourceCode[nextIndex]
+
+        if (next == close) {
+            return nextIndex
+        }
+
+        val endOfNested = findMatchingBracket(sourceCode, nextIndex + 1, open, close)
+
+        return findMatchingBracket(sourceCode, endOfNested + 1, open, close)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private fun findImports(
         argumentType: String,
         sourceClass: ClassName,
@@ -211,35 +248,66 @@ object ModuleReflectionGenerator
     ): Set<ClassName> {
         val builder = mutableSetOf<ClassName>()
 
-        val importedPaths = sourceCode
-            .split("\n")
-            .filter { it.startsWith(importPrefix) }
-            .map { it.substring(importPrefix.length).trim() }
+        val matchingImports = findImportStatements(argumentType, sourceCode)
+        builder.addAll(matchingImports)
 
-        for (importPath in importedPaths) {
-            val suffix = importPath.substring(importPath.lastIndexOf(".") + 1)
-            if (argumentType.contains(suffix)) {
-                builder.add(ClassName(importPath))
-            }
-        }
+        val matchingSiblings = findSiblingClasses(argumentType, sourceClass, sourceFile)
+        builder.addAll(matchingSiblings)
 
-        val siblingClasses = Files
-            .list(sourceFile.parent)
-            .use { dir ->
-                dir.map { it.fileName.toString() }
-                    .filter { it.endsWith(kotlinExtension) }
-                    .map { it.substring(0, it.length - kotlinExtension.length) }
-                    .collect(Collectors.toList())
-            }
-
-        for (siblingClass in siblingClasses) {
-            if (argumentType.contains(siblingClass)) {
-                val simplingQualifiedName = sourceClass.packageName() + ".$siblingClass"
-                builder.add(ClassName(simplingQualifiedName))
-            }
-        }
+        val matchingNestedSiblings = findNestedSiblings(argumentType, sourceClass, sourceCode)
+        builder.addAll(matchingNestedSiblings)
 
         return builder
+    }
+
+
+    private fun findImportStatements(
+            argumentType: String,
+            sourceCode: String
+    ): Set<ClassName> {
+        return sourceCode
+                .split("\n")
+                .asSequence()
+                .filter { it.startsWith(importPrefix) }
+                .map { it.substring(importPrefix.length).trim() }
+                .map { it.substring(it.lastIndexOf(".") + 1) }
+                .filter { argumentType.contains(it) }
+                .map { ClassName(it) }
+                .toSet()
+    }
+
+
+    private fun findSiblingClasses(
+            argumentType: String,
+            sourceClass: ClassName,
+            sourceFile: Path
+    ): Set<ClassName> {
+        return Files
+                .list(sourceFile.parent)
+                .use { dir ->
+                    dir.map { it.fileName.toString() }
+                            .filter { it.endsWith(kotlinExtension) }
+                            .map { it.substring(0, it.length - kotlinExtension.length) }
+                            .collect(Collectors.toList())
+                }
+                .filter { argumentType.contains(it) }
+                .map { ClassName(sourceClass.packageName() + ".$it") }
+                .toSet()
+    }
+
+
+    private fun findNestedSiblings(
+            argumentType: String,
+            sourceClass: ClassName,
+            sourceCode: String
+    ): Set<ClassName> {
+        Regex("($classPrefix|$objectPrefix)" + Regex.escape(argumentType) + "(\\W|$)",
+                RegexOption.MULTILINE
+        ).find(sourceCode)
+            ?: return setOf()
+
+        return setOf(ClassName(
+                sourceClass.packageName() + "." + sourceClass.topLevel() + "$" + argumentType))
     }
 
 

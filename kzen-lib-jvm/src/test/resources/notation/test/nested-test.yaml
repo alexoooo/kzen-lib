@@ -79,7 +79,18 @@ TwoPlusTwoInlineMap.addends/Arg2:
 ############################33
 
 Nested:
-  class: tech.kzen.lib.server.objects.NestedObject$Nested
+  class: tech.kzen.lib.server.objects.nested.NestedObject$Nested
   foo: 42
   meta:
     foo: Int
+
+NestedUser:
+  class: tech.kzen.lib.server.objects.nested.user.NestedUser$Nested
+  delegate: Nested
+  meta:
+    objectLocation: SelfLocation
+
+
+NestedUser2:
+  class: tech.kzen.lib.server.objects.nested.user.NestedUser$Nested2
+  delegate: NestedUser
