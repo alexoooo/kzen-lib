@@ -17,4 +17,10 @@ class NestedObject {
         override fun foo(): Int =
                 foo
     }
+
+
+    @Reflect
+    data class Nested2<T>(
+            val foo: List<T>
+    )
 }

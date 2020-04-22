@@ -1,5 +1,7 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+// TODO: include sources jar file
+
 plugins {
     kotlin("jvm")
 }

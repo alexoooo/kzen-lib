@@ -98,7 +98,7 @@ object ModuleReflectionGenerator
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun reflectConstructors(
+    fun reflectConstructors(
             reflectSources: Map<Path, String>
     ): Map<ClassName, ConstructorReflection> {
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
@@ -147,7 +147,7 @@ object ModuleReflectionGenerator
         var nextReflectAnnotationIndex = firstReflectAnnotationIndex
         while (nextReflectAnnotationIndex != -1) {
             val startOfClass = sourceCode.indexOf(classPrefix, nextReflectAnnotationIndex) + classPrefix.length
-            val endOfClass = sourceCode.indexOfAny(" \r\n({".toCharArray(), startOfClass)
+            val endOfClass = sourceCode.indexOfAny(" \r\n<({".toCharArray(), startOfClass)
 
             val simpleName = sourceCode.substring(startOfClass, endOfClass).trim()
 
@@ -177,22 +177,44 @@ object ModuleReflectionGenerator
                 ?: throw IllegalArgumentException("Unable to find: $sourceClass")
 
         val startOfConstructor = nestedNameMatch.range.first
-        val startOfParams = nestedNameMatch.range.last
+        val endOfConstructor = nestedNameMatch.range.last
 
-        if (sourceCode.length <= startOfParams ||
-            sourceCode[startOfParams] != '(')
-        {
-            val beforeConstructor = sourceCode.substring(0, startOfConstructor)
-            return if (beforeConstructor.endsWith(objectPrefix)) {
-                ConstructorReflection.emptyObject
-            }
-            else {
-                ConstructorReflection.emptyClass
-            }
+        if (sourceCode.length <= endOfConstructor) {
+            return zeroParameterConstructor(sourceCode, startOfConstructor)
         }
 
-        val endOfParams = findMatchingBracket(sourceCode, startOfParams + 1, '(', ')')
-        val arguments = sourceCode.substring(startOfParams + 1, endOfParams)
+        val typeParameterMatch =
+            Regex("^((\\s|\r|\n)*<).*", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
+                .matchEntire(sourceCode.substring(endOfConstructor))
+
+        val typeParameters: List<String>
+        val beforeConstructorParams: Int
+        if (typeParameterMatch == null) {
+            typeParameters = listOf()
+            beforeConstructorParams = endOfConstructor
+        }
+        else {
+            val startOfParameterList = endOfConstructor + typeParameterMatch.groups[1]!!.range.last + 1
+            val endOfParameterList = sourceCode
+                .indexOf('>', startOfParameterList)
+
+            val parameterList = sourceCode.substring(startOfParameterList, endOfParameterList)
+            typeParameters = parameterList.split(',').map { it.trim() }
+            beforeConstructorParams = endOfParameterList + 1
+        }
+
+        if (sourceCode.length <= beforeConstructorParams) {
+            return zeroParameterConstructor(sourceCode, startOfConstructor, typeParameters)
+        }
+
+        val openConstructorMatch =
+            Regex("^((\\s|\r|\n)*[(]).*", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
+                    .find(sourceCode.substring(beforeConstructorParams))
+                ?: return zeroParameterConstructor(sourceCode, startOfConstructor, typeParameters)
+
+        val startOfParams = beforeConstructorParams + openConstructorMatch.groups[1]!!.range.last + 1
+        val endOfParams = findMatchingBracket(sourceCode, startOfParams, '(', ')')
+        val arguments = sourceCode.substring(startOfParams, endOfParams)
 
         if (! arguments.contains(":")) {
             return ConstructorReflection.emptyClass
@@ -209,7 +231,30 @@ object ModuleReflectionGenerator
             ArgumentReflection(argumentName, argumentType, typeImports)
         }
 
-        return ConstructorReflection.ofClass(argumentReflections)
+        return ConstructorReflection.ofClass(argumentReflections, typeParameters)
+    }
+
+
+    private fun zeroParameterConstructor(
+        sourceCode: String,
+        startOfConstructor: Int,
+        typeParameters: List<String> = listOf()
+    ): ConstructorReflection {
+        val startingWithConstructor = sourceCode.substring(startOfConstructor)
+        return when {
+            startingWithConstructor.startsWith(objectPrefix) -> {
+                check(typeParameters.isEmpty())
+                ConstructorReflection.emptyObject
+            }
+
+            typeParameters.isEmpty() -> {
+                ConstructorReflection.emptyClass
+            }
+
+            else -> {
+                ConstructorReflection(listOf(), typeParameters, false)
+            }
+        }
     }
 
 
@@ -248,14 +293,20 @@ object ModuleReflectionGenerator
     ): Set<ClassName> {
         val builder = mutableSetOf<ClassName>()
 
-        val matchingImports = findImportStatements(argumentType, sourceCode)
-        builder.addAll(matchingImports)
+        val typeComponents = argumentType
+            .split(Regex("\\W+"))
+            .filter { it.isNotEmpty() }
 
-        val matchingSiblings = findSiblingClasses(argumentType, sourceClass, sourceFile)
-        builder.addAll(matchingSiblings)
+        for (typeComponent in typeComponents) {
+            val matchingImports = findImportStatements(typeComponent, sourceCode)
+            builder.addAll(matchingImports)
 
-        val matchingNestedSiblings = findNestedSiblings(argumentType, sourceClass, sourceCode)
-        builder.addAll(matchingNestedSiblings)
+            val matchingNestedSiblings = findNestedSiblings(typeComponent, sourceClass, sourceCode)
+            builder.addAll(matchingNestedSiblings)
+
+            val matchingSiblings = findSiblingClasses(typeComponent, sourceClass, sourceFile)
+            builder.addAll(matchingSiblings)
+        }
 
         return builder
     }
@@ -265,15 +316,24 @@ object ModuleReflectionGenerator
             argumentType: String,
             sourceCode: String
     ): Set<ClassName> {
-        return sourceCode
-                .split("\n")
-                .asSequence()
-                .filter { it.startsWith(importPrefix) }
-                .map { it.substring(importPrefix.length).trim() }
-                .map { it.substring(it.lastIndexOf(".") + 1) }
-                .filter { argumentType.contains(it) }
-                .map { ClassName(it) }
-                .toSet()
+        val importedPaths = sourceCode
+            .split("\n")
+            .filter { it.startsWith(importPrefix) }
+            .map { it.substring(importPrefix.length).trim() }
+
+        val builder = mutableSetOf<ClassName>()
+
+        for (importPath in importedPaths) {
+            val suffix = importPath.substring(importPath.lastIndexOf(".") + 1)
+
+            if (suffix.matches(Regex("^\\w+$")) &&
+                    argumentType.matches(Regex("\\b" + Regex.escape(suffix) + "\\b")))
+            {
+                builder.add(ClassName(importPath))
+            }
+        }
+
+        return builder
     }
 
 
@@ -282,6 +342,10 @@ object ModuleReflectionGenerator
             sourceClass: ClassName,
             sourceFile: Path
     ): Set<ClassName> {
+        if (! Files.exists(sourceFile)) {
+            return setOf()
+        }
+
         return Files
                 .list(sourceFile.parent)
                 .use { dir ->
@@ -345,9 +409,10 @@ object ModuleReflectionGenerator
                         val argumentCast = e
                                 .value
                                 .arguments
-                                .map { it.type }
                                 .withIndex()
-                                .joinToString(", ") { "args[${it.index}] as ${it.value}" }
+                                .joinToString(", ") {
+                                    "args[${it.index}] as ${it.value.externalType(e.key, e.value.typeParameters)}"
+                                }
 
                         e.key.nestedInSimple() + "($argumentCast)"
                     }
@@ -368,7 +433,7 @@ object ModuleReflectionGenerator
                 .joinToString("\n") { "$importPrefix$it" }
 
         return """
-// **DO NOT EDIT, CHANGES WILL BE LOST** automatically generated by ModuleReflectionGenerator
+// **DO NOT EDIT, CHANGES WILL BE LOST** - automatically generated by ModuleReflectionGenerator
 package ${moduleReflectionName.packageName()}
 
 $uniqueTopLevelImports

@@ -84,6 +84,15 @@ Nested:
   meta:
     foo: Int
 
+
+Nested2:
+  class: tech.kzen.lib.server.objects.nested.NestedObject$Nested2
+  meta:
+    foo:
+      is: List
+      of: Int
+
+
 NestedUser:
   class: tech.kzen.lib.server.objects.nested.user.NestedUser$Nested
   delegate: Nested
