@@ -14,6 +14,7 @@ import tech.kzen.lib.server.objects.autowire.ObjectItem
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
 import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.server.objects.EscapedObject
 import tech.kzen.lib.server.objects.nested.NestedObject
 import tech.kzen.lib.server.objects.nested.user.NestedUser
 import tech.kzen.lib.server.objects.SelfAware
@@ -80,6 +81,13 @@ reflectionRegistry.put(
     listOf("locations")
 ) { args ->
     WeakHolder(args[0] as List<ObjectLocation>)
+}
+
+reflectionRegistry.put(
+    "tech.kzen.lib.server.objects.EscapedObject",
+    listOf("else")
+) { args ->
+    EscapedObject(args[0] as String)
 }
 
 reflectionRegistry.put(

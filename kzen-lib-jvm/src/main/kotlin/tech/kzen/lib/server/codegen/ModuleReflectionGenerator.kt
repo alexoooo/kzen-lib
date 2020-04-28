@@ -224,7 +224,10 @@ object ModuleReflectionGenerator
 
         val argumentReflections = argumentList.map {
             val endOfName = it.indexOf(":")
-            val argumentName = it.substring(0, endOfName).trim().substringAfterLast(' ')
+
+            val rawArgumentName = it.substring(0, endOfName).trim().substringAfterLast(' ')
+            val argumentName = unescapeArgumentName(rawArgumentName)
+
             val argumentType = it.substring(endOfName + 1).trim()
 
             val typeImports = findImports(argumentType, sourceClass, sourceFile, sourceCode)
@@ -232,6 +235,14 @@ object ModuleReflectionGenerator
         }
 
         return ConstructorReflection.ofClass(argumentReflections, typeParameters)
+    }
+
+
+    private fun unescapeArgumentName(rawArgumentName: String): String {
+        if (! rawArgumentName.startsWith('`')) {
+            return rawArgumentName
+        }
+        return rawArgumentName.substring(1, rawArgumentName.length - 1)
     }
 
 

@@ -12,6 +12,7 @@ import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.server.objects.EscapedObject
 import tech.kzen.lib.server.objects.SelfAware
 import tech.kzen.lib.server.objects.StringHolder
 import tech.kzen.lib.server.objects.StringHolderRef
@@ -71,6 +72,15 @@ class ObjectGraphTest {
 
         val refInstance = objectGraph[location("StringHolderRef")]?.reference as StringHolderRef
         assertEquals("Hello, world!", refInstance.stringHolder.value)
+    }
+
+
+    @Test
+    fun `Escaped attribute name can be used`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val escapedInstance = objectGraph[location("EscapedObject")]?.reference as EscapedObject
+        assertEquals("Foo", escapedInstance.`else`)
     }
 
 

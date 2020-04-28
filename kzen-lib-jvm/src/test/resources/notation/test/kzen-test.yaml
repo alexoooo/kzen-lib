@@ -40,3 +40,10 @@ FooNamed:
 StringHolderRef:
   class: tech.kzen.lib.server.objects.StringHolderRef
   stringHolder: HelloWorldHolder
+
+
+EscapedObject:
+  class: tech.kzen.lib.server.objects.EscapedObject
+  else: "Foo"
+  meta:
+    else: String
