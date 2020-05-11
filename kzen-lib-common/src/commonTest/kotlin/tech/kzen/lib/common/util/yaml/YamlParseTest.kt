@@ -46,4 +46,19 @@ Foo:
         assertEquals("bar", ((node.values["Foo"] as YamlList).values[0] as YamlString).value)
         assertEquals("baz", ((node.values["Foo"] as YamlList).values[1] as YamlString).value)
     }
+
+
+    @Test
+    fun mapOfListWithSpecialCharacters() {
+        val node = YamlParser.parse("""
+Foo/bar baz:
+  - foo/bar
+  - hello world
+""") as YamlMap
+
+        assertTrue(node.values["Foo/bar baz"] is YamlList)
+        assertTrue((node.values["Foo/bar baz"] as YamlList).values[0] is YamlString)
+        assertEquals("foo/bar", ((node.values["Foo/bar baz"] as YamlList).values[0] as YamlString).value)
+        assertEquals("hello world", ((node.values["Foo/bar baz"] as YamlList).values[1] as YamlString).value)
+    }
 }

@@ -10,6 +10,7 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.Reflect
 
 
+// TODO: consider convention of TypeName$Creator?
 @Reflect
 class DefinitionAttributeCreator: AttributeCreator {
     override fun create(

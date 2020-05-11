@@ -87,6 +87,9 @@ Nested:
 
 Nested2:
   class: tech.kzen.lib.server.objects.nested.NestedObject$Nested2
+  foo:
+    - 11
+    - 22
   meta:
     foo:
       is: List

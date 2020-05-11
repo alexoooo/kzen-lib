@@ -104,7 +104,7 @@ object ModuleReflectionGenerator
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
 
         for ((sourceFile, sourceCode) in reflectSources) {
-//            if (sourceFile.fileName.toString() == "NestedObject.kt") {
+//            if (sourceFile.fileName.toString() == "CustomModel.kt") {
 //                println("foo")
 //            }
 
@@ -146,8 +146,11 @@ object ModuleReflectionGenerator
         val builder = mutableListOf<ClassName>()
         var nextReflectAnnotationIndex = firstReflectAnnotationIndex
         while (nextReflectAnnotationIndex != -1) {
-            val startOfClass = sourceCode.indexOf(classPrefix, nextReflectAnnotationIndex) + classPrefix.length
-            val endOfClass = sourceCode.indexOfAny(" \r\n<({".toCharArray(), startOfClass)
+//            val startOfClass = sourceCode.indexOf(classPrefix, nextReflectAnnotationIndex) + classPrefix.length
+            val startOfClass = nextClassOrObject(sourceCode, nextReflectAnnotationIndex)
+            check(startOfClass != -1)
+
+            val endOfClass = sourceCode.indexOfAny(" :\r\n<({".toCharArray(), startOfClass)
 
             val simpleName = sourceCode.substring(startOfClass, endOfClass).trim()
 
@@ -158,6 +161,22 @@ object ModuleReflectionGenerator
         }
 
         return builder
+    }
+
+
+    private fun nextClassOrObject(sourceCode: String, startIndex: Int): Int {
+        val classPrefixIndex = sourceCode.indexOf(classPrefix, startIndex)
+        val objectPrefixIndex = sourceCode.indexOf(objectPrefix, startIndex)
+
+        if (objectPrefixIndex == -1 || classPrefixIndex != -1 && classPrefixIndex < objectPrefixIndex) {
+            return classPrefixIndex + classPrefix.length
+        }
+
+        if (objectPrefixIndex != -1) {
+            return objectPrefixIndex + objectPrefix.length
+        }
+
+        return -1
     }
 
 

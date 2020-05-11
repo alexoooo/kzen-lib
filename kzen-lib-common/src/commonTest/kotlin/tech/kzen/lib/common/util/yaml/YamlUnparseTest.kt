@@ -16,7 +16,7 @@ class YamlUnparseTest {
     @Test
     fun stringWithSpace() {
         val node = YamlString("foo bar")
-        assertEquals("\"foo bar\"", YamlParser.unparse(node))
+        assertEquals("foo bar", YamlParser.unparse(node))
     }
 
 
@@ -76,5 +76,23 @@ class YamlUnparseTest {
                 ))
 
         assertEquals("foo:\n  - bar", YamlParser.unparse(node))
+    }
+
+
+    @Test
+    fun mapOfListWithSpecialCharacters() {
+        val node =
+                YamlMap(mapOf(
+                        "Foo/bar baz" to YamlList(listOf(
+                                YamlString("foo/bar"),
+                                YamlString("hello world")
+                        ))
+                ))
+
+        assertEquals(
+            "Foo/bar baz:\n" +
+                "  - foo/bar\n" +
+                "  - hello world",
+            YamlParser.unparse(node))
     }
 }

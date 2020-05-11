@@ -22,7 +22,8 @@ object YamlParser {
 
         // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
         // https://stackoverflow.com/questions/4264877/why-is-the-slash-an-escapable-character-in-json
-        private const val bareStringPattern = "([0-9a-zA-Z_\\-/.]+)"
+        private const val bareStringPattern =
+            "([0-9a-zA-Z_\\-/.][0-9a-zA-Z_\\-/. ]*[0-9a-zA-Z_\\-/.]|[0-9a-zA-Z_\\-/.]+)"
         private const val doubleQuotedString =
                 "\"((?:[^\\\"]|\\(?:[\"\\/bfnrt]|u[0-9a-fA-F]{4})*)\""
 

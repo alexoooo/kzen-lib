@@ -15,6 +15,9 @@ import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.platform.ClassName
 
 
+/**
+ * https://en.wikipedia.org/wiki/Default_constructor
+ */
 @Reflect
 object DefaultConstructorObjectDefiner: ObjectDefiner {
     override fun define(

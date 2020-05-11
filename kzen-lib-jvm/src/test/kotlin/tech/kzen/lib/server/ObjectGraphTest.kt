@@ -16,6 +16,7 @@ import tech.kzen.lib.server.objects.EscapedObject
 import tech.kzen.lib.server.objects.SelfAware
 import tech.kzen.lib.server.objects.StringHolder
 import tech.kzen.lib.server.objects.StringHolderRef
+import tech.kzen.lib.server.objects.custom.CustomDefined
 import tech.kzen.lib.server.util.GraphTestUtils
 
 
@@ -81,6 +82,15 @@ class ObjectGraphTest {
 
         val escapedInstance = objectGraph[location("EscapedObject")]?.reference as EscapedObject
         assertEquals("Foo", escapedInstance.`else`)
+    }
+
+
+    @Test
+    fun `Custom definer is discovered`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val escapedInstance = objectGraph[location("CustomDefined")]?.reference as CustomDefined
+        assertEquals("foo bar/baz", escapedInstance.customModel.value)
     }
 
 

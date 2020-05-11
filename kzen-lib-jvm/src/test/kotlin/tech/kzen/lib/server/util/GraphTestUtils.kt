@@ -38,7 +38,9 @@ object GraphTestUtils {
         val notationParser: NotationParser = YamlNotationParser()
 
         return runBlocking {
-            val notationProjectBuilder = mutableMapOf<DocumentPath, DocumentNotation>()
+            val notationProjectBuilder =
+                mutableMapOf<DocumentPath, DocumentNotation>()
+
             for (notationPath in notationMedia.scan().documents.values) {
                 val notationModule = notationMedia.readDocument(notationPath.key)
                 val objects = notationParser.parseDocumentObjects(notationModule)
@@ -69,8 +71,8 @@ object GraphTestUtils {
         val graphMetadata = graphMetadata(graphNotation)
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
-        val graphDefinition =
-                GraphDefiner().tryDefine(graphStructure).transitiveSuccessful()
+        val definitionAttempt = GraphDefiner().tryDefine(graphStructure)
+        val graphDefinition = definitionAttempt.transitiveSuccessful()
 
         return GraphCreator()
                 .createGraph(graphDefinition)

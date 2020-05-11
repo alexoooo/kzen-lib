@@ -47,3 +47,12 @@ EscapedObject:
   else: "Foo"
   meta:
     else: String
+
+################################################################
+
+CustomDefined:
+  class: tech.kzen.lib.server.objects.custom.CustomDefined
+  customModel: foo bar/baz
+  meta:
+    customModel:
+      class: tech.kzen.lib.server.objects.custom.CustomModel

@@ -1,7 +1,7 @@
 
 ###########################################################
 
-# Specially handled object that used as a sentinel value
+# Specially handled object that is used as a sentinel value
 # See: https://en.wikipedia.org/wiki/Sentinel_value
 Bootstrap:
   abstract: true

@@ -85,7 +85,7 @@ A:
 
             val modified = media.readDocument(mainPath)
 
-            assertTrue(modified.startsWith("\"Foo Bar\":"),
+            assertTrue(modified.startsWith("Foo Bar:"),
                     "Encoded key expected: $modified")
         }
     }

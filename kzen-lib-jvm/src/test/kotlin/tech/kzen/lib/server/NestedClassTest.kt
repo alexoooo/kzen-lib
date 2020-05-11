@@ -40,6 +40,19 @@ class NestedClassTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `generic int parameter in nested object`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val nestedLocation = location("Nested2")
+
+        @Suppress("UNCHECKED_CAST")
+        val fooNamedInstance = objectGraph[nestedLocation]?.reference as NestedObject.Nested2<Int>
+        assertEquals(listOf(11, 22), fooNamedInstance.foo)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
 //    @Test
 //    fun `unusual parse class`() {
 //        val constructorReflection = ModuleReflectionGenerator.reflectConstructors(
