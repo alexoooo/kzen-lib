@@ -13,9 +13,9 @@ import tech.kzen.lib.common.reflect.Reflect
 
 
 @Reflect
-class WeakAttributeDefiner(
-//        private val reference: Boolean
-): AttributeDefiner {
+object WeakAttributeDefiner/*(
+        private val reference: Boolean
+)*/: AttributeDefiner {
     //-----------------------------------------------------------------------------------------------------------------
     override fun define(
             objectLocation: ObjectLocation,

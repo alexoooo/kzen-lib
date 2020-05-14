@@ -54,5 +54,16 @@ CustomDefined:
   class: tech.kzen.lib.server.objects.custom.CustomDefined
   customModel: foo bar/baz
   meta:
-    customModel:
-      class: tech.kzen.lib.server.objects.custom.CustomModel
+    customModel: CustomModel
+#    customModel:
+#      class: tech.kzen.lib.server.objects.custom.CustomModel
+
+CustomModel:
+  abstract: true
+  class: tech.kzen.lib.server.objects.custom.CustomModel
+  meta:
+    ref:
+      by: CustomModelDefiner
+
+CustomModelDefiner:
+  class: tech.kzen.lib.server.objects.custom.CustomModel$Definer

@@ -104,7 +104,7 @@ object ModuleReflectionGenerator
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
 
         for ((sourceFile, sourceCode) in reflectSources) {
-//            if (sourceFile.fileName.toString() == "CustomModel.kt") {
+//            if (sourceFile.fileName.toString() == "ParentChildAttributeDefiner.kt") {
 //                println("foo")
 //            }
 
@@ -124,6 +124,7 @@ object ModuleReflectionGenerator
                 val constructorReflection =
                         reflectConstructor(sourceClassName, sourceFile, sourceCode)
 
+                check(sourceClassName !in builder) { "Already exists: $sourceClassName" }
                 builder[sourceClassName] = constructorReflection
             }
         }
@@ -195,25 +196,26 @@ object ModuleReflectionGenerator
         ).find(sourceCode)
                 ?: throw IllegalArgumentException("Unable to find: $sourceClass")
 
-        val startOfConstructor = nestedNameMatch.range.first
-        val endOfConstructor = nestedNameMatch.range.last
+        val startOfConstructorName = nestedNameMatch.range.first
+        val endOfConstructorName = nestedNameMatch.range.last
 
-        if (sourceCode.length <= endOfConstructor) {
-            return zeroParameterConstructor(sourceCode, startOfConstructor)
+        if (sourceCode.length <= endOfConstructorName) {
+            return zeroParameterConstructor(sourceCode, startOfConstructorName)
         }
 
+        val afterConstructor = sourceCode.substring(endOfConstructorName)
         val typeParameterMatch =
             Regex("^((\\s|\r|\n)*<).*", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
-                .matchEntire(sourceCode.substring(endOfConstructor))
+                .matchEntire(afterConstructor)
 
         val typeParameters: List<String>
         val beforeConstructorParams: Int
         if (typeParameterMatch == null) {
             typeParameters = listOf()
-            beforeConstructorParams = endOfConstructor
+            beforeConstructorParams = endOfConstructorName
         }
         else {
-            val startOfParameterList = endOfConstructor + typeParameterMatch.groups[1]!!.range.last + 1
+            val startOfParameterList = endOfConstructorName + typeParameterMatch.groups[1]!!.range.last + 1
             val endOfParameterList = sourceCode
                 .indexOf('>', startOfParameterList)
 
@@ -223,13 +225,15 @@ object ModuleReflectionGenerator
         }
 
         if (sourceCode.length <= beforeConstructorParams) {
-            return zeroParameterConstructor(sourceCode, startOfConstructor, typeParameters)
+            return zeroParameterConstructor(sourceCode, startOfConstructorName, typeParameters)
         }
 
+        val afterClassNameAndGenerics = sourceCode.substring(beforeConstructorParams)
         val openConstructorMatch =
-            Regex("^((\\s|\r|\n)*[(]).*", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
-                    .find(sourceCode.substring(beforeConstructorParams))
-                ?: return zeroParameterConstructor(sourceCode, startOfConstructor, typeParameters)
+//            Regex("^((\\s|\r|\n)*[(]).*", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
+            Regex("^((\\s|\r|\n)*[(]).*", setOf(RegexOption.DOT_MATCHES_ALL))
+                    .find(afterClassNameAndGenerics)
+                ?: return zeroParameterConstructor(sourceCode, startOfConstructorName, typeParameters)
 
         val startOfParams = beforeConstructorParams + openConstructorMatch.groups[1]!!.range.last + 1
         val endOfParams = findMatchingBracket(sourceCode, startOfParams, '(', ')')

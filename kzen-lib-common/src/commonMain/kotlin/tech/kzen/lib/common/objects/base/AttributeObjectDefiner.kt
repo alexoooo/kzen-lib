@@ -17,14 +17,14 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 @Reflect
-class AttributeObjectDefiner: ObjectDefiner {
-    companion object {
+object AttributeObjectDefiner: ObjectDefiner {
+//    companion object {
         private val defaultAttributeDefiner = ObjectReference.parse(
                 StructuralAttributeDefiner::class.simpleName!!)
 
         private val defaultAttributeCreator = ObjectReference.parse(
                 DefinitionAttributeCreator::class.simpleName!!)
-    }
+//    }
 
 
     override fun define(

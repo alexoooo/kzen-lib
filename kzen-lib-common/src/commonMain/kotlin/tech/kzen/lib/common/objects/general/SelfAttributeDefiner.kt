@@ -16,14 +16,14 @@ import tech.kzen.lib.common.reflect.Reflect
 
 
 @Reflect
-class SelfAttributeDefiner: AttributeDefiner {
-    companion object {
+object SelfAttributeDefiner: AttributeDefiner {
+//    companion object {
         private val selfObjectName = ObjectName("Self")
 
         fun isSelf(attributeMetadata: AttributeMetadata): Boolean {
             return attributeMetadata.definerReference?.name == selfObjectName
         }
-    }
+//    }
 
 
     override fun define(

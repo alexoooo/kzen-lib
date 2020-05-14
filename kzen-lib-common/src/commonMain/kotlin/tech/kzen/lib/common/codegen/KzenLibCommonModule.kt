@@ -23,28 +23,28 @@ reflectionRegistry.put(
     "tech.kzen.lib.common.objects.base.AttributeObjectCreator",
     listOf()
 ) {
-    AttributeObjectCreator()
+    AttributeObjectCreator
 }
 
 reflectionRegistry.put(
     "tech.kzen.lib.common.objects.base.AttributeObjectDefiner",
     listOf()
 ) {
-    AttributeObjectDefiner()
+    AttributeObjectDefiner
 }
 
 reflectionRegistry.put(
     "tech.kzen.lib.common.objects.base.DefinitionAttributeCreator",
     listOf()
 ) {
-    DefinitionAttributeCreator()
+    DefinitionAttributeCreator
 }
 
 reflectionRegistry.put(
     "tech.kzen.lib.common.objects.base.StructuralAttributeDefiner",
     listOf()
 ) {
-    StructuralAttributeDefiner()
+    StructuralAttributeDefiner
 }
 
 reflectionRegistry.put(
@@ -72,21 +72,21 @@ reflectionRegistry.put(
     "tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner",
     listOf()
 ) {
-    ParentChildAttributeDefiner()
+    ParentChildAttributeDefiner
 }
 
 reflectionRegistry.put(
     "tech.kzen.lib.common.objects.general.SelfAttributeDefiner",
     listOf()
 ) {
-    SelfAttributeDefiner()
+    SelfAttributeDefiner
 }
 
 reflectionRegistry.put(
     "tech.kzen.lib.common.objects.general.WeakAttributeDefiner",
     listOf()
 ) {
-    WeakAttributeDefiner()
+    WeakAttributeDefiner
 }
     }
 }

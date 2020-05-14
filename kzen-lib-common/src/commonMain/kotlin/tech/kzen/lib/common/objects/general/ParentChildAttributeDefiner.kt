@@ -16,11 +16,11 @@ import tech.kzen.lib.common.reflect.Reflect
 
 
 @Reflect
-class ParentChildAttributeDefiner: AttributeDefiner {
-    companion object {
+object ParentChildAttributeDefiner: AttributeDefiner {
+//    companion object {
         private val parentAttributePath = AttributePath.ofName(
                 AttributeName("parent"))
-    }
+//    }
 
 
     override fun define(

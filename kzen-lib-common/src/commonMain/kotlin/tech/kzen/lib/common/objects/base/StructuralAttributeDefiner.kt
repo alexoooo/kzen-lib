@@ -18,7 +18,13 @@ import tech.kzen.lib.platform.ClassNames
 
 
 @Reflect
-class StructuralAttributeDefiner: AttributeDefiner {
+object StructuralAttributeDefiner: AttributeDefiner {
+    // TODO: consider using Definer by convention, is it too "magical"?
+//    companion object {
+//        val customAttributeDefinerSuffixConvention = "Definer"
+//    }
+
+
     override fun define(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
@@ -42,14 +48,16 @@ class StructuralAttributeDefiner: AttributeDefiner {
         val typeMetadata = attributeMetadata?.type
                 ?: TypeMetadata.any
 
-        val customDefinerByConvention = ClassName(typeMetadata.className.get() + "\$Definer")
-        if (GlobalMirror.contains(customDefinerByConvention)) {
-            val customDefiner =
-                GlobalMirror.create(customDefinerByConvention, listOf()) as AttributeDefiner
-
-            return customDefiner.define(
-                objectLocation, attributeName, graphStructure, partialGraphDefinition, partialGraphInstance)
-        }
+//        val customDefinerByConvention = ClassName(
+//            typeMetadata.className.get() + "\$" + customAttributeDefinerSuffixConvention)
+//
+//        if (GlobalMirror.contains(customDefinerByConvention)) {
+//            val customDefiner =
+//                GlobalMirror.create(customDefinerByConvention, listOf()) as AttributeDefiner
+//
+//            return customDefiner.define(
+//                objectLocation, attributeName, graphStructure, partialGraphDefinition, partialGraphInstance)
+//        }
 
         return defineRecursively(attributeNotation, typeMetadata)
     }

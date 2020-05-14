@@ -16,11 +16,11 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 @Reflect
-class AttributeObjectCreator: ObjectCreator {
-    companion object {
+object AttributeObjectCreator: ObjectCreator {
+//    companion object {
         private val defaultParameterCreator = ObjectReference.parse(
                 DefinitionAttributeCreator::class.simpleName!!)
-    }
+//    }
 
     override fun create(
             objectLocation: ObjectLocation,

@@ -12,7 +12,7 @@ import tech.kzen.lib.common.reflect.Reflect
 
 // TODO: consider convention of TypeName$Creator?
 @Reflect
-class DefinitionAttributeCreator: AttributeCreator {
+object DefinitionAttributeCreator: AttributeCreator {
     override fun create(
             objectLocation: ObjectLocation,
             attributeName: AttributeName,
