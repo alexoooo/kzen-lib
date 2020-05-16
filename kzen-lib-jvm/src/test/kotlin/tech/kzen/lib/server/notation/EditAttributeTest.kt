@@ -158,10 +158,11 @@ Foo:
 """)
 
         val transition = reducer.apply(
-                notation,
-                RemoveInAttributeCommand(
-                        location("Foo"),
-                        AttributePath.parse("hello.0")))
+            notation,
+            RemoveInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.0"),
+                false))
 
         val newObjectNotation =
                 transition.graphNotation.coalesce.values[location("Foo")]!!
@@ -188,10 +189,11 @@ Foo:
             """.trimIndent())
 
         val transition = reducer.apply(
-                notation,
-                RemoveInAttributeCommand(
-                        location("Foo"),
-                        AttributePath.parse("hello.foo")))
+            notation,
+            RemoveInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.foo"),
+                false))
 
         val newObjectNotation =
                 transition.graphNotation.coalesce.values[location("Foo")]!!

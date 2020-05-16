@@ -16,6 +16,7 @@ import tech.kzen.lib.common.model.obj.ObjectNestingSegment
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
+import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
@@ -398,11 +399,48 @@ class NotationReducer {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
-        val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
-        val mapWithInsert = mapInAttribute.insert(command.value, command.mapKey, command.indexInMap)
+        val containingAttribute = objectNotation.get(command.containingMap)
 
-        val modifiedObjectNotation = objectNotation.upsertAttribute(
-                command.containingMap, mapWithInsert)
+        require(containingAttribute == null || containingAttribute is MapAttributeNotation) {
+            "Map expected: ${command.containingMap} - $containingAttribute"
+        }
+
+        val containingMapExists = containingAttribute != null
+
+        val modifiedObjectNotation =
+            if (! containingMapExists) {
+                require(command.createContainingMapIfNotExists) {
+                    "Containing map missing: ${command.containingMap}"
+                }
+
+                require(command.indexInMap.value == 0) {
+                    "Index out of bounds in empty map: ${command.indexInMap}"
+                }
+
+                val containerParent = objectNotation.get(command.containingMap.parent())
+                require(containerParent is MapAttributeNotation) {
+                    "Map expected: ${command.containingMap.parent()}"
+                }
+
+                val containingMapKey = command.containingMap.nesting.segments.last()
+
+                objectNotation.upsertAttribute(
+                    command.containingMap.parent(),
+                    containerParent.put(containingMapKey, MapAttributeNotation(persistentMapOf(
+                        command.mapKey to command.value
+                    ))))
+            }
+            else {
+                val mapInAttribute = containingAttribute as MapAttributeNotation
+                val mapWithInsert = mapInAttribute.insert(
+                    command.value, command.mapKey, command.indexInMap)
+
+                objectNotation.upsertAttribute(
+                    command.containingMap, mapWithInsert)
+            }
+
+//        val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
+//        val mapWithInsert = mapInAttribute.insert(command.value, command.mapKey, command.indexInMap)
 
         val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
@@ -429,7 +467,10 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]!!
 
         val containerPath = command.attributePath.parent()
-        val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
+        val containerNotation = objectNotation.get(containerPath)
+                as? StructuredAttributeNotation
+            ?: throw IllegalArgumentException("Structured container expected: " +
+                    "$containerPath - ${objectNotation.get(containerPath)}")
 
         val lastSegment = command.attributePath.nesting.segments.last()
 
@@ -445,8 +486,38 @@ class NotationReducer {
                     }
                 }
 
-        val modifiedObjectNotation = objectNotation.upsertAttribute(
-                containerPath, containerWithoutElement)
+        val modifiedObjectNotation =
+            if (containerWithoutElement.isEmpty() && command.removeContainerIfEmpty) {
+                val containerParent = containerPath.parent()
+                val parentNotion = objectNotation.get(containerParent)
+                        as StructuredAttributeNotation
+
+                if (containerPath.nesting.segments.isEmpty()) {
+                    objectNotation.removeAttribute(containerPath.attribute)
+                }
+                else {
+                    val containerSegment = containerPath.nesting.segments.last()
+
+                    // todo: recursive?
+                    val parentWithoutContainer =
+                        when (parentNotion) {
+                            is MapAttributeNotation -> {
+                                parentNotion.remove(containerSegment)
+                            }
+
+                            is ListAttributeNotation -> {
+                                parentNotion.remove(PositionIndex(containerSegment.asIndex()!!))
+                            }
+                        }
+
+                    objectNotation.upsertAttribute(
+                        containerParent, parentWithoutContainer)
+                }
+            }
+            else {
+                objectNotation.upsertAttribute(
+                    containerPath, containerWithoutElement)
+            }
 
         val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
@@ -476,8 +547,11 @@ class NotationReducer {
         val builder = Buffer(state)
 
         val removedInAttribute = builder
-                .apply(RemoveInAttributeCommand(command.objectLocation, command.attributePath))
-                as RemovedInAttributeEvent
+                .apply(RemoveInAttributeCommand(
+                    command.objectLocation,
+                    command.attributePath,
+                    false
+                )) as RemovedInAttributeEvent
 
         val insertCommand = when (containerNotation) {
             is ListAttributeNotation ->
@@ -493,7 +567,8 @@ class NotationReducer {
                         containerPath,
                         command.newPosition,
                         command.attributePath.nesting.segments.last(),
-                        attributeNotation)
+                        attributeNotation,
+                        false)
         }
 
         val reinsertedInAttribute = builder
@@ -555,14 +630,16 @@ class NotationReducer {
         val buffer = Buffer(state)
 
         val removedInAttribute = buffer
-                .apply(RemoveInAttributeCommand(
-                        command.containingObjectLocation, command.attributePath))
-                as RemovedInAttributeEvent
+            .apply(RemoveInAttributeCommand(
+                command.containingObjectLocation,
+                command.attributePath,
+                false
+            )) as RemovedInAttributeEvent
 
         val removedObject = buffer
-                .apply(RemoveObjectCommand(
-                        objectLocation))
-                as RemovedObjectEvent
+            .apply(RemoveObjectCommand(
+                objectLocation
+            )) as RemovedObjectEvent
 
         val containingDocumentPath = command.containingObjectLocation.documentPath
 

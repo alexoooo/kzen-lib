@@ -135,13 +135,15 @@ data class InsertMapEntryInAttributeCommand(
         val containingMap: AttributePath,
         val indexInMap: PositionIndex,
         val mapKey: AttributeSegment,
-        val value: AttributeNotation
+        val value: AttributeNotation,
+        val createContainingMapIfNotExists: Boolean
 ): StructuralNotationCommand()
 
 
 data class RemoveInAttributeCommand(
         val objectLocation: ObjectLocation,
-        val attributePath: AttributePath
+        val attributePath: AttributePath,
+        val removeContainerIfEmpty: Boolean
 ): StructuralNotationCommand()
 
 

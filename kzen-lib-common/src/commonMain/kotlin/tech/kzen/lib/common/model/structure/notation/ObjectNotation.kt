@@ -156,6 +156,14 @@ data class ObjectNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun removeAttribute(
+        attributeName: AttributeName
+    ): ObjectNotation {
+        return ObjectNotation(attributes.remove(attributeName))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     override fun digest(builder: Digest.Builder) {
         builder.addDigest(digest())
     }

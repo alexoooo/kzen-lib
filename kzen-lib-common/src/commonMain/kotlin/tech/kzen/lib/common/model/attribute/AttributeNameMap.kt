@@ -28,4 +28,9 @@ data class AttributeNameMap<T>(
     fun put(attributeName: AttributeName, value: T): AttributeNameMap<T> {
         return AttributeNameMap(values.put(attributeName, value))
     }
+
+
+    fun remove(attributeName: AttributeName): AttributeNameMap<T> {
+        return AttributeNameMap(values.remove(attributeName))
+    }
 }

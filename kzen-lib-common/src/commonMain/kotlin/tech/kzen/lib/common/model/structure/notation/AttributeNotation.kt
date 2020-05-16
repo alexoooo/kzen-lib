@@ -74,6 +74,9 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
 
         return cursor
     }
+
+
+    abstract fun isEmpty(): Boolean
 }
 
 
@@ -88,6 +91,11 @@ data class ListAttributeNotation(
     override fun get(key: String): AttributeNotation? {
         val index = key.toInt()
         return values[index]
+    }
+
+
+    override fun isEmpty(): Boolean {
+        return values.isEmpty()
     }
 
 
@@ -141,6 +149,11 @@ data class MapAttributeNotation(
 
     override fun get(key: String): AttributeNotation? {
         return values[AttributeSegment.ofKey(key)]
+    }
+
+
+    override fun isEmpty(): Boolean {
+        return values.isEmpty()
     }
 
 
