@@ -171,7 +171,8 @@ data class InsertedMapEntryInAttributeEvent(
         val containingMap: AttributePath,
         val indexInMap: PositionIndex,
         val key: AttributeSegment,
-        val item: AttributeNotation
+        val item: AttributeNotation,
+        val createdAncestors: List<AttributePath>
 ): InsertedInAttributeEvent()
 
 

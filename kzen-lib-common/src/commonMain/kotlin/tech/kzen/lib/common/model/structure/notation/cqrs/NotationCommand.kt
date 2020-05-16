@@ -136,7 +136,7 @@ data class InsertMapEntryInAttributeCommand(
         val indexInMap: PositionIndex,
         val mapKey: AttributeSegment,
         val value: AttributeNotation,
-        val createContainingMapIfNotExists: Boolean
+        val createAncestorsIfAbsent: Boolean
 ): StructuralNotationCommand()
 
 

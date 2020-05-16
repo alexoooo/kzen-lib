@@ -407,9 +407,11 @@ class NotationReducer {
 
         val containingMapExists = containingAttribute != null
 
+        val createdAncestors = mutableListOf<AttributePath>()
+
         val modifiedObjectNotation =
             if (! containingMapExists) {
-                require(command.createContainingMapIfNotExists) {
+                require(command.createAncestorsIfAbsent) {
                     "Containing map missing: ${command.containingMap}"
                 }
 
@@ -417,18 +419,46 @@ class NotationReducer {
                     "Index out of bounds in empty map: ${command.indexInMap}"
                 }
 
-                val containerParent = objectNotation.get(command.containingMap.parent())
-                require(containerParent is MapAttributeNotation) {
-                    "Map expected: ${command.containingMap.parent()}"
+//                val containingMapKey = command.containingMap.nesting.segments.last()
+                val containerNotation = MapAttributeNotation(persistentMapOf(
+                    command.mapKey to command.value
+                ))
+
+                var missingAncestorChain = containerNotation
+
+                var furthestPresentAncestor: AttributePath? = command.containingMap
+                while (objectNotation.get(furthestPresentAncestor!!) == null) {
+                    createdAncestors.add(furthestPresentAncestor)
+
+                    if (furthestPresentAncestor.nesting.segments.isEmpty()) {
+                        furthestPresentAncestor = null
+                        break
+                    }
+
+                    val missingKey = furthestPresentAncestor.nesting.segments.last()
+                    missingAncestorChain = MapAttributeNotation(persistentMapOf(
+                        missingKey to missingAncestorChain
+                    ))
+
+                    furthestPresentAncestor = furthestPresentAncestor.parent()
                 }
 
-                val containingMapKey = command.containingMap.nesting.segments.last()
+                @Suppress("SENSELESS_COMPARISON")
+                if (furthestPresentAncestor == null) {
+                    objectNotation.upsertAttribute(command.containingMap.attribute, missingAncestorChain)
+                }
+                else {
+                    val presentAncestorNotation = objectNotation.get(furthestPresentAncestor)
+                    require(presentAncestorNotation is MapAttributeNotation) {
+                        "Map expected: $presentAncestorNotation"
+                    }
+                    val keyInPresentAncestor = missingAncestorChain.values.keys.first()
+                    val notionUnderPresentAncestor = missingAncestorChain.values[keyInPresentAncestor]!!
 
-                objectNotation.upsertAttribute(
-                    command.containingMap.parent(),
-                    containerParent.put(containingMapKey, MapAttributeNotation(persistentMapOf(
-                        command.mapKey to command.value
-                    ))))
+                    objectNotation.upsertAttribute(
+                        furthestPresentAncestor,
+                        presentAncestorNotation.put(keyInPresentAncestor, notionUnderPresentAncestor))
+                }
             }
             else {
                 val mapInAttribute = containingAttribute as MapAttributeNotation
@@ -439,9 +469,6 @@ class NotationReducer {
                     command.containingMap, mapWithInsert)
             }
 
-//        val mapInAttribute = objectNotation.get(command.containingMap) as MapAttributeNotation
-//        val mapWithInsert = mapInAttribute.insert(command.value, command.mapKey, command.indexInMap)
-
         val modifiedDocumentNotation = documentNotation.withModifiedObject(
                 command.objectLocation.objectPath, modifiedObjectNotation)
 
@@ -449,11 +476,12 @@ class NotationReducer {
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
         val event = InsertedMapEntryInAttributeEvent(
-                command.objectLocation,
-                command.containingMap,
-                command.indexInMap,
-                command.mapKey,
-                command.value)
+            command.objectLocation,
+            command.containingMap,
+            command.indexInMap,
+            command.mapKey,
+            command.value,
+            createdAncestors.reversed())
 
         return NotationTransition(event, nextState)
     }

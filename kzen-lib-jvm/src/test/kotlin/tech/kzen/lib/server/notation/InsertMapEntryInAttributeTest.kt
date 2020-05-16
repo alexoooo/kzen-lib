@@ -133,5 +133,42 @@ Foo:
         assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world")
         )))
+
+        val event = transition.notationEvent as InsertedMapEntryInAttributeEvent
+        assertEquals(listOf(AttributePath.parse("hello.fizz")), event.createdAncestors)
+    }
+
+
+    @Test
+    fun `Add creating attribute with containing map nested in it`() {
+        val notation = parseGraph("""
+Foo:
+  is: Bar
+""")
+
+        val transition = reducer.apply(
+            notation,
+            InsertMapEntryInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.fizz"),
+                PositionIndex(0),
+                AttributeSegment.ofKey("buzz"),
+                ScalarAttributeNotation("world"),
+                true)
+        )
+
+        val containingMap = transition.graphNotation.transitiveAttribute(
+            location("Foo"), AttributePath.parse("hello.fizz")
+        ) as MapAttributeNotation
+
+        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+            AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world")
+        )))
+
+        val event = transition.notationEvent as InsertedMapEntryInAttributeEvent
+        assertEquals(listOf(
+            AttributePath.parse("hello"),
+            AttributePath.parse("hello.fizz")
+        ), event.createdAncestors)
     }
 }
