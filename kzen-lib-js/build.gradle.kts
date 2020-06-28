@@ -19,14 +19,3 @@ dependencies {
 
     implementation(npm("core-js", coreJsVersion))
 }
-
-
-//run {}
-
-
-//tasks.withType<KotlinCompile> {
-//    kotlinOptions {
-//        freeCompilerArgs = listOf("-Xjsr305=strict")
-//        jvmTarget = "11"
-//    }
-//}

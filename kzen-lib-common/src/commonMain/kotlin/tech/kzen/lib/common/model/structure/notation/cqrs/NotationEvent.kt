@@ -244,8 +244,8 @@ data class RenamedDocumentRefactorEvent(
         val removedUnderOldName: DeletedDocumentEvent,
         val adjustedReferences: List<UpdatedInAttributeEvent>
 ): CompoundNotationEvent(
-        listOf(createdWithNewName, removedUnderOldName) +
-                adjustedReferences
+    listOf(createdWithNewName, removedUnderOldName) +
+            adjustedReferences
 ) {
     override val documentPath: DocumentPath
         get() = removedUnderOldName.documentPath

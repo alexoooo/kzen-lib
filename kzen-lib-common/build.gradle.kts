@@ -1,19 +1,6 @@
 plugins {
     kotlin("multiplatform")
-//    id("kotlinx-serialization")
 }
-
-
-
-//apply plugin: 'kotlin-platform-common'
-//
-//dependencies {
-//    compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-common', version: kotlinVersion
-//    compile group: 'org.jetbrains.kotlinx', name: 'kotlinx-io', version: kotlinxIoVersion
-//
-//    testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test-common', version: kotlinVersion
-//    testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test-annotations-common', version: kotlinVersion
-//}
 
 
 kotlin {
