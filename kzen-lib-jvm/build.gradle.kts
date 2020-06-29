@@ -6,6 +6,7 @@ plugins {
     kotlin("jvm")
 }
 
+
 dependencies {
     implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
     implementation("org.jetbrains.kotlin:kotlin-reflect")
@@ -19,6 +20,27 @@ dependencies {
 
     implementation(project(":kzen-lib-common"))
 }
+
+
+// http://bastienpaul.fr/wordpress/2019/02/08/publish-a-kotlin-lib-with-gradle-kotlin-dsl/
+// https://stackoverflow.com/questions/52596968/build-source-jar-with-gradle-kotlin-dsl/
+tasks {
+    val sourcesJar by creating(Jar::class) {
+        archiveClassifier.set("sources")
+        from(sourceSets.getByName("main").allSource)
+    }
+
+    artifacts {
+        archives(sourcesJar)
+//        archives(javadocJar)
+        archives(jar)
+    }
+}
+
+//tasks.withType<Jar> {
+//    archiveClassifier.set("sources")
+//    from(sourceSets.getByName("main").allSource)
+//}
 
 
 tasks.withType<KotlinCompile> {
