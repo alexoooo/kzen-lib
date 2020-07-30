@@ -72,7 +72,11 @@ class MirroredGraphStore(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    suspend fun apply(command: NotationCommand) {
+    suspend fun apply(
+        command: NotationCommand
+    ):
+            MirroredGraphResult
+    {
         // NB: for now, this has to happen before clientEvent for VisualDataflowProvider.inspectVertex
         // TODO: make this parallel with client processing via VisualDataflowProvider.initialVertexState
         val remoteDigest = try {
@@ -80,7 +84,7 @@ class MirroredGraphStore(
         }
         catch (e: Throwable) {
             publishFailure(command, e)
-            return
+            return MirroredGraphError(e, true)
         }
 
         val localEvent = try {
@@ -88,17 +92,22 @@ class MirroredGraphStore(
         }
         catch (e: Throwable) {
             publishFailure(command, e)
-            return
+            return MirroredGraphError(e, false)
         }
 
         val localDigest = localGraphStore.digest()
 
-        if (localDigest != remoteDigest) {
-            localGraphStore.refresh()
-            publishRefresh()
-        }
-        else {
-            publishSuccess(localEvent)
+        return when {
+            localDigest != remoteDigest -> {
+                localGraphStore.refresh()
+                publishRefresh()
+                MirroredGraphSuccess(localEvent, true)
+            }
+
+            else -> {
+                publishSuccess(localEvent)
+                MirroredGraphSuccess(localEvent, false)
+            }
         }
     }
 }
