@@ -621,7 +621,7 @@ class NotationReducer {
                 .apply(AddObjectCommand(
                         objectLocation,
                         command.positionInDocument,
-                        command.body))
+                        command.objectNotation))
                 as AddedObjectEvent
 
         val addendReference = objectLocation.toReference()

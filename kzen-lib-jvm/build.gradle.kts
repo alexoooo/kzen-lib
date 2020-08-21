@@ -1,14 +1,14 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
-// TODO: include sources jar file
 
 plugins {
     kotlin("jvm")
+    `maven-publish`
 }
 
 
 dependencies {
-    implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
+//    implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-jdk8", version = kotlinVersion)
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation(group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version = coroutinesVersion)
 
@@ -22,20 +22,33 @@ dependencies {
 }
 
 
-// http://bastienpaul.fr/wordpress/2019/02/08/publish-a-kotlin-lib-with-gradle-kotlin-dsl/
-// https://stackoverflow.com/questions/52596968/build-source-jar-with-gradle-kotlin-dsl/
-tasks {
-    val sourcesJar by creating(Jar::class) {
-        archiveClassifier.set("sources")
-        from(sourceSets.getByName("main").allSource)
-    }
-
-    artifacts {
-        archives(sourcesJar)
-//        archives(javadocJar)
-        archives(jar)
+tasks.withType<KotlinCompile> {
+    kotlinOptions {
+        freeCompilerArgs = listOf("-Xjsr305=strict")
+        jvmTarget = "11"
     }
 }
+
+
+// https://stackoverflow.com/questions/61432006/building-an-executable-jar-that-can-be-published-to-maven-local-repo-with-publi
+val sourcesJar by tasks.registering(Jar::class) {
+    archiveClassifier.set("sources")
+    from(sourceSets.main.get().allSource)
+}
+
+// http://bastienpaul.fr/wordpress/2019/02/08/publish-a-kotlin-lib-with-gradle-kotlin-dsl/
+// https://stackoverflow.com/questions/52596968/build-source-jar-with-gradle-kotlin-dsl/
+//tasks {
+//    val sourcesJar by creating(Jar::class) {
+//        archiveClassifier.set("sources")
+//        from(sourceSets.getByName("main").allSource)
+//    }
+//
+//    artifacts {
+//        archives(sourcesJar)
+//        archives(jar)
+//    }
+//}
 
 //tasks.withType<Jar> {
 //    archiveClassifier.set("sources")
@@ -43,9 +56,15 @@ tasks {
 //}
 
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = listOf("-Xjsr305=strict")
-        jvmTarget = "11"
+publishing {
+    repositories {
+        mavenLocal()
+    }
+
+    publications {
+        create<MavenPublication>("jvm") {
+            from(components["java"])
+            artifact(sourcesJar.get())
+        }
     }
 }

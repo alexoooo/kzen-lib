@@ -111,7 +111,8 @@ data class ObjectNotation(
         }
 
         val root: StructuredAttributeNotation =
-                attributes.values[rootParameterName]
+            attributes
+                .values[rootParameterName]
                 as? StructuredAttributeNotation
                 ?: MapAttributeNotation.empty
 

@@ -161,7 +161,7 @@ data class InsertObjectInListAttributeCommand(
         val indexInList: PositionIndex,
         val objectName: ObjectName,
         val positionInDocument: PositionIndex,
-        val body: ObjectNotation
+        val objectNotation: ObjectNotation
 ): StructuralNotationCommand() {
     fun insertedObjectLocation(): ObjectLocation {
         val objectPath = containingObjectLocation.objectPath.nest(containingList, objectName)
