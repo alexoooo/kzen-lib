@@ -5,7 +5,7 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
-import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
 import tech.kzen.lib.common.model.structure.notation.cqrs.InsertObjectInListAttributeCommand
 import kotlin.test.assertEquals
 
@@ -23,12 +23,12 @@ InsertInto:
         val transition = reducer.apply(
                 notation,
                 InsertObjectInListAttributeCommand(
-                        location("InsertInto"),
-                        AttributePath.parse("foo"),
-                        PositionIndex(1),
-                        ObjectName("Inserted"),
-                        PositionIndex(1),
-                        ObjectNotation.ofParent(ObjectName("DoubleValue"))))
+                    location("InsertInto"),
+                    AttributePath.parse("foo"),
+                    PositionRelation.at(1),
+                    ObjectName("Inserted"),
+                    PositionRelation.at(1),
+                    ObjectNotation.ofParent(ObjectName("DoubleValue"))))
 
         val documentNotation = transition.graphNotation.documents[testPath]!!
 

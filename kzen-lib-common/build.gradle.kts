@@ -84,7 +84,7 @@ publishing {
 
     publications {
         create<MavenPublication>("common") {
-            println("Components: " + components.asMap.keys)
+//            println("Components: " + components.asMap.keys)
             from(components["kotlin"])
 //            artifact(sourcesJar.get())
         }

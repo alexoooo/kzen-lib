@@ -97,6 +97,16 @@ data class AttributePath(
     }
 
 
+    fun nest(attributeSegment: AttributeSegment): AttributePath {
+        return copy(nesting = nesting.push(attributeSegment))
+    }
+
+
+    fun nest(attributeNesting: AttributeNesting): AttributePath {
+        return copy(nesting = nesting.push(attributeNesting))
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override fun digest(builder: Digest.Builder) {
         attribute.digest(builder)

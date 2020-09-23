@@ -48,6 +48,7 @@ data class DocumentObjectNotation(
         return notations.equalsInOrder(otherNotations)
     }
 
+
     override fun hashCode(): Int {
         return notations.hashCode()
     }

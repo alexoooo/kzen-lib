@@ -2,6 +2,7 @@ package tech.kzen.lib.common.aggregate
 
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.AddObjectCommand
 import tech.kzen.lib.common.service.notation.NotationConventions
@@ -20,7 +21,7 @@ class AddObjectTest: AggregateTest() {
 
         val transition = project.apply(notation, AddObjectCommand.ofParent(
                 location("Foo"),
-                PositionIndex(0),
+                PositionRelation.first,
                 ObjectName("Parent")
         ))
 

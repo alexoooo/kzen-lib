@@ -87,6 +87,11 @@ List:
   class: kotlin.collections.List
 
 
+Set:
+  abstract: true
+  class: kotlin.collections.Set
+
+
 ###########################################################
 
 

@@ -10,7 +10,7 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.model.structure.notation.PositionIndex
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
 import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
 import tech.kzen.lib.common.service.context.GraphDefiner
@@ -48,14 +48,14 @@ B:
 
             val aLocation = location("A")
 
-            repo.apply(ShiftObjectCommand(aLocation, PositionIndex(1)))
+            repo.apply(ShiftObjectCommand(aLocation, PositionRelation.at(1)))
 
             assertEquals(
                     1,
                     repo.graphNotation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "First move down")
 
-            repo.apply(ShiftObjectCommand(aLocation, PositionIndex(0)))
+            repo.apply(ShiftObjectCommand(aLocation, PositionRelation.first))
 
             assertEquals(
                     0,

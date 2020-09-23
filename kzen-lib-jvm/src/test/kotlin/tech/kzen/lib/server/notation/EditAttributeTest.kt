@@ -4,10 +4,7 @@ import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
-import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
-import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
-import tech.kzen.lib.common.model.structure.notation.PositionIndex
-import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveInAttributeCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftInAttributeCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.UpdateInAttributeCommand
@@ -112,9 +109,9 @@ Foo:
         val transition = reducer.apply(
                 notation,
                 ShiftInAttributeCommand(
-                        location("Foo"),
-                        AttributePath.parse("hello.0"),
-                        PositionIndex(1)))
+                    location("Foo"),
+                    AttributePath.parse("hello.0"),
+                    PositionRelation.at(1)))
 
         val value = transition.graphNotation.getString(
                 location("Foo"), attribute("hello.0"))
@@ -132,11 +129,11 @@ Foo:
 """)
 
         val transition = reducer.apply(
-                notation,
-                ShiftInAttributeCommand(
-                        location("Foo"),
-                        AttributePath.parse("hello.foo"),
-                        PositionIndex(1)))
+            notation,
+            ShiftInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.foo"),
+                PositionRelation.at(1)))
 
         val objectNotation =
                 transition.graphNotation.coalesce.values[location("Foo")]!!

@@ -2,15 +2,10 @@ package tech.kzen.lib.server.notation
 
 import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributeName
-import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
-import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
-import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
-import tech.kzen.lib.common.model.structure.notation.PositionIndex
-import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
-import tech.kzen.lib.platform.collect.persistentListOf
 import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -31,7 +26,7 @@ Foo:
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
                 AttributePath.parse("hello"),
-                PositionIndex(0),
+                PositionRelation.first,
                 AttributeSegment.ofKey("buzz"),
                 ScalarAttributeNotation("world"),
                 false)
@@ -61,7 +56,7 @@ Foo:
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
                 AttributePath.parse("hello"),
-                PositionIndex(1),
+                PositionRelation.at(1),
                 AttributeSegment.ofKey("buzz"),
                 ScalarAttributeNotation("world"),
                 false)
@@ -92,7 +87,7 @@ Foo:
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
                 AttributePath.parse("hello.fizz"),
-                PositionIndex(0),
+                PositionRelation.first,
                 AttributeSegment.ofKey("buzz"),
                 ScalarAttributeNotation("world"),
                 false)
@@ -120,7 +115,7 @@ Foo:
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
                 AttributePath.parse("hello.fizz"),
-                PositionIndex(0),
+                PositionRelation.first,
                 AttributeSegment.ofKey("buzz"),
                 ScalarAttributeNotation("world"),
                 true)
@@ -151,7 +146,7 @@ Foo:
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
                 AttributePath.parse("hello.fizz"),
-                PositionIndex(0),
+                PositionRelation.first,
                 AttributeSegment.ofKey("buzz"),
                 ScalarAttributeNotation("world"),
                 true)

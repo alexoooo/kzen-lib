@@ -44,13 +44,13 @@ data class CopyDocumentCommand(
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
         val objectLocation: ObjectLocation,
-        val indexInDocument: PositionIndex,
+        val indexInDocument: PositionRelation,
         val body: ObjectNotation
 ): StructuralNotationCommand() {
     companion object {
         fun ofParent(
                 objectLocation: ObjectLocation,
-                indexInDocument: PositionIndex,
+                indexInDocument: PositionRelation,
                 parentName: ObjectName
         ): AddObjectCommand {
             return ofParent(
@@ -62,7 +62,7 @@ data class AddObjectCommand(
 
         fun ofParent(
                 objectLocation: ObjectLocation,
-                indexInDocument: PositionIndex,
+                indexInDocument: PositionRelation,
                 parentReference: ObjectReference
         ): AddObjectCommand {
             val parentBody = ObjectNotation.ofParent(parentReference)
@@ -79,7 +79,7 @@ data class RemoveObjectCommand(
 
 data class ShiftObjectCommand(
         val objectLocation: ObjectLocation,
-        val newPositionInDocument: PositionIndex
+        val newPositionInDocument: PositionRelation
 ): StructuralNotationCommand()
 
 
@@ -95,10 +95,10 @@ data class RenameNestedObjectCommand(
 ): StructuralNotationCommand()
 
 
-data class RelocateObjectCommand(
-        val location: ObjectLocation,
-        val newObjectPath: PositionedObjectPath
-): StructuralNotationCommand()
+//data class RelocateObjectCommand(
+//        val location: ObjectLocation,
+//        val newObjectPath: PositionedObjectPath
+//): StructuralNotationCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -109,10 +109,10 @@ data class UpsertAttributeCommand(
 ): StructuralNotationCommand()
 
 
-data class ClearAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName
-): StructuralNotationCommand()
+//data class ClearAttributeCommand(
+//        val objectLocation: ObjectLocation,
+//        val attributeName: AttributeName
+//): StructuralNotationCommand()
 
 
 data class UpdateInAttributeCommand(
@@ -125,7 +125,7 @@ data class UpdateInAttributeCommand(
 data class InsertListItemInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingList: AttributePath,
-        val indexInList: PositionIndex,
+        val indexInList: PositionRelation,
         val item: AttributeNotation
 ): StructuralNotationCommand()
 
@@ -133,7 +133,7 @@ data class InsertListItemInAttributeCommand(
 data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingMap: AttributePath,
-        val indexInMap: PositionIndex,
+        val indexInMap: PositionRelation,
         val mapKey: AttributeSegment,
         val value: AttributeNotation,
         val createAncestorsIfAbsent: Boolean
@@ -147,10 +147,18 @@ data class RemoveInAttributeCommand(
 ): StructuralNotationCommand()
 
 
+data class RemoveListItemInAttributeCommand(
+        val objectLocation: ObjectLocation,
+        val containingList: AttributePath,
+        val item: AttributeNotation,
+        val removeContainerIfEmpty: Boolean
+): StructuralNotationCommand()
+
+
 data class ShiftInAttributeCommand(
         val objectLocation: ObjectLocation,
         val attributePath: AttributePath,
-        val newPosition: PositionIndex
+        val newPosition: PositionRelation
 ): StructuralNotationCommand()
 
 
@@ -158,9 +166,9 @@ data class ShiftInAttributeCommand(
 data class InsertObjectInListAttributeCommand(
         val containingObjectLocation: ObjectLocation,
         val containingList: AttributePath,
-        val indexInList: PositionIndex,
+        val indexInList: PositionRelation,
         val objectName: ObjectName,
-        val positionInDocument: PositionIndex,
+        val positionInDocument: PositionRelation,
         val objectNotation: ObjectNotation
 ): StructuralNotationCommand() {
     fun insertedObjectLocation(): ObjectLocation {

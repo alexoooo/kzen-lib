@@ -5,6 +5,8 @@ data class PositionIndex(
         val value: Int
 ) {
     companion object {
+        val zero = PositionIndex(0)
+
         fun parse(asString: String): PositionIndex {
             return PositionIndex(asString.toInt())
         }

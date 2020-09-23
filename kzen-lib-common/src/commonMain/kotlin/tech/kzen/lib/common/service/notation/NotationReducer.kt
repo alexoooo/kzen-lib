@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.service.notation
 
 import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.definition.ObjectDefinition
 import tech.kzen.lib.common.model.definition.ReferenceAttributeDefinition
@@ -81,6 +82,9 @@ class NotationReducer {
 
             is RemoveInAttributeCommand ->
                 removeInAttribute(state, command)
+
+            is RemoveListItemInAttributeCommand ->
+                removeListItemInAttribute(state, command)
 
 
             is ShiftInAttributeCommand ->
@@ -180,8 +184,8 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun addObject(
-            state: GraphNotation,
-            command: AddObjectCommand
+        state: GraphNotation,
+        command: AddObjectCommand
     ): NotationTransition {
         check(command.objectLocation !in state.coalesce.values) {
             "Object named '${command.objectLocation}' already exists"
@@ -189,9 +193,12 @@ class NotationReducer {
 
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
+        val indexInDocument =
+            command.indexInDocument.resolve(documentNotation.objects.notations.values.size)
+
         val modifiedDocumentNotation =
                 documentNotation.withNewObject(
-                        PositionedObjectPath(command.objectLocation.objectPath, command.indexInDocument),
+                        PositionedObjectPath(command.objectLocation.objectPath, indexInDocument),
                         command.body)
 
         val nextState = state.withModifiedDocument(
@@ -199,9 +206,9 @@ class NotationReducer {
 
         return NotationTransition(
                 AddedObjectEvent(
-                        command.objectLocation,
-                        command.indexInDocument,
-                        command.body),
+                    command.objectLocation,
+                    indexInDocument,
+                    command.body),
                 nextState)
     }
 
@@ -232,21 +239,24 @@ class NotationReducer {
     ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
-        val packageNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
 
         val objectNotation = state.coalesce[command.objectLocation]!!
 
-        val removedFromCurrent = packageNotation.withoutObject(command.objectLocation.objectPath)
+        val removedFromCurrent = documentNotation.withoutObject(command.objectLocation.objectPath)
+
+        val newPositionInDocument =
+            command.newPositionInDocument.resolve(documentNotation.objects.notations.values.size)
 
         val addedToNew = removedFromCurrent.withNewObject(
-                PositionedObjectPath(command.objectLocation.objectPath, command.newPositionInDocument),
+                PositionedObjectPath(command.objectLocation.objectPath, newPositionInDocument),
                 objectNotation)
 
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, addedToNew)
 
         return NotationTransition(
-                ShiftedObjectEvent(command.objectLocation, command.newPositionInDocument),
+                ShiftedObjectEvent(command.objectLocation, newPositionInDocument),
                 nextState)
     }
 
@@ -374,7 +384,9 @@ class NotationReducer {
                 ?: throw IllegalStateException(
                         "List attribute expected: ${command.objectLocation} - ${command.containingList}")
 
-        val listWithInsert = listInAttribute.insert(command.indexInList, command.item)
+        val indexInList = command.indexInList.resolve(listInAttribute.values.size)
+
+        val listWithInsert = listInAttribute.insert(indexInList, command.item)
 
         val modifiedObjectNotation = objectNotation.upsertAttribute(
                 command.containingList, listWithInsert)
@@ -386,7 +398,7 @@ class NotationReducer {
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
         val event = InsertedListItemInAttributeEvent(
-                command.objectLocation, command.containingList, command.indexInList, listInAttribute)
+                command.objectLocation, command.containingList, indexInList, listInAttribute)
 
         return NotationTransition(event, nextState)
     }
@@ -407,6 +419,9 @@ class NotationReducer {
 
         val containingMapExists = containingAttribute != null
 
+        val containingMapSize = (containingAttribute as? MapAttributeNotation)?.values?.size ?: 0
+        val indexInMap = command.indexInMap.resolve(containingMapSize)
+
         val createdAncestors = mutableListOf<AttributePath>()
 
         val modifiedObjectNotation =
@@ -415,7 +430,7 @@ class NotationReducer {
                     "Containing map missing: ${command.containingMap}"
                 }
 
-                require(command.indexInMap.value == 0) {
+                require(indexInMap.value == 0) {
                     "Index out of bounds in empty map: ${command.indexInMap}"
                 }
 
@@ -463,7 +478,7 @@ class NotationReducer {
             else {
                 val mapInAttribute = containingAttribute as MapAttributeNotation
                 val mapWithInsert = mapInAttribute.insert(
-                    command.value, command.mapKey, command.indexInMap)
+                    command.value, command.mapKey, indexInMap)
 
                 objectNotation.upsertAttribute(
                     command.containingMap, mapWithInsert)
@@ -478,7 +493,7 @@ class NotationReducer {
         val event = InsertedMapEntryInAttributeEvent(
             command.objectLocation,
             command.containingMap,
-            command.indexInMap,
+            indexInMap,
             command.mapKey,
             command.value,
             createdAncestors.reversed())
@@ -516,31 +531,7 @@ class NotationReducer {
 
         val modifiedObjectNotation =
             if (containerWithoutElement.isEmpty() && command.removeContainerIfEmpty) {
-                val containerParent = containerPath.parent()
-                val parentNotion = objectNotation.get(containerParent)
-                        as StructuredAttributeNotation
-
-                if (containerPath.nesting.segments.isEmpty()) {
-                    objectNotation.removeAttribute(containerPath.attribute)
-                }
-                else {
-                    val containerSegment = containerPath.nesting.segments.last()
-
-                    // todo: recursive?
-                    val parentWithoutContainer =
-                        when (parentNotion) {
-                            is MapAttributeNotation -> {
-                                parentNotion.remove(containerSegment)
-                            }
-
-                            is ListAttributeNotation -> {
-                                parentNotion.remove(PositionIndex(containerSegment.asIndex()!!))
-                            }
-                        }
-
-                    objectNotation.upsertAttribute(
-                        containerParent, parentWithoutContainer)
-                }
+                removeEmptyContainer(objectNotation, containerPath)
             }
             else {
                 objectNotation.upsertAttribute(
@@ -557,6 +548,86 @@ class NotationReducer {
                 command.objectLocation, command.attributePath)
 
         return NotationTransition(event, nextState)
+    }
+
+
+    private fun removeListItemInAttribute(
+            state: GraphNotation,
+            command: RemoveListItemInAttributeCommand
+    ): NotationTransition {
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
+
+        val containerPath = command.containingList
+        val containerNotation = objectNotation.get(containerPath)
+                as? ListAttributeNotation
+            ?: throw IllegalArgumentException("List expected: " +
+                    "$containerPath - ${objectNotation.get(containerPath)}")
+
+        val firstIndex = containerNotation.values.indexOfFirst { it == command.item }
+        require(firstIndex != -1) { "List does not contain item: ${command.item} - $containerNotation" }
+
+        val lastIndex = containerNotation.values.indexOfLast { it == command.item }
+        require(firstIndex == lastIndex) {
+            "List does not contains item duplicates: ${command.item} - $containerNotation"
+        }
+
+        val itemIndex = PositionIndex(firstIndex)
+        val containerWithoutElement = containerNotation.remove(itemIndex)
+
+        val modifiedObjectNotation =
+            if (containerWithoutElement.isEmpty() && command.removeContainerIfEmpty) {
+                removeEmptyContainer(objectNotation, containerPath)
+            }
+            else {
+                objectNotation.upsertAttribute(
+                    containerPath, containerWithoutElement)
+            }
+
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
+                command.objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedDocumentNotation)
+
+        val removedAttributePath = command.containingList.nest(
+            AttributeSegment.ofIndex(firstIndex))
+
+        val event = RemovedInAttributeEvent(
+                command.objectLocation, removedAttributePath)
+
+        return NotationTransition(event, nextState)
+    }
+
+
+    private fun removeEmptyContainer(
+        objectNotation: ObjectNotation,
+        containerPath: AttributePath
+    ): ObjectNotation {
+        val containerParent = containerPath.parent()
+        val parentNotion = objectNotation.get(containerParent)
+                as StructuredAttributeNotation
+
+        if (containerPath.nesting.segments.isEmpty()) {
+            return objectNotation.removeAttribute(containerPath.attribute)
+        }
+
+        val containerSegment = containerPath.nesting.segments.last()
+
+        // todo: recursive?
+        val parentWithoutContainer =
+            when (parentNotion) {
+                is MapAttributeNotation -> {
+                    parentNotion.remove(containerSegment)
+                }
+
+                is ListAttributeNotation -> {
+                    parentNotion.remove(PositionIndex(containerSegment.asIndex()!!))
+                }
+            }
+
+        return objectNotation.upsertAttribute(
+            containerParent, parentWithoutContainer)
     }
 
 
