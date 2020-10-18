@@ -130,6 +130,7 @@ data class InsertListItemInAttributeCommand(
 ): StructuralNotationCommand()
 
 
+// TODO: add UpsertMapEntryInAttributeCommand using AttributeTypedLocation instead of createAncestorsIfAbsent
 data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingMap: AttributePath,

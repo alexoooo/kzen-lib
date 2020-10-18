@@ -411,7 +411,9 @@ class NotationReducer {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
-        val containingAttribute = objectNotation.get(command.containingMap)
+        val containingAttribute =
+            objectNotation.get(command.containingMap)
+//            state.transitiveAttribute(command.objectLocation, command.containingMap)
 
         require(containingAttribute == null || containingAttribute is MapAttributeNotation) {
             "Map expected: ${command.containingMap} - $containingAttribute"
@@ -443,6 +445,7 @@ class NotationReducer {
 
                 var furthestPresentAncestor: AttributePath? = command.containingMap
                 while (objectNotation.get(furthestPresentAncestor!!) == null) {
+//                while (state.transitiveAttribute(command.objectLocation, furthestPresentAncestor!!) == null) {
                     createdAncestors.add(furthestPresentAncestor)
 
                     if (furthestPresentAncestor.nesting.segments.isEmpty()) {
@@ -614,7 +617,6 @@ class NotationReducer {
 
         val containerSegment = containerPath.nesting.segments.last()
 
-        // todo: recursive?
         val parentWithoutContainer =
             when (parentNotion) {
                 is MapAttributeNotation -> {

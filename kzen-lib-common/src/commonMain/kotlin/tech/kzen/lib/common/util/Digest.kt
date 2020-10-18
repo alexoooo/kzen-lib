@@ -6,10 +6,10 @@ import tech.kzen.lib.platform.IoUtils
 // NB: can't use Long in straight JSON transmission, see:
 //  https://kotlinlang.org/docs/reference/js-to-kotlin-interop.html#representing-kotlin-types-in-javascript
 data class Digest(
-        val a: Int,
-        val b: Int,
-        val c: Int,
-        val d: Int
+    val a: Int,
+    val b: Int,
+    val c: Int,
+    val d: Int
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -27,6 +27,35 @@ data class Digest(
          * Data to be digested is absent or missing, e.g. null
          */
         val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
+
+
+        fun fromBytes(bytes: ByteArray): Digest {
+            val a =
+                bytes[0].toInt() shl 24 or
+                (bytes[1].toInt() and 255 shl 16) or
+                (bytes[2].toInt() and 255 shl 8) or
+                (bytes[3].toInt() and 255)
+
+            val b =
+                bytes[4].toInt() shl 24 or
+                (bytes[5].toInt() and 255 shl 16) or
+                (bytes[6].toInt() and 255 shl 8) or
+                (bytes[7].toInt() and 255)
+
+            val c =
+                bytes[8].toInt() shl 24 or
+                (bytes[9].toInt() and 255 shl 16) or
+                (bytes[10].toInt() and 255 shl 8) or
+                (bytes[11].toInt() and 255)
+
+            val d =
+                bytes[12].toInt() shl 24 or
+                (bytes[13].toInt() and 255 shl 16) or
+                (bytes[14].toInt() and 255 shl 8) or
+                (bytes[15].toInt() and 255)
+
+            return Digest(a, b, c, d)
+        }
 
 
         fun ofUtf8(utf8: String?): Digest {
@@ -76,10 +105,11 @@ data class Digest(
         fun parse(asString: String): Digest {
             val parts = asString.split('_')
             return Digest(
-                    parts[0].toInt(),
-                    parts[1].toInt(),
-                    parts[2].toInt(),
-                    parts[3].toInt())
+                parts[0].toInt(),
+                parts[1].toInt(),
+                parts[2].toInt(),
+                parts[3].toInt()
+            )
         }
 
 
@@ -509,6 +539,32 @@ data class Digest(
 
     fun asString(): String {
         return "${a}_${b}_${c}_$d"
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun toByteArray(): ByteArray {
+        return byteArrayOf(
+            (a shr 24).toByte(),
+            (a shr 16).toByte(),
+            (a shr 8).toByte(),
+            a.toByte(),
+
+            (b shr 24).toByte(),
+            (b shr 16).toByte(),
+            (b shr 8).toByte(),
+            b.toByte(),
+
+            (c shr 24).toByte(),
+            (c shr 16).toByte(),
+            (c shr 8).toByte(),
+            c.toByte(),
+
+            (d shr 24).toByte(),
+            (d shr 16).toByte(),
+            (d shr 8).toByte(),
+            d.toByte()
+        )
     }
 
 
