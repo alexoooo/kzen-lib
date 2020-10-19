@@ -61,4 +61,18 @@ Foo/bar baz:
         assertEquals("foo/bar", ((node.values["Foo/bar baz"] as YamlList).values[0] as YamlString).value)
         assertEquals("hello world", ((node.values["Foo/bar baz"] as YamlList).values[1] as YamlString).value)
     }
+
+
+    @Test
+    fun listOfMap() {
+        val node = YamlParser.parse("""
+- foo: bar
+  hello: world
+""") as YamlList
+
+        assertTrue(node.values.single() is YamlMap)
+        assertEquals(2, (node.values[0] as YamlMap).values.size)
+        assertEquals("bar", (node.values[0] as YamlMap).values["foo"]?.toObject())
+        assertEquals("world", (node.values[0] as YamlMap).values["hello"]?.toObject())
+    }
 }

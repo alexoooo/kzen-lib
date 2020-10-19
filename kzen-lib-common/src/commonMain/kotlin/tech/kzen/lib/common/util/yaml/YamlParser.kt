@@ -255,10 +255,10 @@ object YamlParser {
 
 
     private fun parseMapEntry(block: List<String>): Pair<String, YamlNode> {
-        val startLife = block.find { matchEntireEntry(it) != null }
+        val startLine = block.find { matchEntireEntry(it) != null }
                 ?: throw IllegalArgumentException("Key-value pair not found: $block")
 
-        val startMatch = matchEntireEntry(startLife)!!
+        val startMatch = matchEntireEntry(startLine)!!
 
         val key = unescapeString(startMatch.groupValues[1])
         val startSuffix = startMatch.groupValues[2]
@@ -302,11 +302,11 @@ object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun identifyStructure(block: List<String>): NotationStructure {
         for (line in block) {
-            if (matchEntireEntry(line) != null || line == emptyMapJson) {
-                return NotationStructure.Map
-            }
             if (Patterns.item.matchEntire(line) != null || line == emptyListJson) {
                 return NotationStructure.List
+            }
+            if (matchEntireEntry(line) != null || line == emptyMapJson) {
+                return NotationStructure.Map
             }
         }
 
