@@ -59,12 +59,4 @@ LocateName:
                 locateNameLocationB,
                 notation.coalesce.locate(locateNameReference, bHost))
     }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    private fun location(name: String): ObjectLocation {
-        return ObjectLocation(
-                DocumentPath.parse("test/autowired.yaml"),
-                ObjectPath.parse(name))
-    }
 }

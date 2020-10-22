@@ -21,7 +21,8 @@ object DefinitionAttributeCreator: AttributeCreator {
             partialGraphInstance: GraphInstance
     ): Any? {
         val attributeDefinition = objectDefinition.attributeDefinitions.values[attributeName]
-                ?: throw IllegalArgumentException("Attribute definition missing: $objectLocation - $attributeName")
+                ?: throw IllegalArgumentException(
+                    "Attribute definition missing: $objectLocation - $attributeName - $objectDefinition")
 
         return createDefinition(
                 objectLocation, attributeDefinition, partialGraphInstance, graphStructure)

@@ -67,3 +67,12 @@ CustomModel:
 
 CustomModelDefiner:
   class: tech.kzen.lib.server.objects.custom.CustomModel$Definer
+
+
+CommentArgObject:
+  class: tech.kzen.lib.server.objects.CommentArgObject
+  first: first
+  fourth: fourth
+  meta:
+    first: String
+    fourth: String

@@ -12,10 +12,7 @@ import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.common.service.context.GraphDefiner
-import tech.kzen.lib.server.objects.EscapedObject
-import tech.kzen.lib.server.objects.SelfAware
-import tech.kzen.lib.server.objects.StringHolder
-import tech.kzen.lib.server.objects.StringHolderRef
+import tech.kzen.lib.server.objects.*
 import tech.kzen.lib.server.objects.custom.CustomDefined
 import tech.kzen.lib.server.util.GraphTestUtils
 
@@ -91,6 +88,17 @@ class ObjectGraphTest {
 
         val escapedInstance = objectGraph[location("CustomDefined")]?.reference as CustomDefined
         assertEquals("foo bar/baz", escapedInstance.customModel.value)
+    }
+
+
+    @Test
+    fun `Comments are handled`() {
+        val objectGraph = GraphTestUtils.newObjectGraph()
+
+        val escapedInstance =
+            objectGraph[location("CommentArgObject")]?.reference as CommentArgObject
+        assertEquals("first", escapedInstance.first)
+        assertEquals("fourth", escapedInstance.fourth)
     }
 
 

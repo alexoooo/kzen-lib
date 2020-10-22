@@ -83,7 +83,6 @@ data class Digest(
             var s3: Int = guavaHashingSmear(bytes.size)
 
             for (b in bytes) {
-//                s0 += guavaHashingSmear(b.toInt())
                 s0 = s0 * 37 xor guavaHashingSmear(b.toInt())
 
                 val t = s1 shl 9
@@ -99,6 +98,15 @@ data class Digest(
             }
 
             return Digest(s0, s1, s2, s3)
+        }
+
+
+        fun ofInt(value: Int): Digest {
+            val a = Int.MAX_VALUE
+            val b = murmurHash3(value)
+            val c = hashMapHash(value)
+            val d = guavaHashingSmear(value)
+            return Digest(a, b, c, d)
         }
 
 
@@ -317,6 +325,47 @@ data class Digest(
         }
 
 
+        fun addDigestibleUnorderedList(digestibleList: List<Digestible>) {
+            addInt(digestibleList.size)
+
+            val unorderedCombiner = UnorderedCombiner()
+            val valueDigester = Builder()
+
+            for (value in digestibleList) {
+                valueDigester.clear()
+                valueDigester.addDigestible(value)
+                unorderedCombiner.add(valueDigester.digest())
+            }
+
+            addDigest(unorderedCombiner.combine())
+        }
+
+
+
+        fun addDigestibleOrderedSet(digestibleSet: Set<Digestible>) {
+            addInt(digestibleSet.size)
+            for (value in digestibleSet) {
+                addDigestible(value)
+            }
+        }
+
+
+        fun addDigestibleUnorderedSet(digestibleSet: Set<Digestible>) {
+            addInt(digestibleSet.size)
+
+            val unorderedCombiner = UnorderedCombiner()
+            val valueDigester = Builder()
+
+            for (value in digestibleSet) {
+                valueDigester.clear()
+                valueDigester.addDigestible(value)
+                unorderedCombiner.add(valueDigester.digest())
+            }
+
+            addDigest(unorderedCombiner.combine())
+        }
+
+
         fun addDigestibleOrderedMap(digestibleMap: Map<out Digestible, Digestible>) {
             addInt(digestibleMap.size)
             for ((key, value) in digestibleMap) {
@@ -390,7 +439,6 @@ data class Digest(
                 init(value)
             }
             else {
-//                s0 += guavaHashingSmear(value)
                 s0 = s0 * 37 xor guavaHashingSmear(value)
 
                 val t = s1 shl 9
