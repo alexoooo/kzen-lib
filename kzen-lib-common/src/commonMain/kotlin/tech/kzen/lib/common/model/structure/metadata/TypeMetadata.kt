@@ -9,8 +9,16 @@ data class TypeMetadata(
         val generics: List<TypeMetadata>
 ) {
     companion object {
-        val any = TypeMetadata(
-                ClassNames.kotlinString,
+        val any = of(ClassNames.kotlinAny)
+        val string = of(ClassNames.kotlinString)
+        val int = of(ClassNames.kotlinInt)
+        val long = of(ClassNames.kotlinList)
+        val double = of(ClassNames.kotlinDouble)
+
+        fun of(className: ClassName): TypeMetadata {
+            return TypeMetadata(
+                className,
                 listOf())
+        }
     }
 }

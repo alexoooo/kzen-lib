@@ -18,7 +18,6 @@ sealed class AttributeNotation: Digestible {
     }
 
     fun asBoolean(): Boolean? {
-        @Suppress("MoveVariableDeclarationIntoWhen")
         val asString = asString()
                 ?: return null
 
@@ -31,6 +30,14 @@ sealed class AttributeNotation: Digestible {
 
     fun asInt(): Int? {
         return asString()?.toIntOrNull()
+    }
+
+    fun asLong(): Long? {
+        return asString()?.toLongOrNull()
+    }
+
+    fun asDouble(): Double? {
+        return asString()?.toDoubleOrNull()
     }
 }
 

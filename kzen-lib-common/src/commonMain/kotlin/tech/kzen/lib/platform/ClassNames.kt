@@ -7,6 +7,7 @@ object ClassNames {
     val kotlinString = ClassName("kotlin.String")
     val kotlinBoolean = ClassName("kotlin.Boolean")
     val kotlinInt = ClassName("kotlin.Int")
+    val kotlinLong = ClassName("kotlin.Long")
     val kotlinDouble = ClassName("kotlin.Double")
 
     @Suppress("unused")
@@ -21,6 +22,7 @@ object ClassNames {
         return className == kotlinString ||
                 className == kotlinBoolean ||
                 className == kotlinInt ||
+                className == kotlinLong ||
                 className == kotlinDouble
     }
 
