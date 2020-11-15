@@ -6,10 +6,10 @@ import tech.kzen.lib.platform.collect.toPersistentList
 
 
 data class AttributePath(
-        val attribute: AttributeName,
-        val nesting: AttributeNesting
+    val attribute: AttributeName,
+    val nesting: AttributeNesting
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -104,6 +104,12 @@ data class AttributePath(
 
     fun nest(attributeNesting: AttributeNesting): AttributePath {
         return copy(nesting = nesting.push(attributeNesting))
+    }
+
+
+    fun toNesting(): AttributeNesting {
+        return AttributeNesting(
+            nesting.segments.add(0, AttributeSegment.ofKey(attribute.value)))
     }
 
 

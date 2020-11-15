@@ -34,7 +34,7 @@ object ParentChildAttributeDefiner: AttributeDefiner {
 
         for (e in graphStructure.graphNotation.coalesce.values) {
             val parentNotation = graphStructure.graphNotation
-                    .transitiveAttribute(e.key, parentAttributePath)
+                    .firstAttribute(e.key, parentAttributePath)
                     ?: continue
 
             val parentName =

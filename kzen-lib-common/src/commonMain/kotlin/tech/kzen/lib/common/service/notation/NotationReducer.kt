@@ -380,7 +380,7 @@ class NotationReducer {
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
         val listInAttribute = state
-                .transitiveAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
+                .firstAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
                 ?: throw IllegalStateException(
                         "List attribute expected: ${command.objectLocation} - ${command.containingList}")
 

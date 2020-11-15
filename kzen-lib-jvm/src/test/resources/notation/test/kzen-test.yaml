@@ -76,3 +76,8 @@ CommentArgObject:
   meta:
     first: String
     fourth: String
+
+
+CommentArgObjectInherit:
+  is: CommentArgObject
+  first: foo

@@ -5,14 +5,14 @@ import tech.kzen.lib.platform.ClassNames
 
 
 data class TypeMetadata(
-        val className: ClassName,
-        val generics: List<TypeMetadata>
+    val className: ClassName,
+    val generics: List<TypeMetadata>
 ) {
     companion object {
         val any = of(ClassNames.kotlinAny)
         val string = of(ClassNames.kotlinString)
         val int = of(ClassNames.kotlinInt)
-        val long = of(ClassNames.kotlinList)
+        val long = of(ClassNames.kotlinLong)
         val double = of(ClassNames.kotlinDouble)
 
         fun of(className: ClassName): TypeMetadata {

@@ -32,7 +32,7 @@ Foo:
                 false)
         )
 
-        val containingMap = transition.graphNotation.transitiveAttribute(
+        val containingMap = transition.graphNotation.firstAttribute(
             location("Foo"), AttributeName("hello")
         ) as MapAttributeNotation
 
@@ -62,7 +62,7 @@ Foo:
                 false)
         )
 
-        val containingMap = transition.graphNotation.transitiveAttribute(
+        val containingMap = transition.graphNotation.firstAttribute(
             location("Foo"), AttributeName("hello")
         ) as MapAttributeNotation
 
@@ -93,7 +93,7 @@ Foo:
                 false)
         )
 
-        val containingMap = transition.graphNotation.transitiveAttribute(
+        val containingMap = transition.graphNotation.firstAttribute(
             location("Foo"), AttributePath.parse("hello.fizz")
         ) as MapAttributeNotation
 
@@ -121,7 +121,7 @@ Foo:
                 true)
         )
 
-        val containingMap = transition.graphNotation.transitiveAttribute(
+        val containingMap = transition.graphNotation.firstAttribute(
             location("Foo"), AttributePath.parse("hello.fizz")
         ) as MapAttributeNotation
 
@@ -152,7 +152,7 @@ Foo:
                 true)
         )
 
-        val containingMap = transition.graphNotation.transitiveAttribute(
+        val containingMap = transition.graphNotation.firstAttribute(
             location("Foo"), AttributePath.parse("hello.fizz")
         ) as MapAttributeNotation
 

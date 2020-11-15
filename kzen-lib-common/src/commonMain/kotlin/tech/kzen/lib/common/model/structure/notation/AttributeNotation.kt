@@ -1,13 +1,11 @@
 package tech.kzen.lib.common.model.structure.notation
 
+import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
-import tech.kzen.lib.platform.collect.PersistentList
-import tech.kzen.lib.platform.collect.PersistentMap
-import tech.kzen.lib.platform.collect.persistentListOf
-import tech.kzen.lib.platform.collect.persistentMapOf
+import tech.kzen.lib.platform.collect.*
 
 
 //---------------------------------------------------------------------------------------------------------------------
@@ -39,6 +37,11 @@ sealed class AttributeNotation: Digestible {
     fun asDouble(): Double? {
         return asString()?.toDoubleOrNull()
     }
+
+
+    abstract fun get(attributeNesting: AttributeNesting): AttributeNotation?
+
+    abstract fun merge(previous: AttributeNotation): AttributeNotation
 }
 
 
@@ -46,6 +49,22 @@ sealed class AttributeNotation: Digestible {
 data class ScalarAttributeNotation(
         val value: String
 ): AttributeNotation() {
+    override fun get(attributeNesting: AttributeNesting): AttributeNotation? {
+        return when {
+            attributeNesting.segments.isEmpty() ->
+                this
+
+            else ->
+                null
+        }
+    }
+
+
+    override fun merge(previous: AttributeNotation): AttributeNotation {
+        return this
+    }
+
+
     override fun digest(builder: Digest.Builder) {
         builder.addUtf8(value)
     }
@@ -65,16 +84,20 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
         get(key.asKey())
 
 
-    fun get(attributePath: AttributePath): AttributeNotation? {
-        var cursor = get(attributePath.attribute.value)
+    override fun get(attributeNesting: AttributeNesting): AttributeNotation? {
+        if (attributeNesting.segments.isEmpty()) {
+            return this
+        }
 
-        var index = 0
-        while (cursor != null && index < attributePath.nesting.segments.size) {
+        var cursor = get(attributeNesting.segments[0])
+
+        var index = 1
+        while (cursor != null && index < attributeNesting.segments.size) {
             if (cursor !is StructuredAttributeNotation) {
                 return null
             }
 
-            cursor = cursor.get(attributePath.nesting.segments[index].asString())
+            cursor = cursor.get(attributeNesting.segments[index])
 
             index++
         }
@@ -103,6 +126,11 @@ data class ListAttributeNotation(
 
     override fun isEmpty(): Boolean {
         return values.isEmpty()
+    }
+
+
+    override fun merge(previous: AttributeNotation): AttributeNotation {
+        return this
     }
 
 
@@ -144,7 +172,7 @@ data class ListAttributeNotation(
 
 
 data class MapAttributeNotation(
-        val values: PersistentMap<AttributeSegment, AttributeNotation>
+    val values: PersistentMap<AttributeSegment, AttributeNotation>
 ): StructuredAttributeNotation() {
     companion object {
         val empty = MapAttributeNotation(persistentMapOf())
@@ -164,9 +192,41 @@ data class MapAttributeNotation(
     }
 
 
+    override fun merge(previous: AttributeNotation): AttributeNotation {
+        if (previous !is MapAttributeNotation) {
+            return this
+        }
+
+        val notationIntersection =
+            values.keys.partition { it in previous.values }
+
+        val ancestorIntersection =
+            previous.values.keys.partition { it in values }
+
+        val uniqueNotation =
+            values.filterKeys { it !in previous.values } +
+                    previous.values.filterKeys { it !in values }
+
+        val intersectionKeys =
+            notationIntersection.first.union(ancestorIntersection.first)
+
+        val intersectionNotation =
+            intersectionKeys.map { key ->
+                val notationValue = get(key)!!
+                val ancestorValue = previous.get(key)!!
+                key to notationValue.merge(ancestorValue)
+            }
+
+        val allNotation = uniqueNotation + intersectionNotation
+
+        return MapAttributeNotation(
+            allNotation.toPersistentMap())
+    }
+
+
     fun put(
-            key: AttributeSegment,
-            attributeNotation: AttributeNotation
+        key: AttributeSegment,
+        attributeNotation: AttributeNotation
     ): MapAttributeNotation {
         return MapAttributeNotation(
                 values.put(key, attributeNotation))
@@ -174,9 +234,9 @@ data class MapAttributeNotation(
 
 
     fun insert(
-            attributeNotation: AttributeNotation,
-            key: AttributeSegment,
-            positionIndex: PositionIndex
+        attributeNotation: AttributeNotation,
+        key: AttributeSegment,
+        positionIndex: PositionIndex
     ): MapAttributeNotation {
         check(key !in values) {
             "Already exists: $key"

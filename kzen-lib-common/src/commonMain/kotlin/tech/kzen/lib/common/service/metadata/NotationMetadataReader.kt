@@ -200,7 +200,7 @@ class NotationMetadataReader(
             graphNotation: GraphNotation
     ): AttributeMetadata? {
         val attributeNotation = graphNotation
-                .transitiveAttribute(objectLocation, AttributePath.ofName(attributeName))
+                .firstAttribute(objectLocation, AttributePath.ofName(attributeName))
 
         if (attributeNotation is ScalarAttributeNotation) {
             val isValue = try {
@@ -216,7 +216,7 @@ class NotationMetadataReader(
             val isLocation = graphNotation.coalesce.locate(
                     ObjectReference.parse(isValue), objectReferenceHost)
             val isClass = graphNotation
-                    .transitiveAttribute(isLocation, NotationConventions.classAttributePath)
+                    .firstAttribute(isLocation, NotationConventions.classAttributePath)
                     ?.asString()
                     ?: ClassNames.kotlinAny.get()
 
@@ -311,7 +311,7 @@ class NotationMetadataReader(
             objectLocation: ObjectLocation,
             graphNotation: GraphNotation
     ): MapAttributeNotation {
-        return graphNotation.transitiveAttribute(objectLocation, NotationConventions.refAttributePath)
+        return graphNotation.firstAttribute(objectLocation, NotationConventions.refAttributePath)
                 as? MapAttributeNotation
                 ?: MapAttributeNotation.empty
     }
@@ -346,10 +346,10 @@ class NotationMetadataReader(
             attributeMap: MapAttributeNotation,
             projectNotation: GraphNotation
     ): AttributeNotation? {
-        val attributeNotation = attributeMap.get(attributePath)
+        val attributeNotation = attributeMap.get(attributePath.toNesting())
 
         return if (attributeNotation == null && inheritanceParent != null) {
-            projectNotation.transitiveAttribute(
+            projectNotation.firstAttribute(
                     inheritanceParent, attributePath)
         }
         else {

@@ -219,7 +219,7 @@ class GraphDefiner {
             objectLocation: ObjectLocation,
             projectNotation: GraphNotation
     ): ObjectReference? {
-        return projectNotation.transitiveAttribute(objectLocation, NotationConventions.definerAttributePath)
+        return projectNotation.firstAttribute(objectLocation, NotationConventions.definerAttributePath)
                 ?.asString()
                 ?.let { ObjectReference.parse(it) }
     }

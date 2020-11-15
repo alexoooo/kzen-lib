@@ -11,9 +11,7 @@ import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.model.structure.notation.AttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
-import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect
-import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.ClassNames
 
 
@@ -36,7 +34,7 @@ object StructuralAttributeDefiner: AttributeDefiner {
                 ?: return AttributeDefinitionAttempt.failure("Unknown object notation: $objectLocation")
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
-                ?: graphStructure.graphNotation.transitiveAttribute(
+                ?: graphStructure.graphNotation.firstAttribute(
                         objectLocation, attributeName.asAttributeNesting())
                 ?: return AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
 
@@ -111,6 +109,13 @@ object StructuralAttributeDefiner: AttributeDefiner {
             return value
                 ?.let { AttributeDefinitionAttempt.success(ValueAttributeDefinition(it)) }
                 ?: AttributeDefinitionAttempt.failure("Integer expected: ${attributeNotation.value}")
+        }
+
+        if (className == ClassNames.kotlinLong) {
+            val value = attributeNotation.value.toLongOrNull()
+            return value
+                ?.let { AttributeDefinitionAttempt.success(ValueAttributeDefinition(it)) }
+                ?: AttributeDefinitionAttempt.failure("Long expected: ${attributeNotation.value}")
         }
 
         if (className == ClassNames.kotlinDouble) {

@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.structure.notation
 
 import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
@@ -12,7 +13,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class GraphNotation(
-        val documents: DocumentPathMap<DocumentNotation>)
+    val documents: DocumentPathMap<DocumentNotation>)
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -63,7 +64,7 @@ data class GraphNotation(
 
 
     private fun inheritanceParent(
-            objectLocation: ObjectLocation
+        objectLocation: ObjectLocation
     ): ObjectLocation? {
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
                 objectLocation == BootstrapConventions.bootstrapObjectLocation) {
@@ -94,36 +95,92 @@ data class GraphNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun directAttribute(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName
     ): AttributeNotation? {
         return coalesce.values[objectLocation]?.get(attributeName)
     }
 
 
     fun directAttribute(
-            objectLocation: ObjectLocation,
-            attributePath: AttributePath
+        objectLocation: ObjectLocation,
+        attributePath: AttributePath
     ): AttributeNotation? {
         return coalesce.values[objectLocation]?.get(attributePath)
     }
 
 
-    fun transitiveAttribute(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName
-    ): AttributeNotation? {
-        return transitiveAttribute(
-                objectLocation, AttributePath.ofName(attributeName))
+    //-----------------------------------------------------------------------------------------------------------------
+    fun mergeObject(objectLocation: ObjectLocation): ObjectNotation {
+        val ancestors = inheritanceChain(objectLocation)
+
+        val transitiveAttributes = ancestors
+            .mapNotNull { coalesce[it] }
+            .flatMap { it.attributes.values.keys }
+            .toSet()
+            .toList()
+
+        val attributeValues = transitiveAttributes
+            .filter { ! NotationConventions.isSpecial(it) }
+            .map { it to mergeAttribute(it, ancestors) }
+            .toPersistentMap()
+
+        return ObjectNotation(AttributeNameMap(attributeValues))
     }
 
 
-    fun transitiveAttribute(
+    fun mergeAttribute(
+        objectLocation: ObjectLocation,
+        attribute: AttributeName
+    ): AttributeNotation {
+        val ancestors = inheritanceChain(objectLocation)
+        return mergeAttribute(attribute, ancestors)
+    }
+
+
+    fun mergeAttribute(
+        objectLocation: ObjectLocation,
+        attributePath: AttributePath
+    ): AttributeNotation? {
+        val notation = mergeAttribute(objectLocation, attributePath.attribute)
+        return notation.get(attributePath.nesting)
+    }
+
+
+    private fun mergeAttribute(
+        attribute: AttributeName,
+        ancestors: List<ObjectLocation>
+    ): AttributeNotation {
+        var notation: AttributeNotation? = null
+
+        for (ancestor in ancestors) {
+            val directAttributeNotation = directAttribute(ancestor, attribute)
+                ?: continue
+
+            notation = notation?.merge(directAttributeNotation) ?: directAttributeNotation
+        }
+
+        return notation!!
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun firstAttribute(
+            objectLocation: ObjectLocation,
+            attributeName: AttributeName
+    ): AttributeNotation {
+        return firstAttribute(
+                objectLocation, AttributePath.ofName(attributeName))
+            ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
+    }
+
+
+    fun firstAttribute(
             objectLocation: ObjectLocation,
             attributePath: AttributePath
     ): AttributeNotation? {
         val notation = coalesce.values[objectLocation]
-                ?: return null
+                ?: throw IllegalArgumentException("Unknown object location: $objectLocation")
 
         val attributeNotation = notation.get(attributePath)
         if (attributeNotation != null) {
@@ -157,7 +214,7 @@ data class GraphNotation(
             return null
         }
 
-        return transitiveAttribute(superLocation, attributePath)
+        return firstAttribute(superLocation, attributePath)
     }
 
 
@@ -168,7 +225,7 @@ data class GraphNotation(
 
 
     fun getString(objectLocation: ObjectLocation, attributePath: AttributePath): String {
-        val scalarParameter = transitiveAttribute(objectLocation, attributePath)
+        val scalarParameter = firstAttribute(objectLocation, attributePath)
                 ?: throw IllegalArgumentException("Not found: $objectLocation.$attributePath")
 
         return scalarParameter.asString()
@@ -178,8 +235,8 @@ data class GraphNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun withNewDocument(
-            documentPath: DocumentPath,
-            documentNotation: DocumentNotation
+        documentPath: DocumentPath,
+        documentNotation: DocumentNotation
     ): GraphNotation {
         check(documentPath !in documents.values) {
             "Already exists: $documentPath"
@@ -194,8 +251,8 @@ data class GraphNotation(
 
 
     fun withModifiedDocument(
-            documentPath: DocumentPath,
-            documentNotation: DocumentNotation
+        documentPath: DocumentPath,
+        documentNotation: DocumentNotation
     ): GraphNotation {
         check(documentPath in documents) {
             "Not found: $documentPath"
@@ -206,7 +263,7 @@ data class GraphNotation(
 
 
     fun withoutDocument(
-            documentPath: DocumentPath
+        documentPath: DocumentPath
     ): GraphNotation {
         check(documentPath in documents) {
             "Already absent: $documentPath"

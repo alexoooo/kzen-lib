@@ -4,14 +4,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
+import tech.kzen.lib.common.model.structure.notation.ObjectNotation
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.server.objects.*
 import tech.kzen.lib.server.objects.custom.CustomDefined
 import tech.kzen.lib.server.util.GraphTestUtils
@@ -99,6 +103,20 @@ class ObjectGraphTest {
             objectGraph[location("CommentArgObject")]?.reference as CommentArgObject
         assertEquals("first", escapedInstance.first)
         assertEquals("fourth", escapedInstance.fourth)
+    }
+
+
+    @Test
+    fun `transitive object merge`() {
+        val graphNothing = GraphTestUtils.readNotation()
+
+        val transitiveObjectLocation = graphNothing
+            .mergeObject(location("CommentArgObjectInherit"))
+
+        assertEquals(ObjectNotation(AttributeNameMap(persistentMapOf(
+            AttributeName("first") to ScalarAttributeNotation("foo"),
+            AttributeName("fourth") to ScalarAttributeNotation("fourth")
+        ))), transitiveObjectLocation)
     }
 
 

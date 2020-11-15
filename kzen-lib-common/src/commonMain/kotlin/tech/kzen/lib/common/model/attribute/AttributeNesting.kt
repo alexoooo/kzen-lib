@@ -6,9 +6,9 @@ import tech.kzen.lib.platform.collect.PersistentList
 
 
 data class AttributeNesting(
-        val segments: PersistentList<AttributeSegment>
+    val segments: PersistentList<AttributeSegment>
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
