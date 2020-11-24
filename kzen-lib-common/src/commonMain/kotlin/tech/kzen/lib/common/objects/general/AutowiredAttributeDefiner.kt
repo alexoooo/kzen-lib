@@ -18,10 +18,15 @@ import tech.kzen.lib.common.service.notation.NotationConventions
 
 @Reflect
 class AutowiredAttributeDefiner(
-        private val weak: Boolean
+    /**
+     * if true, then it will evaluate as an ObjectLocation value (instead of as a Reference)
+     */
+    private val weak: Boolean
 ): AttributeDefiner {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        // NB: used as a substitute for 'is' when we want a Nominal list of ObjectLocation,
+        //      in that case is: ObjectLocation and for: <the type of object in the list>
         val forAttributeSegment = AttributeSegment.ofKey("for")
     }
 
