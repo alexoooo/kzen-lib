@@ -3,7 +3,6 @@ package tech.kzen.lib.common.util.yaml
 
 /**
  * Similar to https://github.com/crdoconnor/strictyaml/ but with [] and {}
- * TODO: consider space in bare string
  */
 object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
@@ -420,7 +419,6 @@ object YamlParser {
                     val padded = prefixed.substring(prefixed.length - 4)
                     "\\u$padded"
                 }
-
 
                 else ->
                     "$ch"

@@ -2,6 +2,7 @@ package tech.kzen.lib.common.util.yaml
 
 
 //----------------------------------------------------------------------------------------------------------------
+// TODO: add comment support
 sealed class YamlNode {
     companion object {
         fun ofObject(value: Any?): YamlNode {
@@ -50,18 +51,7 @@ sealed class YamlNode {
     }
 
 
-    fun toObject(): Any? {
-        return when (this) {
-            is YamlString ->
-                value
-
-            is YamlList ->
-                values
-
-            is YamlMap ->
-                values
-        }
-    }
+    abstract fun toObject(): Any
 }
 
 
@@ -72,6 +62,10 @@ data class YamlString(
 ): YamlNode() {
     companion object {
         val empty = YamlString("")
+    }
+
+    override fun toObject(): String {
+        return value
     }
 }
 
@@ -92,6 +86,10 @@ data class YamlList(
     override fun size(): Int {
         return values.size
     }
+
+    override fun toObject(): List<Any> {
+        return values.map { it.toObject() }
+    }
 }
 
 
@@ -100,6 +98,10 @@ data class YamlMap(
 ): YamlStructure() {
     override fun size(): Int {
         return values.size
+    }
+
+    override fun toObject(): Map<String, Any> {
+        return values.mapValues { it.value.toObject() }
     }
 }
 
