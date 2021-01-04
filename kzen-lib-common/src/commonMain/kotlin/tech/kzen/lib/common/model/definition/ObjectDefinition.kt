@@ -10,16 +10,16 @@ import tech.kzen.lib.platform.ClassName
 
 // TODO: should creator be ObjectLocation?
 data class ObjectDefinition(
-        val className: ClassName,
-        val attributeDefinitions: AttributeNameMap<AttributeDefinition>,
-        val creator: ObjectReference,
+    val className: ClassName,
+    val attributeDefinitions: AttributeNameMap<AttributeDefinition>,
+    val creator: ObjectReference,
 
-        /**
-         * Attribute creators or any other objects that are required by the object creator.
-         * Combined with every ReferenceAttributeDefinition in attributeDefinitions to
-         *  determine creation dependency DAG.
-         */
-        val creatorDependencies: Set<ObjectReference>
+    /**
+     * Attribute creators or any other objects that are required by the object creator.
+     * Combined with every ReferenceAttributeDefinition in attributeDefinitions to
+     *  determine creation dependency DAG.
+     */
+    val creatorDependencies: Set<ObjectReference>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributePath: AttributePath): AttributeDefinition {
@@ -75,7 +75,7 @@ data class ObjectDefinition(
 
     
     private fun attributeReferences(
-            includeWeak: Boolean
+        includeWeak: Boolean
     ): Map<AttributePath, ObjectReference> {
         val builder = mutableMapOf<AttributePath, ObjectReference>()
 
@@ -93,8 +93,8 @@ data class ObjectDefinition(
     
     
     private fun attributeReferences(
-            definition: AttributeDefinition,
-            includeWeak: Boolean
+        definition: AttributeDefinition,
+        includeWeak: Boolean
     ): Map<AttributeNesting, ObjectReference> {
         val builder = mutableMapOf<AttributeNesting, ObjectReference>()
 
@@ -110,10 +110,10 @@ data class ObjectDefinition(
 
 
     private fun traverseAttribute(
-            nesting: AttributeNesting,
-            definition: AttributeDefinition,
-            builder: MutableMap<AttributeNesting, ObjectReference>,
-            includeWeak: Boolean
+        nesting: AttributeNesting,
+        definition: AttributeDefinition,
+        builder: MutableMap<AttributeNesting, ObjectReference>,
+        includeWeak: Boolean
     ) {
         when (definition) {
             is ReferenceAttributeDefinition -> {

@@ -75,4 +75,26 @@ Foo/bar baz:
         assertEquals("bar", (node.values[0] as YamlMap).values["foo"]?.toObject())
         assertEquals("world", (node.values[0] as YamlMap).values["hello"]?.toObject())
     }
+
+
+    @Test
+    fun stringWithComment() {
+        val node = YamlParser.parse("""
+foo: "foo" 
+bar: "bar"######
+baz: "baz"  # baz
+
+FOO: 'foo' 
+BAR: 'bar'######
+BAZ: 'baz'  # baz
+""") as YamlMap
+
+        assertEquals("foo", node.values["foo"]?.toObject())
+        assertEquals("bar", node.values["bar"]?.toObject())
+        assertEquals("baz", node.values["baz"]?.toObject())
+
+        assertEquals("foo", node.values["FOO"]?.toObject())
+        assertEquals("bar", node.values["BAR"]?.toObject())
+        assertEquals("baz", node.values["BAZ"]?.toObject())
+    }
 }

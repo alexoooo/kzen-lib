@@ -129,14 +129,22 @@ object YamlParser {
                     value
                 }
                 else if (value.startsWith('"')) {
-                    require(value.endsWith('"')) { "Can't parse String: $value" }
+                    val lastQuoteIndex = value.lastIndexOf('"')
+                    require(lastQuoteIndex != 0) { "Missing closing double quote: $value" }
 
-                    value.substring(1, value.length - 1)
+                    val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
+                    require(withoutComment.endsWith('"')) { "Can't parse String: $value" }
+
+                    withoutComment.substring(1, withoutComment.length - 1)
                 }
                 else if (value.startsWith('\'')) {
-                    require(value.endsWith('\'')) { "Can't parse String: $value" }
+                    val lastQuoteIndex = value.lastIndexOf('\'')
+                    require(lastQuoteIndex != 0) { "Missing closing single quote: $value" }
 
-                    value.substring(1, value.length - 1)
+                    val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
+                    require(withoutComment.endsWith('\'')) { "Can't parse String: $value" }
+
+                    withoutComment.substring(1, withoutComment.length - 1)
                 }
                 else {
                     throw IllegalArgumentException("Can't parse String: $value")
@@ -145,6 +153,15 @@ object YamlParser {
         val raw = unescapeString(escaped)
 
         return YamlString(raw)
+    }
+
+
+    private fun removeTrailingQuotedStringComment(value: String, lastQuoteIndex: Int): String {
+        val lastCommentIndex = value.lastIndexOf('#')
+        if (lastCommentIndex < lastQuoteIndex) {
+            return value.trim()
+        }
+        return value.substring(0 .. lastQuoteIndex).trim()
     }
 
 
