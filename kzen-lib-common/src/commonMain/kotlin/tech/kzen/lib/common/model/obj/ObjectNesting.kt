@@ -29,7 +29,7 @@ data class ObjectNesting(
                     return true
                 }
             }
-            return encodedObjectPath[0] == '/'
+            return encodedObjectPath.isNotEmpty() && encodedObjectPath[0] == '/'
         }
 
 
