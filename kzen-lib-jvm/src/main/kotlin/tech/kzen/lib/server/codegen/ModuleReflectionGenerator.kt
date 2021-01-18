@@ -13,9 +13,9 @@ import tech.kzen.lib.platform.ClassNames.topLevel
 import java.lang.IllegalArgumentException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 import java.time.LocalDateTime
-import java.util.regex.Pattern
 import java.util.stream.Collectors
 
 
@@ -25,24 +25,26 @@ object ModuleReflectionGenerator
     private const val kotlinExtension = ".kt"
     private const val packagePrefix = "package "
     private const val importPrefix = "import "
+    private const val starImportSuffix = ".*"
     private const val classPrefix = "class "
     private const val objectPrefix = "object "
 
     private val inlineCommentPattern = Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL)
-//    private val inlineCommentPattern = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL)
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun generate(
-            relativeSourceDir: Path,
-            moduleReflectionName: ClassName
+        relativeSourceDir: Path,
+        moduleReflectionName: ClassName,
+        vararg dependencySourceDirs: Path
     ) {
         val sourceDir = projectHome().resolve(relativeSourceDir)
         val reflectSources = scanReflectSources(sourceDir)
-        val reflectConstructors = reflectConstructors(reflectSources)
+        val reflectConstructors = reflectConstructors(
+            relativeSourceDir, reflectSources, dependencySourceDirs.asList())
 
         val moduleReflection = generateModuleReflection(
-                moduleReflectionName, reflectConstructors)
+            moduleReflectionName, reflectConstructors)
 
         write(sourceDir, moduleReflectionName, moduleReflection)
     }
@@ -111,12 +113,14 @@ object ModuleReflectionGenerator
 
     //-----------------------------------------------------------------------------------------------------------------
     fun reflectConstructors(
-            reflectSources: Map<Path, String>
+        relativeSourceDir: Path,
+        reflectSources: Map<Path, String>,
+        dependencySourceDirs: List<Path>
     ): Map<ClassName, ConstructorReflection> {
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
 
         for ((sourceFile, sourceCode) in reflectSources) {
-//            if (sourceFile.fileName.toString() == "CommentArgObject.kt") {
+//            if (sourceFile.fileName.toString() == "ReportDocument.kt") {
 //                println("foo")
 //            }
 
@@ -133,8 +137,8 @@ object ModuleReflectionGenerator
             val sourceClassNames = reflectedClassNames(topClassName, sourceCode)
 
             for (sourceClassName in sourceClassNames) {
-                val constructorReflection =
-                        reflectConstructor(sourceClassName, sourceFile, sourceCode)
+                val constructorReflection = reflectConstructor(
+                    relativeSourceDir, sourceClassName, sourceFile, sourceCode, dependencySourceDirs)
 
                 check(sourceClassName !in builder) { "Already exists: $sourceClassName" }
                 builder[sourceClassName] = constructorReflection
@@ -195,9 +199,11 @@ object ModuleReflectionGenerator
 
     //-----------------------------------------------------------------------------------------------------------------
     fun reflectConstructor(
+        relativeSourceDir: Path,
         sourceClass: ClassName,
         sourceFile: Path,
-        sourceCode: String
+        sourceCode: String,
+        dependencySourceDirs: List<Path>
     ):
             ConstructorReflection
     {
@@ -242,7 +248,6 @@ object ModuleReflectionGenerator
 
         val afterClassNameAndGenerics = sourceCode.substring(beforeConstructorParams)
         val openConstructorMatch =
-//            Regex("^((\\s|\r|\n)*[(]).*", setOf(RegexOption.MULTILINE, RegexOption.DOT_MATCHES_ALL))
             Regex("^((\\s|\r|\n)*[(]).*", setOf(RegexOption.DOT_MATCHES_ALL))
                     .find(afterClassNameAndGenerics)
                 ?: return zeroParameterConstructor(sourceCode, startOfConstructorName, typeParameters)
@@ -265,7 +270,8 @@ object ModuleReflectionGenerator
 
             val argumentType = it.substring(endOfName + 1).trim()
 
-            val typeImports = findImports(argumentType, sourceClass, sourceFile, sourceCode)
+            val typeImports = findImports(
+                relativeSourceDir, argumentType, sourceClass, sourceFile, sourceCode, dependencySourceDirs)
             ArgumentReflection(argumentName, argumentType, typeImports)
         }
 
@@ -332,10 +338,12 @@ object ModuleReflectionGenerator
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun findImports(
+        relativeSourceDir: Path,
         argumentType: String,
         sourceClass: ClassName,
         sourceFile: Path,
-        sourceCode: String
+        sourceCode: String,
+        dependencySourceDirs: List<Path>
     ): Set<ClassName> {
         val builder = mutableSetOf<ClassName>()
 
@@ -352,6 +360,9 @@ object ModuleReflectionGenerator
 
             val matchingSiblings = findSiblingClasses(typeComponent, sourceClass, sourceFile)
             builder.addAll(matchingSiblings)
+
+            val matchingStarImports = findStarImports(typeComponent, sourceCode, relativeSourceDir, dependencySourceDirs)
+            builder.addAll(matchingStarImports)
         }
 
         return builder
@@ -421,10 +432,61 @@ object ModuleReflectionGenerator
     }
 
 
+    private fun findStarImports(
+        argumentType: String,
+        sourceCode: String,
+        relativeSourceDir: Path,
+        dependencySourceDirs: List<Path>
+    ): Set<ClassName> {
+        val starImportedPaths = sourceCode
+            .split("\n")
+            .filter { it.startsWith(importPrefix) }
+            .map { it.trim() }
+            .filter { it.endsWith(starImportSuffix) }
+            .map { it.substring(importPrefix.length, it.length - starImportSuffix.length) }
+
+//        if (! Files.exists(sourceFile)) {
+//            return setOf()
+//        }
+//
+//        return Files
+//            .list(sourceFile.parent)
+//            .use { dir ->
+//                dir.map { it.fileName.toString() }
+//                    .filter { it.endsWith(kotlinExtension) }
+//                    .map { it.substring(0, it.length - kotlinExtension.length) }
+//                    .collect(Collectors.toList())
+//            }
+//            .filter { argumentType.contains(it) }
+//            .map { ClassName(sourceClass.packageName() + ".$it") }
+//            .toSet()
+
+        val sourceDirectories =
+            dependencySourceDirs + listOf(relativeSourceDir)
+
+//        val builder = mutableSetOf<ClassName>()
+
+        for (starImportPath in starImportedPaths) {
+            val codePath = Paths.get(
+                starImportPath.replace('.', '/'))
+
+            for (sourceDir in sourceDirectories) {
+                val resolvedPath = sourceDir.resolve(codePath).resolve("$argumentType.kt")
+                if (Files.exists(resolvedPath)) {
+                    return setOf(ClassName(
+                        "$starImportPath.$argumentType"))
+                }
+            }
+        }
+
+        return setOf()
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     fun generateModuleReflection(
-            moduleReflectionName: ClassName,
-            reflectConstructors: Map<ClassName, ConstructorReflection>
+        moduleReflectionName: ClassName,
+        reflectConstructors: Map<ClassName, ConstructorReflection>
     ): String {
         val registerStatements = mutableListOf<String>()
 

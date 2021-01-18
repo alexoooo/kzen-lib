@@ -33,7 +33,8 @@ class DigestCache<T>(
     //-----------------------------------------------------------------------------------------------------------------
     private fun reduceToSize() {
         val iterator = values.entries.iterator()
-        while (values.size >= size) {
+        while (values.size > size) {
+            iterator.next()
             iterator.remove()
         }
     }
