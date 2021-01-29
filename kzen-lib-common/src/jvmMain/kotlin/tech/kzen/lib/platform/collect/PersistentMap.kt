@@ -56,12 +56,12 @@ actual class PersistentMap<K, out V> private constructor(
 
 
     override fun containsKey(key: K): Boolean {
-        return delegate.containsKey(key)
+        return delegate.containsKey(key!!)
     }
 
 
     override operator fun get(key: K): V? {
-        return delegate.get(key)?.first
+        return delegate.get(key!!)?.first
     }
 
 
@@ -99,7 +99,7 @@ actual class PersistentMap<K, out V> private constructor(
 
     //-----------------------------------------------------------------------------------------------------------------
     actual fun put(key: K, value: @UnsafeVariance V): PersistentMap<K, V> {
-        val existing = delegate[key]
+        val existing = delegate[key!!]
 
         return if (existing == null) {
             PersistentMap(
@@ -127,7 +127,7 @@ actual class PersistentMap<K, out V> private constructor(
 
 
     actual fun remove(key: K): PersistentMap<K, V> {
-        val existing = delegate[key]
+        val existing = delegate[key!!]
                 ?: return this
 
         return PersistentMap(
@@ -138,9 +138,9 @@ actual class PersistentMap<K, out V> private constructor(
 
 
     actual fun insert(
-            key: K,
-            value: @UnsafeVariance V,
-            position: Int
+        key: K,
+        value: @UnsafeVariance V,
+        position: Int
     ): PersistentMap<K, V> {
         check(key !in this)
 
@@ -158,7 +158,7 @@ actual class PersistentMap<K, out V> private constructor(
             }
             nextIndex++
 
-            val nextKey = iterator.next()
+            val nextKey = iterator.next()!!
             val nextValue = delegate.get(nextKey)!!
             builder = builder.put(nextKey, nextValue.first)
         }
@@ -166,7 +166,7 @@ actual class PersistentMap<K, out V> private constructor(
         builder = builder.put(key, value)
 
         while (iterator.hasNext()) {
-            val nextKey = iterator.next()
+            val nextKey = iterator.next()!!
             val nextValue = delegate.get(nextKey)!!
             builder = builder.put(nextKey, nextValue.first)
         }

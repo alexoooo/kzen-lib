@@ -37,7 +37,7 @@ actual class PersistentList<out E> private constructor(
     }
 
 
-    actual fun addAll(elements: List<@UnsafeVariance E>): PersistentList<E> {
+    actual fun addAll(elements: Iterable<@UnsafeVariance E>): PersistentList<E> {
         var builder = delegate
         for (i in elements) {
             builder = builder.push(i)

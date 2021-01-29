@@ -5,6 +5,8 @@ import tech.kzen.lib.platform.IoUtils
 
 // NB: can't use Long in straight JSON transmission, see:
 //  https://kotlinlang.org/docs/reference/js-to-kotlin-interop.html#representing-kotlin-types-in-javascript
+// See: http://prng.di.unimi.it/
+// Consider: init with http://prng.di.unimi.it/splitmix64.c
 data class Digest(
     val a: Int,
     val b: Int,
