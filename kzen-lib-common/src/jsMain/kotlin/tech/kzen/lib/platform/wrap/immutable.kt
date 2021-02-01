@@ -8,7 +8,10 @@ external class ImmutableList<E> {
     val size: Int
     fun get(index: Int): E
     fun push(element: E): ImmutableList<E>
+
+    // NB: ambiguous semantics (element vs iterable), and no performance advantage (just calls push repeatedly)
 //    fun concat(element: ImmutableList<E>): ImmutableList<E>
+
     fun insert(index: Int, element: E): ImmutableList<E>
     fun set(index: Int, element: E): ImmutableList<E>
     fun remove(index: Int): ImmutableList<E>

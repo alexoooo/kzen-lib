@@ -130,6 +130,14 @@ data class InsertListItemInAttributeCommand(
 ): StructuralNotationCommand()
 
 
+data class InsertAllListItemsInAttributeCommand(
+        val objectLocation: ObjectLocation,
+        val containingList: AttributePath,
+        val indexInList: PositionRelation,
+        val items: List<AttributeNotation>
+): StructuralNotationCommand()
+
+
 // TODO: add UpsertMapEntryInAttributeCommand using AttributeTypedLocation instead of createAncestorsIfAbsent
 data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
@@ -152,6 +160,14 @@ data class RemoveListItemInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingList: AttributePath,
         val item: AttributeNotation,
+        val removeContainerIfEmpty: Boolean
+): StructuralNotationCommand()
+
+
+data class RemoveAllListItemsInAttributeCommand(
+        val objectLocation: ObjectLocation,
+        val containingList: AttributePath,
+        val items: List<AttributeNotation>,
         val removeContainerIfEmpty: Boolean
 ): StructuralNotationCommand()
 

@@ -150,6 +150,15 @@ data class RemovedInAttributeEvent(
 }
 
 
+data class RemovedAllInAttributeEvent(
+        val objectLocation: ObjectLocation,
+        val attributePaths: List<AttributePath>
+): SingularNotationEvent() {
+    override val documentPath
+        get() = objectLocation.documentPath
+}
+
+
 //--------------------------------------------------------------
 sealed class InsertedInAttributeEvent: SingularNotationEvent() {
     abstract val objectLocation: ObjectLocation
@@ -158,11 +167,20 @@ sealed class InsertedInAttributeEvent: SingularNotationEvent() {
         get() = objectLocation.documentPath
 }
 
+
 data class InsertedListItemInAttributeEvent(
         override val objectLocation: ObjectLocation,
         val containingList: AttributePath,
         val indexInList: PositionIndex,
         val item: AttributeNotation
+): InsertedInAttributeEvent()
+
+
+data class InsertedAllListItemsInAttributeEvent(
+        override val objectLocation: ObjectLocation,
+        val containingList: AttributePath,
+        val indexInList: PositionIndex,
+        val items: List<AttributeNotation>
 ): InsertedInAttributeEvent()
 
 

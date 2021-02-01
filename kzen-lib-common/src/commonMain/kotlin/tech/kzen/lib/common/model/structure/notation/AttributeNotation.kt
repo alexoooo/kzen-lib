@@ -152,6 +152,15 @@ data class ListAttributeNotation(
     }
 
 
+    fun insertAll(
+            positionIndex: PositionIndex,
+            attributeNotations: List<AttributeNotation>
+    ): ListAttributeNotation {
+        return ListAttributeNotation(
+                values.addAll(positionIndex.value, attributeNotations))
+    }
+
+
     fun remove(
             positionIndex: PositionIndex
     ): ListAttributeNotation {

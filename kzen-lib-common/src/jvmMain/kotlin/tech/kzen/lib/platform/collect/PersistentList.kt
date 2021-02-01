@@ -53,6 +53,24 @@ actual class PersistentList<out E> private constructor(
     }
 
 
+    actual fun addAll(
+        index: Int,
+        elements: Iterable<@UnsafeVariance E>
+    ): PersistentList<E> {
+        var builder: Vector<E> = delegate.take(index)
+
+        for (addend in elements) {
+            builder = builder.append(addend)
+        }
+
+        for (i in index until size) {
+            builder = builder.append(get(i))
+        }
+
+        return PersistentList(builder)
+    }
+
+
     actual fun set(index: Int, element: @UnsafeVariance E): PersistentList<E> {
         return PersistentList(
                 delegate.set(index, element))

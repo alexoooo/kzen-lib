@@ -45,6 +45,23 @@ actual class PersistentList<out E> private constructor(
         return PersistentList(builder)
     }
 
+    actual fun addAll(
+        index: Int,
+        elements: Iterable<@UnsafeVariance E>
+    ): PersistentList<E> {
+        var builder: ImmutableList<E> = delegate.slice(0, index)
+
+        for (addend in elements) {
+            builder = builder.push(addend)
+        }
+
+        for (i in index until size) {
+            builder = builder.push(get(i))
+        }
+
+        return PersistentList(builder)
+    }
+
 
     actual fun set(index: Int, element: @UnsafeVariance E): PersistentList<E> {
         return PersistentList(

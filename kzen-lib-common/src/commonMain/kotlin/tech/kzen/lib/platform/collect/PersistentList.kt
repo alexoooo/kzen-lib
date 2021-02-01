@@ -10,6 +10,8 @@ expect class PersistentList<out E>(): List<E>, RandomAccess
 
     fun addAll(elements: Iterable<@UnsafeVariance E>): PersistentList<E>
 
+    fun addAll(index: Int, elements: Iterable<@UnsafeVariance E>): PersistentList<E>
+
     fun set(index: Int, element: @UnsafeVariance E): PersistentList<E>
 
     fun removeAt(index: Int): PersistentList<E>

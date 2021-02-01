@@ -24,10 +24,10 @@ import tech.kzen.lib.platform.collect.toPersistentList
 class NotationReducer {
     //-----------------------------------------------------------------------------------------------------------------
     private inner class Buffer(
-            var state: GraphNotation
+        var state: GraphNotation
     ) {
         fun apply(
-                command: StructuralNotationCommand
+            command: StructuralNotationCommand
         ): NotationEvent {
             val transition = apply(state, command)
             state = transition.graphNotation
@@ -38,8 +38,8 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun apply(
-            state: GraphNotation,
-            command: StructuralNotationCommand
+        state: GraphNotation,
+        command: StructuralNotationCommand
     ): NotationTransition {
         return when (command) {
             is CreateDocumentCommand ->
@@ -77,6 +77,9 @@ class NotationReducer {
             is InsertListItemInAttributeCommand ->
                 insertListItemInAttribute(state, command)
 
+            is InsertAllListItemsInAttributeCommand ->
+                insertAllListItemsInAttribute(state, command)
+
             is InsertMapEntryInAttributeCommand ->
                 insertMapEntryInAttribute(state, command)
 
@@ -85,6 +88,9 @@ class NotationReducer {
 
             is RemoveListItemInAttributeCommand ->
                 removeListItemInAttribute(state, command)
+
+            is RemoveAllListItemsInAttributeCommand ->
+                removeAllListItemsInAttribute(state, command)
 
 
             is ShiftInAttributeCommand ->
@@ -111,8 +117,8 @@ class NotationReducer {
 
 
     fun apply(
-            graphDefinitionAttempt: GraphDefinitionAttempt,
-            command: SemanticNotationCommand
+        graphDefinitionAttempt: GraphDefinitionAttempt,
+        command: SemanticNotationCommand
     ): NotationTransition {
         val state = graphDefinitionAttempt.successful.graphStructure.graphNotation
         return when (command) {
@@ -127,8 +133,8 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun createDocument(
-            state: GraphNotation,
-            command: CreateDocumentCommand
+        state: GraphNotation,
+        command: CreateDocumentCommand
     ): NotationTransition {
         check(! state.documents.values.containsKey(command.documentPath)) {
             "Already exists: ${command.documentPath}"
@@ -148,8 +154,8 @@ class NotationReducer {
 
 
     private fun deleteDocument(
-            state: GraphNotation,
-            command: DeleteDocumentCommand
+        state: GraphNotation,
+        command: DeleteDocumentCommand
     ): NotationTransition {
         check(state.documents.values.containsKey(command.documentPath)) {
             "Does not exist: ${command.documentPath} - ${state.documents.values.keys}"
@@ -164,8 +170,8 @@ class NotationReducer {
 
 
     private fun copyDocument(
-            state: GraphNotation,
-            command: CopyDocumentCommand
+        state: GraphNotation,
+        command: CopyDocumentCommand
     ): NotationTransition {
         check(command.sourceDocumentPath in state.documents.values) {
             "Does not exist: ${command.sourceDocumentPath} - ${state.documents.values.keys}"
@@ -214,8 +220,8 @@ class NotationReducer {
 
 
     private fun removeObject(
-            state: GraphNotation,
-            command: RemoveObjectCommand
+        state: GraphNotation,
+        command: RemoveObjectCommand
     ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
@@ -234,8 +240,8 @@ class NotationReducer {
 
 
     private fun shiftObject(
-            state: GraphNotation,
-            command: ShiftObjectCommand
+        state: GraphNotation,
+        command: ShiftObjectCommand
     ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
@@ -262,8 +268,8 @@ class NotationReducer {
 
 
     private fun renameObject(
-            state: GraphNotation,
-            command: RenameObjectCommand
+        state: GraphNotation,
+        command: RenameObjectCommand
     ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
@@ -290,8 +296,8 @@ class NotationReducer {
 
 
     private fun renameNestedObject(
-            state: GraphNotation,
-            command: RenameNestedObjectCommand
+        state: GraphNotation,
+        command: RenameNestedObjectCommand
     ): NotationTransition {
         check(command.objectLocation in state.coalesce.values)
 
@@ -320,8 +326,8 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun upsertAttribute(
-            state: GraphNotation,
-            command: UpsertAttributeCommand
+        state: GraphNotation,
+        command: UpsertAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
                 ?: throw IllegalArgumentException("Unknown document path: ${command.objectLocation.documentPath}")
@@ -346,8 +352,8 @@ class NotationReducer {
 
 
     private fun updateInAttribute(
-            state: GraphNotation,
-            command: UpdateInAttributeCommand
+        state: GraphNotation,
+        command: UpdateInAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]
@@ -370,8 +376,8 @@ class NotationReducer {
 
 
     private fun insertListItemInAttribute(
-            state: GraphNotation,
-            command: InsertListItemInAttributeCommand
+        state: GraphNotation,
+        command: InsertListItemInAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
@@ -404,9 +410,44 @@ class NotationReducer {
     }
 
 
+    private fun insertAllListItemsInAttribute(
+        state: GraphNotation,
+        command: InsertAllListItemsInAttributeCommand
+    ): NotationTransition {
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]
+            ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
+
+        val objectNotation = state.coalesce[command.objectLocation]
+            ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
+
+        val listInAttribute = state
+            .firstAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
+            ?: throw IllegalStateException(
+                "List attribute expected: ${command.objectLocation} - ${command.containingList}")
+
+        val indexInList = command.indexInList.resolve(listInAttribute.values.size)
+
+        val listWithInsert = listInAttribute.insertAll(indexInList, command.items)
+
+        val modifiedObjectNotation = objectNotation.upsertAttribute(
+            command.containingList, listWithInsert)
+
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
+            command.objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedDocument(
+            command.objectLocation.documentPath, modifiedDocumentNotation)
+
+        val event = InsertedListItemInAttributeEvent(
+            command.objectLocation, command.containingList, indexInList, listInAttribute)
+
+        return NotationTransition(event, nextState)
+    }
+
+
     private fun insertMapEntryInAttribute(
-            state: GraphNotation,
-            command: InsertMapEntryInAttributeCommand
+        state: GraphNotation,
+        command: InsertMapEntryInAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
@@ -506,8 +547,8 @@ class NotationReducer {
 
 
     private fun removeInAttribute(
-            state: GraphNotation,
-            command: RemoveInAttributeCommand
+        state: GraphNotation,
+        command: RemoveInAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
@@ -555,8 +596,8 @@ class NotationReducer {
 
 
     private fun removeListItemInAttribute(
-            state: GraphNotation,
-            command: RemoveListItemInAttributeCommand
+        state: GraphNotation,
+        command: RemoveListItemInAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
@@ -572,7 +613,7 @@ class NotationReducer {
 
         val lastIndex = containerNotation.values.indexOfLast { it == command.item }
         require(firstIndex == lastIndex) {
-            "List does not contains item duplicates: ${command.item} - $containerNotation"
+            "List contains item duplicates: ${command.item} - $containerNotation"
         }
 
         val itemIndex = PositionIndex(firstIndex)
@@ -598,6 +639,66 @@ class NotationReducer {
 
         val event = RemovedInAttributeEvent(
                 command.objectLocation, removedAttributePath)
+
+        return NotationTransition(event, nextState)
+    }
+
+
+    private fun removeAllListItemsInAttribute(
+        state: GraphNotation,
+        command: RemoveAllListItemsInAttributeCommand
+    ): NotationTransition {
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val objectNotation = state.coalesce[command.objectLocation]!!
+
+        val containerPath = command.containingList
+        val containerNotation = objectNotation.get(containerPath)
+                as? ListAttributeNotation
+            ?: throw IllegalArgumentException("List expected: " +
+                    "$containerPath - ${objectNotation.get(containerPath)}")
+
+        val removedAttributePaths = mutableListOf<AttributePath>()
+        var nextObjectNotation = objectNotation
+        var nextContainerNotation = containerNotation
+
+        for (item in command.items) {
+            val firstIndex = nextContainerNotation.values.indexOfFirst { it == item }
+            require(firstIndex != -1) { "List does not contain item: $item - $nextContainerNotation" }
+
+            val lastIndex = nextContainerNotation.values.indexOfLast { it == item }
+            require(firstIndex == lastIndex) {
+                "List contains item duplicates: $item - $nextContainerNotation"
+            }
+
+            val itemIndex = PositionIndex(firstIndex)
+            val containerWithoutElement = nextContainerNotation.remove(itemIndex)
+
+            val modifiedObjectNotation =
+                if (containerWithoutElement.isEmpty() && command.removeContainerIfEmpty) {
+                    removeEmptyContainer(nextObjectNotation, containerPath)
+                }
+                else {
+                    nextObjectNotation.upsertAttribute(
+                        containerPath, containerWithoutElement)
+                }
+
+            val removedAttributePath = command.containingList.nest(
+                AttributeSegment.ofIndex(firstIndex))
+
+            removedAttributePaths.add(removedAttributePath)
+
+            nextContainerNotation = containerWithoutElement
+            nextObjectNotation = modifiedObjectNotation
+        }
+
+        val event = RemovedAllInAttributeEvent(
+            command.objectLocation, removedAttributePaths)
+
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
+            command.objectLocation.objectPath, nextObjectNotation)
+
+        val nextState = state.withModifiedDocument(
+            command.objectLocation.documentPath, modifiedDocumentNotation)
 
         return NotationTransition(event, nextState)
     }
@@ -635,8 +736,8 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun shiftInAttribute(
-            state: GraphNotation,
-            command: ShiftInAttributeCommand
+        state: GraphNotation,
+        command: ShiftInAttributeCommand
     ): NotationTransition {
         val objectNotation = state.coalesce[command.objectLocation]!!
 
@@ -683,8 +784,8 @@ class NotationReducer {
 
 
     private fun insertObjectInListAttribute(
-            state: GraphNotation,
-            command: InsertObjectInListAttributeCommand
+        state: GraphNotation,
+        command: InsertObjectInListAttributeCommand
     ): NotationTransition {
         val buffer = Buffer(state)
 
@@ -717,8 +818,8 @@ class NotationReducer {
 
 
     private fun removeObjectInAttribute(
-            state: GraphNotation,
-            command: RemoveObjectInAttributeCommand
+        state: GraphNotation,
+        command: RemoveObjectInAttributeCommand
     ): NotationTransition {
         val objectNotation = state.coalesce[command.containingObjectLocation]
                 ?: throw IllegalArgumentException("Containing object not found: ${command.containingObjectLocation}")
@@ -770,10 +871,10 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun renameObjectRefactor(
-            state: GraphNotation,
-            objectLocation: ObjectLocation,
-            newName: ObjectName,
-            graphDefinitionAttempt: GraphDefinitionAttempt
+        state: GraphNotation,
+        objectLocation: ObjectLocation,
+        newName: ObjectName,
+        graphDefinitionAttempt: GraphDefinitionAttempt
     ): NotationTransition {
         check(objectLocation in state.coalesce.values)
 
@@ -825,9 +926,9 @@ class NotationReducer {
 
 
     private fun renameNestedObject(
-            containerObjectLocation: ObjectLocation,
-            newName: ObjectName,
-            nestedObjectPath: ObjectPath
+        containerObjectLocation: ObjectLocation,
+        newName: ObjectName,
+        nestedObjectPath: ObjectPath
     ): ObjectPath {
         val segments = nestedObjectPath.nesting.segments
 
@@ -850,10 +951,10 @@ class NotationReducer {
 
 
     private fun nestedRenameObjectRefactor(
-            objectLocation: ObjectLocation,
-            newObjectNesting: ObjectNesting,
-            buffer: Buffer,
-            graphDefinitionAttempt: GraphDefinitionAttempt
+        objectLocation: ObjectLocation,
+        newObjectNesting: ObjectNesting,
+        buffer: Buffer,
+        graphDefinitionAttempt: GraphDefinitionAttempt
     ): NestedObjectRename {
         val renamedObject = buffer
                 .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
@@ -874,9 +975,9 @@ class NotationReducer {
 
 
     private fun adjustReferenceCommands(
-            objectLocation: ObjectLocation,
-            newObjectLocation: ObjectLocation,
-            graphDefinitionAttempt: GraphDefinitionAttempt
+        objectLocation: ObjectLocation,
+        newObjectLocation: ObjectLocation,
+        graphDefinitionAttempt: GraphDefinitionAttempt
     ): List<UpdateInAttributeCommand> {
         val newFullReference = newObjectLocation.toReference()
 
@@ -915,8 +1016,8 @@ class NotationReducer {
 
 
     private fun locateReferences(
-            objectLocation: ObjectLocation,
-            graphDefinitionAttempt: GraphDefinitionAttempt
+        objectLocation: ObjectLocation,
+        graphDefinitionAttempt: GraphDefinitionAttempt
     ): Set<AttributeLocation> {
         val referenceLocations = mutableSetOf<AttributeLocation>()
 
@@ -954,10 +1055,10 @@ class NotationReducer {
 
 
     private fun isReferenced(
-            targetLocation: ObjectLocation,
-            reference: ObjectReference,
-            host: ObjectReferenceHost,
-            graphDefinitionAttempt: GraphDefinitionAttempt
+        targetLocation: ObjectLocation,
+        reference: ObjectReference,
+        host: ObjectReferenceHost,
+        graphDefinitionAttempt: GraphDefinitionAttempt
     ): Boolean {
         val referencedLocation = graphDefinitionAttempt
                 .successful
@@ -978,10 +1079,10 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun renameDocumentRefactor(
-            state: GraphNotation,
-            documentPath: DocumentPath,
-            newName: DocumentName,
-            graphDefinitionAttempt: GraphDefinitionAttempt
+        state: GraphNotation,
+        documentPath: DocumentPath,
+        newName: DocumentName,
+        graphDefinitionAttempt: GraphDefinitionAttempt
     ): NotationTransition {
         val documentNotation = state.documents.values[documentPath]
         require(documentNotation != null) {
@@ -1016,11 +1117,11 @@ class NotationReducer {
 
 
     private fun adjustReferencesForRenamedDocument(
-            documentPath: DocumentPath,
-            newDocumentPath: DocumentPath,
-            documentNotation: DocumentNotation,
-            graphDefinitionAttempt: GraphDefinitionAttempt,
-            buffer: Buffer
+        documentPath: DocumentPath,
+        newDocumentPath: DocumentPath,
+        documentNotation: DocumentNotation,
+        graphDefinitionAttempt: GraphDefinitionAttempt,
+        buffer: Buffer
     ): List<UpdatedInAttributeEvent> {
         // NB: only top-level (root) objects cross-document reference are currently supported
         val rootObjectPaths = documentNotation
@@ -1051,8 +1152,8 @@ class NotationReducer {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun addResource(
-            state: GraphNotation,
-            command: AddResourceCommand
+        state: GraphNotation,
+        command: AddResourceCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.resourceLocation.documentPath]
 
@@ -1085,8 +1186,8 @@ class NotationReducer {
 
 
     private fun removeResource(
-            state: GraphNotation,
-            command: RemoveResourceCommand
+        state: GraphNotation,
+        command: RemoveResourceCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.resourceLocation.documentPath]
 
