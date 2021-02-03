@@ -359,7 +359,13 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val modifiedObjectNotation = objectNotation.upsertAttribute(
+        val mergedAttributeNotation = state.mergeAttribute(
+            command.objectLocation, command.attributePath.attribute)
+
+        val objectWithMergedAttribute = objectNotation.upsertAttribute(
+            command.attributePath.attribute, mergedAttributeNotation)
+
+        val modifiedObjectNotation = objectWithMergedAttribute.upsertAttribute(
                 command.attributePath, command.attributeNotation)
 
         val modifiedDocumentNotation = documentNotation.withModifiedObject(

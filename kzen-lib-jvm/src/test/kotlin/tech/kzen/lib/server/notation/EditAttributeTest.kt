@@ -98,6 +98,32 @@ Foo:
 
 
     @Test
+    fun `Update in nested attribute`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    foo:
+      bar: baz
+
+Bar:
+  is: Foo
+  hello: {}
+""")
+
+        val transition = reducer.apply(
+                notation,
+                UpdateInAttributeCommand(
+                        location("Bar"),
+                        AttributePath.parse("hello.foo.key"),
+                        ScalarAttributeNotation("world")))
+
+        val value = transition.graphNotation.getString(
+                location("Bar"), attribute("hello.foo.key"))
+        assertEquals("world", value)
+    }
+
+
+    @Test
     fun `Shift in list`() {
         val notation = parseGraph("""
 Foo:
