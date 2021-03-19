@@ -27,9 +27,9 @@ data class CustomModel(
             val attributeNotation = graphStructure
                 .graphNotation
                 .firstAttribute(objectLocation, attributeName)
-                ?: return AttributeDefinitionAttempt.failure(
-                    "'${attributeName}' attribute notation not found:" +
-                            " $objectLocation - $attributeName")
+//                ?: return AttributeDefinitionAttempt.failure(
+//                    "'${attributeName}' attribute notation not found:" +
+//                            " $objectLocation - $attributeName")
 
             return AttributeDefinitionSuccess(
                 ValueAttributeDefinition(
