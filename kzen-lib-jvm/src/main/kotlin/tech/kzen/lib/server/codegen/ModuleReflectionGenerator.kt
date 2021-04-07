@@ -19,6 +19,7 @@ import java.time.LocalDateTime
 import java.util.stream.Collectors
 
 
+// TODO: handle trailing comma in constructor
 object ModuleReflectionGenerator
 {
     //-----------------------------------------------------------------------------------------------------------------
@@ -256,13 +257,22 @@ object ModuleReflectionGenerator
         val endOfParams = findMatchingBracket(sourceCode, startOfParams, '(', ')')
         val arguments = sourceCode.substring(startOfParams, endOfParams)
 
-        if (! arguments.contains(":")) {
+        if (":" !in arguments) {
             return ConstructorReflection.emptyClass
         }
 
         val argumentList = arguments.split(",")
+        val hasTrailingComma = ":" !in argumentList.last()
 
-        val argumentReflections = argumentList.map {
+        val argumentsWithoutTrailing =
+            if (hasTrailingComma) {
+                argumentList.dropLast(1)
+            }
+            else {
+                argumentList
+            }
+
+        val argumentReflections = argumentsWithoutTrailing.map {
             val endOfName = it.indexOf(":")
 
             val rawArgumentName = it.substring(0, endOfName).trim().substringAfterLast(' ')
@@ -272,6 +282,7 @@ object ModuleReflectionGenerator
 
             val typeImports = findImports(
                 relativeSourceDir, argumentType, sourceClass, sourceFile, sourceCode, dependencySourceDirs)
+
             ArgumentReflection(argumentName, argumentType, typeImports)
         }
 

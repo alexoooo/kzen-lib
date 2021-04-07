@@ -9,5 +9,5 @@ class CommentArgObject(
     val first: String/*,
     val second: String,*/,
     //val third: String,
-    val fourth: String // foo bar
+    val fourth: String, // foo bar
 )
