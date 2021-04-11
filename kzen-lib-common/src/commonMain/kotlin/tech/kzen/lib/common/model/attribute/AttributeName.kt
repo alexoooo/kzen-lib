@@ -10,7 +10,7 @@ data class AttributeName(
         Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
-    fun asAttributeNesting(): AttributePath {
+    fun asAttributePath(): AttributePath {
         return AttributePath.ofName(this)
     }
 

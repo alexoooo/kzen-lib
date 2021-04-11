@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.model.document
 
+import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
@@ -134,6 +136,16 @@ data class DocumentPath(
         return nestingPrefix +
                 name.value +
                 formatSuffix
+    }
+
+
+    fun toMainObjectLocation(): ObjectLocation {
+        return toObjectLocation(NotationConventions.mainObjectPath)
+    }
+
+
+    fun toObjectLocation(objectPath: ObjectPath): ObjectLocation {
+        return ObjectLocation(this, objectPath)
     }
 
 

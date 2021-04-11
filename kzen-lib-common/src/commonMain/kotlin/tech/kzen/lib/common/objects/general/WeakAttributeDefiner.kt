@@ -28,7 +28,7 @@ object WeakAttributeDefiner/*(
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
                 ?: graphStructure.graphNotation.firstAttribute(
-                        objectLocation, attributeName.asAttributeNesting())
+                        objectLocation, attributeName.asAttributePath())
                 ?: return AttributeDefinitionAttempt.failure(
                         "Unknown attribute: $objectLocation - $attributeName")
 
