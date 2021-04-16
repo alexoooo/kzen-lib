@@ -8,7 +8,7 @@ subprojects {
     version = "0.22.0-SNAPSHOT"
 
     repositories {
+        mavenCentral()
         mavenLocal()
-        jcenter()
     }
 }

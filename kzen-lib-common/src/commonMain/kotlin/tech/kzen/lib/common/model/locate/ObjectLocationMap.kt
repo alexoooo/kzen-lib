@@ -99,8 +99,12 @@ data class ObjectLocationMap<T>(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun containsKey(objectLocation: ObjectLocation): Boolean {
-        return values.containsKey(objectLocation)
+//    fun containsKey(objectLocation: ObjectLocation): Boolean {
+//        return values.containsKey(objectLocation)
+//    }
+
+    operator fun contains(objectLocation: ObjectLocation): Boolean {
+        return objectLocation in values
     }
 
 
@@ -110,20 +114,28 @@ data class ObjectLocationMap<T>(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun filter(allowed: Set<DocumentNesting>): ObjectLocationMap<T> {
+    fun filterObjectLocations(allowed: Set<ObjectLocation>): ObjectLocationMap<T> {
+        return ObjectLocationMap(values
+            .filter { e -> e.key in allowed }
+            .toPersistentMap())
+    }
+
+
+    fun filterDocumentNestings(allowed: Set<DocumentNesting>): ObjectLocationMap<T> {
         return ObjectLocationMap(values
                 .filter { e -> allowed.any(e.key.documentPath::startsWith) }
                 .toPersistentMap())
     }
 
 
-    fun filter(predicate: (Pair<ObjectLocation, T>) -> Boolean): ObjectLocationMap<T> {
+    fun filterBy(predicate: (Pair<ObjectLocation, T>) -> Boolean): ObjectLocationMap<T> {
         return ObjectLocationMap(values
                 .filter { predicate(it.toPair()) }
                 .toPersistentMap())
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun put(objectLocation: ObjectLocation, instance: T): ObjectLocationMap<T> {
         return ObjectLocationMap(values.put(objectLocation, instance))
     }

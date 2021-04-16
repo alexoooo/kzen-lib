@@ -24,6 +24,6 @@ data class GraphMetadata(
 
     fun filter(allowed: Set<DocumentNesting>): GraphMetadata {
         return GraphMetadata(
-                objectMetadata.filter(allowed))
+                objectMetadata.filterDocumentNestings(allowed))
     }
 }

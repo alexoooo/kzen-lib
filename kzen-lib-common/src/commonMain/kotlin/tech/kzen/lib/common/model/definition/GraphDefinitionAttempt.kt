@@ -2,21 +2,23 @@ package tech.kzen.lib.common.model.definition
 
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 import tech.kzen.lib.common.model.locate.ObjectReferenceHost
+import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.service.context.GraphDefiner
 
 
-// TODO: inline GraphDefinition for direct GraphStructure?
 data class GraphDefinitionAttempt(
-        val successful: GraphDefinition,
-        val failures: ObjectLocationMap<ObjectDefinitionFailure>
+    val objectDefinitions: ObjectLocationMap<ObjectDefinition>,
+    val failures: ObjectLocationMap<ObjectDefinitionFailure>,
+    val graphStructure: GraphStructure
 ) {
-    fun transitiveSuccessful(): GraphDefinition {
-//        if (failures.isEmpty()) {
-//            return successful
-//        }
+    fun successful(): GraphDefinition {
+        return GraphDefinition(objectDefinitions, graphStructure)
+    }
 
+
+    fun transitiveSuccessful(): GraphDefinition {
         val failedObjectLocations = failures.values.keys.toMutableSet()
-        var open = successful.objectDefinitions.values
+        var open = objectDefinitions.values
 
         var terminated = false
         while (! terminated) {
@@ -29,7 +31,7 @@ data class GraphDefinitionAttempt(
                         continue
                     }
 
-                    val location = successful.objectDefinitions.locateOptional(objectReference, host)
+                    val location = objectDefinitions.locateOptional(objectReference, host)
                     if (location == null || failedObjectLocations.contains(location)) {
                         failedObjectLocations.add(e.key)
                         open = open.remove(e.key)
@@ -40,7 +42,8 @@ data class GraphDefinitionAttempt(
             }
         }
 
-        return successful.copy(objectDefinitions = ObjectLocationMap(open))
+        return GraphDefinition(
+            ObjectLocationMap(open), graphStructure)
     }
 
 

@@ -16,8 +16,8 @@ data class GraphInstance(
         get() = objectInstances.size
 
 
-    fun containsKey(objectLocation: ObjectLocation): Boolean {
-        return objectInstances.containsKey(objectLocation)
+    operator fun contains(objectLocation: ObjectLocation): Boolean {
+        return objectLocation in objectInstances
     }
 
 

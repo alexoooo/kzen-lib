@@ -63,7 +63,7 @@ class GraphDefiner {
         require(! attempt.hasErrors()) {
             "Definition errors: ${attempt.failures}"
         }
-        return attempt.successful
+        return attempt.successful()
     }
 
 
@@ -76,7 +76,7 @@ class GraphDefiner {
                 .graphNotation
                 .objectLocations
                 .filter {
-                    ! bootstrapObjects.containsKey(it) &&
+                    it !in bootstrapObjects &&
                             ! isAbstract(it, graphStructure.graphNotation)
                 }.toMutableSet()
 
@@ -149,7 +149,7 @@ class GraphDefiner {
                         definition.creator)
 
                 var hasMissingCreatorInstances = false
-                if (! definerAndRelatedInstances.containsKey(creatorLocation)) {
+                if (creatorLocation !in definerAndRelatedInstances) {
                     missingCreatorInstances.add(creatorLocation)
                     hasMissingCreatorInstances = true
 
@@ -160,7 +160,7 @@ class GraphDefiner {
                     val creatorReferenceLocation =
                             graphStructure.graphNotation.coalesce.locate(creatorRequired)
 
-                    if (! definerAndRelatedInstances.containsKey(creatorReferenceLocation)) {
+                    if (creatorReferenceLocation !in definerAndRelatedInstances) {
                         missingCreatorInstances.add(creatorReferenceLocation)
                         hasMissingCreatorInstances = true
 
@@ -196,8 +196,9 @@ class GraphDefiner {
 //                }
 
                 return GraphDefinitionAttempt(
-                        closedDefinitions,
-                        ObjectLocationMap(levelFailures.toPersistentMap()))
+                    closedDefinitions.objectDefinitions,
+                    ObjectLocationMap(levelFailures.toPersistentMap()),
+                    graphStructure)
             }
 
             openDefinitions.removeAll(levelClosed)
@@ -210,8 +211,9 @@ class GraphDefiner {
         }
 
         return GraphDefinitionAttempt(
-                closedDefinitions,
-                ObjectLocationMap.empty())
+            closedDefinitions.objectDefinitions,
+            ObjectLocationMap.empty(),
+            graphStructure)
     }
 
 

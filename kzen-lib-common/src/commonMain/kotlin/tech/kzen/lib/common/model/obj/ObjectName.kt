@@ -5,9 +5,9 @@ import tech.kzen.lib.common.util.Digestible
 
 
 data class ObjectName(
-        val value: String
+    val value: String
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
