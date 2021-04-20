@@ -5,9 +5,9 @@ import tech.kzen.lib.common.util.Digestible
 
 
 data class AttributeName(
-        val value: String
+    val value: String
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     fun asAttributePath(): AttributePath {

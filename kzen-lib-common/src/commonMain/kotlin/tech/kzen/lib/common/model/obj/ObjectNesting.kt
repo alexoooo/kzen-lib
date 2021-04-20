@@ -10,7 +10,7 @@ import tech.kzen.lib.platform.collect.toPersistentList
  * Attribute nesting within an object
  */
 data class ObjectNesting(
-        val segments: PersistentList<ObjectNestingSegment>
+    val segments: PersistentList<ObjectNestingSegment>
 ):
     Digestible
 {
@@ -144,7 +144,7 @@ data class ObjectNesting(
     }
 
 
-    fun startswith(objectNesting: ObjectNesting): Boolean {
+    fun startsWith(objectNesting: ObjectNesting): Boolean {
         if (segments.size < objectNesting.segments.size) {
             return false
         }

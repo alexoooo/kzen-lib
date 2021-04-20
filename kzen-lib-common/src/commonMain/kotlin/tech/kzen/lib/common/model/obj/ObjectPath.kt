@@ -48,7 +48,7 @@ data class ObjectPath(
     //-----------------------------------------------------------------------------------------------------------------
     fun startsWith(objectPath: ObjectPath): Boolean {
         return nesting.segments.size > objectPath.nesting.segments.size &&
-                nesting.startswith(objectPath.nesting) &&
+                nesting.startsWith(objectPath.nesting) &&
                 nesting.segments[
                         objectPath.nesting.segments.size
                 ].objectName == objectPath.name

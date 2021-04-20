@@ -3,13 +3,17 @@ package tech.kzen.lib.common.model.locate
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 
 
 data class ObjectReference(
-        val name: ObjectName,
-        val nesting: ObjectNesting,
-        val path: DocumentPath?
-) {
+    val name: ObjectName,
+    val nesting: ObjectNesting,
+    val path: DocumentPath?
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         const val nestingSeparator = "#"
@@ -91,6 +95,13 @@ data class ObjectReference(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigestible(name)
+        builder.addDigestible(nesting)
+        builder.addDigestibleNullable(path)
+    }
+
+
     override fun toString(): String {
         return asString()
     }

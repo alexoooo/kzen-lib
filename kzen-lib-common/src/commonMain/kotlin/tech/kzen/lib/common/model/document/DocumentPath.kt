@@ -8,10 +8,12 @@ import tech.kzen.lib.common.util.Digestible
 
 
 data class DocumentPath(
-        val name: DocumentName,
-        val nesting: DocumentNesting,
-        val directory: Boolean
-): Digestible {
+    val name: DocumentName,
+    val nesting: DocumentNesting,
+    val directory: Boolean
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
 //        private val resource = Regex(

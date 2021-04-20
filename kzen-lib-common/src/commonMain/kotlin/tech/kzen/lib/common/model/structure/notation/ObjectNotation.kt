@@ -14,8 +14,10 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 data class ObjectNotation(
-        val attributes: AttributeNameMap<AttributeNotation>
-): Digestible {
+    val attributes: AttributeNameMap<AttributeNotation>
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val className = ClassName(

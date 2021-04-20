@@ -7,8 +7,10 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 
 
 data class ResourceListing(
-        val digests: PersistentMap<ResourcePath, Digest>
-): Digestible {
+    val digests: PersistentMap<ResourcePath, Digest>
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = ResourceListing(persistentMapOf())
@@ -24,6 +26,10 @@ data class ResourceListing(
             }
         }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private var digest: Digest? = null
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -63,6 +69,18 @@ data class ResourceListing(
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleUnorderedMap(digests)
+        builder.addDigest(digest())
+    }
+
+
+    override fun digest(): Digest {
+        if (digest == null) {
+            val builder = Digest.Builder()
+
+            builder.addDigestibleUnorderedMap(digests)
+
+            digest = builder.digest()
+        }
+        return digest!!
     }
 }

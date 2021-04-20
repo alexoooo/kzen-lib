@@ -24,10 +24,23 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 class NotationMetadataReader(
 //        private val mirrorMetadataReader: MirrorMetadataReader
 ) {
-    private val metadataCache = DigestCache<ObjectMetadata>(1024)
+    //-----------------------------------------------------------------------------------------------------------------
+    private val objectMetadataCache = DigestCache<ObjectMetadata>(1024)
+
+    private var graphMetadataCacheDigest = Digest.empty
+    private var graphMetadataCache: GraphMetadata? = null
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     fun read(graphNotation: GraphNotation): GraphMetadata {
+        if (graphMetadataCacheDigest == graphNotation.digest()) {
+            return graphMetadataCache!!
+        }
+
+        if (objectMetadataCache.size < graphNotation.objectLocations.size) {
+            objectMetadataCache.size = (graphNotation.objectLocations.size * 1.2 + 1).toInt()
+        }
+
         val builder = mutableMapOf<ObjectLocation, ObjectMetadata>()
 
         for (objectLocation in graphNotation.objectLocations) {
@@ -36,7 +49,12 @@ class NotationMetadataReader(
             builder[objectLocation] = objectMetadata
         }
 
-        return GraphMetadata(ObjectLocationMap(builder.toPersistentMap()))
+        val graphMetadata = GraphMetadata(ObjectLocationMap(builder.toPersistentMap()))
+
+        graphMetadataCacheDigest = graphNotation.digest()
+        graphMetadataCache = graphMetadata
+
+        return graphMetadata
     }
 
 
@@ -55,7 +73,7 @@ class NotationMetadataReader(
         val metadataDigest = metadataDigest(
                 objectLocation, objectReferenceHost, inheritanceChain, graphNotation, objectNotations)
 
-        val cached = metadataCache.get(metadataDigest)
+        val cached = objectMetadataCache.get(metadataDigest)
         if (cached != null) {
             return cached
         }
@@ -63,7 +81,7 @@ class NotationMetadataReader(
         val objectMetadata = readObjectImpl(
                 objectLocation, objectReferenceHost, inheritanceChain, graphNotation)
 
-        metadataCache.put(metadataDigest, objectMetadata)
+        objectMetadataCache.put(metadataDigest, objectMetadata)
 
         return objectMetadata
     }

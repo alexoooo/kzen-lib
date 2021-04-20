@@ -9,11 +9,15 @@ import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.*
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.service.notation.NotationConventions
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class GraphNotation(
-    val documents: DocumentPathMap<DocumentNotation>)
+    val documents: DocumentPathMap<DocumentNotation>
+):
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -38,6 +42,9 @@ data class GraphNotation(
 
 
     private val inheritanceChainCache = mutableMapOf<ObjectLocation, List<ObjectLocation>>()
+
+
+    private var digest: Digest? = null
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -292,5 +299,23 @@ data class GraphNotation(
         }
 
         return GraphNotation(DocumentPathMap(filteredDocuments.toPersistentMap()))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigest(digest())
+    }
+
+
+    override fun digest(): Digest {
+        if (digest == null) {
+            val builder = Digest.Builder()
+
+            builder.addDigestibleOrderedMap(documents.values)
+
+            digest = builder.digest()
+        }
+        return digest!!
     }
 }

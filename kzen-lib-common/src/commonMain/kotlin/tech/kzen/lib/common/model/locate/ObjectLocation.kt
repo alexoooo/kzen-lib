@@ -2,13 +2,17 @@ package tech.kzen.lib.common.model.locate
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.ClassName
 
 
 data class ObjectLocation(
-        val documentPath: DocumentPath,
-        val objectPath: ObjectPath
-) {
+    val documentPath: DocumentPath,
+    val objectPath: ObjectPath
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val className = ClassName(
@@ -55,14 +59,16 @@ data class ObjectLocation(
         return documentPath.asString() +
                 ObjectReference.nestingSeparator +
                 objectPath.asString()
-//        val nestingInfix = objectPath.asString() + ObjectNesting.delimiter
-//
-//        return pathPrefix + nestingInfix + ObjectNesting.encodeDelimiter(name.value)
-//        return toReference().asString()
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigestible(documentPath)
+        builder.addDigestible(objectPath)
+    }
+
+
     override fun toString(): String {
         return asString()
     }

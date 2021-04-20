@@ -7,14 +7,17 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.resource.ResourceListing
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentNotation(
-        val objects: DocumentObjectNotation,
-        val resources: ResourceListing?
-) {
+    val objects: DocumentObjectNotation,
+    val resources: ResourceListing?
+):
+    Digestible
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val className = ClassName(
@@ -30,6 +33,10 @@ data class DocumentNotation(
                     ResourceListing.emptyOrNull(directory))
         }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private var digest: Digest? = null
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -121,6 +128,24 @@ data class DocumentNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addDigest(digest())
+    }
+
+
+    override fun digest(): Digest {
+        if (digest == null) {
+            val builder = Digest.Builder()
+
+            builder.addDigestible(objects)
+            builder.addDigestibleNullable(resources)
+
+            digest = builder.digest()
+        }
+        return digest!!
+    }
+
+
     override fun toString(): String {
         return "[$objects | $resources]"
     }

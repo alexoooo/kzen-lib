@@ -118,6 +118,9 @@ data class ListAttributeNotation(
     }
 
 
+    private var digest: Digest? = null
+
+
     override fun get(key: String): AttributeNotation? {
         val index = key.toInt()
         return values[index]
@@ -170,7 +173,17 @@ data class ListAttributeNotation(
 
 
     override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleList(values)
+        builder.addDigest(digest())
+    }
+
+
+    override fun digest(): Digest {
+        if (digest == null) {
+            val builder = Digest.Builder()
+            builder.addDigestibleList(values)
+            digest = builder.digest()
+        }
+        return digest!!
     }
 
 
