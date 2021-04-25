@@ -24,6 +24,7 @@ kotlin {
         @Suppress("UNUSED_VARIABLE")
         val commonMain by getting {
             dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
 //                implementation(kotlin("stdlib-common"))
 //                implementation("org.jetbrains:kotlin-css:1.0.0-$kotlin_version")
 //                implementation("org.jetbrains.kotlinx:kotlinx-serialization-runtime-common:$kotlinx_serialization_version")
