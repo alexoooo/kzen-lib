@@ -42,10 +42,9 @@ actual object IoUtils {
         val decodedString = js("atob(base64)") as String
 
         val builder = ByteArray(decodedString.length)
-        for (i in 0 until decodedString.length) {
+        for (i in decodedString.indices) {
             builder[i] = decodedString[i].toByte()
         }
-
         return builder
     }
 }

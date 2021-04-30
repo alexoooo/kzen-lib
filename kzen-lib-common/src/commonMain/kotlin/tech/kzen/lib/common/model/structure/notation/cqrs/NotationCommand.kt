@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.structure.notation.cqrs
 
 import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.document.DocumentName
@@ -122,6 +123,21 @@ data class UpdateInAttributeCommand(
 ): StructuralNotationCommand()
 
 
+data class UpdateAllNestingsInAttributeCommand(
+        val objectLocation: ObjectLocation,
+        val attributeName: AttributeName,
+        val attributeNestings: List<AttributeNesting>,
+        val attributeNotation: AttributeNotation
+): StructuralNotationCommand()
+
+
+data class UpdateAllValuesInAttributeCommand(
+        val objectLocation: ObjectLocation,
+        val attributeName: AttributeName,
+        val nestingNotations: Map<AttributeNesting, AttributeNotation>
+): StructuralNotationCommand()
+
+
 data class InsertListItemInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingList: AttributePath,
@@ -138,7 +154,7 @@ data class InsertAllListItemsInAttributeCommand(
 ): StructuralNotationCommand()
 
 
-// TODO: add UpsertMapEntryInAttributeCommand using AttributeTypedLocation instead of createAncestorsIfAbsent
+// TODO: add UpsertMapEntryInAttributeCommand using AttributeTypedLocation instead of createAncestorsIfAbsent?
 data class InsertMapEntryInAttributeCommand(
         val objectLocation: ObjectLocation,
         val containingMap: AttributePath,

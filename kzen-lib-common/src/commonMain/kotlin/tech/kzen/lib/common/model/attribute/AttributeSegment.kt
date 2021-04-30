@@ -6,9 +6,9 @@ import tech.kzen.lib.common.util.Digestible
 
 @Suppress("DataClassPrivateConstructor")
 data class AttributeSegment private constructor(
-        private val asString: String
+    private val asKey: String
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -16,9 +16,11 @@ data class AttributeSegment private constructor(
             return ofKey(AttributePath.decodeDelimiter(asString))
         }
 
+
         fun ofKey(key: String): AttributeSegment {
             return AttributeSegment(key)
         }
+
 
         fun ofIndex(index: Int): AttributeSegment {
             check(index >= 0) { "Must not be negative: $index" }
@@ -29,26 +31,27 @@ data class AttributeSegment private constructor(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun asKey(): String {
-        return asString
+        return asKey
     }
+
 
     fun asIndex(): Int? {
-        return asString.toIntOrNull()
-    }
-
-
-    fun asString(): String {
-        return AttributePath.encodeDelimiter(asString)
-    }
-
-
-    override fun digest(builder: Digest.Builder) {
-        builder.addUtf8(asString)
+        return asKey.toIntOrNull()
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun digest(builder: Digest.Builder) {
+        builder.addUtf8(asKey)
+    }
+
+
+    fun asString(): String {
+        return AttributePath.encodeDelimiter(asKey)
+    }
+
+
     override fun toString(): String {
-        return asString
+        return asString()
     }
 }

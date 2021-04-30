@@ -74,6 +74,12 @@ class NotationReducer {
             is UpdateInAttributeCommand ->
                 updateInAttribute(state, command)
 
+            is UpdateAllNestingsInAttributeCommand ->
+                updateAllNestingsInAttribute(state, command)
+
+            is UpdateAllValuesInAttributeCommand ->
+                updateAllValuesInAttribute(state, command)
+
             is InsertListItemInAttributeCommand ->
                 insertListItemInAttribute(state, command)
 
@@ -110,8 +116,8 @@ class NotationReducer {
                 removeResource(state, command)
 
 
-            else ->
-                throw UnsupportedOperationException("Unknown command: $command")
+//            else ->
+//                throw UnsupportedOperationException("Unknown command: $command")
         }
     }
 
@@ -344,10 +350,10 @@ class NotationReducer {
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        return NotationTransition(
-                UpsertedAttributeEvent(
-                        command.objectLocation, command.attributeName, command.attributeNotation),
-                nextState)
+        val event = UpsertedAttributeEvent(
+            command.objectLocation, command.attributeName, command.attributeNotation)
+
+        return NotationTransition(event, nextState)
     }
 
 
@@ -374,10 +380,78 @@ class NotationReducer {
         val nextState = state.withModifiedDocument(
                 command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        return NotationTransition(
-                UpdatedInAttributeEvent(
-                        command.objectLocation, command.attributePath, command.attributeNotation),
-                nextState)
+        val event = UpdatedInAttributeEvent(
+            command.objectLocation, command.attributePath, command.attributeNotation)
+
+        return NotationTransition(event, nextState)
+    }
+
+
+    private fun updateAllNestingsInAttribute(
+        state: GraphNotation,
+        command: UpdateAllNestingsInAttributeCommand
+    ): NotationTransition {
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val objectNotation = state.coalesce[command.objectLocation]
+                ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
+
+        val mergedAttributeNotation = state.mergeAttribute(
+            command.objectLocation, command.attributeName)
+
+        val objectWithMergedAttribute = objectNotation.upsertAttribute(
+            command.attributeName, mergedAttributeNotation)
+
+        var modifiedObjectNotation = objectWithMergedAttribute
+        for (attributeNesting in command.attributeNestings) {
+            modifiedObjectNotation =  modifiedObjectNotation.upsertAttribute(
+                AttributePath(command.attributeName, attributeNesting),
+                command.attributeNotation)
+        }
+
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
+                command.objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedDocumentNotation)
+
+        val event = UpdatedAllNestingsInAttributeEvent(
+            command.objectLocation, command.attributeName, command.attributeNestings, command.attributeNotation)
+
+        return NotationTransition(event, nextState)
+    }
+
+
+    private fun updateAllValuesInAttribute(
+        state: GraphNotation,
+        command: UpdateAllValuesInAttributeCommand
+    ): NotationTransition {
+        val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
+        val objectNotation = state.coalesce[command.objectLocation]
+                ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
+
+        val mergedAttributeNotation = state.mergeAttribute(
+            command.objectLocation, command.attributeName)
+
+        val objectWithMergedAttribute = objectNotation.upsertAttribute(
+            command.attributeName, mergedAttributeNotation)
+
+        var modifiedObjectNotation = objectWithMergedAttribute
+        for ((nesting, notation) in command.nestingNotations) {
+            modifiedObjectNotation =  modifiedObjectNotation.upsertAttribute(
+                AttributePath(command.attributeName, nesting),
+                notation)
+        }
+
+        val modifiedDocumentNotation = documentNotation.withModifiedObject(
+                command.objectLocation.objectPath, modifiedObjectNotation)
+
+        val nextState = state.withModifiedDocument(
+                command.objectLocation.documentPath, modifiedDocumentNotation)
+
+        val event = UpdatedAllValuesInAttributeEvent(
+            command.objectLocation, command.attributeName, command.nestingNotations)
+
+        return NotationTransition(event, nextState)
     }
 
 
@@ -444,8 +518,8 @@ class NotationReducer {
         val nextState = state.withModifiedDocument(
             command.objectLocation.documentPath, modifiedDocumentNotation)
 
-        val event = InsertedListItemInAttributeEvent(
-            command.objectLocation, command.containingList, indexInList, listInAttribute)
+        val event = InsertedAllListItemsInAttributeEvent(
+            command.objectLocation, command.containingList, indexInList, command.items)
 
         return NotationTransition(event, nextState)
     }

@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.structure.notation.cqrs
 
 import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.document.DocumentPath
@@ -135,6 +136,27 @@ data class UpdatedInAttributeEvent(
         val objectLocation: ObjectLocation,
         val attributeNesting: AttributePath,
         val attributeNotation: AttributeNotation
+): SingularNotationEvent() {
+    override val documentPath
+        get() = objectLocation.documentPath
+}
+
+
+data class UpdatedAllNestingsInAttributeEvent(
+        val objectLocation: ObjectLocation,
+        val attributeName: AttributeName,
+        val attributeNestings: List<AttributeNesting>,
+        val attributeNotation: AttributeNotation
+): SingularNotationEvent() {
+    override val documentPath
+        get() = objectLocation.documentPath
+}
+
+
+data class UpdatedAllValuesInAttributeEvent(
+        val objectLocation: ObjectLocation,
+        val attributeName: AttributeName,
+        val nestingNotations: Map<AttributeNesting, AttributeNotation>
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath

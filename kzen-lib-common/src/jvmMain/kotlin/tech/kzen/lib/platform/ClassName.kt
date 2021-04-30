@@ -5,21 +5,32 @@ import tech.kzen.lib.common.util.Digestible
 
 
 actual data class ClassName actual constructor(
-        private val jvmClassName: String
+        private val asString: String
 ):
     Digestible
 {
+//    actual companion object {
+//        actual fun ofString(asString: String): ClassName {
+//            return ClassName(asString)
+//        }
+//    }
+
     actual fun get(): String {
-        return jvmClassName
+        return asString
     }
 
 
     override fun digest(builder: Digest.Builder) {
-        builder.addUtf8(jvmClassName)
+        builder.addUtf8(asString)
     }
 
 
     override fun toString(): String {
-        return jvmClassName
+        return asString
+    }
+
+
+    actual fun asString(): String {
+        return asString
     }
 }

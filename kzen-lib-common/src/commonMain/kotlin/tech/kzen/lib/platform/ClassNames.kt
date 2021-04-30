@@ -28,8 +28,14 @@ object ClassNames {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+//    fun ClassName.dotNormalized(): String {
+//        return asString().replace('$', '.')
+//    }
+
+
+
     fun ClassName.simple(): String {
-        val qualified = get()
+        val qualified = asString()
         val startOfSimple = qualified.lastIndexOf(".")
         return qualified.substring(startOfSimple + 1)
     }
@@ -41,6 +47,22 @@ object ClassNames {
         return simple.substring(startOfNested + 1)
     }
 
+
+//    @OptIn(ExperimentalStdlibApi::class)
+    fun ClassName.topLevelWords(): List<String> {
+        val simpleName = topLevel()
+
+        val commaSeparated = simpleName.replace(Regex("[A-Z]")) {
+            if (it.range.first == 0) {
+                it.value
+            }
+            else {
+                ",${it.value}"
+            }
+        }
+
+        return commaSeparated.split(',')
+    }
 
     fun ClassName.topLevel(): String {
         val simple = simple()

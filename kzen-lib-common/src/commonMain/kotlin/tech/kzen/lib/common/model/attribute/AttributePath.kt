@@ -2,7 +2,6 @@ package tech.kzen.lib.common.model.attribute
 
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
-import tech.kzen.lib.platform.collect.toPersistentList
 
 
 data class AttributePath(
@@ -41,7 +40,7 @@ data class AttributePath(
         }
 
 
-        private fun splitOnDelimiter(encodedObjectPath: String): List<String> {
+        fun splitOnDelimiter(encodedObjectPath: String): List<String> {
             val segments = mutableListOf<String>()
 
             var remaining = encodedObjectPath
@@ -68,30 +67,24 @@ data class AttributePath(
 
 
         fun parse(asString: String): AttributePath {
-            val parts = splitOnDelimiter(asString)
+            val firstDelimiterIndex = indexOfDelimiter(asString)
+            if (firstDelimiterIndex == -1) {
+                val attributeName = AttributeName.parse(asString)
+                return ofName(attributeName)
+            }
 
-            val attribute = AttributeName(decodeDelimiter(parts[0]))
-            val segments = parts.subList(1, parts.size).map { AttributeSegment.parse(it) }
+            val attributeNameAsString = asString.substring(0, firstDelimiterIndex)
+            val attributeName = AttributeName.parse(attributeNameAsString)
 
-            return AttributePath(attribute, AttributeNesting(segments.toPersistentList()))
+            val attributeNestingAsString = asString.substring(firstDelimiterIndex + 1)
+            val attributeNesting = AttributeNesting.parse(attributeNestingAsString)
+
+            return AttributePath(attributeName, attributeNesting)
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun asString(): String {
-        val segmentSuffix =
-                if (nesting.segments.isEmpty()) {
-                    ""
-                }
-                else {
-                    delimiter + nesting.segments.joinToString(delimiter) { it.asString() }
-                }
-
-        return encodeDelimiter(attribute.value) + segmentSuffix
-    }
-
-
     fun parent(): AttributePath {
         return AttributePath(attribute, nesting.parent())
     }
@@ -117,6 +110,18 @@ data class AttributePath(
     override fun digest(builder: Digest.Builder) {
         attribute.digest(builder)
         nesting.digest(builder)
+    }
+
+
+    fun asString(): String {
+        val attributeNameAsString = attribute.asString()
+        if (nesting.segments.isEmpty()) {
+            return attributeNameAsString
+        }
+
+        val attributeNestingAsString = nesting.asString()
+
+        return attributeNameAsString + delimiter + attributeNestingAsString
     }
 
 

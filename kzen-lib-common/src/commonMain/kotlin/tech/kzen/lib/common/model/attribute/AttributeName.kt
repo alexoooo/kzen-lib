@@ -10,6 +10,14 @@ data class AttributeName(
     Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        fun parse(asString: String): AttributeName {
+            return AttributeName(AttributePath.decodeDelimiter(asString))
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     fun asAttributePath(): AttributePath {
         return AttributePath.ofName(this)
     }
@@ -21,8 +29,12 @@ data class AttributeName(
     }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
+    fun asString(): String {
+        return AttributePath.encodeDelimiter(value)
+    }
+
+
     override fun toString(): String {
-        return value
+        return asString()
     }
 }

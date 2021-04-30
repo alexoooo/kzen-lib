@@ -31,6 +31,10 @@ data class Digest(
         val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
 
 
+        private const val stringRadix = 32
+        private const val constantSeed: Int = 0x9e3779bb.toInt()
+
+
         fun fromBytes(bytes: ByteArray): Digest {
             val a =
                 bytes[0].toInt() shl 24 or
@@ -78,8 +82,7 @@ data class Digest(
                 return empty
             }
 
-            @Suppress("RedundantExplicitType")
-            var s0: Int = Int.MAX_VALUE
+            var s0: Int = constantSeed
             var s1: Int = murmurHash3(bytes.size)
             var s2: Int = hashMapHash(bytes.size)
             var s3: Int = guavaHashingSmear(bytes.size)
@@ -99,26 +102,26 @@ data class Digest(
                 s3 = rotl(s3, 11)
             }
 
-            return Digest(s0, s1, s2, s3)
+            return finalize(s0, s1, s2, s3)
         }
 
 
         fun ofInt(value: Int): Digest {
-            val a = Int.MAX_VALUE
+            val a = constantSeed
             val b = murmurHash3(value)
             val c = hashMapHash(value)
             val d = guavaHashingSmear(value)
-            return Digest(a, b, c, d)
+            return finalize(a, b, c, d)
         }
 
 
         fun parse(asString: String): Digest {
             val parts = asString.split('_')
             return Digest(
-                parts[0].toInt(),
-                parts[1].toInt(),
-                parts[2].toInt(),
-                parts[3].toInt()
+                parts[0].toInt(stringRadix),
+                parts[1].toInt(stringRadix),
+                parts[2].toInt(stringRadix),
+                parts[3].toInt(stringRadix)
             )
         }
 
@@ -146,6 +149,19 @@ data class Digest(
 
         private fun guavaHashingSmear(value: Int): Int {
             return 461845907 * rotl(value * -862048943, 15)
+        }
+
+
+        private fun finalize(a: Int, b: Int, c: Int, d: Int): Digest {
+            var s0 = murmurHash3(a)
+            val t = b shl 9
+            var s2 = guavaHashingSmear(c xor s0)
+            var s3 = murmurHash3(d xor b + 0x6fa035c3)
+            val s1 = b xor s2
+            s0 = s0 xor s3
+            s2 = murmurHash3(s2 xor t)
+            s3 = rotl(s3, 11)
+            return Digest(s0, s1, s2, s3)
         }
     }
 
@@ -470,7 +486,7 @@ data class Digest(
 
 
         private fun init(value: Int) {
-            s0 = Int.MAX_VALUE
+            s0 = constantSeed
             s1 = murmurHash3(value)
             s2 = hashMapHash(value)
             s3 = guavaHashingSmear(value)
@@ -490,7 +506,7 @@ data class Digest(
                     empty
                 }
                 else {
-                    Digest(s0, s1, s2, s3)
+                    finalize(s0, s1, s2, s3)
                 }
     }
 
@@ -588,7 +604,12 @@ data class Digest(
 
 
     fun asString(): String {
-        return "${a}_${b}_${c}_$d"
+        val aAsString = a.toString(stringRadix)
+        val bAsString = b.toString(stringRadix)
+        val cAsString = c.toString(stringRadix)
+        val dAsString = d.toString(stringRadix)
+
+        return "${aAsString}_${bAsString}_${cAsString}_${dAsString}"
     }
 
 

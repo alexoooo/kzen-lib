@@ -3,6 +3,7 @@ package tech.kzen.lib.common.model.attribute
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.PersistentList
+import tech.kzen.lib.platform.collect.toPersistentList
 
 
 data class AttributeNesting(
@@ -13,6 +14,20 @@ data class AttributeNesting(
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = AttributeNesting(PersistentList())
+
+
+        fun parse(asString: String): AttributeNesting {
+            if (asString == "") {
+                return empty
+            }
+
+            val segments = AttributePath
+                .splitOnDelimiter(asString)
+                .map { AttributeSegment.parse(it) }
+                .toPersistentList()
+
+            return AttributeNesting(segments)
+        }
     }
 
 
@@ -41,5 +56,18 @@ data class AttributeNesting(
     //-----------------------------------------------------------------------------------------------------------------
     override fun digest(builder: Digest.Builder) {
         builder.addDigestibleList(segments)
+    }
+
+
+    fun asString(): String {
+        return segments
+            .joinToString(AttributePath.delimiter) {
+                it.asString()
+            }
+    }
+
+
+    override fun toString(): String {
+        return asString()
     }
 }

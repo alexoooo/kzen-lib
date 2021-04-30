@@ -8,36 +8,42 @@ import kotlin.test.assertNotEquals
 
 class DigestTest {
     @Test
-    fun emptyDigest() {
-        assertNotEquals(
-                Digest.Builder().addInt(0).digest(),
-                Digest.Builder().digest()
-        )
-    }
-
-    @Test
     fun zeroIsDistinctFromEmpty() {
         assertNotEquals(
-                Digest.zero,
-                Digest.Builder().digest()
-        )
+            Digest.zero,
+            Digest.Builder().digest())
     }
 
 
     @Test
     fun zeroIsDistinctFromZeroDigest() {
         assertNotEquals(
-                Digest.zero,
-                Digest.Builder().addInt(0).digest()
-        )
+            Digest.zero,
+            Digest.Builder().addInt(0).digest())
+    }
+
+
+    @Test
+    fun intDigestEqualsGoingThroughBuilder() {
+        assertEquals(
+            Digest.ofInt(42),
+            Digest.Builder().addInt(42).digest())
     }
 
 
     @Test
     fun digestSimpleValue() {
         assertEquals(
-                Digest(-1025110241, -1673702306, -104695459, 1543258038),
-                digest("foo"))
+            Digest(-117490369, -847733214, 1215846144, -644985839),
+            digest("foo"))
+    }
+
+
+    @Test
+    fun encodeSimpleValue() {
+        assertEquals(
+            "-3g1gm1_-p8eoeu_147glo0_-j73cvf",
+            Digest(-117490369, -847733214, 1215846144, -644985839).asString())
     }
 
 
