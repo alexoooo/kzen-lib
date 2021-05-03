@@ -228,7 +228,7 @@ data class Digest(
 
 
         fun addChar(value: Char): Builder {
-            addInt(value.toInt())
+            addInt(value.code)
             return this
         }
 

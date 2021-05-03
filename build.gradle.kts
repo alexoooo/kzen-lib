@@ -1,3 +1,5 @@
+// https://youtrack.jetbrains.com/issue/KT-46006
+
 plugins {
     kotlin("multiplatform") version kotlinVersion apply false
 }

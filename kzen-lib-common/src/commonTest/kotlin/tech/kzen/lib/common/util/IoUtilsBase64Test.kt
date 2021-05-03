@@ -17,7 +17,7 @@ class IoUtilsBase64Test {
 
     @Test
     fun simpleString() {
-        encodeAndDecode(byteArrayOf('f'.toByte(), 'o'.toByte(), 'o'.toByte()))
+        encodeAndDecode(byteArrayOf('f'.code.toByte(), 'o'.code.toByte(), 'o'.code.toByte()))
     }
 
 
@@ -29,7 +29,7 @@ class IoUtilsBase64Test {
 
     @Test
     fun unicodeString() {
-        encodeAndDecode(byteArrayOf('~'.toByte(), '§'.toByte(), '·'.toByte()))
+        encodeAndDecode(byteArrayOf('~'.code.toByte(), '§'.code.toByte(), '·'.code.toByte()))
     }
 
 
@@ -69,6 +69,6 @@ class IoUtilsBase64Test {
 
 
     private fun asciiToByteArray(ascii: String): ByteArray {
-        return ByteArray(ascii.length) { ascii[it].toByte() }
+        return ByteArray(ascii.length) { ascii[it].code.toByte() }
     }
 }

@@ -40,7 +40,7 @@ actual class PersistentMap<K, out V> private constructor(
                         }
 
                         override fun next(): Map.Entry<K, V> {
-                            val nextKey = orderIterator.next()
+                            val nextKey = orderIterator.next()!!
                             val nextValue = delegate[nextKey]!!
                             return Maps.immutableEntry(nextKey, nextValue.first)
                         }

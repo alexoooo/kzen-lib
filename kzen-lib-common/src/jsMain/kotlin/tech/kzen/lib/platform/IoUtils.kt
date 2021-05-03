@@ -7,7 +7,7 @@ actual object IoUtils {
     actual fun utf8Encode(utf8: String): ByteArray {
         // from kotlinx.serialization String.toUtf8Bytes
         val blck = js("unescape(encodeURIComponent(utf8))") as String
-        return blck.toList().map { it.toByte() }.toByteArray()
+        return blck.toList().map { it.code.toByte() }.toByteArray()
     }
 
 
@@ -43,7 +43,7 @@ actual object IoUtils {
 
         val builder = ByteArray(decodedString.length)
         for (i in decodedString.indices) {
-            builder[i] = decodedString[i].toByte()
+            builder[i] = decodedString[i].code.toByte()
         }
         return builder
     }
