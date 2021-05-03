@@ -4,8 +4,11 @@ import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
-import tech.kzen.lib.common.model.structure.notation.*
-import tech.kzen.lib.common.model.structure.notation.cqrs.*
+import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.InsertMapEntryInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.InsertedMapEntryInAttributeEvent
 import tech.kzen.lib.platform.collect.persistentMapOf
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

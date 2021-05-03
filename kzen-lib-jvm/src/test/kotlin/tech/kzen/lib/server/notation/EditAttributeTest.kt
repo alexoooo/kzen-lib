@@ -4,7 +4,10 @@ import org.junit.Test
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
-import tech.kzen.lib.common.model.structure.notation.*
+import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveInAttributeCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftInAttributeCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.UpdateInAttributeCommand

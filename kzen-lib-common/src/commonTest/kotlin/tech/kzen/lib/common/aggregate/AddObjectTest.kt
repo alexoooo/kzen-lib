@@ -1,7 +1,6 @@
 package tech.kzen.lib.common.aggregate
 
 import tech.kzen.lib.common.model.obj.ObjectName
-import tech.kzen.lib.common.model.structure.notation.PositionIndex
 import tech.kzen.lib.common.model.structure.notation.PositionRelation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.AddObjectCommand

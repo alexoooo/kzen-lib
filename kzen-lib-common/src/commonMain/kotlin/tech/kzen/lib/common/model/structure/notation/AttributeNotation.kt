@@ -1,7 +1,6 @@
 package tech.kzen.lib.common.model.structure.notation
 
 import tech.kzen.lib.common.model.attribute.AttributeNesting
-import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible

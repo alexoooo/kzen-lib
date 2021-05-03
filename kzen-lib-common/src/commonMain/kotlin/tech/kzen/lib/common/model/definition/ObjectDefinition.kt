@@ -5,8 +5,6 @@ import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.locate.ObjectReference
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.ClassName
 
 

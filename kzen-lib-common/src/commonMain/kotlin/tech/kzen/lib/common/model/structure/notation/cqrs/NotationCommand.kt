@@ -11,7 +11,10 @@ import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.locate.ResourceLocation
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
-import tech.kzen.lib.common.model.structure.notation.*
+import tech.kzen.lib.common.model.structure.notation.AttributeNotation
+import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
+import tech.kzen.lib.common.model.structure.notation.ObjectNotation
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
 import tech.kzen.lib.common.util.ImmutableByteArray
 
 

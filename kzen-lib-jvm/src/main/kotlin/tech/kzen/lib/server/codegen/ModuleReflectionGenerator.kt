@@ -10,7 +10,6 @@ import tech.kzen.lib.platform.ClassNames.nestedInSimple
 import tech.kzen.lib.platform.ClassNames.packageName
 import tech.kzen.lib.platform.ClassNames.simple
 import tech.kzen.lib.platform.ClassNames.topLevel
-import java.lang.IllegalArgumentException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.Paths
