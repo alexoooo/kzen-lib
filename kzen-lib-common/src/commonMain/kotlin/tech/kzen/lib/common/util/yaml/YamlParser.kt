@@ -24,7 +24,7 @@ object YamlParser {
         private const val bareStringPattern =
             "([0-9a-zA-Z_\\-/.][0-9a-zA-Z_\\-/. ]*[0-9a-zA-Z_\\-/.]|[0-9a-zA-Z_\\-/.]+)"
         private const val doubleQuotedString =
-                "\"((?:[^\\\"]|\\(?:[\"\\/bfnrt]|u[0-9a-fA-F]{4})*)\""
+                "\"((?:[^\"]|\\(?:[\"/bfnrt]|u[0-9a-fA-F]{4})*)\""
 
         private const val entrySuffix = "\\s*:\\s*(.*)"
 
@@ -39,6 +39,8 @@ object YamlParser {
 
         val bareString = Regex(
                 bareStringPattern)
+        val bareStringX = Regex(
+            doubleQuotedString)
     }
 
 
