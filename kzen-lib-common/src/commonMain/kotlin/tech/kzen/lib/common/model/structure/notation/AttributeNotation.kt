@@ -106,6 +106,38 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
 
 
     abstract fun isEmpty(): Boolean
+
+
+    fun upsert(
+        attributeNesting: AttributeNesting,
+        value: AttributeNotation
+    ): StructuredAttributeNotation {
+        val nextPathSegment = attributeNesting.segments[0]
+
+        val nextValue =
+            if (attributeNesting.segments.size == 1) {
+                value
+            }
+            else {
+                val subNotation = get(nextPathSegment) as? StructuredAttributeNotation
+                    ?: throw IllegalArgumentException("Not found: $attributeNesting - $this")
+
+                subNotation.upsert(
+                    attributeNesting.shift(),
+                    value)
+            }
+
+        return when (this) {
+            is ListAttributeNotation -> {
+                val index = nextPathSegment.asIndex()!!
+                set(PositionIndex(index), nextValue)
+            }
+
+            is MapAttributeNotation -> {
+                put(nextPathSegment, nextValue)
+            }
+        }
+    }
 }
 
 

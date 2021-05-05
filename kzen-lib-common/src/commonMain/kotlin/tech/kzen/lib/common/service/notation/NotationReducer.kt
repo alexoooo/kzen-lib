@@ -465,16 +465,22 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val listInAttribute = state
-                .firstAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
-                ?: throw IllegalStateException(
-                        "List attribute expected: ${command.objectLocation} - ${command.containingList}")
+        val mergedAttributeNotation = state.mergeAttribute(
+            command.objectLocation, command.containingList.attribute)
+
+        val objectWithMergedAttribute = objectNotation.upsertAttribute(
+            command.containingList.attribute, mergedAttributeNotation)
+
+        val listInAttribute = objectWithMergedAttribute
+            .get(command.containingList) as? ListAttributeNotation
+            ?: throw IllegalStateException(
+                "List attribute expected: ${command.objectLocation} - ${command.containingList}")
 
         val indexInList = command.indexInList.resolve(listInAttribute.values.size)
 
         val listWithInsert = listInAttribute.insert(indexInList, command.item)
 
-        val modifiedObjectNotation = objectNotation.upsertAttribute(
+        val modifiedObjectNotation = objectWithMergedAttribute.upsertAttribute(
                 command.containingList, listWithInsert)
 
         val modifiedDocumentNotation = documentNotation.withModifiedObject(
@@ -500,8 +506,14 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
             ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val listInAttribute = state
-            .firstAttribute(command.objectLocation, command.containingList) as? ListAttributeNotation
+        val mergedAttributeNotation = state.mergeAttribute(
+            command.objectLocation, command.containingList.attribute)
+
+        val objectWithMergedAttribute = objectNotation.upsertAttribute(
+            command.containingList.attribute, mergedAttributeNotation)
+
+        val listInAttribute = objectWithMergedAttribute
+            .get(command.containingList) as? ListAttributeNotation
             ?: throw IllegalStateException(
                 "List attribute expected: ${command.objectLocation} - ${command.containingList}")
 
@@ -509,7 +521,7 @@ class NotationReducer {
 
         val listWithInsert = listInAttribute.insertAll(indexInList, command.items)
 
-        val modifiedObjectNotation = objectNotation.upsertAttribute(
+        val modifiedObjectNotation = objectWithMergedAttribute.upsertAttribute(
             command.containingList, listWithInsert)
 
         val modifiedDocumentNotation = documentNotation.withModifiedObject(
@@ -532,9 +544,7 @@ class NotationReducer {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]!!
         val objectNotation = state.coalesce[command.objectLocation]!!
 
-        val containingAttribute =
-            objectNotation.get(command.containingMap)
-//            state.transitiveAttribute(command.objectLocation, command.containingMap)
+        val containingAttribute = objectNotation.get(command.containingMap)
 
         require(containingAttribute == null || containingAttribute is MapAttributeNotation) {
             "Map expected: ${command.containingMap} - $containingAttribute"
@@ -557,7 +567,6 @@ class NotationReducer {
                     "Index out of bounds in empty map: ${command.indexInMap}"
                 }
 
-//                val containingMapKey = command.containingMap.nesting.segments.last()
                 val containerNotation = MapAttributeNotation(persistentMapOf(
                     command.mapKey to command.value
                 ))
@@ -566,7 +575,6 @@ class NotationReducer {
 
                 var furthestPresentAncestor: AttributePath? = command.containingMap
                 while (objectNotation.get(furthestPresentAncestor!!) == null) {
-//                while (state.transitiveAttribute(command.objectLocation, furthestPresentAncestor!!) == null) {
                     createdAncestors.add(furthestPresentAncestor)
 
                     if (furthestPresentAncestor.nesting.segments.isEmpty()) {

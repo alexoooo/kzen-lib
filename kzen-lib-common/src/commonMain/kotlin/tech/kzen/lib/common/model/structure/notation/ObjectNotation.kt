@@ -95,16 +95,17 @@ data class ObjectNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun upsertAttribute(
-            attributeName: AttributeName,
-            attributeNotation: AttributeNotation
+        attributeName: AttributeName,
+        attributeNotation: AttributeNotation
     ): ObjectNotation {
-        return ObjectNotation(attributes.put(attributeName, attributeNotation))
+        return ObjectNotation(
+            attributes.put(attributeName, attributeNotation))
     }
 
 
     fun upsertAttribute(
-            attributePath: AttributePath,
-            attributeNotation: AttributeNotation
+        attributePath: AttributePath,
+        attributeNotation: AttributeNotation
     ): ObjectNotation {
         val rootParameterName = attributePath.attribute
 
@@ -112,14 +113,12 @@ data class ObjectNotation(
             return upsertAttribute(rootParameterName, attributeNotation)
         }
 
-        val root: StructuredAttributeNotation =
-            attributes
+        val root: StructuredAttributeNotation = attributes
                 .values[rootParameterName]
                 as? StructuredAttributeNotation
                 ?: MapAttributeNotation.empty
 
-        val newRoot = upsertSubParameter(
-                root,
+        val newRoot = root.upsert(
                 attributePath.nesting,
                 attributeNotation)
 
@@ -127,42 +126,12 @@ data class ObjectNotation(
     }
 
 
-    private fun upsertSubParameter(
-            next: StructuredAttributeNotation,
-            remainingPathSegments: AttributeNesting,
-            value: AttributeNotation
-    ): StructuredAttributeNotation {
-        val nextPathSegment = remainingPathSegments.segments[0]
-
-        val nextValue =
-                if (remainingPathSegments.segments.size == 1) {
-                    value
-                }
-                else {
-                    upsertSubParameter(
-                            next.get(nextPathSegment.asString()) as StructuredAttributeNotation,
-                            remainingPathSegments.shift(),
-                            value)
-                }
-
-        return when (next) {
-            is ListAttributeNotation -> {
-                val index = nextPathSegment.asIndex()!!
-                next.set(PositionIndex(index), nextValue)
-            }
-
-            is MapAttributeNotation -> {
-                next.put(nextPathSegment, nextValue)
-            }
-        }
-    }
-
-
     //-----------------------------------------------------------------------------------------------------------------
     fun removeAttribute(
         attributeName: AttributeName
     ): ObjectNotation {
-        return ObjectNotation(attributes.remove(attributeName))
+        return ObjectNotation(
+            attributes.remove(attributeName))
     }
 
 
