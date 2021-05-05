@@ -13,12 +13,11 @@ kotlin {
 
 
 dependencies {
-//    implementation(group = "org.jetbrains.kotlin", name = "kotlin-stdlib-js", version = kotlinVersion)
-    testImplementation(group = "org.jetbrains.kotlin", name = "kotlin-test-js", version = kotlinVersion)
-
     implementation(project(":kzen-lib-common"))
 
     implementation(npm("core-js", coreJsVersion))
+
+    testImplementation(kotlin("test"))
 }
 
 
@@ -29,7 +28,6 @@ publishing {
 
     publications {
         create<MavenPublication>("js") {
-//            println("Components: " + components.asMap.keys)
             from(components["kotlin"])
         }
     }
