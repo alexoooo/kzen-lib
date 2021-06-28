@@ -40,7 +40,7 @@ class FileNotationMedia(
 
     private val documentCache: Cache<Digest, String> = CacheBuilder
             .newBuilder()
-            .maximumWeight(1024 * 1024)
+            .maximumWeight(1024L * 1024)
             .weigher { _: Digest, value: String -> value.length }
             .build()
 

@@ -182,6 +182,9 @@ data class GraphNotation(
     }
 
 
+    /**
+     * Traverse inheritance chain (starting at objectLocation) until finding attributePath from the closest ancestor.
+     */
     fun firstAttribute(
             objectLocation: ObjectLocation,
             attributePath: AttributePath
@@ -202,13 +205,13 @@ data class GraphNotation(
                     null ->
                         BootstrapConventions.rootObjectReference
 
-                    !is ScalarAttributeNotation ->
-                        TODO()
-
-                    else -> {
+                    is ScalarAttributeNotation -> {
                         val isValue = isAttribute.value
                         ObjectReference.parse(isValue)
                     }
+
+                    else ->
+                        throw IllegalArgumentException("$objectLocation - $attributePath - $isAttribute")
                 }
 
 //        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)

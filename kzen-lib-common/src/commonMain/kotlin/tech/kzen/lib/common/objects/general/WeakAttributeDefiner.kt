@@ -34,7 +34,7 @@ object WeakAttributeDefiner/*(
 
         return when (attributeNotation) {
             is ScalarAttributeNotation ->
-                defineScalar(objectLocation, attributeName, /*graphStructure.graphNotation,*/ attributeNotation)
+                defineScalar(/*objectLocation, attributeName,*/ /*graphStructure.graphNotation,*/ attributeNotation)
 
             is ListAttributeNotation ->
                 defineList(objectLocation, attributeName, /*graphStructure,*/ attributeNotation)
@@ -57,7 +57,7 @@ object WeakAttributeDefiner/*(
         for (itemAttributeNotation in attributeNotation.values) {
             if (itemAttributeNotation is ScalarAttributeNotation) {
                 val definitionAttempt = defineScalar(
-                        objectLocation, attributeName, itemAttributeNotation)
+                        /*objectLocation, attributeName,*/ itemAttributeNotation)
 
                 when (definitionAttempt) {
                     is AttributeDefinitionSuccess -> {
@@ -87,13 +87,11 @@ object WeakAttributeDefiner/*(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun defineScalar(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
+//            objectLocation: ObjectLocation,
+//            attributeName: AttributeName,
             scalarAttributeNotation: ScalarAttributeNotation
     ): AttributeDefinitionAttempt {
-        val objectReference = scalarAttributeNotation.asString()?.let { ObjectReference.parse(it) }
-                ?: return AttributeDefinitionAttempt.failure(
-                        "Reference expected: $objectLocation - $attributeName")
+        val objectReference = scalarAttributeNotation.asString().let { ObjectReference.parse(it) }
 
 //        val value: ObjectReference =
 //                if (reference) {

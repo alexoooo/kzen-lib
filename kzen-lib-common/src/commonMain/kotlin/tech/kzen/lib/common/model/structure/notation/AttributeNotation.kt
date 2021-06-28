@@ -9,7 +9,7 @@ import tech.kzen.lib.platform.collect.*
 
 //---------------------------------------------------------------------------------------------------------------------
 sealed class AttributeNotation: Digestible {
-    fun asString(): String? {
+    open fun asString(): String? {
         return (this as? ScalarAttributeNotation)
                 ?.value
     }
@@ -48,6 +48,11 @@ sealed class AttributeNotation: Digestible {
 data class ScalarAttributeNotation(
         val value: String
 ): AttributeNotation() {
+    override fun asString(): String {
+        return value
+    }
+
+
     override fun get(attributeNesting: AttributeNesting): AttributeNotation? {
         return when {
             attributeNesting.segments.isEmpty() ->
