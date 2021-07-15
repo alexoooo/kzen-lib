@@ -22,7 +22,7 @@ import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
 
 
-object GraphTestUtils {
+object JvmGraphTestUtils {
     init {
         KzenLibCommonModule.register()
         KzenLibJvmTestModule.register()

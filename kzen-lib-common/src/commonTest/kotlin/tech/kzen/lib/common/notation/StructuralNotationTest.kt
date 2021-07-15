@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.aggregate
+package tech.kzen.lib.common.notation
 
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentPath
@@ -12,7 +12,7 @@ import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.platform.collect.persistentMapOf
 
 
-abstract class AggregateTest {
+abstract class StructuralNotationTest {
     //-----------------------------------------------------------------------------------------------------------------
     val yamlParser = YamlNotationParser()
     val testPath = DocumentPath.parse("test.yaml")

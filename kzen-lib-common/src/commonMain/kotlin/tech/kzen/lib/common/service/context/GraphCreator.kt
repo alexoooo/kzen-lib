@@ -10,6 +10,7 @@ import tech.kzen.lib.common.model.locate.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectPath
 
 
+// TODO: convert to object?
 class GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(

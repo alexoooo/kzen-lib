@@ -7,14 +7,14 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.server.objects.nested.NestedObject
-import tech.kzen.lib.server.util.GraphTestUtils
+import tech.kzen.lib.server.util.JvmGraphTestUtils
 
 
 class NestedClassTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `nested class can be created`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val nestedLocation = location("Nested")
 
@@ -26,7 +26,7 @@ class NestedClassTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `nested user can be created`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val nestedLocation = location("NestedUser")
 
@@ -38,7 +38,7 @@ class NestedClassTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `generic int parameter in nested object`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val nestedLocation = location("Nested2")
 

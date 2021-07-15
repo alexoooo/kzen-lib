@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.aggregate
+package tech.kzen.lib.common.notation
 
 import tech.kzen.lib.common.model.locate.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
@@ -9,7 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 
-class RenameObjectTest: AggregateTest() {
+class RenameObjectTest: StructuralNotationTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun renameBetweenTwoObjects() {
@@ -24,7 +24,7 @@ C:
 
         val reducer = NotationReducer()
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 RenameObjectCommand(
                         location("B"), ObjectName("Foo")))
@@ -55,7 +55,7 @@ C:
 
         val newName = ObjectName("/")
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 RenameObjectCommand(
                 location("B"), newName))

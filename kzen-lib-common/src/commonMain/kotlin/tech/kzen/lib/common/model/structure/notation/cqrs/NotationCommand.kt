@@ -47,10 +47,13 @@ data class CopyDocumentCommand(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
-        val objectLocation: ObjectLocation,
-        val indexInDocument: PositionRelation,
-        val body: ObjectNotation
-): StructuralNotationCommand() {
+    val objectLocation: ObjectLocation,
+    val indexInDocument: PositionRelation,
+    val body: ObjectNotation
+):
+    StructuralNotationCommand()
+//    SemanticNotationCommand()
+{
     companion object {
         fun ofParent(
                 objectLocation: ObjectLocation,
@@ -206,7 +209,10 @@ data class InsertObjectInListAttributeCommand(
         val objectName: ObjectName,
         val positionInDocument: PositionRelation,
         val objectNotation: ObjectNotation
-): StructuralNotationCommand() {
+):
+        StructuralNotationCommand()
+//        SemanticNotationCommand()
+{
     fun insertedObjectLocation(): ObjectLocation {
         val objectPath = containingObjectLocation.objectPath.nest(containingList, objectName)
         return ObjectLocation(containingObjectLocation.documentPath, objectPath)

@@ -4,6 +4,7 @@ import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
 
 
+// TODO: add lifecycle methods for postConstruct and preDestroy?
 data class GraphInstance(
         val objectInstances: ObjectLocationMap<ObjectInstance>)
 {

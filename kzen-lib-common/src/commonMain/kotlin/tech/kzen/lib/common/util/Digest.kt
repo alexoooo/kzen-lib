@@ -7,6 +7,7 @@ import tech.kzen.lib.platform.IoUtils
 //  https://kotlinlang.org/docs/reference/js-to-kotlin-interop.html#representing-kotlin-types-in-javascript
 // See: http://prng.di.unimi.it/
 // Consider: init with http://prng.di.unimi.it/splitmix64.c
+// See: https://stackoverflow.com/questions/1835976/what-is-a-sensible-prime-for-hashcode-calculation
 data class Digest(
     val a: Int,
     val b: Int,
@@ -163,6 +164,20 @@ data class Digest(
             s3 = rotl(s3, 11)
             return Digest(s0, s1, s2, s3)
         }
+
+
+//        private fun finalizeLong(a: Int, b: Int, c: Int, d: Int): Long {
+//            var s0 = murmurHash3(a)
+//            val t = b shl 9
+//            var s2 = guavaHashingSmear(c xor s0)
+//            var s3 = murmurHash3(d xor b + 0x6fa035c3)
+//            val s1 = b xor s2
+//            s0 = s0 xor s3
+//            s2 = murmurHash3(s2 xor t)
+//            s3 = rotl(s3, 11)
+//            return (s0.toLong() shl 32 or (s1.toLong() and 0xffffffffL)) * 92821 +
+//                    (s2.toLong() shl 32 or (s3.toLong() and 0xffffffffL))
+//        }
     }
 
 
@@ -636,6 +651,12 @@ data class Digest(
             (d shr 8).toByte(),
             d.toByte()
         )
+    }
+
+
+    fun longHashCode(): Long {
+        return (a.toLong() shl 32 or (b.toLong() and 0xffffffffL)) * 92821 +
+                (c.toLong() shl 32 or (d.toLong() and 0xffffffffL))
     }
 
 

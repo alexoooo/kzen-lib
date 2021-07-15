@@ -14,7 +14,7 @@ A:
   hello: "a"
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 RemoveObjectCommand(
                         location("A")))

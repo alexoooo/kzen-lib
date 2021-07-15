@@ -13,7 +13,7 @@ class EditDocumentTest: NotationAggregateTest() {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Create document`() {
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 GraphNotation.empty,
                 CreateDocumentCommand(testPath, DocumentObjectNotation.empty))
 
@@ -26,7 +26,7 @@ class EditDocumentTest: NotationAggregateTest() {
     fun `Delete document`() {
         val notation = parseGraph("")
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation, DeleteDocumentCommand(testPath))
 
         assertTrue(transition.graphNotation.documents.values.isEmpty())

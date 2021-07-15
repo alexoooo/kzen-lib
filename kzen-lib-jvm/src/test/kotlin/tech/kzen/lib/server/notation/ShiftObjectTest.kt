@@ -19,7 +19,7 @@ B:
   hello: "b"
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 ShiftObjectCommand(
                         location("B"), PositionRelation.first))
@@ -39,7 +39,7 @@ B:
   hello: "b"
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             ShiftObjectCommand(
                 location("A"), PositionRelation.at(1)))
@@ -59,7 +59,7 @@ B:
   hello: "b"
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             ShiftObjectCommand(
                 location("A"), PositionRelation.first))

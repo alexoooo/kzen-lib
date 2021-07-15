@@ -8,14 +8,14 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.server.objects.autowire.ObjectGroup
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
-import tech.kzen.lib.server.util.GraphTestUtils
+import tech.kzen.lib.server.util.JvmGraphTestUtils
 
 
 class AutowiredTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Literal object locations`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val location = location("WeakLiteral")
         val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
@@ -30,7 +30,7 @@ class AutowiredTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Autowired object locations`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val location = location("WeakHolder")
         val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
@@ -45,7 +45,7 @@ class AutowiredTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Autowired object instances`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val location = location("StrongHolder")
         val strongHolderInstance = objectGraph[location]?.reference as StrongHolder
@@ -57,7 +57,7 @@ class AutowiredTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Autowired parent child`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val location = location("ObjectGroup")
         val objectGroup = objectGraph.objectInstances[location]?.reference as ObjectGroup

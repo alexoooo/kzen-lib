@@ -11,7 +11,7 @@ import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectRefactorCommand
 import tech.kzen.lib.common.service.notation.NotationReducer
-import tech.kzen.lib.server.util.GraphTestUtils
+import tech.kzen.lib.server.util.JvmGraphTestUtils
 import kotlin.test.assertEquals
 
 
@@ -24,10 +24,10 @@ class RenameObjectRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Rename should update references`() {
-        val notationTree = GraphTestUtils.readNotation()
-        val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
-        val transition = reducer.apply(
+        val transition = reducer.applySemantic(
                 graphDefinitionAttempt,
                 RenameObjectRefactorCommand(
                         location("main.addends/OldName"), ObjectName("NewName")))
@@ -49,10 +49,10 @@ class RenameObjectRefactorTest {
         val weirdName = ObjectName(weirdNameValue)
         val weirdPath = ObjectPath(weirdName, ObjectNesting.parse("main.addends"))
 
-        val notationTree = GraphTestUtils.readNotation()
-        val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
-        val transition = reducer.apply(
+        val transition = reducer.applySemantic(
                 graphDefinitionAttempt,
                 RenameObjectRefactorCommand(
                         location("main.addends/OldName"), weirdName))
@@ -73,10 +73,10 @@ class RenameObjectRefactorTest {
 
     @Test
     fun `Rename container should renamed nested objects`() {
-        val notationTree = GraphTestUtils.readNotation()
-        val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
-        val transition = reducer.apply(
+        val transition = reducer.applySemantic(
                 graphDefinitionAttempt,
                 RenameObjectRefactorCommand(
                         location("main"), ObjectName("foo")))
@@ -95,10 +95,10 @@ class RenameObjectRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Rename should update references in partial object`() {
-        val notationTree = GraphTestUtils.readNotation()
-        val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
-        val transition = reducer.apply(
+        val transition = reducer.applySemantic(
                 graphDefinitionAttempt,
                 RenameObjectRefactorCommand(
                         location("main.addends/OldName"), ObjectName("NewName")))
@@ -123,10 +123,10 @@ class RenameObjectRefactorTest {
 
     @Test
     fun `Rename should update references to partial object`() {
-        val notationTree = GraphTestUtils.readNotation()
-        val graphDefinitionAttempt = GraphTestUtils.graphDefinition(notationTree)
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
-        val transition = reducer.apply(
+        val transition = reducer.applySemantic(
                 graphDefinitionAttempt,
                 RenameObjectRefactorCommand(
                         location("PartialDivisionDividend"), ObjectName("NewName")))

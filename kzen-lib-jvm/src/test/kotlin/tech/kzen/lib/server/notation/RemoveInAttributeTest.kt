@@ -22,7 +22,7 @@ Foo:
     buzz: 1
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             RemoveInAttributeCommand(
                 location("Foo"),
@@ -48,7 +48,7 @@ Foo:
     buzz: 1
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             RemoveInAttributeCommand(
                 location("Foo"),
@@ -72,7 +72,7 @@ Foo:
     buzz: 1
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             RemoveInAttributeCommand(
                 location("Foo"),
@@ -97,7 +97,7 @@ Foo:
       baz: x
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             RemoveInAttributeCommand(
                 location("Foo"),

@@ -25,7 +25,7 @@ Foo:
   hello: "bar"
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 UpsertAttributeCommand(
                         location("Foo"),
@@ -45,7 +45,7 @@ Foo:
   hello: "bar"
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 UpsertAttributeCommand(
                         location("Foo"),
@@ -66,7 +66,7 @@ Foo:
     world: bar
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 UpdateInAttributeCommand(
                         location("Foo"),
@@ -87,7 +87,7 @@ Foo:
     - bar
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 UpdateInAttributeCommand(
                         location("Foo"),
@@ -113,7 +113,7 @@ Bar:
   hello: {}
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 UpdateInAttributeCommand(
                         location("Bar"),
@@ -135,7 +135,7 @@ Foo:
     - baz
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
                 notation,
                 ShiftInAttributeCommand(
                     location("Foo"),
@@ -157,7 +157,7 @@ Foo:
     bar: 2
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             ShiftInAttributeCommand(
                 location("Foo"),
@@ -183,7 +183,7 @@ Foo:
   bar: []
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             RemoveInAttributeCommand(
                 location("Foo"),
@@ -214,7 +214,7 @@ Foo:
               bar: {}
             """.trimIndent())
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             RemoveInAttributeCommand(
                 location("Foo"),

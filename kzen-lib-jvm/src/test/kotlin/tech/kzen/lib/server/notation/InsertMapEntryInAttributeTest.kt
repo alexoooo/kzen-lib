@@ -24,7 +24,7 @@ Foo:
     fizz: 1
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
@@ -54,7 +54,7 @@ Foo:
     fizz: 1
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
@@ -85,7 +85,7 @@ Foo:
     fizz: {}
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
@@ -113,7 +113,7 @@ Foo:
   hello: {}
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             InsertMapEntryInAttributeCommand(
                 location("Foo"),
@@ -144,7 +144,7 @@ Foo:
   is: Bar
 """)
 
-        val transition = reducer.apply(
+        val transition = reducer.applyStructural(
             notation,
             InsertMapEntryInAttributeCommand(
                 location("Foo"),

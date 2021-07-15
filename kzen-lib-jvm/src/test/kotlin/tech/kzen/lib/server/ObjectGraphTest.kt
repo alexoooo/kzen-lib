@@ -18,7 +18,7 @@ import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.server.objects.*
 import tech.kzen.lib.server.objects.custom.CustomDefined
-import tech.kzen.lib.server.util.GraphTestUtils
+import tech.kzen.lib.server.util.JvmGraphTestUtils
 
 
 class ObjectGraphTest {
@@ -39,7 +39,7 @@ class ObjectGraphTest {
 
     @Test
     fun `Self-aware object should know its name and notation`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val location = location("FooNamed")
 
@@ -52,7 +52,7 @@ class ObjectGraphTest {
 
     @Test
     fun `StringHolder can be instantiated`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val helloWorldInstance = objectGraph[location("HelloWorldHolder")]?.reference as StringHolder
         assertEquals("Hello, world!", helloWorldInstance.value)
@@ -61,7 +61,7 @@ class ObjectGraphTest {
 
     @Test
     fun `Numeric message can be used in StringHolder`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val helloWorldInstance = objectGraph[location("NumericStringHolder")]?.reference as StringHolder
         assertEquals("123", helloWorldInstance.value)
@@ -70,7 +70,7 @@ class ObjectGraphTest {
 
     @Test
     fun `Reference can be held to StringHolder`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val refInstance = objectGraph[location("StringHolderRef")]?.reference as StringHolderRef
         assertEquals("Hello, world!", refInstance.stringHolder.value)
@@ -79,7 +79,7 @@ class ObjectGraphTest {
 
     @Test
     fun `Escaped attribute name can be used`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val escapedInstance = objectGraph[location("EscapedObject")]?.reference as EscapedObject
         assertEquals("Foo", escapedInstance.`else`)
@@ -88,7 +88,7 @@ class ObjectGraphTest {
 
     @Test
     fun `Custom definer is discovered`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val escapedInstance = objectGraph[location("CustomDefined")]?.reference as CustomDefined
         assertEquals("foo bar/baz", escapedInstance.customModel.value)
@@ -97,7 +97,7 @@ class ObjectGraphTest {
 
     @Test
     fun `Comments are handled`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val escapedInstance =
             objectGraph[location("CommentArgObject")]?.reference as CommentArgObject
@@ -108,7 +108,7 @@ class ObjectGraphTest {
 
     @Test
     fun `transitive object merge`() {
-        val graphNothing = GraphTestUtils.readNotation()
+        val graphNothing = JvmGraphTestUtils.readNotation()
 
         val transitiveObjectLocation = graphNothing
             .mergeObject(location("CommentArgObjectInherit"))

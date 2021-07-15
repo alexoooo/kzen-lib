@@ -7,14 +7,14 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.server.objects.ast.DoubleExpression
-import tech.kzen.lib.server.util.GraphTestUtils
+import tech.kzen.lib.server.util.JvmGraphTestUtils
 
 
 class AstGraphTest {
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `literal 2 + 2 = 4`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val twoPlusTwoLocation = location("TwoPlusTwo")
 
@@ -25,7 +25,7 @@ class AstGraphTest {
 
     @Test
     fun `inline 2 + 2 = 4`() {
-        val objectGraph = GraphTestUtils.newObjectGraph()
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val twoPlusTwoLocation = location("TwoPlusTwoInlineMap")
 

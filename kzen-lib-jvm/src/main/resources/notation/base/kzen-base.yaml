@@ -48,6 +48,10 @@ AttributeObjectCreator:
   class: tech.kzen.lib.common.objects.base.AttributeObjectCreator
 
 
+#PassThroughObjectInitializer:
+#  class: tech.kzen.lib.common.objects.bootstrap.PassThroughObjectInitializer
+
+
 ###########################################################
 
 # Specially handled default "is", if none is specified
@@ -57,6 +61,7 @@ Object:
   class: kotlin.Any
   by: AttributeObjectDefiner
   creator: AttributeObjectCreator
+#  init: PassThroughObjectInitializer
 
 
 ###########################################################

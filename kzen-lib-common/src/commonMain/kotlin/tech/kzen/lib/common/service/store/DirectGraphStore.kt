@@ -180,11 +180,11 @@ class DirectGraphStore(
         val transition =
                 when (command) {
                     is StructuralNotationCommand ->
-                        notationReducer.apply(graphNotation, command)
+                        notationReducer.applyStructural(graphNotation, command)
 
                     is SemanticNotationCommand -> {
                         val graphDefinitionAttempt = graphDefinition(graphNotation)
-                        notationReducer.apply(graphDefinitionAttempt, command)
+                        notationReducer.applySemantic(graphDefinitionAttempt, command)
                     }
                 }
 

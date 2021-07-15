@@ -26,6 +26,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 import kotlin.reflect.KClass
 
 
+// TODO: convert to object?
 class GraphDefiner {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
