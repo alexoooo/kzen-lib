@@ -1,6 +1,5 @@
 package tech.kzen.lib.common.service.notation
 
-import tech.kzen.lib.common.api.ObjectInitializer
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
@@ -18,7 +17,6 @@ import tech.kzen.lib.common.model.obj.ObjectNestingSegment
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
-import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.platform.collect.toPersistentList
 
@@ -1055,12 +1053,12 @@ class NotationReducer {
         objectLocation: ObjectLocation,
         newName: ObjectName
     ): NotationTransition {
-        val state = graphDefinitionAttempt.graphStructure.graphNotation
-        check(objectLocation in state.coalesce.values)
+        val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+        check(objectLocation in graphNotation.coalesce.values)
 
-        val buffer = StructuralBuffer(state)
+        val buffer = StructuralBuffer(graphNotation)
 
-        val nestedObjectLocations = state
+        val nestedObjectLocations = graphNotation
             .documents[objectLocation.documentPath]!!
             .objects
             .notations
