@@ -201,22 +201,22 @@ data class GraphNotation(
         val isAttribute = notation.get(NotationConventions.isAttributePath)
 
         val superReference =
-                when (isAttribute) {
-                    null ->
-                        BootstrapConventions.rootObjectReference
+            when (isAttribute) {
+                null ->
+                    BootstrapConventions.rootObjectReference
 
-                    is ScalarAttributeNotation -> {
-                        val isValue = isAttribute.value
-                        ObjectReference.parse(isValue)
-                    }
-
-                    else ->
-                        throw IllegalArgumentException("$objectLocation - $attributePath - $isAttribute")
+                is ScalarAttributeNotation -> {
+                    val isValue = isAttribute.value
+                    ObjectReference.parse(isValue)
                 }
+
+                else ->
+                    throw IllegalArgumentException("$objectLocation - $attributePath - $isAttribute")
+            }
 
 //        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
         val superLocation = coalesce.locateOptional(
-                superReference, ObjectReferenceHost.ofLocation(objectLocation))
+            superReference, ObjectReferenceHost.ofLocation(objectLocation))
 
         if (superLocation == null ||
                 objectLocation == BootstrapConventions.rootObjectLocation ||
