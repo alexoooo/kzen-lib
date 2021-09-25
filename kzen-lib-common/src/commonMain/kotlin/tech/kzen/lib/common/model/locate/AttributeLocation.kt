@@ -4,6 +4,6 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 
 
 data class AttributeLocation(
-        val attributePath: AttributePath,
-        val objectLocation: ObjectLocation
+    val attributePath: AttributePath,
+    val objectLocation: ObjectLocation
 )
