@@ -5,6 +5,10 @@ plugins {
 
 
 kotlin {
+    jvmToolchain {
+        (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(jvmToolchainVersion))
+    }
+
     jvm {}
 
     js {

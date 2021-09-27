@@ -7,6 +7,13 @@ plugins {
 }
 
 
+kotlin {
+    jvmToolchain {
+        (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(jvmToolchainVersion))
+    }
+}
+
+
 dependencies {
     implementation(project(":kzen-lib-common"))
 

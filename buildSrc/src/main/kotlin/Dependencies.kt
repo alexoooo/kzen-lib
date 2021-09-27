@@ -1,5 +1,6 @@
 const val kotlinVersion = "1.5.31"
 const val jvmTargetVersion = "16"
+const val jvmToolchainVersion = 16
 
 const val coroutinesVersion = "1.5.2"
 
