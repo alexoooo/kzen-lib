@@ -27,8 +27,8 @@ data class TypeMetadata(
     }
 
 
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestible(className)
-        builder.addDigestibleList(generics)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestible(className)
+        sink.addDigestibleList(generics)
     }
 }

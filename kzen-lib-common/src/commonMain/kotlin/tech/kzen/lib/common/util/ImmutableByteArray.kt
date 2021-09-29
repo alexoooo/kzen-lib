@@ -32,8 +32,8 @@ class ImmutableByteArray private constructor(
     }
 
 
-    override fun digest(builder: Digest.Builder) {
-        builder.addBytes(bytes)
+    override fun digest(sink: Digest.Sink) {
+        sink.addBytes(bytes)
     }
 
 

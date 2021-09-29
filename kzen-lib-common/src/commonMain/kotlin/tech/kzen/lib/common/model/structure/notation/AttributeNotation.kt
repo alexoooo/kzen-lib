@@ -46,7 +46,7 @@ sealed class AttributeNotation: Digestible {
 
 //---------------------------------------------------------------------------------------------------------------------
 data class ScalarAttributeNotation(
-        val value: String
+    val value: String
 ): AttributeNotation() {
     override fun asString(): String {
         return value
@@ -69,8 +69,8 @@ data class ScalarAttributeNotation(
     }
 
 
-    override fun digest(builder: Digest.Builder) {
-        builder.addUtf8(value)
+    override fun digest(sink: Digest.Sink) {
+        sink.addUtf8(value)
     }
 
 
@@ -80,12 +80,10 @@ data class ScalarAttributeNotation(
 }
 
 
+//---------------------------------------------------------------------------------------------------------------------
 sealed class StructuredAttributeNotation: AttributeNotation() {
     abstract fun get(key: String): AttributeNotation?
-
-
-    fun get(key: AttributeSegment): AttributeNotation? =
-        get(key.asKey())
+    abstract fun get(key: AttributeSegment): AttributeNotation?
 
 
     override fun get(attributeNesting: AttributeNesting): AttributeNotation? {
@@ -146,8 +144,9 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
 }
 
 
+//---------------------------------------------------------------------------------------------------------------------
 data class ListAttributeNotation(
-        val values: PersistentList<AttributeNotation>
+    val values: PersistentList<AttributeNotation>
 ): StructuredAttributeNotation() {
     companion object {
         val empty = ListAttributeNotation(persistentListOf())
@@ -158,8 +157,20 @@ data class ListAttributeNotation(
 
 
     override fun get(key: String): AttributeNotation? {
-        val index = key.toInt()
-        return values[index]
+        val index = key.toIntOrNull()
+
+        return when {
+            index == null || index < 0  || index >= values.size ->
+                null
+
+            else ->
+                values[index]
+        }
+    }
+
+
+    override fun get(key: AttributeSegment): AttributeNotation? {
+        return get(key.asKey())
     }
 
 
@@ -174,8 +185,8 @@ data class ListAttributeNotation(
 
 
     fun set(
-            positionIndex: PositionIndex,
-            attributeNotation: AttributeNotation
+        positionIndex: PositionIndex,
+        attributeNotation: AttributeNotation
     ): ListAttributeNotation {
         return ListAttributeNotation(
                 values.set(positionIndex.value, attributeNotation))
@@ -183,8 +194,8 @@ data class ListAttributeNotation(
 
 
     fun insert(
-            positionIndex: PositionIndex,
-            attributeNotation: AttributeNotation
+        positionIndex: PositionIndex,
+        attributeNotation: AttributeNotation
     ): ListAttributeNotation {
         return ListAttributeNotation(
                 values.add(positionIndex.value, attributeNotation))
@@ -192,8 +203,8 @@ data class ListAttributeNotation(
 
 
     fun insertAll(
-            positionIndex: PositionIndex,
-            attributeNotations: List<AttributeNotation>
+        positionIndex: PositionIndex,
+        attributeNotations: List<AttributeNotation>
     ): ListAttributeNotation {
         return ListAttributeNotation(
                 values.addAll(positionIndex.value, attributeNotations))
@@ -201,15 +212,15 @@ data class ListAttributeNotation(
 
 
     fun remove(
-            positionIndex: PositionIndex
+        positionIndex: PositionIndex
     ): ListAttributeNotation {
         return ListAttributeNotation(
                 values.removeAt(positionIndex.value))
     }
 
 
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigest(digest())
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigest(digest())
     }
 
 
@@ -229,6 +240,7 @@ data class ListAttributeNotation(
 }
 
 
+//---------------------------------------------------------------------------------------------------------------------
 data class MapAttributeNotation(
     val values: PersistentMap<AttributeSegment, AttributeNotation>
 ): StructuredAttributeNotation() {
@@ -238,6 +250,11 @@ data class MapAttributeNotation(
 
 
     private var digest: Digest? = null
+
+
+    override fun get(key: AttributeSegment): AttributeNotation? {
+        return values[key]
+    }
 
 
     override fun get(key: String): AttributeNotation? {
@@ -309,15 +326,15 @@ data class MapAttributeNotation(
 
 
     fun remove(
-            key: AttributeSegment
+        key: AttributeSegment
     ): MapAttributeNotation {
         return MapAttributeNotation(
                 values.remove(key))
     }
 
 
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigest(digest())
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigest(digest())
     }
 
 

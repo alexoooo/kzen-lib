@@ -80,7 +80,7 @@ data class DocumentNesting(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleList(segments)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestibleList(segments)
     }
 }

@@ -41,8 +41,8 @@ data class AttributeSegment private constructor(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addUtf8(asKey)
+    override fun digest(sink: Digest.Sink) {
+        sink.addUtf8(asKey)
     }
 
 

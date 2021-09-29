@@ -95,10 +95,10 @@ data class ObjectReference(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestible(name)
-        builder.addDigestible(nesting)
-        builder.addDigestibleNullable(path)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestible(name)
+        sink.addDigestible(nesting)
+        sink.addDigestibleNullable(path)
     }
 
 

@@ -62,9 +62,9 @@ data class ObjectPath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        name.digest(builder)
-        nesting.digest(builder)
+    override fun digest(sink: Digest.Sink) {
+        name.digest(sink)
+        nesting.digest(sink)
     }
 
 

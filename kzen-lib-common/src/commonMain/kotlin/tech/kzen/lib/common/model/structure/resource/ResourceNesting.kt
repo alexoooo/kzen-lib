@@ -43,8 +43,8 @@ data class ResourceNesting(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleList(directories)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestibleList(directories)
     }
 
 

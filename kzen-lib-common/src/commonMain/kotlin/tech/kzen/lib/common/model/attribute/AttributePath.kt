@@ -107,9 +107,9 @@ data class AttributePath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        attribute.digest(builder)
-        nesting.digest(builder)
+    override fun digest(sink: Digest.Sink) {
+        attribute.digest(sink)
+        nesting.digest(sink)
     }
 
 

@@ -7,7 +7,7 @@ import tech.kzen.lib.common.util.Digestible
 data class ResourceDirectory(
         val value: String
 ): Digestible {
-    override fun digest(builder: Digest.Builder) {
-        builder.addUtf8(value)
+    override fun digest(sink: Digest.Sink) {
+        sink.addUtf8(value)
     }
 }

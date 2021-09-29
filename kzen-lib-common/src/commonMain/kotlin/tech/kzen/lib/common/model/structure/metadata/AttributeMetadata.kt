@@ -15,10 +15,10 @@ data class AttributeMetadata(
 ):
     Digestible
 {
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestible(attributeMetadataNotation)
-        builder.addDigestibleNullable(type)
-        builder.addDigestibleNullable(definerReference)
-        builder.addDigestibleNullable(creatorReference)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestible(attributeMetadataNotation)
+        sink.addDigestibleNullable(type)
+        sink.addDigestibleNullable(definerReference)
+        sink.addDigestibleNullable(creatorReference)
     }
 }

@@ -63,9 +63,9 @@ data class ObjectLocation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestible(documentPath)
-        builder.addDigestible(objectPath)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestible(documentPath)
+        sink.addDigestible(objectPath)
     }
 
 

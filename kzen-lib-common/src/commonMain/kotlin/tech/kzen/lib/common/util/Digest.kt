@@ -182,7 +182,55 @@ data class Digest(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    class Builder {
+    interface Sink {
+        fun addMissing(): Sink
+
+        fun addBoolean(value: Boolean): Sink
+        fun addBooleanNullable(value: Boolean?): Sink
+
+        fun addByte(value: Byte): Sink
+        fun addByteNullable(value: Byte?): Sink
+
+        fun addChar(value: Char): Sink
+        fun addCharNullable(value: Char?): Sink
+
+        fun addShort(value: Short): Sink
+        fun addShortNullable(value: Short?): Sink
+
+        fun addInt(value: Int): Sink
+        fun addIntNullable(value: Int?): Sink
+
+        fun addDouble(value: Double): Sink
+        fun addDoubleNullable(value: Double?): Sink
+
+        fun addLong(value: Long): Sink
+        fun addLongNullable(value: Long?): Sink
+
+        fun addBytes(value: ByteArray): Sink
+        fun addBytesNullable(value: ByteArray?): Sink
+
+        fun addUtf8(value: String): Sink
+        fun addUtf8Nullable(value: String?): Sink
+
+        fun addDigest(value: Digest): Sink
+        fun addDigestNullable(value: Digest?): Sink
+
+        fun addDigestible(value: Digestible): Sink
+        fun addDigestibleNullable(value: Digestible?): Sink
+
+        fun addDigestibleList(digestibleList: List<Digestible>): Sink
+        fun addDigestibleUnorderedList(digestibleList: List<Digestible>): Sink
+        fun addDigestibleOrderedSet(digestibleSet: Set<Digestible>): Sink
+        fun addDigestibleUnorderedSet(digestibleSet: Set<Digestible>): Sink
+        fun addDigestibleOrderedMap(digestibleMap: Map<out Digestible, Digestible>): Sink
+        fun addDigestibleUnorderedMap(digestibleMap: Map<out Digestible, Digestible>): Sink
+
+        fun <T> addCollection(collection: Collection<T>, digester: Sink.(T) -> Unit): Sink
+        fun <T> addUnorderedCollection(collection: Collection<T>, digester: Sink.(T) -> Unit): Sink
+    }
+
+
+    class Builder: Sink {
         private var s0: Int = 0
         private var s1: Int = 0
         private var s2: Int = 0
@@ -197,13 +245,13 @@ data class Digest(
         }
 
 
-        fun addMissing(): Builder {
+        override fun addMissing(): Builder {
             addDigest(missing)
             return this
         }
 
 
-        fun addBoolean(value: Boolean): Builder {
+        override fun addBoolean(value: Boolean): Builder {
             if (value) {
                 addInt(1)
             }
@@ -214,7 +262,7 @@ data class Digest(
         }
 
 
-        fun addBooleanNullable(value: Boolean?): Builder {
+        override fun addBooleanNullable(value: Boolean?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -225,13 +273,13 @@ data class Digest(
         }
 
 
-        fun addByte(value: Byte): Builder {
+        override fun addByte(value: Byte): Builder {
             addInt(value.toInt())
             return this
         }
 
 
-        fun addByteNullable(value: Byte?): Builder {
+        override fun addByteNullable(value: Byte?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -242,13 +290,13 @@ data class Digest(
         }
 
 
-        fun addChar(value: Char): Builder {
+        override fun addChar(value: Char): Builder {
             addInt(value.code)
             return this
         }
 
 
-        fun addCharNullable(value: Char?): Builder {
+        override fun addCharNullable(value: Char?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -259,12 +307,12 @@ data class Digest(
         }
 
 
-        fun addShort(value: Short): Builder {
+        override fun addShort(value: Short): Builder {
             addInt(value.toInt())
             return this
         }
 
-        fun addShortNullable(value: Short?): Builder {
+        override fun addShortNullable(value: Short?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -275,13 +323,13 @@ data class Digest(
         }
 
 
-        fun addDouble(value: Double): Builder {
+        override fun addDouble(value: Double): Builder {
             addLong(value.toBits())
             return this
         }
 
 
-        fun addDoubleNullable(value: Double?): Builder {
+        override fun addDoubleNullable(value: Double?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -292,7 +340,7 @@ data class Digest(
         }
 
 
-        fun addLong(value: Long): Builder {
+        override fun addLong(value: Long): Builder {
             // https://stackoverflow.com/a/12772968/1941359
             addInt(value.toInt())
             addInt((value shr Int.SIZE_BITS).toInt())
@@ -300,7 +348,7 @@ data class Digest(
         }
 
 
-        fun addLongNullable(value: Long?): Builder {
+        override fun addLongNullable(value: Long?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -311,54 +359,55 @@ data class Digest(
         }
 
 
-        fun addDigest(digest: Digest): Builder {
-            addInt(digest.a)
-            addInt(digest.b)
-            addInt(digest.c)
-            addInt(digest.d)
+        override fun addDigest(value: Digest): Builder {
+            addInt(value.a)
+            addInt(value.b)
+            addInt(value.c)
+            addInt(value.d)
             return this
         }
 
 
-        fun addDigestNullable(digest: Digest?): Builder {
-            if (digest == null) {
+        override fun addDigestNullable(value: Digest?): Builder {
+            if (value == null) {
                 addBoolean(false)
             }
             else {
                 addBoolean(true)
-                addDigest(digest)
+                addDigest(value)
             }
             return this
         }
 
 
-        fun addDigestible(digestible: Digestible): Builder {
-            digestible.digest(this)
+        override fun addDigestible(value: Digestible): Builder {
+            value.digest(this)
             return this
         }
 
 
-        fun addDigestibleNullable(digestible: Digestible?): Builder {
-            if (digestible == null) {
+        override fun addDigestibleNullable(value: Digestible?): Builder {
+            if (value == null) {
                 addBoolean(false)
             }
             else {
                 addBoolean(true)
-                addDigestible(digestible)
+                addDigestible(value)
             }
             return this
         }
 
 
-        fun addDigestibleList(digestibleList: List<Digestible>) {
+        override fun addDigestibleList(digestibleList: List<Digestible>): Builder {
             addInt(digestibleList.size)
             for (digestible in digestibleList) {
                 digestible.digest(this)
             }
+            return this
         }
 
 
-        fun addDigestibleUnorderedList(digestibleList: List<Digestible>) {
+        override fun addDigestibleUnorderedList(digestibleList: List<Digestible>): Builder {
             addInt(digestibleList.size)
 
             val unorderedCombiner = UnorderedCombiner()
@@ -371,19 +420,20 @@ data class Digest(
             }
 
             addDigest(unorderedCombiner.combine())
+            return this
         }
 
 
-
-        fun addDigestibleOrderedSet(digestibleSet: Set<Digestible>) {
+        override fun addDigestibleOrderedSet(digestibleSet: Set<Digestible>): Builder {
             addInt(digestibleSet.size)
             for (value in digestibleSet) {
                 addDigestible(value)
             }
+            return this
         }
 
 
-        fun addDigestibleUnorderedSet(digestibleSet: Set<Digestible>) {
+        override fun addDigestibleUnorderedSet(digestibleSet: Set<Digestible>): Builder {
             addInt(digestibleSet.size)
 
             val unorderedCombiner = UnorderedCombiner()
@@ -396,19 +446,21 @@ data class Digest(
             }
 
             addDigest(unorderedCombiner.combine())
+            return this
         }
 
 
-        fun addDigestibleOrderedMap(digestibleMap: Map<out Digestible, Digestible>) {
+        override fun addDigestibleOrderedMap(digestibleMap: Map<out Digestible, Digestible>): Builder {
             addInt(digestibleMap.size)
             for ((key, value) in digestibleMap) {
                 addDigestible(key)
                 addDigestible(value)
             }
+            return this
         }
 
 
-        fun addDigestibleUnorderedMap(digestibleMap: Map<out Digestible, Digestible>) {
+        override fun addDigestibleUnorderedMap(digestibleMap: Map<out Digestible, Digestible>): Builder {
             addInt(digestibleMap.size)
 
             val unorderedCombiner = UnorderedCombiner()
@@ -424,50 +476,77 @@ data class Digest(
             }
 
             addDigest(unorderedCombiner.combine())
+            return this
         }
 
 
-        fun addUtf8(utf8: String): Builder {
-            val bytes = IoUtils.utf8Encode(utf8)
+        override fun <T> addCollection(collection: Collection<T>, digester: Sink.(T) -> Unit): Builder {
+            addInt(collection.size)
+            for (element in collection) {
+                digester(element)
+            }
+            return this
+        }
+
+
+        override fun <T> addUnorderedCollection(collection: Collection<T>, digester: Sink.(T) -> Unit): Builder {
+            addInt(collection.size)
+
+            val unorderedCombiner = UnorderedCombiner()
+            val elementBuffer = Builder()
+
+            for (element in collection) {
+                elementBuffer.clear()
+                digester(elementBuffer, element)
+                unorderedCombiner.add(elementBuffer.digest())
+            }
+
+            addDigest(unorderedCombiner.combine())
+            return this
+        }
+
+
+        override fun addUtf8(value: String): Builder {
+            val bytes = IoUtils.utf8Encode(value)
             addBytes(bytes)
             return this
         }
 
 
-        fun addUtf8Nullable(utf8: String?): Builder {
-            if (utf8 == null) {
+        override fun addUtf8Nullable(value: String?): Builder {
+            if (value == null) {
                 addBoolean(false)
             }
             else {
                 addBoolean(true)
-                addUtf8(utf8)
+                addUtf8(value)
             }
             return this
         }
 
 
-        fun addBytes(bytes: ByteArray): Builder {
-            addInt(bytes.size)
-            bytes.forEach {
+        override fun addBytes(value: ByteArray): Builder {
+            addInt(value.size)
+            value.forEach {
                 addByte(it)
             }
             return this
         }
 
 
-        fun addBytesNullable(bytes: ByteArray?): Builder {
-            if (bytes == null) {
+        override fun addBytesNullable(value: ByteArray?): Builder {
+            if (value == null) {
                 addBoolean(false)
             }
             else {
                 addBoolean(true)
-                addBytes(bytes)
+                addBytes(value)
             }
             return this
         }
 
 
-        fun addInt(value: Int): Builder {
+        override fun addInt(value: Int): Builder {
             if (isZero()) {
                 init(value)
             }
@@ -489,7 +568,7 @@ data class Digest(
         }
 
 
-        fun addIntNullable(value: Int?): Builder {
+        override fun addIntNullable(value: Int?): Builder {
             if (value == null) {
                 addMissing()
             }
@@ -517,12 +596,12 @@ data class Digest(
 
 
         fun digest(): Digest =
-                if (isZero()) {
-                    empty
-                }
-                else {
-                    finalize(s0, s1, s2, s3)
-                }
+            if (isZero()) {
+                empty
+            }
+            else {
+                finalize(s0, s1, s2, s3)
+            }
     }
 
 
@@ -613,8 +692,8 @@ data class Digest(
     }
 
 
-    override fun digest(builder: Builder) {
-        builder.addDigest(this)
+    override fun digest(sink: Sink) {
+        sink.addDigest(this)
     }
 
 

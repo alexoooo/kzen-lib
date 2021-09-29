@@ -38,9 +38,9 @@ data class ObjectNestingSegment(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        objectName.digest(builder)
-        attributePath.digest(builder)
+    override fun digest(sink: Digest.Sink) {
+        objectName.digest(sink)
+        attributePath.digest(sink)
     }
 
 

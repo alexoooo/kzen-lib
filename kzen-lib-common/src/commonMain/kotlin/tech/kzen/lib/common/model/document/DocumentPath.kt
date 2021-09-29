@@ -152,10 +152,10 @@ data class DocumentPath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestible(name)
-        builder.addDigestible(nesting)
-        builder.addBoolean(directory)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestible(name)
+        sink.addDigestible(nesting)
+        sink.addBoolean(directory)
     }
 
 

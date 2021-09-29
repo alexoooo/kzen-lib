@@ -32,7 +32,7 @@ data class GraphMetadata(
     }
 
 
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleOrderedMap(objectMetadata.values)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestibleOrderedMap(objectMetadata.values)
     }
 }

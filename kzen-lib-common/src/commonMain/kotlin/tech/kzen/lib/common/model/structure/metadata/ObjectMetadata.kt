@@ -10,7 +10,7 @@ data class ObjectMetadata(
 ):
     Digestible
 {
-    override fun digest(builder: Digest.Builder) {
-        builder.addDigestibleOrderedMap(attributes.values)
+    override fun digest(sink: Digest.Sink) {
+        sink.addDigestibleOrderedMap(attributes.values)
     }
 }

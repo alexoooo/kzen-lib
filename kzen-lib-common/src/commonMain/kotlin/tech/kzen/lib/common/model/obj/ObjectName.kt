@@ -16,7 +16,7 @@ data class ObjectName(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override fun digest(builder: Digest.Builder) {
-        builder.addUtf8(value)
+    override fun digest(sink: Digest.Sink) {
+        sink.addUtf8(value)
     }
 }

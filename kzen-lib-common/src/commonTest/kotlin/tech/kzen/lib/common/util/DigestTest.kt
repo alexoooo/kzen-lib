@@ -70,6 +70,21 @@ class DigestTest {
     }
 
 
+    @Test
+    fun digestStringList() {
+        val list = listOf("foo", "bar")
+
+        val indirect = Digest.Builder().apply {
+            addInt(list.size)
+            list.forEach { addUtf8(it) }
+        }.digest()
+
+        val direct = Digest.Builder().addCollection(list) { addUtf8(it) }.digest()
+
+        assertEquals(indirect, direct)
+    }
+
+
     private fun digest(value: String): Digest =
             Digest.ofBytes(IoUtils.utf8Encode(value))
 }
