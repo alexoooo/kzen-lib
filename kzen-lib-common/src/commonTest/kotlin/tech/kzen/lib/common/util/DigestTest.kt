@@ -74,12 +74,14 @@ class DigestTest {
     fun digestStringList() {
         val list = listOf("foo", "bar")
 
-        val indirect = Digest.Builder().apply {
+        val indirect = Digest.build {
             addInt(list.size)
             list.forEach { addUtf8(it) }
-        }.digest()
+        }
 
-        val direct = Digest.Builder().addCollection(list) { addUtf8(it) }.digest()
+        val direct = Digest.build {
+            addCollection(list) { addUtf8(it) }
+        }
 
         assertEquals(indirect, direct)
     }

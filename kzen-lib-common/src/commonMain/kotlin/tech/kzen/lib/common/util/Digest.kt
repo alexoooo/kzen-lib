@@ -65,6 +65,13 @@ data class Digest(
         }
 
 
+        fun build(builder: Sink.() -> Unit): Digest {
+            val buffer = Builder()
+            builder(buffer)
+            return buffer.digest()
+        }
+
+
         fun ofUtf8(utf8: String?): Digest {
             if (utf8 == null) {
                 return missing
@@ -742,5 +749,26 @@ data class Digest(
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
         return asString()
+    }
+
+
+    override fun hashCode(): Int {
+        val longHashCode = longHashCode()
+        return (longHashCode xor (longHashCode ushr 32)).toInt()
+    }
+
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as Digest
+
+        if (a != other.a) return false
+        if (b != other.b) return false
+        if (c != other.c) return false
+        if (d != other.d) return false
+
+        return true
     }
 }
