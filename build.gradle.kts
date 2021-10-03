@@ -7,7 +7,7 @@ plugins {
 
 subprojects {
     group = "tech.kzen.lib"
-    version = "0.24.0-SNAPSHOT"
+    version = "0.24.0"
 
     repositories {
         mavenCentral()
