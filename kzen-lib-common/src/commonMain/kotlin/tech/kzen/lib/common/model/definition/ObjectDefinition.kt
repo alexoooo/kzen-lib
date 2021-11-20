@@ -140,6 +140,8 @@ data class ObjectDefinition(
                     traverseAttribute(keyNesting, value, builder, includeWeak)
                 }
             }
+
+            is ValueAttributeDefinition -> {}
         }
     }
 }

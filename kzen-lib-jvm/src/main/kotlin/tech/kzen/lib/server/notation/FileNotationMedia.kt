@@ -24,6 +24,7 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
 
 
+@Suppress("UnstableApiUsage")
 class FileNotationMedia(
         private val notationLocator: FileNotationLocator
 ): NotationMedia {
@@ -56,8 +57,13 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @Synchronized
     override suspend fun scan(): NotationScan {
+        return scanSynchronized()
+    }
+
+
+    @Synchronized
+    private fun scanSynchronized(): NotationScan {
         if (notationScanCache != null) {
             return notationScanCache!!
         }
@@ -240,8 +246,13 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @Synchronized
     override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
+        return readDocumentSynchronized(documentPath, expectedDigest)
+    }
+
+
+    @Synchronized
+    private fun readDocumentSynchronized(documentPath: DocumentPath, expectedDigest: Digest?): String {
         val cachedDocumentInfo: FileInfo?
         var resolvedDocumentPath: Path? = null
         var modified: Instant? = null
@@ -298,8 +309,13 @@ class FileNotationMedia(
     }
 
 
-    @Synchronized
     override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
+        writeDocumentSynchronized(documentPath, contents)
+    }
+
+
+    @Synchronized
+    private fun writeDocumentSynchronized(documentPath: DocumentPath, contents: String) {
         val existingPath = notationLocator.locateExisting(documentPath)
 
         val path = if (existingPath != null) {
@@ -307,7 +323,7 @@ class FileNotationMedia(
         }
         else {
             val resolvedPath = notationLocator.resolveNew(documentPath)
-                    ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
+                ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
 
             val parent = resolvedPath.parent
 //            println("FileNotationMedia | write - creating parent directory: $parent")
@@ -326,10 +342,15 @@ class FileNotationMedia(
     }
 
 
-    @Synchronized
     override suspend fun deleteDocument(documentPath: DocumentPath) {
+        deleteDocumentSynchronized(documentPath)
+    }
+
+
+    @Synchronized
+    private fun deleteDocumentSynchronized(documentPath: DocumentPath) {
         val path = notationLocator.locateExisting(documentPath)
-                ?: throw IllegalArgumentException("Not found: $documentPath")
+            ?: throw IllegalArgumentException("Not found: $documentPath")
 
         if (documentPath.directory) {
             MoreFiles.deleteRecursively(path.parent, RecursiveDeleteOption.ALLOW_INSECURE)
@@ -343,24 +364,32 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @Synchronized
     override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
+        return readResourceSynchronized(resourceLocation)
+    }
+
+
+    @Synchronized
+    private fun readResourceSynchronized(resourceLocation: ResourceLocation): ImmutableByteArray {
         val resolvedDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resolvedResourcePath = resolvedDocumentPath.resolveSibling(
-                resourceLocation.resourcePath.asRelativeFile())
+            resourceLocation.resourcePath.asRelativeFile())
 
         val bytes = Files.readAllBytes(resolvedResourcePath)
-
-//        val resourceCache
 
         return ImmutableByteArray.wrap(bytes)
     }
 
 
-    @Synchronized
     override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
+        return writeResourceSynchronized(resourceLocation, contents)
+    }
+
+
+    @Synchronized
+    private fun writeResourceSynchronized(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
@@ -379,8 +408,13 @@ class FileNotationMedia(
     }
 
 
-    @Synchronized
     override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
+        copyResourceSynchronized(resourceLocation, destination)
+    }
+
+
+    @Synchronized
+    private fun copyResourceSynchronized(resourceLocation: ResourceLocation, destination: ResourceLocation) {
         val sourceDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
@@ -407,8 +441,13 @@ class FileNotationMedia(
     }
 
 
-    @Synchronized
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
+        deleteResourceSynchronized(resourceLocation)
+    }
+
+
+    @Synchronized
+    private fun deleteResourceSynchronized(resourceLocation: ResourceLocation) {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
                 ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 

@@ -329,6 +329,8 @@ class DirectGraphStore(
                     }
                 }
             }
+
+            else -> {}
         }
     }
 
