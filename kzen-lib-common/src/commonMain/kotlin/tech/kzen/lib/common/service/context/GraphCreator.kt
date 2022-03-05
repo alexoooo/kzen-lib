@@ -13,6 +13,22 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 // TODO: convert to object?
 class GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
+    private data class UnsatisfiedReference(
+        val objectReferenceHost: ObjectReferenceHost,
+        val objectReference: ObjectReference
+    ) {
+        override fun toString(): String {
+            return "$objectReference @ $objectReferenceHost"
+        }
+    }
+
+
+    private data class UnsatisfiedSet(
+        val locations: List<ObjectLocation>,
+        val references: List<UnsatisfiedReference>)
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
             graphDefinition: GraphDefinition
     ): GraphInstance {
@@ -36,7 +52,7 @@ class GraphCreator {
             val creator = partialObjectGraph[creatorPath]?.reference as? ObjectCreator
                     ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
-            val instance = creator.create(
+            @Suppress("ConvertArgumentToSet", "ConvertArgumentToSet") val instance = creator.create(
                     objectLocation,
                     graphStructure,
                     objectDefinition,
@@ -51,8 +67,8 @@ class GraphCreator {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun constructionLevels(
-            closedLocator: ObjectLocationSet.Locator,
-            graphDefinition: GraphDefinition
+        closedLocator: ObjectLocationSet.Locator,
+        graphDefinition: GraphDefinition
     ): List<List<ObjectLocation>> {
         val closed = mutableSetOf<ObjectLocation>()
         closed.addAll(GraphDefiner.bootstrapObjects.keys)
@@ -65,14 +81,14 @@ class GraphCreator {
             val nextLevel = findSatisfied(open, closed, closedLocator, graphDefinition)
 
             check(nextLevel.isNotEmpty()) {
-                val unsatisfied =
-                        findUnsatisfied(open, closed, closedLocator, graphDefinition)
-                "unable to satisfy: $open - $unsatisfied"
+                val unsatisfied = findUnsatisfied(open, closed, closedLocator, graphDefinition)
+                "Unable to satisfy: $unsatisfied - Open = $open"
             }
 
             closed.addAll(nextLevel)
             closedLocator.addAll(nextLevel)
 
+            @Suppress("ConvertArgumentToSet")
             open.removeAll(nextLevel)
 
             levels.add(nextLevel)
@@ -83,10 +99,10 @@ class GraphCreator {
 
 
     private fun findSatisfied(
-            open: Set<ObjectLocation>,
-            closed: Set<ObjectLocation>,
-            closedLocator: ObjectLocationSet.Locator,
-            graphDefinition: GraphDefinition
+        open: Set<ObjectLocation>,
+        closed: Set<ObjectLocation>,
+        closedLocator: ObjectLocationSet.Locator,
+        graphDefinition: GraphDefinition
     ): List<ObjectLocation> {
         val allSatisfied = mutableListOf<ObjectLocation>()
         for (candidate in open) {
@@ -117,10 +133,10 @@ class GraphCreator {
             closed: Set<ObjectLocation>,
             closedLocator: ObjectLocationSet.Locator,
             graphDefinition: GraphDefinition
-    ): Pair<List<ObjectLocation>, List<Pair<ObjectReferenceHost, ObjectReference>>> {
+    ): UnsatisfiedSet {
         val unsatisfiedLocations = mutableSetOf<ObjectLocation>()
         val unsatisfiedReferences =
-                mutableListOf<Pair<ObjectReferenceHost, ObjectReference>>()
+                mutableListOf<UnsatisfiedReference>()
 
         for (candidate in open) {
             val definition = graphDefinition.objectDefinitions[candidate]
@@ -132,7 +148,7 @@ class GraphCreator {
                 val location = tryLocate(closedLocator, reference, referenceHost)
 
                 if (location == null) {
-                    unsatisfiedReferences.add(referenceHost to reference)
+                    unsatisfiedReferences.add(UnsatisfiedReference(referenceHost, reference))
                 }
                 else if (location !in closed) {
                     unsatisfiedLocations.add(location)
@@ -140,7 +156,7 @@ class GraphCreator {
             }
         }
 
-        return unsatisfiedLocations.toList() to unsatisfiedReferences
+        return UnsatisfiedSet(unsatisfiedLocations.toList(), unsatisfiedReferences)
     }
 
 

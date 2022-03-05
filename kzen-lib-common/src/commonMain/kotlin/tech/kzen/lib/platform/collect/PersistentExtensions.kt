@@ -12,7 +12,7 @@ fun <E> persistentListOf(
     return when (elements.size) {
         0 -> emptyList as PersistentList<E>
         1 -> (emptyList as PersistentList<E>).add(elements[0])
-        else -> PersistentList<E>().addAll(elements.asList())
+        else -> (emptyList as PersistentList<E>).addAll(elements.asList())
     }
 }
 
@@ -35,7 +35,7 @@ fun <K, V> persistentMapOf(vararg pairs: Pair<K, V>): PersistentMap<K, V> {
         0 -> emptyMap as PersistentMap<K, V>
         1 -> (emptyMap as PersistentMap<K, V>).put(pairs[0].first, pairs[0].second)
         else -> {
-            var builder = PersistentMap<K, V>()
+            var builder = emptyMap as PersistentMap<K, V>
             for ((k, v) in pairs) {
                 builder = builder.put(k, v)
             }

@@ -9,7 +9,14 @@ kotlin {
         (this as JavaToolchainSpec).languageVersion.set(JavaLanguageVersion.of(jvmToolchainVersion))
     }
 
-    jvm {}
+    jvm {
+        @Suppress("UNUSED_VARIABLE")
+        val main by compilations.getting {
+            kotlinOptions {
+                jvmTarget = jvmTargetVersion
+            }
+        }
+    }
 
     js {
         browser {

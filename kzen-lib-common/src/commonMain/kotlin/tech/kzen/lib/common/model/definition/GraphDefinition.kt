@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.model.definition
 
 import tech.kzen.lib.common.model.document.DocumentNesting
+import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.locate.AttributeLocation
 import tech.kzen.lib.common.model.locate.ObjectLocation
 import tech.kzen.lib.common.model.locate.ObjectLocationMap
@@ -97,6 +98,16 @@ data class GraphDefinition(
 
     fun filterTransitive(objectLocation: ObjectLocation): GraphDefinition {
         return filterTransitive(listOf(objectLocation))
+    }
+
+
+    fun filterTransitive(documentPath: DocumentPath): GraphDefinition {
+        val documentObjectLocations = objectDefinitions
+            .values
+            .keys
+            .filter { it.documentPath == documentPath }
+
+        return filterTransitive(documentObjectLocations)
     }
 
 

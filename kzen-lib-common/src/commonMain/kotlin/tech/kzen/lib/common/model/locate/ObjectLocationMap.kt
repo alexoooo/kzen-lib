@@ -40,8 +40,8 @@ data class ObjectLocationMap<T>(
 
 
     fun locate(
-            reference: ObjectReference,
-            host: ObjectReferenceHost
+        reference: ObjectReference,
+        host: ObjectReferenceHost
     ): ObjectLocation {
         return locateOptional(reference, host)
                 ?: throw IllegalArgumentException(
@@ -64,8 +64,8 @@ data class ObjectLocationMap<T>(
 
 
     fun locateOptional(
-            reference: ObjectReference,
-            host: ObjectReferenceHost
+        reference: ObjectReference,
+        host: ObjectReferenceHost
     ): ObjectLocation? {
         val matches = locateAll(reference, host)
 
@@ -86,8 +86,8 @@ data class ObjectLocationMap<T>(
 
 
     fun locateAll(
-            reference: ObjectReference,
-            host: ObjectReferenceHost
+        reference: ObjectReference,
+        host: ObjectReferenceHost
     ): ObjectLocationSet {
         if (locatorCache == null) {
             locatorCache = ObjectLocationSet.Locator()

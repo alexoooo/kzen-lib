@@ -34,6 +34,11 @@ tasks.withType<KotlinCompile> {
 }
 
 
+tasks.compileJava {
+    options.release.set(javaVersion)
+}
+
+
 // https://stackoverflow.com/questions/61432006/building-an-executable-jar-that-can-be-published-to-maven-local-repo-with-publi
 val sourcesJar by tasks.registering(Jar::class) {
     archiveClassifier.set("sources")

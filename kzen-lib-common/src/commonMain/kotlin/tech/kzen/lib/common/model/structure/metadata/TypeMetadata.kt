@@ -15,6 +15,7 @@ data class TypeMetadata(
     companion object {
         val any = of(ClassNames.kotlinAny)
         val string = of(ClassNames.kotlinString)
+        val boolean = of(ClassNames.kotlinBoolean)
         val int = of(ClassNames.kotlinInt)
         val long = of(ClassNames.kotlinLong)
         val double = of(ClassNames.kotlinDouble)
