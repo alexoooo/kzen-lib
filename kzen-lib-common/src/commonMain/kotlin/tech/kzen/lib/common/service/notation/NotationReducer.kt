@@ -426,8 +426,10 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val mergedAttributeNotation = state.mergeAttribute(
-            command.objectLocation, command.attributePath.attribute)
+        val mergedAttributeNotation = state
+            .mergeAttribute(command.objectLocation, command.attributePath.attribute)
+            ?: throw IllegalArgumentException(
+                "Not found: ${command.objectLocation} - ${command.attributePath.attribute}")
 
         val objectWithMergedAttribute = objectNotation.upsertAttribute(
             command.attributePath.attribute, mergedAttributeNotation)
@@ -456,8 +458,10 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val mergedAttributeNotation = state.mergeAttribute(
-            command.objectLocation, command.attributeName)
+        val mergedAttributeNotation = state
+            .mergeAttribute(command.objectLocation, command.attributeName)
+            ?: throw IllegalArgumentException(
+                "Not found: ${command.objectLocation} - ${command.attributeName}")
 
         val objectWithMergedAttribute = objectNotation.upsertAttribute(
             command.attributeName, mergedAttributeNotation)
@@ -490,8 +494,10 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
                 ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val mergedAttributeNotation = state.mergeAttribute(
-            command.objectLocation, command.attributeName)
+        val mergedAttributeNotation = state
+            .mergeAttribute(command.objectLocation, command.attributeName)
+            ?: throw IllegalArgumentException(
+                "Not found: ${command.objectLocation} - ${command.attributeName}")
 
         val objectWithMergedAttribute = objectNotation.upsertAttribute(
             command.attributeName, mergedAttributeNotation)
@@ -521,13 +527,15 @@ class NotationReducer {
         command: InsertListItemInAttributeCommand
     ): NotationTransition {
         val documentNotation = state.documents.values[command.objectLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
 
         val objectNotation = state.coalesce[command.objectLocation]
-                ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
+            ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val mergedAttributeNotation = state.mergeAttribute(
-            command.objectLocation, command.containingList.attribute)
+        val mergedAttributeNotation = state
+            .mergeAttribute(command.objectLocation, command.containingList.attribute)
+            ?: throw IllegalArgumentException(
+                "Not found: ${command.objectLocation} - ${command.containingList.attribute}")
 
         val objectWithMergedAttribute = objectNotation.upsertAttribute(
             command.containingList.attribute, mergedAttributeNotation)
@@ -567,8 +575,10 @@ class NotationReducer {
         val objectNotation = state.coalesce[command.objectLocation]
             ?: throw IllegalArgumentException("Not found: ${command.objectLocation}")
 
-        val mergedAttributeNotation = state.mergeAttribute(
-            command.objectLocation, command.containingList.attribute)
+        val mergedAttributeNotation = state
+            .mergeAttribute(command.objectLocation, command.containingList.attribute)
+            ?: throw IllegalArgumentException(
+                "Not found: ${command.objectLocation} - ${command.containingList.attribute}")
 
         val objectWithMergedAttribute = objectNotation.upsertAttribute(
             command.containingList.attribute, mergedAttributeNotation)

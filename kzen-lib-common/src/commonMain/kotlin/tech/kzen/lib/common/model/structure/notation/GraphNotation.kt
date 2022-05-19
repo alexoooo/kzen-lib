@@ -11,9 +11,11 @@ import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.platform.collect.PersistentMap
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
+@Suppress("unused")
 data class GraphNotation(
     val documents: DocumentPathMap<DocumentNotation>
 ):
@@ -118,7 +120,11 @@ data class GraphNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun mergeObject(objectLocation: ObjectLocation): ObjectNotation {
+    fun mergeObject(objectLocation: ObjectLocation): ObjectNotation? {
+        if (objectLocation !in coalesce) {
+            return null
+        }
+
         val ancestors = inheritanceChain(objectLocation)
 
         val transitiveAttributes = ancestors
@@ -127,9 +133,11 @@ data class GraphNotation(
             .toSet()
             .toList()
 
-        val attributeValues = transitiveAttributes
+        val attributeValues: PersistentMap<AttributeName, AttributeNotation> = transitiveAttributes
             .filter { ! NotationConventions.isSpecial(it) }
             .map { it to mergeAttribute(it, ancestors) }
+            .filter { it.second != null }
+            .map { it.first to it.second!! }
             .toPersistentMap()
 
         return ObjectNotation(AttributeNameMap(attributeValues))
@@ -139,7 +147,7 @@ data class GraphNotation(
     fun mergeAttribute(
         objectLocation: ObjectLocation,
         attribute: AttributeName
-    ): AttributeNotation {
+    ): AttributeNotation? {
         val ancestors = inheritanceChain(objectLocation)
         return mergeAttribute(attribute, ancestors)
     }
@@ -150,14 +158,14 @@ data class GraphNotation(
         attributePath: AttributePath
     ): AttributeNotation? {
         val notation = mergeAttribute(objectLocation, attributePath.attribute)
-        return notation.get(attributePath.nesting)
+        return notation?.get(attributePath.nesting)
     }
 
 
     private fun mergeAttribute(
         attribute: AttributeName,
         ancestors: List<ObjectLocation>
-    ): AttributeNotation {
+    ): AttributeNotation? {
         var notation: AttributeNotation? = null
 
         for (ancestor in ancestors) {
@@ -167,7 +175,7 @@ data class GraphNotation(
             notation = notation?.merge(directAttributeNotation) ?: directAttributeNotation
         }
 
-        return notation!!
+        return notation
     }
 
 

@@ -8,6 +8,7 @@ import tech.kzen.lib.platform.IoUtils
 // See: http://prng.di.unimi.it/
 // Consider: init with http://prng.di.unimi.it/splitmix64.c
 // See: https://stackoverflow.com/questions/1835976/what-is-a-sensible-prime-for-hashcode-calculation
+@Suppress("unused", "MemberVisibilityCanBePrivate")
 data class Digest(
     val a: Int,
     val b: Int,
