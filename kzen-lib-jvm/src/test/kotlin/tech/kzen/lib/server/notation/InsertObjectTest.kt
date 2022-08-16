@@ -7,7 +7,6 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.PositionRelation
 import tech.kzen.lib.common.model.structure.notation.cqrs.InsertObjectInListAttributeCommand
-import tech.kzen.lib.server.util.JvmGraphTestUtils
 import kotlin.test.assertEquals
 
 

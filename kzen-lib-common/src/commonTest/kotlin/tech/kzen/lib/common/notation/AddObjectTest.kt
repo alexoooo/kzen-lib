@@ -6,7 +6,6 @@ import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.AddObjectCommand
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.service.notation.NotationReducer
-import tech.kzen.lib.common.util.CommonGraphTestUtils
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
