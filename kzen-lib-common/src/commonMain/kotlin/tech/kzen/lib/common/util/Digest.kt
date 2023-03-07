@@ -108,7 +108,7 @@ data class Digest(
 
                 s2 = s2 xor t
 
-                s3 = rotl(s3, 11)
+                s3 = rotateLeft(s3, 11)
             }
 
             return finalize(s0, s1, s2, s3)
@@ -135,7 +135,7 @@ data class Digest(
         }
 
 
-        private fun rotl(x: Int, k: Int): Int {
+        private fun rotateLeft(x: Int, k: Int): Int {
             return x.shl(k) or (x ushr (32 - k))
         }
 
@@ -157,7 +157,7 @@ data class Digest(
 
 
         private fun guavaHashingSmear(value: Int): Int {
-            return 461845907 * rotl(value * -862048943, 15)
+            return 461845907 * rotateLeft(value * -862048943, 15)
         }
 
 
@@ -169,7 +169,7 @@ data class Digest(
             val s1 = b xor s2
             s0 = s0 xor s3
             s2 = murmurHash3(s2 xor t)
-            s3 = rotl(s3, 11)
+            s3 = rotateLeft(s3, 11)
             return Digest(s0, s1, s2, s3)
         }
 
@@ -570,7 +570,7 @@ data class Digest(
 
                 s2 = s2 xor t
 
-                s3 = rotl(s3, 11)
+                s3 = rotateLeft(s3, 11)
             }
             return this
         }
@@ -603,13 +603,12 @@ data class Digest(
         }
 
 
-        fun digest(): Digest =
+        fun digest(): Digest {
             if (isZero()) {
-                empty
+                return empty
             }
-            else {
-                finalize(s0, s1, s2, s3)
-            }
+            return finalize(s0, s1, s2, s3)
+        }
     }
 
 

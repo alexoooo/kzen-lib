@@ -26,8 +26,10 @@ import java.time.Instant
 
 @Suppress("UnstableApiUsage")
 class FileNotationMedia(
-        private val notationLocator: FileNotationLocator
-): NotationMedia {
+    private val notationLocator: FileNotationLocator
+):
+    NotationMedia
+{
     //-----------------------------------------------------------------------------------------------------------------
     private val notationScanMirror = mutableMapOf<DocumentPath, DocumentScan>()
     private var notationScanCache: NotationScan? = null
@@ -76,7 +78,7 @@ class FileNotationMedia(
         val roots = notationLocator.scanRoots()
 
         for (root in roots) {
-            scanRootIntoMirror(root)
+            scanRootIntoCache(root)
         }
 
         notationScanCache = NotationScan(DocumentPathMap(notationScanMirror.toPersistentMap()))
@@ -84,8 +86,8 @@ class FileNotationMedia(
     }
 
 
-    private fun scanRootIntoMirror(
-            root: Path
+    private fun scanRootIntoCache(
+        root: Path
     ) {
         val locationTimes = scanDocumentModifiedTimes(root)
 
@@ -93,25 +95,23 @@ class FileNotationMedia(
             val cachedInfo = documentInfoCache.getIfPresent(documentPath)
 
             val resources =
-                    if (documentPath.directory) {
-                        resourceScan(documentPath, root)
-                    }
-                    else {
-                        null
-                    }
+                if (documentPath.directory) {
+                    resourceScan(documentPath, root)
+                }
+                else {
+                    null
+                }
 
             val resolvedDocumentPath = root.resolve(
-                    documentPath.asRelativeFile())
+                documentPath.asRelativeFile())
 
             val documentScan =
                 if (cachedInfo == null) {
                     val digest = digestFile(resolvedDocumentPath)
                     documentInfoCache.put(documentPath, FileInfo(
-                            resolvedDocumentPath, modified, digest))
+                        resolvedDocumentPath, modified, digest))
 
-                    DocumentScan(
-                            digest,
-                            resources)
+                    DocumentScan(digest, resources)
                 }
                 else {
                     if (cachedInfo.modified != modified) {
@@ -119,9 +119,7 @@ class FileNotationMedia(
                         cachedInfo.modified = modified
                     }
 
-                    DocumentScan(
-                            cachedInfo.digest,
-                            resources)
+                    DocumentScan(cachedInfo.digest, resources)
                 }
 
             notationScanMirror[documentPath] = documentScan
@@ -130,14 +128,13 @@ class FileNotationMedia(
 
 
     private fun scanDocumentModifiedTimes(
-            root: Path
+        root: Path
     ): Map<DocumentPath, Instant> {
         if (! Files.exists(root)) {
             return mapOf()
         }
 
-        val locationTimes =
-                mutableMapOf<DocumentPath, Instant>()
+        val locationTimes = mutableMapOf<DocumentPath, Instant>()
 
         Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
             override fun preVisitDirectory(dir: Path?, attrs: BasicFileAttributes?): FileVisitResult {
@@ -177,8 +174,8 @@ class FileNotationMedia(
 
 
     private fun resourceScan(
-            documentPath: DocumentPath,
-            root: Path
+        documentPath: DocumentPath,
+        root: Path
     ): ResourceListing {
         val mirrored = resourceScanMirror[documentPath]
         if (mirrored != null) {
@@ -186,8 +183,8 @@ class FileNotationMedia(
         }
 
         val resolvedDocumentDir = root
-                .resolve(documentPath.nesting.asString())
-                .resolve(documentPath.name.value)
+            .resolve(documentPath.nesting.asString())
+            .resolve(documentPath.name.value)
 
         val builder = mutableMapOf<ResourcePath, Digest>()
 
@@ -212,16 +209,16 @@ class FileNotationMedia(
                 }
 
                 val digest =
-                        if (cachedResourceInfo.modified == modified) {
-                            cachedResourceInfo.digest
-                        }
-                        else {
-                            val bytes = Files.readAllBytes(file)
-                            val newDigest = Digest.ofBytes(bytes)
-                            cachedResourceInfo.digest = newDigest
-                            cachedResourceInfo.modified = modified
-                            newDigest
-                        }
+                    if (cachedResourceInfo.modified == modified) {
+                        cachedResourceInfo.digest
+                    }
+                    else {
+                        val bytes = Files.readAllBytes(file)
+                        val newDigest = Digest.ofBytes(bytes)
+                        cachedResourceInfo.digest = newDigest
+                        cachedResourceInfo.modified = modified
+                        newDigest
+                    }
 
                 builder[resourcePath] = digest
 
@@ -238,7 +235,7 @@ class FileNotationMedia(
 
 
     private fun digestFile(
-            path: Path
+        path: Path
     ): Digest {
         val bytes = Files.readAllBytes(path)
         return Digest.ofBytes(bytes)
@@ -281,8 +278,8 @@ class FileNotationMedia(
 
         if (resolvedDocumentPath == null) {
             resolvedDocumentPath = cachedDocumentInfo?.path
-                    ?: notationLocator.locateExisting(documentPath)
-                    ?: throw IllegalArgumentException("Not found: $documentPath")
+                ?: notationLocator.locateExisting(documentPath)
+                ?: throw IllegalArgumentException("Not found: $documentPath")
         }
 
         val bytes = Files.readAllBytes(resolvedDocumentPath)
@@ -294,7 +291,6 @@ class FileNotationMedia(
             }
         }
 
-        @Suppress("BlockingMethodInNonBlockingContext")
         val contents = String(bytes, Charsets.UTF_8)
 
         if (modified == null) {
@@ -303,7 +299,7 @@ class FileNotationMedia(
 
         documentCache.put(digest, contents)
         documentInfoCache.put(documentPath, FileInfo(
-                resolvedDocumentPath, modified!!, digest))
+            resolvedDocumentPath, modified!!, digest))
 
         return contents
     }
@@ -318,19 +314,19 @@ class FileNotationMedia(
     private fun writeDocumentSynchronized(documentPath: DocumentPath, contents: String) {
         val existingPath = notationLocator.locateExisting(documentPath)
 
-        val path = if (existingPath != null) {
-            existingPath
-        }
-        else {
-            val resolvedPath = notationLocator.resolveNew(documentPath)
-                ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
+        val path =
+            if (existingPath != null) {
+                existingPath
+            }
+            else {
+                val resolvedPath = notationLocator.resolveNew(documentPath)
+                    ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
 
-            val parent = resolvedPath.parent
-//            println("FileNotationMedia | write - creating parent directory: $parent")
-            Files.createDirectories(parent)
+                val parent = resolvedPath.parent
+                Files.createDirectories(parent)
 
-            resolvedPath
-        }
+                resolvedPath
+            }
 
         val bytes = contents.toByteArray()
         Files.write(path, bytes)
@@ -391,10 +387,10 @@ class FileNotationMedia(
     @Synchronized
     private fun writeResourceSynchronized(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resourcePath = documentPath.resolveSibling(
-                resourceLocation.resourcePath.asRelativeFile())
+            resourceLocation.resourcePath.asRelativeFile())
 
         Files.createDirectories(resourcePath.parent)
 
@@ -404,7 +400,7 @@ class FileNotationMedia(
         val modified = Files.getLastModifiedTime(resourcePath).toInstant()
 
         invalidateUpsertResource(
-                resourcePath, resourceLocation, digest, modified)
+            resourcePath, resourceLocation, digest, modified)
     }
 
 
@@ -416,16 +412,16 @@ class FileNotationMedia(
     @Synchronized
     private fun copyResourceSynchronized(resourceLocation: ResourceLocation, destination: ResourceLocation) {
         val sourceDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val sourceResourcePath = sourceDocumentPath.resolveSibling(
-                resourceLocation.resourcePath.asRelativeFile())
+            resourceLocation.resourcePath.asRelativeFile())
 
         val destinationDocumentPath = notationLocator.locateExisting(destination.documentPath)
-                ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
 
         val destinationResourcePath = destinationDocumentPath.resolveSibling(
-                destination.resourcePath.asRelativeFile())
+            destination.resourcePath.asRelativeFile())
 
         Files.createDirectories(destinationResourcePath.parent)
 
@@ -437,7 +433,7 @@ class FileNotationMedia(
         val digest = Digest.ofBytes(contents)
 
         invalidateUpsertResource(
-                destinationResourcePath, resourceLocation, digest, modified)
+            destinationResourcePath, resourceLocation, digest, modified)
     }
 
 
@@ -449,10 +445,10 @@ class FileNotationMedia(
     @Synchronized
     private fun deleteResourceSynchronized(resourceLocation: ResourceLocation) {
         val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resourcePath = documentPath.resolveSibling(
-                resourceLocation.resourcePath.asRelativeFile())
+            resourceLocation.resourcePath.asRelativeFile())
         check(Files.exists(resourcePath)) {
             "Resource not found: $resourceLocation"
         }
@@ -479,7 +475,7 @@ class FileNotationMedia(
 
 
     private fun invalidateDocument(
-            documentPath: DocumentPath
+        documentPath: DocumentPath
     ) {
         documentInfoCache.invalidate(documentPath)
 
@@ -498,15 +494,15 @@ class FileNotationMedia(
 
 
     private fun invalidateDocumentContents(
-            documentPath: DocumentPath,
-            resolvedDocumentPath: Path,
-            modified: Instant,
-            contents: String,
-            documentDigest: Digest
+        documentPath: DocumentPath,
+        resolvedDocumentPath: Path,
+        modified: Instant,
+        contents: String,
+        documentDigest: Digest
     ) {
         documentCache.put(documentDigest, contents)
         documentInfoCache.put(documentPath, FileInfo(
-                resolvedDocumentPath, modified, documentDigest))
+            resolvedDocumentPath, modified, documentDigest))
 
         val previousMirror = notationScanMirror[documentPath]
         if (previousMirror != null) {
@@ -543,7 +539,7 @@ class FileNotationMedia(
         }
 
         val cachedResourceInfo = resourceInfoCache.getIfPresent(resourceLocation)
-                ?: FileInfo(resolvedResourcePath, Instant.MIN, Digest.zero)
+            ?: FileInfo(resolvedResourcePath, Instant.MIN, Digest.zero)
 
         if (cachedResourceInfo.modified != resourceModified) {
             cachedResourceInfo.modified = resourceModified

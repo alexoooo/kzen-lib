@@ -9,10 +9,14 @@ import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.collect.toPersistentMap
 
-
+/**
+ * scans all media (duplicates allowed), reads/writes first available medium, deletes from all media
+ */
 class MultiNotationMedia(
-        private val media: List<NotationMedia>
-): NotationMedia {
+    private val media: List<NotationMedia>
+):
+    NotationMedia
+{
     //-----------------------------------------------------------------------------------------------------------------
     private var scanCache: NotationScan? = null
     private var scanCacheDigest = Digest.zero
@@ -34,21 +38,16 @@ class MultiNotationMedia(
             return scanCache!!
         }
 
-        val duplicates = mutableSetOf<DocumentPath>()
-
         val all = mutableMapOf<DocumentPath, DocumentScan>()
         for (scan in scans) {
             for (e in scan.documents.values) {
-                if (all.containsKey(e.key)) {
-                    duplicates.add(e.key)
+                if (e.key in all) {
+                    continue
                 }
-                else {
-                    all[e.key] = e.value
-                }
+
+                all[e.key] = e.value
             }
         }
-
-        check(duplicates.isEmpty()) { "Duplicates detected: $duplicates" }
 
         val consolidated = NotationScan(DocumentPathMap(all.toPersistentMap()))
 
@@ -62,26 +61,24 @@ class MultiNotationMedia(
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
         for (source in media) {
-            try {
-                return source.readDocument(documentPath, expectedDigest)
+            if (! source.containsDocument(documentPath)) {
+                continue
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Not found in $source - ${ignored.message}")
-            }
+
+            return source.readDocument(documentPath, expectedDigest)
         }
 
-        throw IllegalArgumentException("Unable to read: $documentPath")
+        throw IllegalArgumentException("Not found: $documentPath")
     }
 
 
     override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
         for (medium in media) {
             try {
-                return medium.writeDocument(documentPath, contents)
+                medium.writeDocument(documentPath, contents)
+                return
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Can't write in $medium - ${ignored.message}")
-            }
+            catch (ignored: Exception) {}
         }
 
         throw IllegalArgumentException("Unable to write: $documentPath")
@@ -90,57 +87,51 @@ class MultiNotationMedia(
 
     override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
         for (medium in media) {
-            try {
-                return medium.copyResource(resourceLocation, destination)
+            if (! medium.containsResource(resourceLocation)) {
+                continue
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Can't write in $medium - ${ignored.message}")
-            }
+
+            medium.copyResource(resourceLocation, destination)
         }
 
-        throw IllegalArgumentException("Unable to copy: $resourceLocation - $destination")
+        throw IllegalArgumentException("Not found: $resourceLocation - $destination")
     }
 
 
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         for (medium in media) {
-            try {
-                return medium.deleteDocument(documentPath)
+            if (! medium.containsDocument(documentPath)) {
+                continue
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Can't delete in $medium - " +
-//                        "${ignored::class.simpleName} - ${ignored.message}")
-            }
+
+            medium.deleteDocument(documentPath)
         }
 
-        throw IllegalArgumentException("Unable to delete: $documentPath")
+        throw IllegalArgumentException("Not found: $documentPath")
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         for (source in media) {
-            try {
-                return source.readResource(resourceLocation)
+            if (! source.containsResource(resourceLocation)) {
+                continue
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Not found in $source - " +
-//                        "${ignored::class.simpleName} - ${ignored.message}")
-            }
+
+            return source.readResource(resourceLocation)
         }
 
-        throw IllegalArgumentException("Unable to read: $resourceLocation")
+        throw IllegalArgumentException("Not found: $resourceLocation")
     }
 
 
     override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         for (medium in media) {
             try {
-                return medium.writeResource(resourceLocation, contents)
+                medium.writeResource(resourceLocation, contents)
+                return
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Can't write in $medium - ${ignored.message}")
-            }
+            catch (ignored: Exception) {}
         }
 
         throw IllegalArgumentException("Unable to write: $resourceLocation")
@@ -149,15 +140,14 @@ class MultiNotationMedia(
 
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
         for (medium in media) {
-            try {
-                return medium.deleteResource(resourceLocation)
+            if (! medium.containsResource(resourceLocation)) {
+                continue
             }
-            catch (ignored: Exception) {
-//                println("MultiNotationMedia - Can't delete in $medium - ${ignored.message}")
-            }
+
+            medium.deleteResource(resourceLocation)
         }
 
-        throw IllegalArgumentException("Unable to delete: $resourceLocation")
+        throw IllegalArgumentException("Not found: $resourceLocation")
     }
 
 

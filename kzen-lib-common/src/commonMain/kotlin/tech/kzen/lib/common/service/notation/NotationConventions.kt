@@ -39,6 +39,7 @@ object NotationConventions {
     const val ofKey = "of"
     val ofAttributeSegment = AttributeSegment.ofKey(ofKey)
 
+    // todo: rename to "info"?
     val metaAttributeName = AttributeName("meta")
     val metaAttributePath = AttributePath.ofName(metaAttributeName)
 

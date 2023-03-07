@@ -14,11 +14,14 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 import java.util.concurrent.ConcurrentHashMap
 
 
+@Suppress("unused")
 class ClasspathNotationMedia(
-        private val prefix: String = NotationConventions.documentPathPrefix,
-        private val suffix: String = NotationConventions.fileDocumentSuffix,
-        private val loader: ClassLoader = Thread.currentThread().contextClassLoader
-): NotationMedia {
+    private val prefix: String = NotationConventions.documentPathPrefix,
+    private val suffix: String = NotationConventions.fileDocumentSuffix,
+    private val loader: ClassLoader = Thread.currentThread().contextClassLoader
+):
+    NotationMedia
+{
     //-----------------------------------------------------------------------------------------------------------------
     private var scanCache: NotationScan? = null
     private var documentCache: MutableMap<DocumentPath, String> = ConcurrentHashMap()
@@ -26,22 +29,24 @@ class ClasspathNotationMedia(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun scan(): NotationScan {
-        if (scanCache == null) {
-            val paths = scanPaths()
-
-            val builder = mutableMapOf<DocumentPath, DocumentScan>()
-
-            for (path in paths) {
-                val body = readDocument(path, null)
-                val digest = Digest.ofUtf8(body)
-                builder[path] = DocumentScan(
-                        digest,
-                        null)
-            }
-
-            scanCache = NotationScan(
-                    DocumentPathMap(builder.toPersistentMap()))
+        if (scanCache != null) {
+            return scanCache!!
         }
+
+        val paths = scanPaths()
+
+        val builder = mutableMapOf<DocumentPath, DocumentScan>()
+
+        for (path in paths) {
+            val body = readDocument(path, null)
+            val digest = Digest.ofUtf8(body)
+            builder[path] = DocumentScan(
+                digest,
+                null)
+        }
+
+        scanCache = NotationScan(
+            DocumentPathMap(builder.toPersistentMap()))
 
         return scanCache!!
     }
@@ -49,33 +54,35 @@ class ClasspathNotationMedia(
 
     private fun scanPaths(): List<DocumentPath> {
         return ClassPath
-                .from(loader)
-                .resources
-                .filter {
-                    it.resourceName.startsWith(prefix) &&
-                            it.resourceName.endsWith(suffix) &&
-                            DocumentPath.matches(it.resourceName)
-                }
-                .map{
-                    DocumentPath.parse(
-                            it.resourceName.substring(prefix.length)
-                    )
-                }
-                .toList()
+            .from(loader)
+            .resources
+            .filter {
+                it.resourceName.startsWith(prefix) &&
+                        it.resourceName.endsWith(suffix) &&
+                        DocumentPath.matches(it.resourceName)
+            }
+            .map{
+                DocumentPath.parse(it.resourceName.substring(prefix.length))
+            }
+            .toList()
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
         return documentCache.computeIfAbsent(documentPath) {
-            val resourcePath = prefix + "/" + documentPath.asRelativeFile()
+            val resourcePath =
+                if (prefix.endsWith('/')) {
+                    prefix + documentPath.asRelativeFile()
+                }
+                else {
+                    prefix + "/" + documentPath.asRelativeFile()
+                }
 
-            @Suppress("UnnecessaryVariable")
-//            val body = loader.getResource(resourcePath).readBytes()
-            val body = loader.getResource(resourcePath)!!.readText()
+            val body = loader.getResource(resourcePath)
+            require(body != null) { "Classpath resource not found: $resourcePath" }
 
-//            println("ClasspathNotationMedia - read $documentPath - ${bytes.size}")
-            body
+            body.readText()
         }
     }
 
@@ -91,6 +98,11 @@ class ClasspathNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override suspend fun containsResource(resourceLocation: ResourceLocation): Boolean {
+        return false
+    }
+
+
     override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         TODO("not implemented")
     }

@@ -13,6 +13,11 @@ interface NotationMedia {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    suspend fun containsDocument(documentPath: DocumentPath): Boolean {
+        return scan().documents.contains(documentPath)
+    }
+
+
     /**
      * Must exist
      */
@@ -32,6 +37,14 @@ interface NotationMedia {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    suspend fun containsResource(resourceLocation: ResourceLocation): Boolean {
+        val documentScan = scan().documents[resourceLocation.documentPath]
+            ?: return false
+
+        return documentScan.resources?.digests?.containsKey(resourceLocation.resourcePath) ?: false
+    }
+
+
     suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray
 
 

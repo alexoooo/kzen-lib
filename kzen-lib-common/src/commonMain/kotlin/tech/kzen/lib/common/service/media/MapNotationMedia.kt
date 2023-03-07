@@ -27,23 +27,28 @@ class MapNotationMedia: NotationMedia {
     override suspend fun scan(): NotationScan {
         val documentScans = data.mapValues {
             DocumentScan(
-                    Digest.ofUtf8(it.value.document),
-                    it.value.resources?.let { resources ->
-                        ResourceListing(
-                                resources.mapValues { e ->
-                                    e.value.digest()
-                                }.toPersistentMap())
-                    }
+                Digest.ofUtf8(it.value.document),
+                it.value.resources?.let { resources ->
+                    ResourceListing(
+                        resources.mapValues { e ->
+                            e.value.digest()
+                        }.toPersistentMap())
+                }
             )
         }
 
         return NotationScan(DocumentPathMap(
-                documentScans.toPersistentMap()
+            documentScans.toPersistentMap()
         ))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override suspend fun containsDocument(documentPath: DocumentPath): Boolean {
+        return documentPath in data
+    }
+
+
     override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
         return data[documentPath]!!.document
     }
@@ -52,12 +57,12 @@ class MapNotationMedia: NotationMedia {
     override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
         val documentMedia = data.getOrPut(documentPath) {
             val resources =
-                    if (documentPath.directory) {
-                        mutableMapOf<ResourcePath, ImmutableByteArray>()
-                    }
-                    else {
-                        null
-                    }
+                if (documentPath.directory) {
+                    mutableMapOf<ResourcePath, ImmutableByteArray>()
+                }
+                else {
+                    null
+                }
 
             MapDocumentMedia("", resources)
         }
@@ -72,21 +77,30 @@ class MapNotationMedia: NotationMedia {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override suspend fun containsResource(resourceLocation: ResourceLocation): Boolean {
+        val documentData = data[resourceLocation.documentPath]
+            ?: return false
+
+        return documentData.resources?.containsKey(resourceLocation.resourcePath)
+            ?: false
+    }
+
+
     override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
         val documentData = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         return documentData.resources?.get(resourceLocation.resourcePath)
-                ?: throw IllegalArgumentException("Not found: $resourceLocation")
+            ?: throw IllegalArgumentException("Not found: $resourceLocation")
     }
 
 
     override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
         val documentData = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resources = documentData.resources
-                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+            ?: throw IllegalArgumentException("No resources: $resourceLocation")
 
         resources[resourceLocation.resourcePath] = contents
     }
@@ -94,19 +108,19 @@ class MapNotationMedia: NotationMedia {
 
     override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
         val sourceDocumentData = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val sourceResources = sourceDocumentData.resources
-                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+            ?: throw IllegalArgumentException("No resources: $resourceLocation")
 
         val sourceContents = sourceResources[resourceLocation.resourcePath]
-                ?: throw IllegalArgumentException("Not found: $resourceLocation")
+            ?: throw IllegalArgumentException("Not found: $resourceLocation")
 
         val destinationDocumentData = data[destination.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
 
         val destinationResources = destinationDocumentData.resources
-                ?: throw IllegalArgumentException("No resources: $destination")
+            ?: throw IllegalArgumentException("No resources: $destination")
 
         destinationResources[destination.resourcePath] = sourceContents
     }
@@ -114,10 +128,10 @@ class MapNotationMedia: NotationMedia {
 
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
         val documentData = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resources = documentData.resources
-                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+            ?: throw IllegalArgumentException("No resources: $resourceLocation")
 
         check(resourceLocation.resourcePath in resources) {
             "Resource missing: $resourceLocation"

@@ -9,7 +9,7 @@ import java.util.stream.Collectors
 
 
 class GradleLocator(
-        private var includeTest: Boolean = false
+    private var includeTest: Boolean = false
 ): FileNotationLocator {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -73,20 +73,19 @@ class GradleLocator(
     }
 
 
-    private fun moduleRootImpl(): String =
+    private fun moduleRootImpl(): String {
         if (Files.exists(Paths.get("src"))) {
-            "."
+            return "."
         }
-        else {
-            Files.list(Paths.get(".")).use { files ->
-                val list = files.collect(Collectors.toList())
 
+        return Files.list(Paths.get(".")).use { files ->
+            val list = files.collect(Collectors.toList())
 
-                val jvmModule = list.firstOrNull { it.fileName.toString().endsWith("-jvm")}
+            val jvmModule = list.firstOrNull { it.fileName.toString().endsWith("-jvm")}
 
-                // TODO: expose static/
-                jvmModule?.toString()
-                        ?: "."
-            }
+            // TODO: expose static/
+            jvmModule?.toString()
+                ?: "."
         }
+    }
 }
