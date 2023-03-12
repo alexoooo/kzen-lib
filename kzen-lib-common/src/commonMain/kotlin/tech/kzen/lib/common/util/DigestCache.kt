@@ -3,7 +3,7 @@ package tech.kzen.lib.common.util
 
 
 class DigestCache<T>(
-        size: Int
+    size: Int
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     private val values = mutableMapOf<Digest, T>()
@@ -27,6 +27,12 @@ class DigestCache<T>(
     fun put(digest: Digest, value: T) {
         values[digest] = value
         reduceToSize()
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun clear() {
+        values.clear()
     }
 
 

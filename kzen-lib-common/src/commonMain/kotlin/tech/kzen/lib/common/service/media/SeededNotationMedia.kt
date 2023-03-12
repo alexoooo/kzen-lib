@@ -13,7 +13,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 class SeededNotationMedia(
-        private val underlying: NotationMedia
+    private val underlying: NotationMedia
 ): NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
     private val data = mutableMapOf<DocumentPath, SeededDocumentMedia>()
@@ -21,12 +21,17 @@ class SeededNotationMedia(
 
 
     private class SeededDocumentMedia(
-            var document: String,
-            var resources: MutableMap<ResourcePath, Digest>?
+        var document: String,
+        var resources: MutableMap<ResourcePath, Digest>?
     )
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun isReadOnly(): Boolean {
+        return false
+    }
+
+
     override suspend fun scan(): NotationScan {
         if (notationScanCache == null) {
             notationScanCache = scanImpl()
@@ -41,12 +46,13 @@ class SeededNotationMedia(
         val documents = mutableMapOf<DocumentPath, DocumentScan>()
 
         for (e in data) {
+            val resources: ResourceListing? =
+                e.value.resources?.let {
+                    ResourceListing(it.toPersistentMap())
+                }
+
             documents[e.key] = DocumentScan(
-                    Digest.ofUtf8(e.value.document),
-                    e.value.resources?.let {
-                        ResourceListing(it.toPersistentMap())
-                    }
-            )
+                    Digest.ofUtf8(e.value.document), resources)
         }
 
         return NotationScan(DocumentPathMap(
@@ -59,7 +65,7 @@ class SeededNotationMedia(
         seedIfRequired()
 
         val documentMedia = data[documentPath]
-                ?: throw IllegalArgumentException("Not found: $documentPath")
+            ?: throw IllegalArgumentException("Not found: $documentPath")
 
         return documentMedia.document
     }
@@ -111,12 +117,12 @@ class SeededNotationMedia(
     private fun getOrInitDocumentMedia(documentPath: DocumentPath): SeededDocumentMedia {
         return data.getOrPut(documentPath) {
             val resources =
-                    if (documentPath.directory) {
-                        mutableMapOf<ResourcePath, Digest>()
-                    }
-                    else {
-                        null
-                    }
+                if (documentPath.directory) {
+                    mutableMapOf<ResourcePath, Digest>()
+                }
+                else {
+                    null
+                }
 
             SeededDocumentMedia("", resources)
         }
@@ -134,10 +140,10 @@ class SeededNotationMedia(
         seedIfRequired()
 
         val documentMedia = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resources = documentMedia.resources
-                ?: throw IllegalArgumentException("Directory document expected: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Directory document expected: ${resourceLocation.documentPath}")
 
         resources[resourceLocation.resourcePath] = contents.digest()
         notationScanCache = null
@@ -148,10 +154,10 @@ class SeededNotationMedia(
         seedIfRequired()
 
         val documentMedia = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val resources = documentMedia.resources
-                ?: throw IllegalArgumentException("Directory document expected: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Directory document expected: ${resourceLocation.documentPath}")
 
         require(resourceLocation.resourcePath in resources) {
             "Resource not found: $resourceLocation"
@@ -181,12 +187,12 @@ class SeededNotationMedia(
             val document = underlying.readDocument(e.key, e.value.documentDigest)
 
             val resources =
-                    if (e.key.directory) {
-                        e.value.resources!!.digests.toMutableMap()
-                    }
-                    else {
-                        null
-                    }
+                if (e.key.directory) {
+                    e.value.resources!!.digests.toMutableMap()
+                }
+                else {
+                    null
+                }
 
             data[e.key] = SeededDocumentMedia(
                     document, resources)

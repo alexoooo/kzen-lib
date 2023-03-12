@@ -1,6 +1,7 @@
 package tech.kzen.lib.server.notation
 
 import com.google.common.reflect.ClassPath
+import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
@@ -18,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ClasspathNotationMedia(
     private val prefix: String = NotationConventions.documentPathPrefix,
     private val suffix: String = NotationConventions.fileDocumentSuffix,
+    private val exclude: List<DocumentNesting> = listOf(),
     private val loader: ClassLoader = Thread.currentThread().contextClassLoader
 ):
     NotationMedia
@@ -28,6 +30,11 @@ class ClasspathNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun isReadOnly(): Boolean {
+        return true
+    }
+
+
     override suspend fun scan(): NotationScan {
         if (scanCache != null) {
             return scanCache!!
@@ -61,8 +68,11 @@ class ClasspathNotationMedia(
                         it.resourceName.endsWith(suffix) &&
                         DocumentPath.matches(it.resourceName)
             }
-            .map{
+            .map {
                 DocumentPath.parse(it.resourceName.substring(prefix.length))
+            }
+            .filter { documentPath ->
+                exclude.none { documentPath.startsWith(it) }
             }
             .toList()
     }

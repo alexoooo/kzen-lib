@@ -4,6 +4,7 @@ import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import com.google.common.io.MoreFiles
 import com.google.common.io.RecursiveDeleteOption
+import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.locate.ResourceLocation
@@ -26,7 +27,8 @@ import java.time.Instant
 
 @Suppress("UnstableApiUsage")
 class FileNotationMedia(
-    private val notationLocator: FileNotationLocator
+    private val notationLocator: FileNotationLocator,
+    private val require: List<DocumentNesting> = listOf()
 ):
     NotationMedia
 {
@@ -59,6 +61,11 @@ class FileNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun isReadOnly(): Boolean {
+        return false
+    }
+
+
     override suspend fun scan(): NotationScan {
         return scanSynchronized()
     }
@@ -92,6 +99,10 @@ class FileNotationMedia(
         val locationTimes = scanDocumentModifiedTimes(root)
 
         for ((documentPath, modified) in locationTimes) {
+            if (! allowed(documentPath)) {
+                continue
+            }
+
             val cachedInfo = documentInfoCache.getIfPresent(documentPath)
 
             val resources =
@@ -124,6 +135,14 @@ class FileNotationMedia(
 
             notationScanMirror[documentPath] = documentScan
         }
+    }
+
+
+    private fun allowed(documentPath: DocumentPath): Boolean {
+        if (require.isEmpty()) {
+            return true
+        }
+        return require.any { documentPath.startsWith(it) }
     }
 
 

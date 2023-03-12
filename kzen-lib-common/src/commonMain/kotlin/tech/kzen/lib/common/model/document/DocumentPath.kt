@@ -26,14 +26,14 @@ data class DocumentPath(
             }
 
             val normalizedLocation =
-                    if (relativeLocation.endsWith(NotationConventions.directoryDocumentSuffix)) {
-                        relativeLocation.substring(
-                                0, relativeLocation.length - NotationConventions.directoryDocumentSuffix.length)
-                    }
-                    else {
-                        relativeLocation.substring(
-                                0, relativeLocation.length - NotationConventions.fileDocumentSuffix.length)
-                    }
+                if (relativeLocation.endsWith(NotationConventions.directoryDocumentSuffix)) {
+                    relativeLocation.substring(
+                        0, relativeLocation.length - NotationConventions.directoryDocumentSuffix.length)
+                }
+                else {
+                    relativeLocation.substring(
+                        0, relativeLocation.length - NotationConventions.fileDocumentSuffix.length)
+                }
 
             val endOfNesting = normalizedLocation.lastIndexOf(NotationConventions.pathDelimiter)
             if (endOfNesting == -1) {
@@ -53,28 +53,28 @@ data class DocumentPath(
 
             val directory = asString.endsWith(NotationConventions.directoryDocumentSuffix)
             val normalizedLocation =
-                    if (directory) {
-                        asString.substring(0, asString.length - NotationConventions.directoryDocumentSuffix.length)
-                    }
-                    else {
-                        asString.substring(0, asString.length - NotationConventions.fileDocumentSuffix.length)
-                    }
+                if (directory) {
+                    asString.substring(0, asString.length - NotationConventions.directoryDocumentSuffix.length)
+                }
+                else {
+                    asString.substring(0, asString.length - NotationConventions.fileDocumentSuffix.length)
+                }
 
             val endOfNesting = normalizedLocation.lastIndexOf(NotationConventions.pathDelimiter)
             if (endOfNesting == -1) {
                 return DocumentPath(
-                        DocumentName(normalizedLocation),
-                        DocumentNesting.empty,
-                        directory)
+                    DocumentName(normalizedLocation),
+                    DocumentNesting.empty,
+                    directory)
             }
 
             val nestingPrefix = normalizedLocation.substring(0, endOfNesting)
             val nameSuffix = normalizedLocation.substring(endOfNesting + 1)
 
             return DocumentPath(
-                    DocumentName(nameSuffix),
-                    DocumentNesting.parse(nestingPrefix),
-                    directory)
+                DocumentName(nameSuffix),
+                DocumentNesting.parse(nestingPrefix),
+                directory)
         }
     }
 
@@ -120,20 +120,20 @@ data class DocumentPath(
 
     fun asRelativeFile(): String {
         val nestingPrefix =
-                if (nesting.segments.isEmpty()) {
-                    ""
-                }
-                else {
-                    nesting.asString() + "/"
-                }
+            if (nesting.segments.isEmpty()) {
+                ""
+            }
+            else {
+                nesting.asString() + "/"
+            }
 
         val formatSuffix =
-                if (directory) {
-                    NotationConventions.directoryDocumentSuffix
-                }
-                else {
-                    NotationConventions.fileDocumentSuffix
-                }
+            if (directory) {
+                NotationConventions.directoryDocumentSuffix
+            }
+            else {
+                NotationConventions.fileDocumentSuffix
+            }
 
         return nestingPrefix +
                 name.value +

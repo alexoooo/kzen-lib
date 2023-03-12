@@ -18,12 +18,17 @@ class MapNotationMedia: NotationMedia {
 
 
     private class MapDocumentMedia(
-            var document: String,
-            var resources: MutableMap<ResourcePath, ImmutableByteArray>?
+        var document: String,
+        var resources: MutableMap<ResourcePath, ImmutableByteArray>?
     )
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    override fun isReadOnly(): Boolean {
+        return false
+    }
+
+
     override suspend fun scan(): NotationScan {
         val documentScans = data.mapValues {
             DocumentScan(

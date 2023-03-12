@@ -12,7 +12,6 @@ import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.common.service.context.GraphDefiner
-import tech.kzen.lib.common.service.media.MultiNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.parse.NotationParser
 import tech.kzen.lib.common.service.parse.YamlNotationParser
@@ -31,9 +30,7 @@ object JvmGraphTestUtils {
 
     fun readNotation(): GraphNotation {
         val locator = GradleLocator(true)
-        val notationMedia = MultiNotationMedia(listOf(
-                FileNotationMedia(locator)/*,
-                ClasspathNotationMedia()*/))
+        val notationMedia = FileNotationMedia(locator)
 
         val notationParser: NotationParser = YamlNotationParser()
 

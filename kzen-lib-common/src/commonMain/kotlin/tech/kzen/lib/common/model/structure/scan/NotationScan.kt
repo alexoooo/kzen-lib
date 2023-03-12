@@ -6,7 +6,7 @@ import tech.kzen.lib.common.util.Digestible
 
 
 data class NotationScan(
-        val documents: DocumentPathMap<DocumentScan>
+    val documents: DocumentPathMap<DocumentScan>
 ): Digestible {
     private var digest: Digest? = null
 

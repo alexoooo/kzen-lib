@@ -5,7 +5,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentPathMap<T>(
-        val values: PersistentMap<DocumentPath, T>
+    val values: PersistentMap<DocumentPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     operator fun contains(documentPath: DocumentPath): Boolean {

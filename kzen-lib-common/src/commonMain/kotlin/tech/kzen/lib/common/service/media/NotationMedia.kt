@@ -9,6 +9,8 @@ import tech.kzen.lib.common.util.ImmutableByteArray
 
 interface NotationMedia {
     //-----------------------------------------------------------------------------------------------------------------
+    fun isReadOnly(): Boolean
+
     suspend fun scan(): NotationScan
 
 
