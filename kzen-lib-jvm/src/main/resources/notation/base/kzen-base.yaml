@@ -82,6 +82,11 @@ Int:
   class: kotlin.Int
 
 
+Long:
+  abstract: true
+  class: kotlin.Long
+
+
 Double:
   abstract: true
   class: kotlin.Double
