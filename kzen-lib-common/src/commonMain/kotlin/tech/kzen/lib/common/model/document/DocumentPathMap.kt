@@ -38,6 +38,13 @@ data class DocumentPathMap<T>(
     }
 
 
+    fun contains(documentNesting: DocumentNesting): Boolean {
+        return values.any { e ->
+            e.key.startsWith(documentNesting)
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
         return values.toString()
