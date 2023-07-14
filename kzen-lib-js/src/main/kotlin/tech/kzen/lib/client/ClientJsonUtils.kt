@@ -28,7 +28,7 @@ object ClientJsonUtils {
 
 
     private fun toValue(value: Any?): Any? {
-        @Suppress("UNCHECKED_CAST", "UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
+        @Suppress("UNCHECKED_CAST_TO_EXTERNAL_INTERFACE")
         return when (value) {
             null ->
                 null
