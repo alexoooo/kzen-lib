@@ -10,10 +10,10 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 
 interface AttributeDefiner {
     fun define(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            graphStructure: GraphStructure,
-            partialGraphDefinition: GraphDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        graphStructure: GraphStructure,
+        partialGraphDefinition: GraphDefinition,
+        partialGraphInstance: GraphInstance
     ): AttributeDefinitionAttempt
 }

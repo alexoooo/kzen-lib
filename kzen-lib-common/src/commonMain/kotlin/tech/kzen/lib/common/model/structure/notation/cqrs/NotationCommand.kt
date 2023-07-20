@@ -202,16 +202,31 @@ data class ShiftInAttributeCommand(
 
 
 //---------------------------------------------------------------------------------------------------------------------
-data class InsertObjectInListAttributeCommand(
-        val containingObjectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val indexInList: PositionRelation,
-        val objectName: ObjectName,
-        val positionInDocument: PositionRelation,
-        val objectNotation: ObjectNotation
+data class AddObjectAtAttributeCommand(
+    val containingObjectLocation: ObjectLocation,
+    val containingAttribute: AttributeName,
+    val objectName: ObjectName,
+    val positionInDocument: PositionRelation,
+    val objectNotation: ObjectNotation
 ):
-        StructuralNotationCommand()
-//        SemanticNotationCommand()
+    StructuralNotationCommand()
+{
+    fun insertedObjectLocation(): ObjectLocation {
+        val objectPath = containingObjectLocation.objectPath.nest(AttributePath.ofName(containingAttribute), objectName)
+        return ObjectLocation(containingObjectLocation.documentPath, objectPath)
+    }
+}
+
+
+data class InsertObjectInListAttributeCommand(
+    val containingObjectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val indexInList: PositionRelation,
+    val objectName: ObjectName,
+    val positionInDocument: PositionRelation,
+    val objectNotation: ObjectNotation
+):
+    StructuralNotationCommand()
 {
     fun insertedObjectLocation(): ObjectLocation {
         val objectPath = containingObjectLocation.objectPath.nest(containingList, objectName)

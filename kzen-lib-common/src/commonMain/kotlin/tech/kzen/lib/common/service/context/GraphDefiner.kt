@@ -109,7 +109,7 @@ class GraphDefiner {
                 }
 
                 val definerLocation = graphStructure.graphNotation.coalesce.locate(
-                        definerReference, ObjectReferenceHost.ofLocation(objectLocation))
+                    definerReference, ObjectReferenceHost.ofLocation(objectLocation))
                 val definer = definerAndRelatedInstances[definerLocation]?.reference as? ObjectDefiner
 
                 if (definer == null) {
@@ -118,10 +118,10 @@ class GraphDefiner {
                 }
 
                 val definition = definer.define(
-                        objectLocation,
-                        graphStructure,
-                        closedDefinitions,
-                        definerAndRelatedInstances)
+                    objectLocation,
+                    graphStructure,
+                    closedDefinitions,
+                    definerAndRelatedInstances)
 //                println("  >> definition: $definition")
 
                 when (definition) {

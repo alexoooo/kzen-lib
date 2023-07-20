@@ -31,20 +31,10 @@ data class ObjectReferenceHost(
             return "global"
         }
 
-        val parts = mutableListOf<String>()
-
-        if (documentPath != null) {
-            parts.add(documentPath.asString())
-        }
-
-        if (objectPath != null) {
-            parts.add(objectPath.asString())
-        }
-
-        if (attributePath != null) {
-            parts.add(attributePath.asString())
-        }
-
-        return parts.joinToString("/")
+        return (documentPath?.asString() ?: "") +
+                ObjectReference.nestingSeparator +
+                (objectPath?.asString() ?: "") +
+                ObjectReference.nestingSeparator +
+                (attributePath?.asString() ?: "")
     }
 }

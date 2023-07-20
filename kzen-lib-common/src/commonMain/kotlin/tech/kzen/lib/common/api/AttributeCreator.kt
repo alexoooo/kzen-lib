@@ -9,10 +9,10 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 
 interface AttributeCreator {
     fun create(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            graphStructure: GraphStructure,
-            objectDefinition: ObjectDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        graphStructure: GraphStructure,
+        objectDefinition: ObjectDefinition,
+        partialGraphInstance: GraphInstance
     ): Any?
 }

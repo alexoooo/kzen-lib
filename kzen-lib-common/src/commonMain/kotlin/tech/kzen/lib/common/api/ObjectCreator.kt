@@ -9,9 +9,9 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 
 interface ObjectCreator {
     fun create(
-            objectLocation: ObjectLocation,
-            graphStructure: GraphStructure,
-            objectDefinition: ObjectDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        graphStructure: GraphStructure,
+        objectDefinition: ObjectDefinition,
+        partialGraphInstance: GraphInstance
     ): ObjectInstance
 }

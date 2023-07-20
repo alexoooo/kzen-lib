@@ -34,10 +34,10 @@ object AttributeObjectDefiner: ObjectDefiner {
             partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
         val objectMetadata = graphStructure.graphMetadata.objectMetadata[objectLocation]
-                ?: return ObjectDefinitionAttempt.failure(
-                        "Metadata not found: $objectLocation",
-                        mapOf(),
-                        null)
+            ?: return ObjectDefinitionAttempt.failure(
+                "Metadata not found: $objectLocation",
+                mapOf(),
+                null)
 
         val className = ClassName(graphStructure.graphNotation
                 .getString(objectLocation, NotationConventions.classAttributePath))

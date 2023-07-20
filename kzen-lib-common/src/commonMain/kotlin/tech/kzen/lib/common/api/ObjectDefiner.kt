@@ -9,9 +9,9 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 
 interface ObjectDefiner {
     fun define(
-            objectLocation: ObjectLocation,
-            graphStructure: GraphStructure,
-            partialGraphDefinition: GraphDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        graphStructure: GraphStructure,
+        partialGraphDefinition: GraphDefinition,
+        partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt
 }

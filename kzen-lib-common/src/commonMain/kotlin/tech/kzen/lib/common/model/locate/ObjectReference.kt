@@ -62,33 +62,38 @@ data class ObjectReference(
         }
 
         val croppedPath =
-                if (retainPath) {
-                    path
-                }
-                else {
-                    null
-                }
+            if (retainPath) {
+                path
+            }
+            else {
+                null
+            }
 
         return ObjectReference(name, nesting, croppedPath)
     }
 
 
+    fun isEmpty(): Boolean {
+        return path == null && nesting.isRoot() && name.value.isEmpty()
+    }
+
+
     fun asString(): String {
         val pathPrefix =
-                if (path == null) {
-                    ""
-                }
-                else {
-                    path.asString() + nestingSeparator
-                }
+            if (path == null) {
+                ""
+            }
+            else {
+                path.asString() + nestingSeparator
+            }
 
         val nestingInfix =
-                if (nesting.isRoot()) {
-                    ""
-                }
-                else {
-                    nesting.asString() + ObjectNesting.delimiter
-                }
+            if (nesting.isRoot()) {
+                ""
+            }
+            else {
+                nesting.asString() + ObjectNesting.delimiter
+            }
 
         return pathPrefix + nestingInfix + ObjectNesting.encodeDelimiter(name.value)
     }
@@ -103,6 +108,10 @@ data class ObjectReference(
 
 
     override fun toString(): String {
+        if (isEmpty()) {
+            return "<empty>"
+        }
+
         return asString()
     }
 }

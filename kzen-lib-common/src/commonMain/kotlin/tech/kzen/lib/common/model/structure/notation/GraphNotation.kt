@@ -81,22 +81,17 @@ data class GraphNotation(
         }
 
         val notation = coalesce.values[objectLocation]
-                ?: throw IllegalArgumentException("Missing: $objectLocation")
+            ?: throw IllegalArgumentException("Missing: $objectLocation")
 
-        @Suppress("MoveVariableDeclarationIntoWhen")
         val isAttribute = notation.get(NotationConventions.isAttributePath)
-                ?: return BootstrapConventions.rootObjectLocation
+            ?: return BootstrapConventions.rootObjectLocation
 
-        val superReference =
-                when (isAttribute) {
-                    !is ScalarAttributeNotation ->
-                        TODO()
+        require(isAttribute is ScalarAttributeNotation) {
+            "Scalar 'is' attribute expected: $objectLocation - $isAttribute"
+        }
 
-                    else -> {
-                        val isValue = isAttribute.value
-                        ObjectReference.parse(isValue)
-                    }
-                }
+        val isValue = isAttribute.value
+        val superReference = ObjectReference.parse(isValue)
 
         return coalesce.locate(superReference, ObjectReferenceHost.ofLocation(objectLocation))
     }
@@ -181,8 +176,8 @@ data class GraphNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun firstAttribute(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName
     ): AttributeNotation {
         return firstAttribute(
                 objectLocation, AttributePath.ofName(attributeName))
@@ -194,18 +189,18 @@ data class GraphNotation(
      * Traverse inheritance chain (starting at objectLocation) until finding attributePath from the closest ancestor.
      */
     fun firstAttribute(
-            objectLocation: ObjectLocation,
-            attributePath: AttributePath
+        objectLocation: ObjectLocation,
+        attributePath: AttributePath
     ): AttributeNotation? {
         val notation = coalesce.values[objectLocation]
-                ?: throw IllegalArgumentException("Unknown object location: $objectLocation")
+            ?: throw IllegalArgumentException("Unknown object location: $objectLocation")
 
         val attributeNotation = notation.get(attributePath)
         if (attributeNotation != null) {
             return attributeNotation
         }
 
-        @Suppress("MoveVariableDeclarationIntoWhen")
+        @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
         val isAttribute = notation.get(NotationConventions.isAttributePath)
 
         val superReference =
@@ -243,11 +238,11 @@ data class GraphNotation(
 
 
     fun getString(objectLocation: ObjectLocation, attributePath: AttributePath): String {
-        val scalarParameter = firstAttribute(objectLocation, attributePath)
-                ?: throw IllegalArgumentException("Not found: $objectLocation.$attributePath")
+        val firstAttribute = firstAttribute(objectLocation, attributePath)
+            ?: throw IllegalArgumentException("Not found: $objectLocation.$attributePath")
 
-        return scalarParameter.asString()
-            ?: throw IllegalArgumentException("Expected string ($objectLocation.$attributePath): $scalarParameter")
+        return firstAttribute.asString()
+            ?: throw IllegalArgumentException("Expected string ($objectLocation.$attributePath): $firstAttribute")
     }
 
 

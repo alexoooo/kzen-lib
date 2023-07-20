@@ -14,26 +14,27 @@ import tech.kzen.lib.common.reflect.Reflect
 @Reflect
 object DefinitionAttributeCreator: AttributeCreator {
     override fun create(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            graphStructure: GraphStructure,
-            objectDefinition: ObjectDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        graphStructure: GraphStructure,
+        objectDefinition: ObjectDefinition,
+        partialGraphInstance: GraphInstance
     ): Any? {
         val attributeDefinition = objectDefinition.attributeDefinitions.values[attributeName]
-                ?: throw IllegalArgumentException(
-                    "Attribute definition missing: $objectLocation - $attributeName - $objectDefinition")
+            ?: throw IllegalArgumentException(
+                "Attribute definition missing: $objectLocation - $attributeName - $objectDefinition")
 
         return createDefinition(
-                objectLocation, attributeDefinition, partialGraphInstance, graphStructure)
+                objectLocation, attributeDefinition, partialGraphInstance, graphStructure, attributeName)
     }
 
 
     private fun createDefinition(
-            objectLocation: ObjectLocation,
-            attributeDefinition: AttributeDefinition,
-            partialGraphInstance: GraphInstance,
-            graphStructure: GraphStructure
+        objectLocation: ObjectLocation,
+        attributeDefinition: AttributeDefinition,
+        partialGraphInstance: GraphInstance,
+        graphStructure: GraphStructure,
+        attributeName: AttributeName
     ): Any? {
         return when (attributeDefinition) {
             is ValueAttributeDefinition -> {
@@ -42,22 +43,26 @@ object DefinitionAttributeCreator: AttributeCreator {
 
             is ReferenceAttributeDefinition -> {
                 val objectReference = attributeDefinition.objectReference!!
-                
-                if (attributeDefinition.weak) {
-                    graphStructure.graphNotation.coalesce.locate(
-                            objectReference, ObjectReferenceHost.ofLocation(objectLocation))
+
+                if (objectReference.isEmpty()) {
+                    null
+                }
+                else if (attributeDefinition.weak) {
+                    graphStructure.graphNotation.coalesce.locateOptional(
+                        objectReference, ObjectReferenceHost.ofLocation(objectLocation)
+                    ) ?: throw IllegalArgumentException(
+                        "Missing $objectReference in $objectLocation for $attributeName - $attributeDefinition")
                 }
                 else {
                     val location = partialGraphInstance.objectInstances.locate(
                             objectReference, ObjectReferenceHost.ofLocation(objectLocation))
-
                     partialGraphInstance[location]?.reference
                 }
             }
 
             is ListAttributeDefinition ->
                 attributeDefinition.values.map {
-                    createDefinition(objectLocation, it, partialGraphInstance, graphStructure)
+                    createDefinition(objectLocation, it, partialGraphInstance, graphStructure, attributeName)
                 }
 
             else ->

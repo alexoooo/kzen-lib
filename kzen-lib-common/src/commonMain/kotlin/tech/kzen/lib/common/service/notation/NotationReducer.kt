@@ -103,6 +103,9 @@ class NotationReducer {
             is ShiftInAttributeCommand ->
                 shiftInAttribute(graphNotation, structuralNotationCommand)
 
+            is AddObjectAtAttributeCommand ->
+                addObjectAtAttribute(graphNotation, structuralNotationCommand)
+
             is InsertObjectInListAttributeCommand ->
                 insertObjectInListAttribute(graphNotation, structuralNotationCommand)
 
@@ -939,6 +942,42 @@ class NotationReducer {
         return NotationTransition(
                 ShiftedInAttributeEvent(removedInAttribute, reinsertedInAttribute),
                 builder.graphNotation)
+    }
+
+
+    private fun addObjectAtAttribute(
+        graphNotation: GraphNotation,
+        command: AddObjectAtAttributeCommand
+    ): NotationTransition {
+        val buffer = StructuralBuffer(graphNotation)
+
+        val objectLocation = command.insertedObjectLocation()
+
+        val objectAdded = buffer
+                .apply(AddObjectCommand(
+                        objectLocation,
+                        command.positionInDocument,
+                        command.objectNotation))
+                as AddedObjectEvent
+
+        val addendReference = objectLocation.toReference()
+                .crop(retainPath = false)
+
+//        val existingValue = graphNotation.getString(
+//            command.containingObjectLocation, AttributePath.ofName(command.containingAttribute))
+
+        val insertAtAttributeCommand = UpsertAttributeCommand(
+                command.containingObjectLocation,
+                command.containingAttribute,
+                ScalarAttributeNotation(addendReference.asString()))
+
+        val addedAtAttribute = buffer
+                .apply(insertAtAttributeCommand)
+                as UpsertedAttributeEvent
+
+        return NotationTransition(
+            AddedObjectAtAttributeEvent(objectAdded, addedAtAttribute),
+                buffer.graphNotation)
     }
 
 

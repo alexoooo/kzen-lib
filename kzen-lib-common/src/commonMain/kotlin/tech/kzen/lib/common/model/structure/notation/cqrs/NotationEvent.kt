@@ -228,6 +228,17 @@ data class ShiftedInAttributeEvent(
 }
 
 
+data class AddedObjectAtAttributeEvent(
+        val addedObject: AddedObjectEvent,
+        val addedInAttribute: UpsertedAttributeEvent
+): CompoundNotationEvent(
+        listOf(addedObject, addedInAttribute)
+) {
+    override val documentPath: DocumentPath
+        get() = addedObject.documentPath
+}
+
+
 data class InsertedObjectInListAttributeEvent(
         val addedObject: AddedObjectEvent,
         val insertedInAttribute: InsertedListItemInAttributeEvent

@@ -18,19 +18,19 @@ object WeakAttributeDefiner/*(
 )*/: AttributeDefiner {
     //-----------------------------------------------------------------------------------------------------------------
     override fun define(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            graphStructure: GraphStructure,
-            partialGraphDefinition: GraphDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        graphStructure: GraphStructure,
+        partialGraphDefinition: GraphDefinition,
+        partialGraphInstance: GraphInstance
     ): AttributeDefinitionAttempt {
         val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]!!
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
-                ?: graphStructure.graphNotation.firstAttribute(
-                        objectLocation, attributeName.asAttributePath())
-                ?: return AttributeDefinitionAttempt.failure(
-                        "Unknown attribute: $objectLocation - $attributeName")
+            ?: graphStructure.graphNotation.firstAttribute(
+                objectLocation, attributeName.asAttributePath())
+            ?: return AttributeDefinitionAttempt.failure(
+                "Unknown attribute: $objectLocation - $attributeName")
 
         return when (attributeNotation) {
             is ScalarAttributeNotation ->
@@ -89,9 +89,13 @@ object WeakAttributeDefiner/*(
     private fun defineScalar(
 //            objectLocation: ObjectLocation,
 //            attributeName: AttributeName,
-            scalarAttributeNotation: ScalarAttributeNotation
+        scalarAttributeNotation: ScalarAttributeNotation
     ): AttributeDefinitionAttempt {
         val objectReference = scalarAttributeNotation.asString().let { ObjectReference.parse(it) }
+
+        if (objectReference.isEmpty()) {
+            return AttributeDefinitionAttempt.failure("Empty object reference")
+        }
 
 //        val value: ObjectReference =
 //                if (reference) {

@@ -17,16 +17,14 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 @Reflect
 object AttributeObjectCreator: ObjectCreator {
-//    companion object {
-        private val defaultParameterCreator = ObjectReference.parse(
-                DefinitionAttributeCreator::class.simpleName!!)
-//    }
+    private val defaultParameterCreator = ObjectReference.parse(
+            DefinitionAttributeCreator::class.simpleName!!)
 
     override fun create(
-            objectLocation: ObjectLocation,
-            graphStructure: GraphStructure,
-            objectDefinition: ObjectDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        graphStructure: GraphStructure,
+        objectDefinition: ObjectDefinition,
+        partialGraphInstance: GraphInstance
     ): ObjectInstance {
         val objectMetadata = graphStructure.graphMetadata.get(objectLocation)
                 ?: throw IllegalArgumentException("Missing metadata: $objectLocation")
@@ -42,7 +40,6 @@ object AttributeObjectCreator: ObjectCreator {
             val argumentAttribute = AttributeName(argumentName)
 
             val attributeMetadata = objectMetadata.attributes.values[argumentAttribute]
-//                    ?: throw IllegalArgumentException("Attribute metadata not found: $argumentAttribute")
 
             val attributeCreatorReference = attributeMetadata
                     ?.creatorReference

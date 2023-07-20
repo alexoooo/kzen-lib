@@ -127,7 +127,7 @@ class DirectGraphStore(
 
 
     private fun graphStructure(
-            graphNotation: GraphNotation
+        graphNotation: GraphNotation
     ): GraphStructure {
         val graphMetadata = notationMetadataReader.read(graphNotation)
         return GraphStructure(graphNotation, graphMetadata)
@@ -149,7 +149,7 @@ class DirectGraphStore(
 
 
     private fun graphDefinition(
-            graphStructure: GraphStructure
+        graphStructure: GraphStructure
     ): GraphDefinitionAttempt {
         return graphDefiner.tryDefine(graphStructure)
     }
@@ -162,9 +162,8 @@ class DirectGraphStore(
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun apply(
-            command: NotationCommand
+        command: NotationCommand
     ): NotationEvent {
-        @Suppress("UnnecessaryVariable")
         val notationEvent = applyInPlace(command)
         publishSuccess(notationEvent)
         return notationEvent
@@ -172,7 +171,7 @@ class DirectGraphStore(
 
 
     private suspend fun applyInPlace(
-            command: NotationCommand
+        command: NotationCommand
     ): NotationEvent {
         val notationScan = notationMedia.scan()
         val graphNotation = graphNotation(notationScan)

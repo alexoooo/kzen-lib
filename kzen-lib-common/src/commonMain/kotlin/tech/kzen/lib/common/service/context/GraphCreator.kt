@@ -25,12 +25,13 @@ class GraphCreator {
 
     private data class UnsatisfiedSet(
         val locations: List<ObjectLocation>,
-        val references: List<UnsatisfiedReference>)
+        val references: List<UnsatisfiedReference>
+    )
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
-            graphDefinition: GraphDefinition
+        graphDefinition: GraphDefinition
     ): GraphInstance {
         val graphStructure = graphDefinition.graphStructure
         var partialObjectGraph = GraphDefiner.bootstrapObjects
@@ -52,7 +53,7 @@ class GraphCreator {
             val creator = partialObjectGraph[creatorPath]?.reference as? ObjectCreator
                     ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
-            @Suppress("ConvertArgumentToSet", "ConvertArgumentToSet") val instance = creator.create(
+            val instance = creator.create(
                     objectLocation,
                     graphStructure,
                     objectDefinition,

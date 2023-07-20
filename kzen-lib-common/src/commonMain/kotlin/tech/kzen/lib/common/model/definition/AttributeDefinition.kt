@@ -7,21 +7,21 @@ sealed class AttributeDefinition
 
 
 data class ValueAttributeDefinition(
-        val value: Any?
+    val value: Any?
 ): AttributeDefinition()
 
 
 data class ReferenceAttributeDefinition(
-        val objectReference: ObjectReference?,
-        val weak: Boolean = false
+    val objectReference: ObjectReference?,
+    val weak: Boolean = false
 ): AttributeDefinition()
 
 
 data class ListAttributeDefinition(
-        val values: List<AttributeDefinition>
+    val values: List<AttributeDefinition>
 ): AttributeDefinition()
 
 
 data class MapAttributeDefinition(
-        val values: Map<String, AttributeDefinition>
+    val values: Map<String, AttributeDefinition>
 ): AttributeDefinition()
