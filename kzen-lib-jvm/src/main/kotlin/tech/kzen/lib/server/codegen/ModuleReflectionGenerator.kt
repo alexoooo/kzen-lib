@@ -19,6 +19,8 @@ import java.util.stream.Collectors
 
 
 // TODO: handle trailing comma in constructor
+// TODO: sort imports so that [Optimize imports] doesn't change the code
+// TODO: detect if existing file is identical (except timestamp) to avoid code change
 object ModuleReflectionGenerator
 {
     //-----------------------------------------------------------------------------------------------------------------

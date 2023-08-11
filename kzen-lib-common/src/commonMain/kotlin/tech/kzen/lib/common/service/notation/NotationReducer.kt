@@ -901,47 +901,49 @@ class NotationReducer {
         state: GraphNotation,
         command: ShiftInAttributeCommand
     ): NotationTransition {
-        val objectNotation = state.coalesce[command.objectLocation]!!
+        val objectNotation = state.coalesce[command.objectLocation]
+            ?: throw IllegalArgumentException("Object location not found: $command")
 
         val containerPath = command.attributePath.parent()
         val containerNotation = objectNotation.get(containerPath) as StructuredAttributeNotation
 
-        val attributeNotation = objectNotation.get(command.attributePath)!!
+        val attributeNotation = objectNotation.get(command.attributePath)
+            ?: throw IllegalArgumentException("Attribute path not found: $command")
 
         val builder = StructuralBuffer(state)
 
         val removedInAttribute = builder
-                .apply(RemoveInAttributeCommand(
-                    command.objectLocation,
-                    command.attributePath,
-                    false
-                )) as RemovedInAttributeEvent
+            .apply(RemoveInAttributeCommand(
+                command.objectLocation,
+                command.attributePath,
+                false
+            )) as RemovedInAttributeEvent
 
         val insertCommand = when (containerNotation) {
             is ListAttributeNotation ->
                 InsertListItemInAttributeCommand(
-                        command.objectLocation,
-                        containerPath,
-                        command.newPosition,
-                        attributeNotation)
+                    command.objectLocation,
+                    containerPath,
+                    command.newPosition,
+                    attributeNotation)
 
             is MapAttributeNotation ->
                 InsertMapEntryInAttributeCommand(
-                        command.objectLocation,
-                        containerPath,
-                        command.newPosition,
-                        command.attributePath.nesting.segments.last(),
-                        attributeNotation,
-                        false)
+                    command.objectLocation,
+                    containerPath,
+                    command.newPosition,
+                    command.attributePath.nesting.segments.last(),
+                    attributeNotation,
+                    false)
         }
 
         val reinsertedInAttribute = builder
-                .apply(insertCommand)
-                as InsertedInAttributeEvent
+            .apply(insertCommand)
+            as InsertedInAttributeEvent
 
         return NotationTransition(
-                ShiftedInAttributeEvent(removedInAttribute, reinsertedInAttribute),
-                builder.graphNotation)
+            ShiftedInAttributeEvent(removedInAttribute, reinsertedInAttribute),
+            builder.graphNotation)
     }
 
 
@@ -954,26 +956,26 @@ class NotationReducer {
         val objectLocation = command.insertedObjectLocation()
 
         val objectAdded = buffer
-                .apply(AddObjectCommand(
-                        objectLocation,
-                        command.positionInDocument,
-                        command.objectNotation))
-                as AddedObjectEvent
+            .apply(AddObjectCommand(
+                objectLocation,
+                command.positionInDocument,
+                command.objectNotation))
+            as AddedObjectEvent
 
         val addendReference = objectLocation.toReference()
-                .crop(retainPath = false)
+            .crop(retainPath = false)
 
 //        val existingValue = graphNotation.getString(
 //            command.containingObjectLocation, AttributePath.ofName(command.containingAttribute))
 
         val insertAtAttributeCommand = UpsertAttributeCommand(
-                command.containingObjectLocation,
-                command.containingAttribute,
-                ScalarAttributeNotation(addendReference.asString()))
+            command.containingObjectLocation,
+            command.containingAttribute,
+            ScalarAttributeNotation(addendReference.asString()))
 
         val addedAtAttribute = buffer
-                .apply(insertAtAttributeCommand)
-                as UpsertedAttributeEvent
+            .apply(insertAtAttributeCommand)
+            as UpsertedAttributeEvent
 
         return NotationTransition(
             AddedObjectAtAttributeEvent(objectAdded, addedAtAttribute),
@@ -990,28 +992,28 @@ class NotationReducer {
         val objectLocation = command.insertedObjectLocation()
 
         val objectAdded = buffer
-                .apply(AddObjectCommand(
-                        objectLocation,
-                        command.positionInDocument,
-                        command.objectNotation))
-                as AddedObjectEvent
+            .apply(AddObjectCommand(
+                objectLocation,
+                command.positionInDocument,
+                command.objectNotation))
+            as AddedObjectEvent
 
         val addendReference = objectLocation.toReference()
-                .crop(retainPath = false)
+            .crop(retainPath = false)
 
         val insertInAttributeCommand = InsertListItemInAttributeCommand(
-                command.containingObjectLocation,
-                command.containingList,
-                command.indexInList,
-                ScalarAttributeNotation(addendReference.asString()))
+            command.containingObjectLocation,
+            command.containingList,
+            command.indexInList,
+            ScalarAttributeNotation(addendReference.asString()))
 
         val insertedInAttribute = buffer
-                .apply(insertInAttributeCommand)
-                as InsertedListItemInAttributeEvent
+            .apply(insertInAttributeCommand)
+            as InsertedListItemInAttributeEvent
 
         return NotationTransition(
-                InsertedObjectInListAttributeEvent(objectAdded, insertedInAttribute),
-                buffer.graphNotation)
+            InsertedObjectInListAttributeEvent(objectAdded, insertedInAttribute),
+            buffer.graphNotation)
     }
 
 
@@ -1049,7 +1051,7 @@ class NotationReducer {
         command: RemoveObjectInAttributeCommand
     ): NotationTransition {
         val objectNotation = state.coalesce[command.containingObjectLocation]
-                ?: throw IllegalArgumentException("Containing object not found: ${command.containingObjectLocation}")
+            ?: throw IllegalArgumentException("Containing object not found: ${command.containingObjectLocation}")
 
         val attributeNotation = objectNotation.get(command.attributePath)!!
         val objectReference = ObjectReference.parse(attributeNotation.asString()!!)
@@ -1083,16 +1085,16 @@ class NotationReducer {
                 .toList()
 
         val removedNestedObjects = nestedObjectLocations
-                .map {
-                    buffer.apply(RemoveObjectCommand(
-                            ObjectLocation(containingDocumentPath, it)
-                    )) as RemovedObjectEvent
-                }
+            .map {
+                buffer.apply(RemoveObjectCommand(
+                    ObjectLocation(containingDocumentPath, it)
+                )) as RemovedObjectEvent
+            }
 
         return NotationTransition(
-                RemovedObjectInAttributeEvent(
-                        removedInAttribute, removedObject, removedNestedObjects),
-                buffer.graphNotation)
+            RemovedObjectInAttributeEvent(
+                removedInAttribute, removedObject, removedNestedObjects),
+            buffer.graphNotation)
     }
 
 
@@ -1118,33 +1120,33 @@ class NotationReducer {
 
         val nestedObjects = nestedObjectLocations.map {
             nestedRenameObjectRefactor(
-                    ObjectLocation(objectLocation.documentPath, it.key),
-                    it.value.nesting,
-                    buffer,
-                    graphDefinitionAttempt
+                ObjectLocation(objectLocation.documentPath, it.key),
+                it.value.nesting,
+                buffer,
+                graphDefinitionAttempt
             )
         }
 
         val renamedObject = buffer
-                .apply(RenameObjectCommand(objectLocation, newName))
-                as RenamedObjectEvent
+            .apply(RenameObjectCommand(objectLocation, newName))
+            as RenamedObjectEvent
 
         val newObjectPath = objectLocation.objectPath.copy(name = newName)
         val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
 
         val adjustedReferenceCommands = adjustReferenceCommands(
-                objectLocation, newObjectLocation, graphDefinitionAttempt)
+            objectLocation, newObjectLocation, graphDefinitionAttempt)
 
         val adjustedReferenceEvents = adjustedReferenceCommands
-                .map { buffer.apply(it) as UpdatedInAttributeEvent }
-                .toList()
+            .map { buffer.apply(it) as UpdatedInAttributeEvent }
+            .toList()
 
         return NotationTransition(
-                RenamedObjectRefactorEvent(
-                        renamedObject,
-                        adjustedReferenceEvents,
-                        nestedObjects),
-                buffer.graphNotation)
+            RenamedObjectRefactorEvent(
+                renamedObject,
+                adjustedReferenceEvents,
+                nestedObjects),
+            buffer.graphNotation)
     }
 
 
@@ -1156,20 +1158,20 @@ class NotationReducer {
         val segments = nestedObjectPath.nesting.segments
 
         val prefix =
-                segments.subList(0, containerObjectLocation.objectPath.nesting.segments.size)
+            segments.subList(0, containerObjectLocation.objectPath.nesting.segments.size)
 
         val containingSegment =
-                segments[containerObjectLocation.objectPath.nesting.segments.size]
+            segments[containerObjectLocation.objectPath.nesting.segments.size]
 
         val renamedSegment = ObjectNestingSegment(
-                newName, containingSegment.attributePath)
+            newName, containingSegment.attributePath)
 
         val suffix = segments.subList(prefix.size + 2, segments.size)
 
         return nestedObjectPath.copy(
-                nesting = ObjectNesting((
-                        prefix + listOf(renamedSegment) + suffix
-                ).toPersistentList()))
+            nesting = ObjectNesting((
+                prefix + listOf(renamedSegment) + suffix
+            ).toPersistentList()))
     }
 
 
@@ -1180,20 +1182,20 @@ class NotationReducer {
         graphDefinitionAttempt: GraphDefinitionAttempt
     ): NestedObjectRename {
         val renamedObject = buffer
-                .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
-                as RenamedNestedObjectEvent
+            .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
+            as RenamedNestedObjectEvent
 
         val newObjectLocation = renamedObject.newObjectLocation()
 
         val adjustedReferenceCommands = adjustReferenceCommands(
-                objectLocation, newObjectLocation, graphDefinitionAttempt)
+            objectLocation, newObjectLocation, graphDefinitionAttempt)
 
         val adjustedReferenceEvents = adjustedReferenceCommands
-                .map { buffer.apply(it) as UpdatedInAttributeEvent }
-                .toList()
+            .map { buffer.apply(it) as UpdatedInAttributeEvent }
+            .toList()
 
         return NestedObjectRename(
-                renamedObject, adjustedReferenceEvents)
+            renamedObject, adjustedReferenceEvents)
     }
 
 
@@ -1210,13 +1212,13 @@ class NotationReducer {
 
         for (referenceLocation in referenceLocations) {
             val existingReferenceDefinition =
-                    graphDefinitionAttempt
-                        .objectDefinitions[referenceLocation.objectLocation]
-                        ?.get(referenceLocation.attributePath)
-                    ?: graphDefinitionAttempt
-                            .failures[referenceLocation.objectLocation]!!
-                            .partial!!
-                            .get(referenceLocation.attributePath)
+                graphDefinitionAttempt
+                    .objectDefinitions[referenceLocation.objectLocation]
+                    ?.get(referenceLocation.attributePath)
+                ?: graphDefinitionAttempt
+                    .failures[referenceLocation.objectLocation]!!
+                    .partial!!
+                    .get(referenceLocation.attributePath)
 
             val existingReference =
                     (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
@@ -1230,9 +1232,9 @@ class NotationReducer {
             val newReferenceNotation = ScalarAttributeNotation(newReference.asString())
 
             commands.add(UpdateInAttributeCommand(
-                    referenceLocation.objectLocation,
-                    referenceLocation.attributePath,
-                    newReferenceNotation
+                referenceLocation.objectLocation,
+                referenceLocation.attributePath,
+                newReferenceNotation
             ))
         }
 
@@ -1252,10 +1254,10 @@ class NotationReducer {
 
             for (attributeReference in attributeReferences) {
                 if (! isReferenced(
-                                objectLocation,
-                                attributeReference.value,
-                                ObjectReferenceHost.ofLocation(hostObjectLocation),
-                                graphDefinitionAttempt)) {
+                        objectLocation,
+                        attributeReference.value,
+                        ObjectReferenceHost.ofLocation(hostObjectLocation),
+                        graphDefinitionAttempt)) {
                     continue
                 }
 
@@ -1270,7 +1272,7 @@ class NotationReducer {
 
         for (e in graphDefinitionAttempt.failures.values) {
             val partial = e.value.partial
-                    ?: continue
+                ?: continue
 
             locateInObjectDefinition(e.key, partial)
         }
@@ -1286,16 +1288,16 @@ class NotationReducer {
         graphDefinitionAttempt: GraphDefinitionAttempt
     ): Boolean {
         val referencedLocation = graphDefinitionAttempt
-                .objectDefinitions
-                .locateOptional(reference, host)
+            .objectDefinitions
+            .locateOptional(reference, host)
 
         if (referencedLocation == targetLocation) {
             return true
         }
 
         val partialReferencedLocation = graphDefinitionAttempt
-                .failures
-                .locateOptional(reference, host)
+            .failures
+            .locateOptional(reference, host)
 
         return partialReferencedLocation == targetLocation
     }
@@ -1317,26 +1319,26 @@ class NotationReducer {
         val newDocumentPath = documentPath.withName(newName)
 
         val createdWithNewName = buffer
-                .apply(CopyDocumentCommand(
-                        documentPath,
-                        newDocumentPath
-                ))
-                as CopiedDocumentEvent
+            .apply(CopyDocumentCommand(
+                documentPath,
+                newDocumentPath
+            ))
+            as CopiedDocumentEvent
 
         val removedUnderOldName = buffer
-                .apply(DeleteDocumentCommand(documentPath))
-                as DeletedDocumentEvent
+            .apply(DeleteDocumentCommand(documentPath))
+            as DeletedDocumentEvent
 
         val adjustedReferenceEvents = adjustReferencesForRenamedDocument(
                 documentPath, newDocumentPath, documentNotation, graphDefinitionAttempt, buffer)
 
         return NotationTransition(
-                RenamedDocumentRefactorEvent(
-                        createdWithNewName,
-                        removedUnderOldName,
-                        adjustedReferenceEvents
-                ),
-                buffer.graphNotation)
+            RenamedDocumentRefactorEvent(
+                createdWithNewName,
+                removedUnderOldName,
+                adjustedReferenceEvents
+            ),
+            buffer.graphNotation)
     }
 
 
@@ -1349,11 +1351,11 @@ class NotationReducer {
     ): List<UpdatedInAttributeEvent> {
         // NB: only top-level (root) objects cross-document reference are currently supported
         val rootObjectPaths = documentNotation
-                .objects
-                .notations
-                .values
-                .keys
-                .filter { it.nesting.isRoot() }
+            .objects
+            .notations
+            .values
+            .keys
+            .filter { it.nesting.isRoot() }
 
         val allAdjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
 
@@ -1362,10 +1364,10 @@ class NotationReducer {
             val newObjectLocation = ObjectLocation(newDocumentPath, adjustedObjectPath)
 
             val adjustedReferenceCommands = adjustReferenceCommands(
-                    rootObjectLocation, newObjectLocation, graphDefinitionAttempt)
+                rootObjectLocation, newObjectLocation, graphDefinitionAttempt)
 
             val adjustedReferenceEvents = adjustedReferenceCommands
-                    .map { buffer.apply(it) as UpdatedInAttributeEvent }
+                .map { buffer.apply(it) as UpdatedInAttributeEvent }
 
             allAdjustedReferenceEvents.addAll(adjustedReferenceEvents)
         }
@@ -1394,18 +1396,18 @@ class NotationReducer {
         val contentDigest = command.resourceContent.digest()
 
         val modifiedDocumentNotation =
-                documentNotation.withNewResource(
-                        command.resourceLocation.resourcePath,
-                        contentDigest)
+            documentNotation.withNewResource(
+                command.resourceLocation.resourcePath,
+                contentDigest)
 
         val nextState = state.withModifiedDocument(
-                command.resourceLocation.documentPath, modifiedDocumentNotation)
+            command.resourceLocation.documentPath, modifiedDocumentNotation)
 
         return NotationTransition(
-                AddedResourceEvent(
-                        command.resourceLocation,
-                        contentDigest),
-                nextState)
+            AddedResourceEvent(
+                command.resourceLocation,
+                contentDigest),
+            nextState)
     }
 
 
@@ -1426,15 +1428,15 @@ class NotationReducer {
         }
 
         val modifiedDocumentNotation =
-                documentNotation.withoutResource(
-                        command.resourceLocation.resourcePath)
+            documentNotation.withoutResource(
+                command.resourceLocation.resourcePath)
 
         val nextState = state.withModifiedDocument(
-                command.resourceLocation.documentPath, modifiedDocumentNotation)
+            command.resourceLocation.documentPath, modifiedDocumentNotation)
 
         return NotationTransition(
-                RemovedResourceEvent(
-                        command.resourceLocation),
-                nextState)
+            RemovedResourceEvent(
+                command.resourceLocation),
+            nextState)
     }
 }

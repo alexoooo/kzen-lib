@@ -29,19 +29,19 @@ sealed class ResourceNotationCommand: StructuralNotationCommand()
 
 //---------------------------------------------------------------------------------------------------------------------
 data class CreateDocumentCommand(
-        val documentPath: DocumentPath,
-        val documentObjectNotation: DocumentObjectNotation
+    val documentPath: DocumentPath,
+    val documentObjectNotation: DocumentObjectNotation
 ): StructuralNotationCommand()
 
 
 data class DeleteDocumentCommand(
-        val documentPath: DocumentPath
+    val documentPath: DocumentPath
 ): StructuralNotationCommand()
 
 
 data class CopyDocumentCommand(
-        val sourceDocumentPath: DocumentPath,
-        val destinationDocumentPath: DocumentPath
+    val sourceDocumentPath: DocumentPath,
+    val destinationDocumentPath: DocumentPath
 ): StructuralNotationCommand()
 
 
@@ -56,21 +56,21 @@ data class AddObjectCommand(
 {
     companion object {
         fun ofParent(
-                objectLocation: ObjectLocation,
-                indexInDocument: PositionRelation,
-                parentName: ObjectName
+            objectLocation: ObjectLocation,
+            indexInDocument: PositionRelation,
+            parentName: ObjectName
         ): AddObjectCommand {
             return ofParent(
-                    objectLocation,
-                    indexInDocument,
-                    ObjectReference.ofRootName(parentName))
+                objectLocation,
+                indexInDocument,
+                ObjectReference.ofRootName(parentName))
         }
 
 
         fun ofParent(
-                objectLocation: ObjectLocation,
-                indexInDocument: PositionRelation,
-                parentReference: ObjectReference
+            objectLocation: ObjectLocation,
+            indexInDocument: PositionRelation,
+            parentReference: ObjectReference
         ): AddObjectCommand {
             val parentBody = ObjectNotation.ofParent(parentReference)
             return AddObjectCommand(objectLocation, indexInDocument, parentBody)
@@ -80,25 +80,25 @@ data class AddObjectCommand(
 
 
 data class RemoveObjectCommand(
-        val objectLocation: ObjectLocation
+    val objectLocation: ObjectLocation
 ): StructuralNotationCommand()
 
 
 data class ShiftObjectCommand(
-        val objectLocation: ObjectLocation,
-        val newPositionInDocument: PositionRelation
+    val objectLocation: ObjectLocation,
+    val newPositionInDocument: PositionRelation
 ): StructuralNotationCommand()
 
 
 data class RenameObjectCommand(
-        val objectLocation: ObjectLocation,
-        val newName: ObjectName
+    val objectLocation: ObjectLocation,
+    val newName: ObjectName
 ): StructuralNotationCommand()
 
 
 data class RenameNestedObjectCommand(
-        val objectLocation: ObjectLocation,
-        val newObjectNesting: ObjectNesting
+    val objectLocation: ObjectLocation,
+    val newObjectNesting: ObjectNesting
 ): StructuralNotationCommand()
 
 
@@ -110,9 +110,9 @@ data class RenameNestedObjectCommand(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class UpsertAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName,
-        val attributeNotation: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val attributeName: AttributeName,
+    val attributeNotation: AttributeNotation
 ): StructuralNotationCommand()
 
 
@@ -123,81 +123,81 @@ data class UpsertAttributeCommand(
 
 
 data class UpdateInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributePath: AttributePath,
-        val attributeNotation: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val attributePath: AttributePath,
+    val attributeNotation: AttributeNotation
 ): StructuralNotationCommand()
 
 
 data class UpdateAllNestingsInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName,
-        val attributeNestings: List<AttributeNesting>,
-        val attributeNotation: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val attributeName: AttributeName,
+    val attributeNestings: List<AttributeNesting>,
+    val attributeNotation: AttributeNotation
 ): StructuralNotationCommand()
 
 
 data class UpdateAllValuesInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName,
-        val nestingNotations: Map<AttributeNesting, AttributeNotation>
+    val objectLocation: ObjectLocation,
+    val attributeName: AttributeName,
+    val nestingNotations: Map<AttributeNesting, AttributeNotation>
 ): StructuralNotationCommand()
 
 
 data class InsertListItemInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val indexInList: PositionRelation,
-        val item: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val indexInList: PositionRelation,
+    val item: AttributeNotation
 ): StructuralNotationCommand()
 
 
 data class InsertAllListItemsInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val indexInList: PositionRelation,
-        val items: List<AttributeNotation>
+    val objectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val indexInList: PositionRelation,
+    val items: List<AttributeNotation>
 ): StructuralNotationCommand()
 
 
 // TODO: add UpsertMapEntryInAttributeCommand using AttributeTypedLocation instead of createAncestorsIfAbsent?
 data class InsertMapEntryInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val containingMap: AttributePath,
-        val indexInMap: PositionRelation,
-        val mapKey: AttributeSegment,
-        val value: AttributeNotation,
-        val createAncestorsIfAbsent: Boolean
+    val objectLocation: ObjectLocation,
+    val containingMap: AttributePath,
+    val indexInMap: PositionRelation,
+    val mapKey: AttributeSegment,
+    val value: AttributeNotation,
+    val createAncestorsIfAbsent: Boolean
 ): StructuralNotationCommand()
 
 
 data class RemoveInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributePath: AttributePath,
-        val removeContainerIfEmpty: Boolean
+    val objectLocation: ObjectLocation,
+    val attributePath: AttributePath,
+    val removeContainerIfEmpty: Boolean
 ): StructuralNotationCommand()
 
 
 data class RemoveListItemInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val item: AttributeNotation,
-        val removeContainerIfEmpty: Boolean
+    val objectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val item: AttributeNotation,
+    val removeContainerIfEmpty: Boolean
 ): StructuralNotationCommand()
 
 
 data class RemoveAllListItemsInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val items: List<AttributeNotation>,
-        val removeContainerIfEmpty: Boolean
+    val objectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val items: List<AttributeNotation>,
+    val removeContainerIfEmpty: Boolean
 ): StructuralNotationCommand()
 
 
 data class ShiftInAttributeCommand(
-        val objectLocation: ObjectLocation,
-        val attributePath: AttributePath,
-        val newPosition: PositionRelation
+    val objectLocation: ObjectLocation,
+    val attributePath: AttributePath,
+    val newPosition: PositionRelation
 ): StructuralNotationCommand()
 
 
@@ -236,8 +236,8 @@ data class InsertObjectInListAttributeCommand(
 
 
 data class RemoveObjectInAttributeCommand(
-        val containingObjectLocation: ObjectLocation,
-        val attributePath: AttributePath
+    val containingObjectLocation: ObjectLocation,
+    val attributePath: AttributePath
 ): StructuralNotationCommand()
 
 
@@ -250,14 +250,14 @@ data class RemoveObjectInAttributeCommand(
 
 
 data class RenameObjectRefactorCommand(
-        val objectLocation: ObjectLocation,
-        val newName: ObjectName
+    val objectLocation: ObjectLocation,
+    val newName: ObjectName
 ): SemanticNotationCommand()
 
 
 data class RenameDocumentRefactorCommand(
-        val documentPath: DocumentPath,
-        val newName: DocumentName
+    val documentPath: DocumentPath,
+    val newName: DocumentName
 ): SemanticNotationCommand()
 
 
@@ -269,13 +269,13 @@ data class RenameDocumentRefactorCommand(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddResourceCommand(
-        val resourceLocation: ResourceLocation,
-        val resourceContent: ImmutableByteArray
+    val resourceLocation: ResourceLocation,
+    val resourceContent: ImmutableByteArray
 ): ResourceNotationCommand()
 
 
 data class RemoveResourceCommand(
-        val resourceLocation: ResourceLocation
+    val resourceLocation: ResourceLocation
 ): ResourceNotationCommand()
 
 
