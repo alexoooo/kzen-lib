@@ -5,11 +5,13 @@ import tech.kzen.lib.common.util.Digestible
 
 
 data class ResourceNesting(
-        val directories: List<ResourceDirectory>
+    val directories: List<ResourceDirectory>
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        @Suppress("ConstPropertyName")
         const val delimiter = "/"
+
         val empty = ResourceNesting(listOf())
 
 

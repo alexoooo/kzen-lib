@@ -4,7 +4,7 @@ import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
-import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.platform.ClassName
 
 

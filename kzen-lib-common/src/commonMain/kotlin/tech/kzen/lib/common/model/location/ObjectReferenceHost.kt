@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.model.locate
+package tech.kzen.lib.common.model.location
 
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentPath
@@ -31,10 +31,14 @@ data class ObjectReferenceHost(
             return "global"
         }
 
-        return (documentPath?.asString() ?: "") +
-                ObjectReference.nestingSeparator +
-                (objectPath?.asString() ?: "") +
-                ObjectReference.nestingSeparator +
-                (attributePath?.asString() ?: "")
+        val parts = mutableListOf<String>()
+        parts.add(documentPath?.asString() ?: "")
+        parts.add(objectPath?.asString() ?: "")
+
+        if (attributePath != null) {
+            parts.add(attributePath.asString())
+        }
+
+        return parts.joinToString(ObjectReference.nestingSeparator)
     }
 }

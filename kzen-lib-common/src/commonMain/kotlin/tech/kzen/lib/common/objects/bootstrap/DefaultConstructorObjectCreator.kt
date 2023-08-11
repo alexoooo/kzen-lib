@@ -5,7 +5,7 @@ import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.definition.ObjectDefinition
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
-import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect

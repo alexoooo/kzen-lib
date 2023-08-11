@@ -1,7 +1,7 @@
 package tech.kzen.lib.common
 
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.location.ObjectLocationMap
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.GraphNotation

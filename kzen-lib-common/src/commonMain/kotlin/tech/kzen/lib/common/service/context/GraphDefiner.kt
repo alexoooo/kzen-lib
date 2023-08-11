@@ -9,10 +9,10 @@ import tech.kzen.lib.common.model.definition.ObjectDefinitionFailure
 import tech.kzen.lib.common.model.definition.ObjectDefinitionSuccess
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
-import tech.kzen.lib.common.model.locate.ObjectReference
-import tech.kzen.lib.common.model.locate.ObjectReferenceHost
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocationMap
+import tech.kzen.lib.common.model.location.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath

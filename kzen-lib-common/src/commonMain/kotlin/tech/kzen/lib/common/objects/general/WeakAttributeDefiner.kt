@@ -4,8 +4,8 @@ import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.definition.*
 import tech.kzen.lib.common.model.instance.GraphInstance
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
@@ -62,9 +62,9 @@ object WeakAttributeDefiner/*(
                 when (definitionAttempt) {
                     is AttributeDefinitionSuccess -> {
                         val attributeDefinition =
-                                definitionAttempt.value as? ReferenceAttributeDefinition
-                                ?: TODO("ValueAttributeDefinition expected: ${definitionAttempt.value} - " +
-                                        "$objectLocation - $attributeName - $attributeNotation")
+                            definitionAttempt.value as? ReferenceAttributeDefinition
+                            ?: TODO("ValueAttributeDefinition expected: ${definitionAttempt.value} - " +
+                                    "$objectLocation - $attributeName - $attributeNotation")
 
                         items.add(attributeDefinition)
                     }

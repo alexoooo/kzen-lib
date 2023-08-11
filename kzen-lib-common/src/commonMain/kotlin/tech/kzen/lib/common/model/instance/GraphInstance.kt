@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.model.instance
 
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocationMap
 
 
 // TODO: add lifecycle methods for postConstruct and preDestroy?

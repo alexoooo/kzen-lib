@@ -8,8 +8,8 @@ import tech.kzen.lib.common.util.Digestible
  * Path to a resource within a document
  */
 data class ResourcePath(
-        val resourceName: ResourceName,
-        val resourceNesting: ResourceNesting
+    val resourceName: ResourceName,
+    val resourceNesting: ResourceNesting
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {

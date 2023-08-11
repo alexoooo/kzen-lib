@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.model.locate
+package tech.kzen.lib.common.model.location
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.obj.ObjectName

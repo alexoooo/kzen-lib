@@ -3,7 +3,7 @@ package tech.kzen.lib.common.service.store
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.locate.ResourceLocation
+import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation

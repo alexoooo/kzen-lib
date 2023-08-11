@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.model.definition
 
 import tech.kzen.lib.common.model.attribute.AttributeName
-import tech.kzen.lib.common.model.locate.ObjectLocationSet
+import tech.kzen.lib.common.model.location.ObjectLocationSet
 
 
 sealed class ObjectDefinitionAttempt {

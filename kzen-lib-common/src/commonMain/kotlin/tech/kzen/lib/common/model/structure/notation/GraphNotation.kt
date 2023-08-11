@@ -6,7 +6,7 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.locate.*
+import tech.kzen.lib.common.model.location.*
 import tech.kzen.lib.common.objects.bootstrap.BootstrapConventions
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.Digest
@@ -175,6 +175,15 @@ data class GraphNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun firstAttribute(
+        attributeLocation: AttributeLocation
+    ): AttributeNotation {
+        return firstAttribute(
+            attributeLocation.objectLocation, attributeLocation.attributePath)
+            ?: throw IllegalArgumentException("Unknown attribute: $attributeLocation")
+    }
+
+
     fun firstAttribute(
         objectLocation: ObjectLocation,
         attributeName: AttributeName

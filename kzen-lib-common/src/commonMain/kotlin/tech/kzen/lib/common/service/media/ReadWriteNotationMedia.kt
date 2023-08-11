@@ -2,7 +2,7 @@ package tech.kzen.lib.common.service.media
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.locate.ResourceLocation
+import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.util.Digest

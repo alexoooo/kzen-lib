@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.model.structure.metadata
 
-import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible

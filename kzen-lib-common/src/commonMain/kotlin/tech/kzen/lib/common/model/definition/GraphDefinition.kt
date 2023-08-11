@@ -2,10 +2,10 @@ package tech.kzen.lib.common.model.definition
 
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.locate.AttributeLocation
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
-import tech.kzen.lib.common.model.locate.ObjectReferenceHost
+import tech.kzen.lib.common.model.location.AttributeLocation
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocationMap
+import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.service.context.GraphDefiner
 

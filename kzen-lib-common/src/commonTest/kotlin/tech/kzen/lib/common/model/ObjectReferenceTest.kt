@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.model
 
-import tech.kzen.lib.common.model.locate.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import kotlin.test.Test
 import kotlin.test.assertEquals

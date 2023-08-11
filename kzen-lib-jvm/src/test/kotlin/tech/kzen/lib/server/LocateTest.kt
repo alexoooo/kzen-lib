@@ -3,9 +3,9 @@ package tech.kzen.lib.server
 import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectReference
-import tech.kzen.lib.common.model.locate.ObjectReferenceHost
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.service.context.GraphDefiner

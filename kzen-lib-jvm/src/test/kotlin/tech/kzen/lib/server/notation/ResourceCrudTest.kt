@@ -5,7 +5,7 @@ import org.junit.Test
 import tech.kzen.lib.common.model.document.DocumentName
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
-import tech.kzen.lib.common.model.locate.ResourceLocation
+import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.AddResourceCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.CreateDocumentCommand

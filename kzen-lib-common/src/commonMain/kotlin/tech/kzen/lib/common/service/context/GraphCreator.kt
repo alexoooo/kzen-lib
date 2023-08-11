@@ -3,10 +3,10 @@ package tech.kzen.lib.common.service.context
 import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.model.definition.GraphDefinition
 import tech.kzen.lib.common.model.instance.GraphInstance
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationSet
-import tech.kzen.lib.common.model.locate.ObjectReference
-import tech.kzen.lib.common.model.locate.ObjectReferenceHost
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocationSet
+import tech.kzen.lib.common.model.location.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectPath
 
 

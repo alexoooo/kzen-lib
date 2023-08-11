@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.service.store.normal
 
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
-import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
 import tech.kzen.lib.common.service.store.LocalGraphStore
 

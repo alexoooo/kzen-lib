@@ -1,8 +1,8 @@
 package tech.kzen.lib.common.model.structure.metadata
 
 import tech.kzen.lib.common.model.document.DocumentNesting
-import tech.kzen.lib.common.model.locate.ObjectLocation
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocationMap
 import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
 import tech.kzen.lib.platform.collect.toPersistentMap

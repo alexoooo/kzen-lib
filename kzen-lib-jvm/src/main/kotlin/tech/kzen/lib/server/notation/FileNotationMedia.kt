@@ -7,7 +7,7 @@ import com.google.common.io.RecursiveDeleteOption
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.locate.ResourceLocation
+import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.resource.ResourceListing
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
 import tech.kzen.lib.common.model.structure.scan.DocumentScan
@@ -25,7 +25,6 @@ import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
 
 
-@Suppress("UnstableApiUsage")
 class FileNotationMedia(
     private val notationLocator: FileNotationLocator,
     private val require: List<DocumentNesting> = listOf()

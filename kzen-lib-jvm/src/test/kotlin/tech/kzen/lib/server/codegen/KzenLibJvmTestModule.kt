@@ -12,7 +12,7 @@ import tech.kzen.lib.server.objects.autowire.ObjectGroup
 import tech.kzen.lib.server.objects.autowire.ObjectItem
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
-import tech.kzen.lib.common.model.locate.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.server.objects.CommentArgObject
 import tech.kzen.lib.server.objects.custom.CustomDefined
 import tech.kzen.lib.server.objects.custom.CustomModel

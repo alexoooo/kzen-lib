@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.model.definition
 
-import tech.kzen.lib.common.model.locate.ObjectLocationMap
-import tech.kzen.lib.common.model.locate.ObjectReferenceHost
+import tech.kzen.lib.common.model.location.ObjectLocationMap
+import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.service.context.GraphDefiner
 
