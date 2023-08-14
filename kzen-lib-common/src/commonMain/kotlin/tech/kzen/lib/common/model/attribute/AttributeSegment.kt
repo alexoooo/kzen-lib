@@ -23,7 +23,7 @@ data class AttributeSegment private constructor(
 
 
         fun ofIndex(index: Int): AttributeSegment {
-            check(index >= 0) { "Must not be negative: $index" }
+            check(index >= 0) { "Attribute segment - index must not be negative: $index" }
             return AttributeSegment(index.toString())
         }
     }

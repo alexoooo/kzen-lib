@@ -97,4 +97,24 @@ BAZ: 'baz'  # baz
         assertEquals("bar", node.values["BAR"]?.toObject())
         assertEquals("baz", node.values["BAZ"]?.toObject())
     }
+
+
+    @Test
+    fun singleQuotedMapKey() {
+        val node = YamlParser.parse("""
+'a - b\'"': x
+""") as YamlMap
+
+        assertEquals("x", node.values["a - b'\""]?.toObject())
+    }
+
+
+    @Test
+    fun doubleQuotedMapKey() {
+        val node = YamlParser.parse("""
+"a - b\"": x
+""") as YamlMap
+
+        assertEquals("x", node.values["a - b\""]?.toObject())
+    }
 }

@@ -14,33 +14,40 @@ object YamlParser {
 
     private object Patterns {
         val lineBreak = Regex(
-                "\r\n|\n")
+            "\r\n|\n")
 
         val decorator = Regex(
-                "#(.*)")
+            "#(.*)")
 
         // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
         // https://stackoverflow.com/questions/4264877/why-is-the-slash-an-escapable-character-in-json
         private const val bareStringPattern =
             "([0-9a-zA-Z_\\-/.][0-9a-zA-Z_\\-/. ]*[0-9a-zA-Z_\\-/.]|[0-9a-zA-Z_\\-/.]+)"
+
+        private const val singleQuotedString =
+            "'((?:[^']|\\\\(?:['/bfnrt]|u[0-9a-fA-F]{4}))*)'"
+
         private const val doubleQuotedString =
-                "\"((?:[^\"]|\\(?:[\"/bfnrt]|u[0-9a-fA-F]{4})*)\""
+            "\"((?:[^\"]|\\\\(?:[\"/bfnrt]|u[0-9a-fA-F]{4}))*)\""
 
         private const val entrySuffix = "\\s*:\\s*(.*)"
 
         val entryBare = Regex(
-                "$bareStringPattern$entrySuffix")
+            "$bareStringPattern$entrySuffix")
+
+        val entrySingleQuoted = Regex(
+            "$singleQuotedString$entrySuffix")
 
         val entryDoubleQuoted = Regex(
-                "$doubleQuotedString$entrySuffix")
+            "$doubleQuotedString$entrySuffix")
 
         val item = Regex(
-                "- .*")
+            "- .*")
 
         val bareString = Regex(
-                bareStringPattern)
-        val bareStringX = Regex(
-            doubleQuotedString)
+            bareStringPattern)
+//        val bareStringX = Regex(
+//            doubleQuotedString)
     }
 
 
@@ -313,6 +320,7 @@ object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun matchEntireEntry(line: String): MatchResult? {
         return Patterns.entryBare.matchEntire(line)
+                ?: Patterns.entrySingleQuoted.matchEntire(line)
                 ?: Patterns.entryDoubleQuoted.matchEntire(line)
     }
 
