@@ -1,5 +1,7 @@
+import org.jetbrains.kotlin.gradle.targets.js.yarn.yarn
+
 plugins {
-    id("org.jetbrains.kotlin.js")
+    kotlin("multiplatform")
     `maven-publish`
 }
 
@@ -9,15 +11,21 @@ kotlin {
         useCommonJs()
         browser()
     }
-}
 
+    sourceSets {
+        val jsMain by getting {
+            dependencies {
+                implementation(project(":kzen-lib-common"))
+                implementation(npm("core-js", coreJsVersion))
+            }
+        }
 
-dependencies {
-    implementation(project(":kzen-lib-common"))
-
-    implementation(npm("core-js", coreJsVersion))
-
-    testImplementation(kotlin("test"))
+        val jsTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+            }
+        }
+    }
 }
 
 
@@ -26,9 +34,13 @@ publishing {
         mavenLocal()
     }
 
-    publications {
-        create<MavenPublication>("js") {
-            from(components["kotlin"])
-        }
-    }
+//    publications {
+//        create<MavenPublication>("js-pub") {
+//            from(components["kotlin"])
+//        }
+//    }
 }
+
+
+// https://youtrack.jetbrains.com/issue/KT-52578/KJS-Gradle-KotlinNpmInstallTask-gradle-task-produces-unsolvable-warning-ignored-scripts-due-to-flag.
+yarn.ignoreScripts = false

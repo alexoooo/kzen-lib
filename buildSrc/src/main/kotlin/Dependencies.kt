@@ -6,7 +6,7 @@ const val jvmTargetVersion = "19"
 const val javaVersion = 19
 const val jvmToolchainVersion = 19
 
-const val coroutinesVersion = "1.7.2"
+const val coroutinesVersion = "1.7.3"
 
 const val guavaVersion = "32.1.3-jre"
 const val dexxVersion = "0.7"
