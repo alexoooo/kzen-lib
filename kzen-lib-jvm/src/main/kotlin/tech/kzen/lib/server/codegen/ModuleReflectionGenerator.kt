@@ -122,7 +122,7 @@ object ModuleReflectionGenerator
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
 
         for ((sourceFile, sourceCode) in reflectSources) {
-//            if (sourceFile.fileName.toString() == "ReportDocument.kt") {
+//            if (sourceFile.fileName.toString() == "DoubleValue.kt") {
 //                println("foo")
 //            }
 
@@ -152,11 +152,23 @@ object ModuleReflectionGenerator
 
 
     private fun reflectedClassNames(
-            sourceClassName: ClassName,
-            sourceCode: String
+        sourceClassName: ClassName,
+        sourceCode: String
     ): List<ClassName> {
-        val firstReflectAnnotationIndex = sourceCode.indexOf("@${Reflect.simpleName}")
-        val sourceConstructorIndex = sourceCode.indexOf(sourceClassName.simple())
+        val startOfLastImport = sourceCode.lastIndexOf("\n$importPrefix")
+
+        val endOfImports =
+            if (startOfLastImport == -1) {
+                0
+            }
+            else {
+                sourceCode.indexOf('\n', startOfLastImport + 1) + 1
+            }
+
+        val afterImports = sourceCode.substring(endOfImports)
+
+        val firstReflectAnnotationIndex = afterImports.indexOf("@${Reflect.simpleName}")
+        val sourceConstructorIndex = afterImports.indexOf(sourceClassName.simple())
 
         if (firstReflectAnnotationIndex < sourceConstructorIndex) {
             return listOf(sourceClassName)
@@ -165,17 +177,16 @@ object ModuleReflectionGenerator
         val builder = mutableListOf<ClassName>()
         var nextReflectAnnotationIndex = firstReflectAnnotationIndex
         while (nextReflectAnnotationIndex != -1) {
-//            val startOfClass = sourceCode.indexOf(classPrefix, nextReflectAnnotationIndex) + classPrefix.length
-            val startOfClass = nextClassOrObject(sourceCode, nextReflectAnnotationIndex)
+            val startOfClass = nextClassOrObject(afterImports, nextReflectAnnotationIndex)
             check(startOfClass != -1)
 
-            val endOfClass = sourceCode.indexOfAny(" :\r\n<({".toCharArray(), startOfClass)
+            val endOfClass = afterImports.indexOfAny(" :\r\n<({".toCharArray(), startOfClass)
 
-            val simpleName = sourceCode.substring(startOfClass, endOfClass).trim()
+            val simpleName = afterImports.substring(startOfClass, endOfClass).trim()
 
             builder.add(ClassName(sourceClassName.get() + "$" + simpleName))
 
-            nextReflectAnnotationIndex = sourceCode.indexOf(
+            nextReflectAnnotationIndex = afterImports.indexOf(
                     "@${Reflect.simpleName}", nextReflectAnnotationIndex + 1)
         }
 
@@ -191,11 +202,7 @@ object ModuleReflectionGenerator
             return classPrefixIndex + classPrefix.length
         }
 
-        if (objectPrefixIndex != -1) {
-            return objectPrefixIndex + objectPrefix.length
-        }
-
-        return -1
+        return objectPrefixIndex + objectPrefix.length
     }
 
 
@@ -207,7 +214,7 @@ object ModuleReflectionGenerator
         sourceCode: String,
         dependencySourceDirs: List<Path>
     ):
-            ConstructorReflection
+        ConstructorReflection
     {
         val nestedName = sourceClass.nested()
         val nestedNameMatch = Regex(
