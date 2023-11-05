@@ -3,6 +3,7 @@ package tech.kzen.lib.platform.collect
 import tech.kzen.lib.platform.wrap.ImmutableList
 
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class PersistentList<out E> private constructor(
         private val delegate: ImmutableList<@UnsafeVariance E>
 ):

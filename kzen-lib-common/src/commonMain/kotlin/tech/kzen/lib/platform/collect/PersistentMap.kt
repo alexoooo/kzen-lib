@@ -5,6 +5,7 @@ package tech.kzen.lib.platform.collect
 // - iteration in same order as keys were inserted
 // - replacing existing value maintains order
 // - equals / hashCode are unordered, see equalsInOrder
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect class PersistentMap<K, out V>(): Map<K, V> {
     fun put(key: K, value: @UnsafeVariance V): PersistentMap<K, V>
 

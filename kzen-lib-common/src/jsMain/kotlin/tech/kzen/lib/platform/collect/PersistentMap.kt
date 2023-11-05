@@ -4,11 +4,12 @@ import tech.kzen.lib.platform.wrap.ImmutableOrderedMap
 import tech.kzen.lib.platform.wrap.IteratorResult
 
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class PersistentMap<K, out V> private constructor(
-        private val delegate: ImmutableOrderedMap<K, V>
+    private val delegate: ImmutableOrderedMap<K, V>
 ):
-        Map<K, V>,
-        AbstractMap<K, V>()
+    Map<K, V>,
+    AbstractMap<K, V>()
 {
     //-----------------------------------------------------------------------------------------------------------------
     actual constructor(): this(ImmutableOrderedMap())

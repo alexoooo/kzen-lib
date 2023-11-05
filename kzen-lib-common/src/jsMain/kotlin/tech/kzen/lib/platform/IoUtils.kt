@@ -3,6 +3,7 @@ package tech.kzen.lib.platform
 import org.khronos.webgl.Uint8Array
 
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual object IoUtils {
     actual fun utf8Encode(utf8: String): ByteArray {
         // from kotlinx.serialization String.toUtf8Bytes

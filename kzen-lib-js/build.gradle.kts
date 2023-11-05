@@ -13,14 +13,14 @@ kotlin {
     }
 
     sourceSets {
-        val jsMain by getting {
+        jsMain {
             dependencies {
                 implementation(project(":kzen-lib-common"))
                 implementation(npm("core-js", coreJsVersion))
             }
         }
 
-        val jsTest by getting {
+        jsTest {
             dependencies {
                 implementation(kotlin("test"))
             }
@@ -33,12 +33,6 @@ publishing {
     repositories {
         mavenLocal()
     }
-
-//    publications {
-//        create<MavenPublication>("js-pub") {
-//            from(components["kotlin"])
-//        }
-//    }
 }
 
 

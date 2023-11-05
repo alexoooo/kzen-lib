@@ -1,3 +1,4 @@
+
 plugins {
     kotlin("multiplatform")
     `maven-publish`
@@ -19,31 +20,32 @@ kotlin {
 
     js {
         browser {
-            testTask(Action {
+            testTask {
                 testLogging {
                     showExceptions = true
                     exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
                     showCauses = true
                     showStackTraces = true
                 }
-            })
+            }
         }
     }
 
     sourceSets {
-        val commonMain by getting {
+        commonMain {
             dependencies {
                 api("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
             }
         }
 
-        val commonTest by getting {
+        commonTest {
             dependencies {
                 implementation(kotlin("test"))
             }
         }
 
-        val jvmMain by getting {
+
+        jvmMain {
             dependencies {
                 implementation(kotlin("reflect"))
                 implementation("com.github.andrewoma.dexx:collection:$dexxVersion")
@@ -51,19 +53,19 @@ kotlin {
             }
         }
 
-        val jvmTest by getting {
+        jvmTest {
             dependencies {}
         }
 
 
-        val jsMain by getting {
+        jsMain {
             dependencies {
                 api("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:$coroutinesVersion")
                 implementation(npm("immutable", immutaleJsVersion))
             }
         }
 
-        val jsTest by getting {
+        jsTest {
             dependencies {}
         }
     }
@@ -74,10 +76,4 @@ publishing {
     repositories {
         mavenLocal()
     }
-
-//    publications {
-//        create<MavenPublication>("common") {
-//            from(components["kotlin"])
-//        }
-//    }
 }

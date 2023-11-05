@@ -4,6 +4,7 @@ import com.github.andrewoma.dexx.collection.Vector
 
 
 // TODO: investigate using https://github.com/lacuna/bifurcan
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING", "KotlinRedundantDiagnosticSuppress")
 actual class PersistentList<out E> private constructor(
         private val delegate: Vector<@UnsafeVariance E>
 ):

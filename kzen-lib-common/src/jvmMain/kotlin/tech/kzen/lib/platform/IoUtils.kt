@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets
 import java.util.*
 
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING", "KotlinRedundantDiagnosticSuppress")
 actual object IoUtils {
     actual fun utf8Decode(bytes: ByteArray): String {
         return String(bytes, StandardCharsets.UTF_8)

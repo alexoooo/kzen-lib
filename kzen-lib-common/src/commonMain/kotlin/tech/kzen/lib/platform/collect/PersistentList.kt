@@ -2,6 +2,7 @@ package tech.kzen.lib.platform.collect
 
 
 // NB: can't use https://github.com/Kotlin/kotlinx.collections.immutable because it's jvm-only
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 expect class PersistentList<out E>(): List<E>, RandomAccess
 {
     fun add(element: @UnsafeVariance E): PersistentList<E>

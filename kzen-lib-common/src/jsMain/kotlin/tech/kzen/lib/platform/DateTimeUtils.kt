@@ -3,6 +3,7 @@ package tech.kzen.lib.platform
 import kotlin.js.Date
 
 
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual object DateTimeUtils {
     actual fun filenameTimestamp(): String {
         val now = Date()
