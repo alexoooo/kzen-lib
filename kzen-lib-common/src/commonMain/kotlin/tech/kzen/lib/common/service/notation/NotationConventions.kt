@@ -53,6 +53,9 @@ object NotationConventions {
     val creatorAttributeName = AttributeName(creatorKey)
     val creatorAttributePath = AttributePath.ofName(creatorAttributeName)
 
+    const val nullableKey = "nullable"
+    val nullableAttributeSegment = AttributeSegment.ofKey(nullableKey)
+
 //    const val initializerKey = "init"
 //    val initializerAttributeSegment = AttributeSegment.ofKey(initializerKey)
 //    val initializerAttributeName = AttributeName(initializerKey)

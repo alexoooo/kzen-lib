@@ -49,7 +49,12 @@ object ParentChildAttributeDefiner: AttributeDefiner {
         }
 
         return AttributeDefinitionAttempt.success(
-                ListAttributeDefinition(
-                        children.map { ReferenceAttributeDefinition(it) }))
+            ListAttributeDefinition(
+                children.map {
+                    ReferenceAttributeDefinition(
+                        it,
+                        weak = false,
+                        nullable = false)
+                }))
     }
 }

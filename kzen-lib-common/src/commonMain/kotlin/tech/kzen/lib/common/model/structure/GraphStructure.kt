@@ -16,8 +16,8 @@ data class GraphStructure(
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = GraphStructure(
-                GraphNotation.empty,
-                GraphMetadata.empty)
+            GraphNotation.empty,
+            GraphMetadata.empty)
     }
 
 
@@ -28,8 +28,8 @@ data class GraphStructure(
     //-----------------------------------------------------------------------------------------------------------------
     fun filter(allowed: Set<DocumentNesting>): GraphStructure {
         return GraphStructure(
-                graphNotation.filter(allowed),
-                graphMetadata.filter(allowed))
+            graphNotation.filter(allowed),
+            graphMetadata.filter(allowed))
     }
 
 

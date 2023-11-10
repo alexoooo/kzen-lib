@@ -16,10 +16,10 @@ sealed class AttributeDefinitionAttempt {
 
 
 data class AttributeDefinitionSuccess(
-        val value: AttributeDefinition
+    val value: AttributeDefinition
 ): AttributeDefinitionAttempt()
 
 
 data class AttributeDefinitionFailure(
-        val errorMessage: String
+    val errorMessage: String
 ): AttributeDefinitionAttempt()

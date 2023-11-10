@@ -4,6 +4,6 @@ import tech.kzen.lib.common.reflect.Reflect
 
 
 @Reflect
-class StringHolder(
-    val value: String
+data class StringHolderNullableRef(
+    val stringHolderOrNull: StringHolder?
 )

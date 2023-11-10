@@ -109,8 +109,8 @@ object WeakAttributeDefiner/*(
 
         return AttributeDefinitionAttempt.success(
                 ReferenceAttributeDefinition(
-//                        value,
-                        objectReference,
-                        weak = true))
+                    objectReference,
+                    weak = true,
+                    nullable = false))
     }
 }

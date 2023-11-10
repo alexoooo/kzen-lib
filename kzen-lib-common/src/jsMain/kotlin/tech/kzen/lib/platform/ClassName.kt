@@ -10,11 +10,9 @@ actual data class ClassName actual constructor(
 ):
     Digestible
 {
-//    actual companion object {
-//        actual fun ofString(asString: String): ClassName {
-//            return ClassName(asString)
-//        }
-//    }
+    init {
+        require(! asString.endsWith("?"))
+    }
 
 
     actual fun get(): String {

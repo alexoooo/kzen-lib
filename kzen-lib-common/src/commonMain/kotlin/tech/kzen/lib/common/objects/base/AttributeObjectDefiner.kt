@@ -28,10 +28,10 @@ object AttributeObjectDefiner: ObjectDefiner {
 
 
     override fun define(
-            objectLocation: ObjectLocation,
-            graphStructure: GraphStructure,
-            partialGraphDefinition: GraphDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        graphStructure: GraphStructure,
+        partialGraphDefinition: GraphDefinition,
+        partialGraphInstance: GraphInstance
     ): ObjectDefinitionAttempt {
         val objectMetadata = graphStructure.graphMetadata.objectMetadata[objectLocation]
             ?: return ObjectDefinitionAttempt.failure(
@@ -49,10 +49,10 @@ object AttributeObjectDefiner: ObjectDefiner {
         val creatorRequired = mutableSetOf<ObjectReference>()
 
         fun partialDefinition() = ObjectDefinition(
-                className,
-                AttributeNameMap(attributeDefinitions.toPersistentMap()),
-                creatorReference,
-                creatorRequired)
+            className,
+            AttributeNameMap(attributeDefinitions.toPersistentMap()),
+            creatorReference,
+            creatorRequired)
 
         val attributeErrors = mutableMapOf<AttributeName, String>()
         val missingObjects = mutableSetOf<ObjectLocation>()

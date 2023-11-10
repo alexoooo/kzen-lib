@@ -67,8 +67,9 @@ data class GraphDefinition(
             for (openObjectLocation in open) {
                 val host = ObjectReferenceHost.ofLocation(openObjectLocation)
                 val openObjectDefinition = objectDefinitions[openObjectLocation]!!
-                for (objectReference in openObjectDefinition.references()) {
-                    if (GraphDefiner.bootstrapObjects.objectInstances.locateOptional(objectReference) != null) {
+                for (objectDefinitionReference in openObjectDefinition.references()) {
+                    val objectReference = objectDefinitionReference.objectReference
+                    if (GraphDefiner.isBootstrap(objectReference)) {
                         continue
                     }
 

@@ -33,19 +33,19 @@ class AutowiredAttributeDefiner(
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun define(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            graphStructure: GraphStructure,
-            partialGraphDefinition: GraphDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        graphStructure: GraphStructure,
+        partialGraphDefinition: GraphDefinition,
+        partialGraphInstance: GraphInstance
     ): AttributeDefinitionAttempt {
         val attributeMetadata = graphStructure
-                .graphMetadata
-                .get(objectLocation)
-                ?.attributes
-                ?.values
-                ?.get(attributeName)
-                ?: throw IllegalArgumentException("Metadata not found: $objectLocation - $attributeName")
+            .graphMetadata
+            .get(objectLocation)
+            ?.attributes
+            ?.values
+            ?.get(attributeName)
+            ?: throw IllegalArgumentException("Metadata not found: $objectLocation - $attributeName")
 
         val findIs = ObjectReference.parse(findIs(attributeMetadata))
         val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
@@ -91,10 +91,11 @@ class AutowiredAttributeDefiner(
 
 
     private fun attributeOf(attributeMetadata: AttributeMetadata): String {
-        return (attributeMetadata.attributeMetadataNotation.values[NotationConventions.ofAttributeSegment]
-                as? ScalarAttributeNotation
-                )?.value
-                ?: throw UnsupportedOperationException("Can't find autowire type: $attributeMetadata")
+        val attributeNotation =
+            attributeMetadata.attributeMetadataNotation.values[NotationConventions.ofAttributeSegment]
+
+        return (attributeNotation as? ScalarAttributeNotation)?.value
+                ?: throw UnsupportedOperationException("Can't find auto-wire type: $attributeMetadata")
     }
 
 
@@ -104,7 +105,10 @@ class AutowiredAttributeDefiner(
                 ValueAttributeDefinition(objectLocation)
             
             else ->
-                ReferenceAttributeDefinition(objectLocation.toReference())
+                ReferenceAttributeDefinition(
+                    objectLocation.toReference(),
+                    weak = false,
+                    nullable = false)
         }
     }
 }

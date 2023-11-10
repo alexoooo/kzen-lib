@@ -44,8 +44,8 @@ data class ObjectLocationMap<T>(
         host: ObjectReferenceHost
     ): ObjectLocation {
         return locateOptional(reference, host)
-                ?: throw IllegalArgumentException(
-                        "Missing: $host - $reference | ${values.keys.map { it.documentPath }.toSet()}")
+            ?: throw IllegalArgumentException(
+                "Missing: $host - $reference | ${values.keys.map { it.documentPath }.toSet()}")
     }
 
 

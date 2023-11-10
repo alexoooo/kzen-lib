@@ -82,7 +82,7 @@ object StructuralAttributeDefiner: AttributeDefiner {
         attributeNotation: ScalarAttributeNotation,
         typeMetadata: TypeMetadata
     ):
-            AttributeDefinitionAttempt
+        AttributeDefinitionAttempt
     {
         val className = typeMetadata.className
 
@@ -127,7 +127,9 @@ object StructuralAttributeDefiner: AttributeDefiner {
 
         return AttributeDefinitionAttempt.success(
             ReferenceAttributeDefinition(
-                ObjectReference.parse(attributeNotation.value)))
+                ObjectReference.parse(attributeNotation.value),
+                false,
+                typeMetadata.nullable))
     }
 
 
@@ -135,13 +137,13 @@ object StructuralAttributeDefiner: AttributeDefiner {
         attributeNotation: ListAttributeNotation,
         typeMetadata: TypeMetadata
     ):
-            AttributeDefinitionAttempt
+        AttributeDefinitionAttempt
     {
         val listGeneric = typeMetadata.generics[0]
 
         val definitions = mutableListOf<AttributeDefinition>()
         for (value in attributeNotation.values) {
-            @Suppress("MoveVariableDeclarationIntoWhen")
+            @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
             val definitionAttempt = defineRecursively(value, listGeneric)
 
             when (definitionAttempt) {

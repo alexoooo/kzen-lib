@@ -5,5 +5,5 @@ import tech.kzen.lib.common.reflect.Reflect
 
 @Reflect
 data class StringHolderRef(
-        val stringHolder: StringHolder
+    val stringHolder: StringHolder
 )

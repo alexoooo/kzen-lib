@@ -1,7 +1,7 @@
 package tech.kzen.lib.common.model.definition
 
+import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
-import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.location.ObjectReference
@@ -51,40 +51,41 @@ data class ObjectDefinition(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun references(): Set<ObjectReference> {
-        val builder = mutableSetOf<ObjectReference>()
+    fun references(): Set<ObjectDefinitionReference> {
+        val builder = mutableSetOf<ObjectDefinitionReference>()
 
         val attributeReferences = attributeReferences()
         builder.addAll(attributeReferences.values)
 
-        builder.add(creator)
-        builder.addAll(creatorDependencies)
+        builder.add(ObjectDefinitionReference.ofCreatorRelated(creator))
+        creatorDependencies.forEach {
+            builder.add(ObjectDefinitionReference.ofCreatorRelated(it))
+        }
 
         return builder
     }
 
 
-    fun attributeReferences(): Map<AttributePath, ObjectReference> {
+    fun attributeReferences(): Map<AttributePath, ObjectDefinitionReference> {
         return attributeReferences(false)
     }
 
     
-    fun attributeReferencesIncludingWeak(): Map<AttributePath, ObjectReference> {
+    fun attributeReferencesIncludingWeak(): Map<AttributePath, ObjectDefinitionReference> {
         return attributeReferences(true)
     }
 
     
     private fun attributeReferences(
         includeWeak: Boolean
-    ): Map<AttributePath, ObjectReference> {
-        val builder = mutableMapOf<AttributePath, ObjectReference>()
+    ): Map<AttributePath, ObjectDefinitionReference> {
+        val builder = mutableMapOf<AttributePath, ObjectDefinitionReference>()
 
         for (e in attributeDefinitions.values) {
-            val attributeReferences = attributeReferences(e.value, includeWeak)
+            val attributePaths = attributeReferences(e.key, e.value, includeWeak)
 
-            for (attributeReference in attributeReferences) {
-                val path = AttributePath(e.key, attributeReference.key)
-                builder[path] = attributeReference.value
+            for (attributeReference in attributePaths) {
+                builder[attributeReference.key] = attributeReference.value
             }
         }
 
@@ -93,16 +94,17 @@ data class ObjectDefinition(
     
     
     private fun attributeReferences(
+        attributeName: AttributeName,
         definition: AttributeDefinition,
         includeWeak: Boolean
-    ): Map<AttributeNesting, ObjectReference> {
-        val builder = mutableMapOf<AttributeNesting, ObjectReference>()
+    ): Map<AttributePath, ObjectDefinitionReference> {
+        val builder = mutableMapOf<AttributePath, ObjectDefinitionReference>()
 
         traverseAttribute(
-                AttributeNesting.empty,
-                definition,
-                builder,
-                includeWeak
+            AttributePath.ofName(attributeName),
+            definition,
+            builder,
+            includeWeak
         )
 
         return builder
@@ -110,9 +112,9 @@ data class ObjectDefinition(
 
 
     private fun traverseAttribute(
-        nesting: AttributeNesting,
+        attributePath: AttributePath,
         definition: AttributeDefinition,
-        builder: MutableMap<AttributeNesting, ObjectReference>,
+        builder: MutableMap<AttributePath, ObjectDefinitionReference>,
         includeWeak: Boolean
     ) {
         when (definition) {
@@ -122,13 +124,15 @@ data class ObjectDefinition(
                     return
                 }
 
-                builder[nesting] = definition.objectReference
+                builder[attributePath] = ObjectDefinitionReference.ofAttribute(
+                    definition.objectReference, attributePath)
             }
 
             is ListAttributeDefinition -> {
                 for ((index, value) in definition.values.withIndex()) {
                     val segment = AttributeSegment.ofIndex(index)
-                    val indexNesting = nesting.push(segment)
+//                    val indexNesting = attributePath.push(segment)
+                    val indexNesting = attributePath.nest(segment)
                     traverseAttribute(indexNesting, value, builder, includeWeak)
                 }
             }
@@ -136,7 +140,8 @@ data class ObjectDefinition(
             is MapAttributeDefinition -> {
                 for ((key, value) in definition.values) {
                     val segment = AttributeSegment.ofKey(key)
-                    val keyNesting = nesting.push(segment)
+//                    val keyNesting = attributePath.push(segment)
+                    val keyNesting = attributePath.nest(segment)
                     traverseAttribute(keyNesting, value, builder, includeWeak)
                 }
             }

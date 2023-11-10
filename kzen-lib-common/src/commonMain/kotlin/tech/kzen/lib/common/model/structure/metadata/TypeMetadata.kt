@@ -8,7 +8,8 @@ import tech.kzen.lib.platform.ClassNames
 
 data class TypeMetadata(
     val className: ClassName,
-    val generics: List<TypeMetadata>
+    val generics: List<TypeMetadata>,
+    val nullable: Boolean
 ):
     Digestible
 {
@@ -23,7 +24,8 @@ data class TypeMetadata(
         fun of(className: ClassName): TypeMetadata {
             return TypeMetadata(
                 className,
-                listOf())
+                listOf(),
+                false)
         }
     }
 
@@ -31,5 +33,6 @@ data class TypeMetadata(
     override fun digest(sink: Digest.Sink) {
         sink.addDigestible(className)
         sink.addDigestibleList(generics)
+        sink.addBoolean(nullable)
     }
 }

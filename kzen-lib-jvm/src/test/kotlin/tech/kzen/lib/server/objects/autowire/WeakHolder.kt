@@ -6,5 +6,5 @@ import tech.kzen.lib.common.reflect.Reflect
 
 @Reflect
 class WeakHolder(
-        val locations: List<ObjectLocation>
+    val locations: List<ObjectLocation>
 )

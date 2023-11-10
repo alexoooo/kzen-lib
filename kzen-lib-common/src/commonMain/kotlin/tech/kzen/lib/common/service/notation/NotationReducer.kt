@@ -1255,7 +1255,7 @@ class NotationReducer {
             for (attributeReference in attributeReferences) {
                 if (! isReferenced(
                         objectLocation,
-                        attributeReference.value,
+                        attributeReference.value.objectReference,
                         ObjectReferenceHost.ofLocation(hostObjectLocation),
                         graphDefinitionAttempt)) {
                     continue

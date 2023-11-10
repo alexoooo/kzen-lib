@@ -8,6 +8,7 @@ import tech.kzen.lib.common.model.location.ObjectLocationSet
 import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 
 
 // TODO: convert to object?
@@ -38,20 +39,20 @@ class GraphCreator {
 
         val closedLocator = ObjectLocationSet.Locator()
 
-        val levels = constructionLevels(closedLocator, graphDefinition)
+        val levels = constructionLevels(closedLocator, graphDefinition, graphStructure.graphMetadata)
 
         for (objectLocation in levels.flatten()) {
             val objectDefinition = graphDefinition.objectDefinitions[objectLocation]
-                    ?: throw IllegalArgumentException("Missing object definition: $objectLocation")
+                ?: throw IllegalArgumentException("Missing object definition: $objectLocation")
 
             val creatorPath = tryLocate(
-                    closedLocator,
-                    objectDefinition.creator,
-                    ObjectReferenceHost.global
+                closedLocator,
+                objectDefinition.creator,
+                ObjectReferenceHost.global
             ) ?: throw IllegalArgumentException("Unable to resolve: ${objectDefinition.creator}")
 
             val creator = partialObjectGraph[creatorPath]?.reference as? ObjectCreator
-                    ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
+                ?: throw IllegalArgumentException("ObjectCreator expected: ${objectDefinition.creator}")
 
             val instance = creator.create(
                     objectLocation,
@@ -69,7 +70,8 @@ class GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     private fun constructionLevels(
         closedLocator: ObjectLocationSet.Locator,
-        graphDefinition: GraphDefinition
+        graphDefinition: GraphDefinition,
+        graphMetadata: GraphMetadata
     ): List<List<ObjectLocation>> {
         val closed = mutableSetOf<ObjectLocation>()
         closed.addAll(GraphDefiner.bootstrapObjects.keys)
@@ -79,7 +81,7 @@ class GraphCreator {
 
         val levels = mutableListOf<List<ObjectLocation>>()
         while (open.isNotEmpty()) {
-            val nextLevel = findSatisfied(open, closed, closedLocator, graphDefinition)
+            val nextLevel = findSatisfied(open, closed, closedLocator, graphDefinition, graphMetadata)
 
             check(nextLevel.isNotEmpty()) {
                 val unsatisfied = findUnsatisfied(open, closed, closedLocator, graphDefinition)
@@ -103,26 +105,38 @@ class GraphCreator {
         open: Set<ObjectLocation>,
         closed: Set<ObjectLocation>,
         closedLocator: ObjectLocationSet.Locator,
-        graphDefinition: GraphDefinition
+        graphDefinition: GraphDefinition,
+        graphMetadata: GraphMetadata
     ): List<ObjectLocation> {
         val allSatisfied = mutableListOf<ObjectLocation>()
         for (candidate in open) {
+//            if (candidate.objectPath.name.value == "StringHolderNullRef") {
+//                println("foo")
+//            }
+
             val definition = graphDefinition.objectDefinitions[candidate]
-                    ?: throw IllegalArgumentException("Missing definition: $candidate")
+                ?: throw IllegalArgumentException("Missing definition: $candidate")
 
             val referenceHost = ObjectReferenceHost.ofLocation(candidate)
 
-            val satisfied = definition
-                    .references()
-                    .map { reference -> tryLocate(closedLocator, reference, referenceHost) }
-                    .all { location -> location in closed }
+            val objectMetadata = graphMetadata.get(candidate)
+                ?: throw IllegalArgumentException("Missing metadata: $candidate")
 
-            if (! satisfied) {
-//                println("not satisfied ($candidate): ${definition.references()}")
+            val (emptyReferences, nonEmptyReferences) = definition.references()
+                .partition { i -> i.objectReference.isEmpty() }
+
+            val requiredEmptyReferences = emptyReferences.filter { ! it.isNullable(objectMetadata) }
+            if (requiredEmptyReferences.isNotEmpty()) {
                 continue
             }
 
-//            println("satisfied: $candidate")
+            val locatedNonEmptyReference = nonEmptyReferences.map { reference ->
+                    tryLocate(closedLocator, reference.objectReference, referenceHost)
+                }
+            if (! locatedNonEmptyReference.all { it in closed }) {
+                continue
+            }
+
             allSatisfied.add(candidate)
         }
         return allSatisfied
@@ -146,10 +160,12 @@ class GraphCreator {
             val referenceHost = ObjectReferenceHost.ofLocation(candidate)
 
             for (reference in definition.references()) {
-                val location = tryLocate(closedLocator, reference, referenceHost)
+                val location = tryLocate(
+                    closedLocator, reference.objectReference, referenceHost)
 
                 if (location == null) {
-                    unsatisfiedReferences.add(UnsatisfiedReference(referenceHost, reference))
+                    unsatisfiedReferences.add(
+                        UnsatisfiedReference(referenceHost, reference.objectReference))
                 }
                 else if (location !in closed) {
                     unsatisfiedLocations.add(location)
@@ -162,9 +178,9 @@ class GraphCreator {
 
 
     private fun tryLocate(
-            closedLocator: ObjectLocationSet.Locator,
-            reference: ObjectReference,
-            referenceHost: ObjectReferenceHost
+        closedLocator: ObjectLocationSet.Locator,
+        reference: ObjectReference,
+        referenceHost: ObjectReferenceHost
     ): ObjectLocation? {
         if (reference.hasPath()) {
             return ObjectLocation(

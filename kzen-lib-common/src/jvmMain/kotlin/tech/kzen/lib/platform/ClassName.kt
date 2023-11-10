@@ -6,15 +6,14 @@ import tech.kzen.lib.common.util.Digestible
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING", "KotlinRedundantDiagnosticSuppress")
 actual data class ClassName actual constructor(
-        private val asString: String
+    private val asString: String
 ):
     Digestible
 {
-//    actual companion object {
-//        actual fun ofString(asString: String): ClassName {
-//            return ClassName(asString)
-//        }
-//    }
+    init {
+        require(! asString.endsWith("?"))
+    }
+
 
     actual fun get(): String {
         return asString

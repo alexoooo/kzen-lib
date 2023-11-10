@@ -16,6 +16,7 @@ data class ObjectReference(
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        @Suppress("ConstPropertyName")
         const val nestingSeparator = "#"
 
 

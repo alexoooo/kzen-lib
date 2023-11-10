@@ -42,6 +42,15 @@ StringHolderRef:
   stringHolder: HelloWorldHolder
 
 
+StringHolderNullRef:
+  class: tech.kzen.lib.server.objects.StringHolderNullableRef
+  stringHolderOrNull: ""
+  meta:
+    stringHolderOrNull:
+      is: StringHolder
+      nullable: true
+
+
 EscapedObject:
   class: tech.kzen.lib.server.objects.EscapedObject
   else: "Foo"

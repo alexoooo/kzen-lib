@@ -19,6 +19,7 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.server.objects.*
 import tech.kzen.lib.server.objects.custom.CustomDefined
 import tech.kzen.lib.server.util.JvmGraphTestUtils
+import kotlin.test.assertNull
 
 
 class ObjectGraphTest {
@@ -42,7 +43,6 @@ class ObjectGraphTest {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
         val location = location("FooNamed")
-
         val fooNamedInstance = objectGraph[location]?.reference as SelfAware
         assertEquals(location, fooNamedInstance.objectLocation)
         assertEquals("foo", fooNamedInstance.objectNotation.get(AttributeName("foo"))?.asString())
@@ -54,7 +54,8 @@ class ObjectGraphTest {
     fun `StringHolder can be instantiated`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
-        val helloWorldInstance = objectGraph[location("HelloWorldHolder")]?.reference as StringHolder
+        val location = location("HelloWorldHolder")
+        val helloWorldInstance = objectGraph[location]?.reference as StringHolder
         assertEquals("Hello, world!", helloWorldInstance.value)
     }
 
@@ -63,7 +64,8 @@ class ObjectGraphTest {
     fun `Numeric message can be used in StringHolder`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
-        val helloWorldInstance = objectGraph[location("NumericStringHolder")]?.reference as StringHolder
+        val location = location("NumericStringHolder")
+        val helloWorldInstance = objectGraph[location]?.reference as StringHolder
         assertEquals("123", helloWorldInstance.value)
     }
 
@@ -72,8 +74,19 @@ class ObjectGraphTest {
     fun `Reference can be held to StringHolder`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
-        val refInstance = objectGraph[location("StringHolderRef")]?.reference as StringHolderRef
+        val location = location("StringHolderRef")
+        val refInstance = objectGraph[location]?.reference as StringHolderRef
         assertEquals("Hello, world!", refInstance.stringHolder.value)
+    }
+
+
+    @Test
+    fun `Nullable reference can be empty`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val location = location("StringHolderNullRef")
+        val nullableRefInstance = objectGraph[location]?.reference as StringHolderNullableRef
+        assertNull(nullableRefInstance.stringHolderOrNull)
     }
 
 
@@ -81,7 +94,8 @@ class ObjectGraphTest {
     fun `Escaped attribute name can be used`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
-        val escapedInstance = objectGraph[location("EscapedObject")]?.reference as EscapedObject
+        val location = location("EscapedObject")
+        val escapedInstance = objectGraph[location]?.reference as EscapedObject
         assertEquals("Foo", escapedInstance.`else`)
     }
 
@@ -90,7 +104,8 @@ class ObjectGraphTest {
     fun `Custom definer is discovered`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
-        val escapedInstance = objectGraph[location("CustomDefined")]?.reference as CustomDefined
+        val location = location("CustomDefined")
+        val escapedInstance = objectGraph[location]?.reference as CustomDefined
         assertEquals("foo bar/baz", escapedInstance.customModel.value)
     }
 
@@ -99,19 +114,19 @@ class ObjectGraphTest {
     fun `Comments are handled`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 
-        val escapedInstance =
-            objectGraph[location("CommentArgObject")]?.reference as CommentArgObject
+        val location = location("CommentArgObject")
+        val escapedInstance = objectGraph[location]?.reference as CommentArgObject
         assertEquals("first", escapedInstance.first)
         assertEquals("fourth", escapedInstance.fourth)
     }
 
 
     @Test
-    fun `transitive object merge`() {
+    fun `Transitive object merge`() {
         val graphNothing = JvmGraphTestUtils.readNotation()
 
-        val transitiveObjectLocation = graphNothing
-            .mergeObject(location("CommentArgObjectInherit"))
+        val location = location("CommentArgObjectInherit")
+        val transitiveObjectLocation = graphNothing.mergeObject(location)
 
         assertEquals(ObjectNotation(AttributeNameMap(persistentMapOf(
             AttributeName("first") to ScalarAttributeNotation("foo"),

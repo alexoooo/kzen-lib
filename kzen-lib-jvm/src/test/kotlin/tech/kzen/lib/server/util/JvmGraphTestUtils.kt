@@ -69,7 +69,14 @@ object JvmGraphTestUtils {
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val definitionAttempt = GraphDefiner().tryDefine(graphStructure)
+//        if (definitionAttempt.objectDefinitions.contains(ObjectLocation.parse("test/refactor-test.yaml#DivisionOfPartial"))) {
+//            println("foo")
+//        }
+
         val graphDefinition = definitionAttempt.transitiveSuccessful()
+//        if (graphDefinition.objectDefinitions.contains(ObjectLocation.parse("test/refactor-test.yaml#DivisionOfPartial"))) {
+//            println("foo")
+//        }
 
         return GraphCreator()
                 .createGraph(graphDefinition)

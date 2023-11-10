@@ -13,7 +13,8 @@ data class ValueAttributeDefinition(
 
 data class ReferenceAttributeDefinition(
     val objectReference: ObjectReference?,
-    val weak: Boolean = false
+    val weak: Boolean,
+    val nullable: Boolean
 ): AttributeDefinition()
 
 

@@ -31,11 +31,14 @@ class GraphDefiner {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val bootstrapObjects = GraphInstance(
-                ObjectLocationMap(persistentMapOf(
-                        bootstrapEntry(DefaultConstructorObjectCreator),
-                        bootstrapEntry(DefaultConstructorObjectDefiner)
-                )))
+            ObjectLocationMap(persistentMapOf(
+                bootstrapEntry(DefaultConstructorObjectCreator),
+                bootstrapEntry(DefaultConstructorObjectDefiner)
+            )))
 
+        fun isBootstrap(objectReference: ObjectReference): Boolean {
+            return bootstrapObjects.objectInstances.locateOptional(objectReference) != null
+        }
 
         private fun bootstrapEntry(bootstrapObject: Any): Pair<ObjectLocation, ObjectInstance> {
             val objectPath = bootstrapPath(bootstrapObject::class)
@@ -50,15 +53,15 @@ class GraphDefiner {
 
         private fun bootstrapPath(objectName: ObjectName): ObjectLocation {
             return ObjectLocation(
-                    NotationConventions.kzenBasePath,
-                    ObjectPath(objectName, ObjectNesting.root))
+                NotationConventions.kzenBasePath,
+                ObjectPath(objectName, ObjectNesting.root))
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun define(
-            graphStructure: GraphStructure
+        graphStructure: GraphStructure
     ): GraphDefinition {
         val attempt = tryDefine(graphStructure)
         require(! attempt.hasErrors()) {
@@ -69,17 +72,17 @@ class GraphDefiner {
 
 
     fun tryDefine(
-            graphStructure: GraphStructure
+        graphStructure: GraphStructure
     ): GraphDefinitionAttempt {
         var definerAndRelatedInstances = bootstrapObjects
 
         val openDefinitions: MutableSet<ObjectLocation> = graphStructure
-                .graphNotation
-                .objectLocations
-                .filter {
-                    it !in bootstrapObjects &&
-                            ! isAbstract(it, graphStructure.graphNotation)
-                }.toMutableSet()
+            .graphNotation
+            .objectLocations
+            .filter {
+                it !in bootstrapObjects &&
+                    ! isAbstract(it, graphStructure.graphNotation)
+            }.toMutableSet()
 
         var closedDefinitions = GraphDefinition.empty
                 .copy(graphStructure = graphStructure)
@@ -90,8 +93,7 @@ class GraphDefiner {
         val levelCreated = mutableSetOf<ObjectLocation>()
         val missingCreatorInstances = mutableSetOf<ObjectLocation>()
         val levelErrors = mutableMapOf<ObjectLocation, String>()
-        val levelFailures =
-                mutableMapOf<ObjectLocation, ObjectDefinitionFailure>()
+        val levelFailures = mutableMapOf<ObjectLocation, ObjectDefinitionFailure>()
 
         var levelCount = 0
         while (openDefinitions.isNotEmpty()) {
@@ -142,12 +144,12 @@ class GraphDefiner {
 //            println("--- missingInstances: $missingInstances")
             for (missingLocation in missingInstances) {
                 val definition =
-                        closedDefinitions[missingLocation]
-                        ?: continue
+                    closedDefinitions[missingLocation]
+                    ?: continue
 
 //                println("  $$ got definition for: $missingName")
                 val creatorLocation = graphStructure.graphNotation.coalesce.locate(
-                        definition.creator)
+                    definition.creator)
 
                 var hasMissingCreatorInstances = false
                 if (creatorLocation !in definerAndRelatedInstances) {
@@ -177,10 +179,10 @@ class GraphDefiner {
                 val creator = definerAndRelatedInstances[creatorLocation]?.reference as ObjectCreator
 
                 val instance = creator.create(
-                        missingLocation,
-                        graphStructure,
-                        definition,
-                        definerAndRelatedInstances)
+                    missingLocation,
+                    graphStructure,
+                    definition,
+                    definerAndRelatedInstances)
 
 //                println("  $$ created: $missingName")
 
@@ -223,8 +225,8 @@ class GraphDefiner {
             projectNotation: GraphNotation
     ): ObjectReference? {
         return projectNotation.firstAttribute(objectLocation, NotationConventions.definerAttributePath)
-                ?.asString()
-                ?.let { ObjectReference.parse(it) }
+            ?.asString()
+            ?.let { ObjectReference.parse(it) }
     }
 
 
@@ -233,7 +235,7 @@ class GraphDefiner {
             projectNotation: GraphNotation
     ): Boolean {
         return projectNotation.directAttribute(objectName, NotationConventions.abstractAttributePath)
-                ?.asBoolean()
-                ?: false
+            ?.asBoolean()
+            ?: false
     }
 }

@@ -25,14 +25,40 @@ data class GraphDefinitionAttempt(
             terminated = true
 
             for (e in open) {
+//                if (e.key.objectPath.name.value == "DivisionOfPartial") {
+//                    println("foo")
+//                }
+
                 val host = ObjectReferenceHost.ofLocation(e.key)
-                for (objectReference in e.value.references()) {
-                    if (GraphDefiner.bootstrapObjects.objectInstances.locateOptional(objectReference) != null) {
+                val objectMetadata = graphStructure.graphMetadata.get(e.key)
+
+                for (reference in e.value.references()) {
+                    val objectReference = reference.objectReference
+
+                    if (GraphDefiner.isBootstrap(objectReference)) {
                         continue
                     }
 
-                    val location = objectDefinitions.locateOptional(objectReference, host)
-                    if (location == null || failedObjectLocations.contains(location)) {
+                    val failed =
+                        if (objectReference.isEmpty()) {
+                            val nullable = reference
+                                .attributePath
+                                ?.attribute
+                                ?.let { objectMetadata?.attributes?.get(it) }
+                                ?.type
+                                ?.nullable
+                                ?: false
+
+                            ! nullable
+                        }
+                        else {
+                            val location = objectDefinitions.locateOptional(objectReference, host)
+
+                            location == null ||
+                                location in failedObjectLocations
+                        }
+
+                    if (failed) {
                         failedObjectLocations.add(e.key)
                         open = open.remove(e.key)
                         terminated = false
