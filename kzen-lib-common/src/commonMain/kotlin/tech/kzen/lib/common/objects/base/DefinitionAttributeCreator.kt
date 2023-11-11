@@ -5,6 +5,7 @@ import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.definition.*
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.Reflect
@@ -42,7 +43,7 @@ object DefinitionAttributeCreator: AttributeCreator {
             }
 
             is ReferenceAttributeDefinition -> {
-                val objectReference = attributeDefinition.objectReference!!
+                val objectReference = attributeDefinition.objectReference ?: ObjectReference.empty
 
                 if (objectReference.isEmpty()) {
                     null

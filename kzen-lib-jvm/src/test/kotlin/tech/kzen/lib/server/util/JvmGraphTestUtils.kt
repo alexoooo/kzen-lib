@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.instance.GraphInstance
+import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
@@ -69,12 +70,12 @@ object JvmGraphTestUtils {
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val definitionAttempt = GraphDefiner().tryDefine(graphStructure)
-//        if (definitionAttempt.objectDefinitions.contains(ObjectLocation.parse("test/refactor-test.yaml#DivisionOfPartial"))) {
+//        if (definitionAttempt.objectDefinitions.contains(ObjectLocation.parse("test/kzen-test.yaml#StringHolderNullableNominal"))) {
 //            println("foo")
 //        }
 
         val graphDefinition = definitionAttempt.transitiveSuccessful()
-//        if (graphDefinition.objectDefinitions.contains(ObjectLocation.parse("test/refactor-test.yaml#DivisionOfPartial"))) {
+//        if (graphDefinition.objectDefinitions.contains(ObjectLocation.parse("test/kzen-test.yaml#StringHolderNullableNominal"))) {
 //            println("foo")
 //        }
 

@@ -51,6 +51,16 @@ StringHolderNullRef:
       nullable: true
 
 
+StringHolderNullableNominal:
+  class: tech.kzen.lib.server.objects.StringHolderNullableNominal
+  stringHolderOrNull: ""
+  meta:
+    stringHolderOrNull:
+      is: ObjectLocation
+      by: Nominal
+      nullable: true
+
+
 EscapedObject:
   class: tech.kzen.lib.server.objects.EscapedObject
   else: "Foo"

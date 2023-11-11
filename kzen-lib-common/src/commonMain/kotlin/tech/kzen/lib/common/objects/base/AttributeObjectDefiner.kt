@@ -39,11 +39,13 @@ object AttributeObjectDefiner: ObjectDefiner {
                 mapOf(),
                 null)
 
-        val className = ClassName(graphStructure.graphNotation
-                .getString(objectLocation, NotationConventions.classAttributePath))
+        val classNameNotation = graphStructure.graphNotation
+            .getString(objectLocation, NotationConventions.classAttributePath)
+        val className = ClassName(classNameNotation)
 
-        val creatorReference = ObjectReference.parse(
-                graphStructure.graphNotation.getString(objectLocation, NotationConventions.creatorAttributePath))
+        val creatorReferenceNotation = graphStructure.graphNotation
+            .getString(objectLocation, NotationConventions.creatorAttributePath)
+        val creatorReference = ObjectReference.parse(creatorReferenceNotation)
 
         val attributeDefinitions = mutableMapOf<AttributeName, AttributeDefinition>()
         val creatorRequired = mutableSetOf<ObjectReference>()
@@ -62,8 +64,7 @@ object AttributeObjectDefiner: ObjectDefiner {
             creatorRequired.add(attributeCreatorReference)
 
             val attributeDefinerRef = attributeMetadata.definerReference ?: defaultAttributeDefiner
-            val attributeDefinerLocation = graphStructure.graphNotation.coalesce
-                    .locateOptional(attributeDefinerRef)
+            val attributeDefinerLocation = graphStructure.graphNotation.coalesce.locateOptional(attributeDefinerRef)
             if (attributeDefinerLocation == null) {
                 attributeErrors[attributeName] = "Unknown attribute definer: $attributeDefinerRef"
                 continue
@@ -72,7 +73,7 @@ object AttributeObjectDefiner: ObjectDefiner {
             val definerInstance = partialGraphInstance[attributeDefinerLocation]
             if (definerInstance == null) {
                 missingObjects.add(attributeDefinerLocation)
-                attributeErrors[attributeName] = "Definer missing"
+                attributeErrors[attributeName] = "Definer missing: ${attributeDefinerLocation.objectPath.name}"
                 continue
             }
 
@@ -83,11 +84,11 @@ object AttributeObjectDefiner: ObjectDefiner {
             }
 
             val attributeDefinitionAttempt = attributeDefiner.define(
-                    objectLocation,
-                    attributeName,
-                    graphStructure,
-                    partialGraphDefinition,
-                    partialGraphInstance)
+                objectLocation,
+                attributeName,
+                graphStructure,
+                partialGraphDefinition,
+                partialGraphInstance)
 
             when (attributeDefinitionAttempt) {
                 is AttributeDefinitionSuccess -> {
@@ -105,17 +106,17 @@ object AttributeObjectDefiner: ObjectDefiner {
         return when {
             missingObjects.isNotEmpty() -> {
                 ObjectDefinitionAttempt.missingObjectsFailure(
-                        "Missing: ${attributeErrors.keys}",
-                        attributeErrors,
-                        ObjectLocationSet(missingObjects),
-                        objectDefinition)
+                    "Unfulfilled dependency : $attributeErrors",
+                    attributeErrors,
+                    ObjectLocationSet(missingObjects),
+                    objectDefinition)
             }
 
             attributeErrors.isNotEmpty() -> {
                 ObjectDefinitionAttempt.failure(
-                        "Failed: ${attributeErrors.keys}",
-                        attributeErrors,
-                        objectDefinition)
+                    "Failed: ${attributeErrors.keys}",
+                    attributeErrors,
+                    objectDefinition)
             }
 
             else -> {

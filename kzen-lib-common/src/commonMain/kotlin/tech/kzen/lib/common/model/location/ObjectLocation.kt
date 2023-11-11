@@ -21,10 +21,14 @@ data class ObjectLocation(
 
         fun parse(asString: String): ObjectLocation {
             val asReference = ObjectReference.parse(asString)
-            check(asReference.hasPath()) { "Must be absolute: $asString" }
+            require(asReference.hasPath()) { "Must be absolute: $asString" }
+
+            val objectName = asReference.name.objectName
+            require(objectName != null) { "Object name missing: $asString" }
+
             return ObjectLocation(
                     asReference.path!!,
-                    ObjectPath(asReference.name, asReference.nesting))
+                    ObjectPath(objectName, asReference.nesting))
         }
     }
 
@@ -49,16 +53,16 @@ data class ObjectLocation(
 
     fun toReference(): ObjectReference {
         return ObjectReference(
-                objectPath.name,
-                objectPath.nesting,
-                documentPath)
+            ObjectReferenceName.of(objectPath.name),
+            objectPath.nesting,
+            documentPath)
     }
 
 
     fun asString(): String {
         return documentPath.asString() +
-                ObjectReference.nestingSeparator +
-                objectPath.asString()
+            ObjectReference.nestingSeparator +
+            objectPath.asString()
     }
 
 

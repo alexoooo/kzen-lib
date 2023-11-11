@@ -21,7 +21,7 @@ object SelfAttributeDefiner: AttributeDefiner {
         private val selfObjectName = ObjectName("Self")
 
         fun isSelf(attributeMetadata: AttributeMetadata): Boolean {
-            return attributeMetadata.definerReference?.name == selfObjectName
+            return attributeMetadata.definerReference?.name?.objectName == selfObjectName
         }
 //    }
 

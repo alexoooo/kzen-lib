@@ -35,8 +35,11 @@ data class ObjectLocationSet(
 
 
         fun locateAll(reference: ObjectReference, host: ObjectReferenceHost): ObjectLocationSet {
-            val sameNameLocations = byName[reference.name]
-                    ?: return empty
+            val objectName = reference.name.objectName
+                ?: return empty
+
+            val sameNameLocations = byName[objectName]
+                ?: return empty
 
             val candidates = mutableSetOf<ObjectLocation>()
 

@@ -91,6 +91,16 @@ class ObjectGraphTest {
 
 
     @Test
+    fun `Nullable nominal can be empty`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val location = location("StringHolderNullableNominal")
+        val nullableRefInstance = objectGraph[location]?.reference as StringHolderNullableNominal
+        assertNull(nullableRefInstance.stringHolderOrNull)
+    }
+
+
+    @Test
     fun `Escaped attribute name can be used`() {
         val objectGraph = JvmGraphTestUtils.newObjectGraph()
 

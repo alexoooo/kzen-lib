@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReferenceName
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
@@ -60,8 +61,8 @@ class RenameObjectRefactorTest {
         val documentNotation = transition.graphNotation.documents.values[testPath]!!
 
         assertEquals(location("main.addends/\\/"),
-                transition.graphNotation.coalesce.locate(ObjectReference(
-                        weirdName, weirdPath.nesting, null)))
+            transition.graphNotation.coalesce.locate(ObjectReference(
+                ObjectReferenceName.of(weirdName), weirdPath.nesting, null)))
 
         assertEquals(1, documentNotation.indexOf(weirdPath).value)
 

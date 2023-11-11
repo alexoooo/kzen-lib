@@ -8,7 +8,7 @@ import tech.kzen.lib.common.util.Digestible
 
 
 data class ObjectReference(
-    val name: ObjectName,
+    val name: ObjectReferenceName,
     val nesting: ObjectNesting,
     val path: DocumentPath?
 ):
@@ -19,9 +19,11 @@ data class ObjectReference(
         @Suppress("ConstPropertyName")
         const val nestingSeparator = "#"
 
+        val empty = ObjectReference(ObjectReferenceName.empty, ObjectNesting.root, null)
+
 
         fun ofRootName(name: ObjectName): ObjectReference {
-            return ObjectReference(name, ObjectNesting.root, null)
+            return ObjectReference(ObjectReferenceName(name), ObjectNesting.root, null)
         }
 
 
@@ -46,7 +48,15 @@ data class ObjectReference(
                     ?.let { ObjectNesting.parse(it) }
                     ?: ObjectNesting.root
 
-            return ObjectReference(ObjectName(nameSegment), nesting, path)
+            val name =
+                if (nameSegment.isEmpty()) {
+                    ObjectReferenceName.empty
+                }
+                else {
+                    ObjectReferenceName.of(ObjectName(nameSegment))
+                }
+
+            return ObjectReference(name, nesting, path)
         }
     }
 
@@ -75,7 +85,7 @@ data class ObjectReference(
 
 
     fun isEmpty(): Boolean {
-        return path == null && nesting.isRoot() && name.value.isEmpty()
+        return path == null && nesting.isRoot() && name.objectName == null
     }
 
 
@@ -96,13 +106,13 @@ data class ObjectReference(
                 nesting.asString() + ObjectNesting.delimiter
             }
 
-        return pathPrefix + nestingInfix + ObjectNesting.encodeDelimiter(name.value)
+        return pathPrefix + nestingInfix + ObjectNesting.encodeDelimiter(name.objectName?.value ?: "")
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun digest(sink: Digest.Sink) {
-        sink.addDigestible(name)
+        sink.addDigestibleNullable(name.objectName)
         sink.addDigestible(nesting)
         sink.addDigestibleNullable(path)
     }

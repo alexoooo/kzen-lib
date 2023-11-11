@@ -6,6 +6,7 @@ import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
+import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.service.context.GraphDefiner
@@ -25,8 +26,9 @@ class LocateTest {
     private val bPath = DocumentPath.parse("b.yaml")
     private val aHost = ObjectReferenceHost(aPath, null, null)
     private val bHost = ObjectReferenceHost(bPath, null, null)
-    private val locateNameReference = ObjectReference.parse("LocateName")
-    private val locateNameObjectPath = ObjectPath(locateNameReference.name, ObjectNesting.root)
+    private val locateName = ObjectName("LocateName")
+    private val locateNameReference = ObjectReference.ofRootName(locateName)
+    private val locateNameObjectPath = ObjectPath(locateName, ObjectNesting.root)
     private val locateNameLocationA = ObjectLocation(aPath, locateNameObjectPath)
     private val locateNameLocationB = ObjectLocation(bPath, locateNameObjectPath)
 

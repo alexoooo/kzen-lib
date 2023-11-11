@@ -32,12 +32,21 @@ object WeakAttributeDefiner/*(
             ?: return AttributeDefinitionAttempt.failure(
                 "Unknown attribute: $objectLocation - $attributeName")
 
+        val attributeNullable = graphStructure
+            .graphMetadata
+            .objectMetadata[objectLocation]
+            ?.attributes
+            ?.get(attributeName)
+            ?.type
+            ?.nullable
+            ?: false
+
         return when (attributeNotation) {
             is ScalarAttributeNotation ->
-                defineScalar(/*objectLocation, attributeName,*/ /*graphStructure.graphNotation,*/ attributeNotation)
+                defineScalar(attributeNotation, attributeNullable)
 
             is ListAttributeNotation ->
-                defineList(objectLocation, attributeName, /*graphStructure,*/ attributeNotation)
+                defineList(objectLocation, attributeName, attributeNotation)
 
             else ->
                 TODO("ScalarAttributeNotation expected: $objectLocation - $attributeName - $attributeNotation")
@@ -47,17 +56,16 @@ object WeakAttributeDefiner/*(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun defineList(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-//            graphStructure: GraphStructure,
-            attributeNotation: ListAttributeNotation
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        attributeNotation: ListAttributeNotation
     ): AttributeDefinitionAttempt {
         val items = mutableListOf<ReferenceAttributeDefinition>()
 
         for (itemAttributeNotation in attributeNotation.values) {
             if (itemAttributeNotation is ScalarAttributeNotation) {
                 val definitionAttempt = defineScalar(
-                        /*objectLocation, attributeName,*/ itemAttributeNotation)
+                    itemAttributeNotation, false)
 
                 when (definitionAttempt) {
                     is AttributeDefinitionSuccess -> {
@@ -87,13 +95,20 @@ object WeakAttributeDefiner/*(
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun defineScalar(
-//            objectLocation: ObjectLocation,
-//            attributeName: AttributeName,
-        scalarAttributeNotation: ScalarAttributeNotation
+        scalarAttributeNotation: ScalarAttributeNotation,
+        attributeNullable: Boolean
     ): AttributeDefinitionAttempt {
         val objectReference = scalarAttributeNotation.asString().let { ObjectReference.parse(it) }
 
         if (objectReference.isEmpty()) {
+            if (attributeNullable) {
+                return AttributeDefinitionAttempt.success(
+                    ReferenceAttributeDefinition(
+                        null,
+                        weak = true,
+                        nullable = attributeNullable))
+            }
+
             return AttributeDefinitionAttempt.failure("Empty object reference")
         }
 
@@ -111,6 +126,6 @@ object WeakAttributeDefiner/*(
                 ReferenceAttributeDefinition(
                     objectReference,
                     weak = true,
-                    nullable = false))
+                    nullable = attributeNullable))
     }
 }

@@ -102,6 +102,9 @@ class GraphDefiner {
 //            println("^^^^^ open - $levelCount: $openDefinitions")
 
             for (objectLocation in openDefinitions) {
+//                if (objectLocation.objectPath.name.value == "StringHolderNullableNominal") {
+//                    println("objectLocation: $objectLocation")
+//                }
 //                println("^^^^^ objectName: $objectLocation")
 
                 val definerReference = definerReference(objectLocation, graphStructure.graphNotation)

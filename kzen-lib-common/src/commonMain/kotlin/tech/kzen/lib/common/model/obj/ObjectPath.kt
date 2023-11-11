@@ -9,10 +9,10 @@ import tech.kzen.lib.common.util.Digestible
  * Path to an object within a document
  */
 data class ObjectPath(
-        val name: ObjectName,
-        val nesting: ObjectNesting
+    val name: ObjectName,
+    val nesting: ObjectNesting
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -22,12 +22,12 @@ data class ObjectPath(
 
             val name = ObjectName(nameSuffix)
             val nesting =
-                    if (segmentsAsString == null) {
-                        ObjectNesting.root
-                    }
-                    else {
-                        ObjectNesting.parse(segmentsAsString)
-                    }
+                if (segmentsAsString == null) {
+                    ObjectNesting.root
+                }
+                else {
+                    ObjectNesting.parse(segmentsAsString)
+                }
 
             return ObjectPath(name, nesting)
         }
@@ -48,10 +48,10 @@ data class ObjectPath(
     //-----------------------------------------------------------------------------------------------------------------
     fun startsWith(objectPath: ObjectPath): Boolean {
         return nesting.segments.size > objectPath.nesting.segments.size &&
-                nesting.startsWith(objectPath.nesting) &&
-                nesting.segments[
-                        objectPath.nesting.segments.size
-                ].objectName == objectPath.name
+            nesting.startsWith(objectPath.nesting) &&
+            nesting.segments[
+                objectPath.nesting.segments.size
+            ].objectName == objectPath.name
     }
 
 

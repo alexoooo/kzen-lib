@@ -182,10 +182,10 @@ class GraphCreator {
         reference: ObjectReference,
         referenceHost: ObjectReferenceHost
     ): ObjectLocation? {
-        if (reference.hasPath()) {
+        if (reference.hasPath() && reference.name.objectName != null) {
             return ObjectLocation(
                     reference.path!!,
-                    ObjectPath(reference.name, reference.nesting))
+                    ObjectPath(reference.name.objectName, reference.nesting))
         }
 
         val objectLocations = closedLocator.locateAll(reference, referenceHost)
