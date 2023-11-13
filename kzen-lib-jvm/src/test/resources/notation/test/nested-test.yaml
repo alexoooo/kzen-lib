@@ -30,18 +30,29 @@ PlusOperation:
       of: DoubleExpression
 
 
-#PlusOperationX:
-#  abstract: true
-#  is: DoubleExpression
-#  class: tech.kzen.lib.server.objects.ast.PlusOperation
-#  meta:
-#    addends:
-#      is: Map
-#      of:
-#        key: String
-#        value:
-#          is: List
-#          of: DoubleExpression
+PlusOperationNamed:
+  abstract: true
+  is: DoubleExpression
+  class: tech.kzen.lib.server.objects.ast.PlusOperationNamed
+  meta:
+    addends:
+      is: Map
+      of:
+        - String
+        - DoubleExpression
+
+
+PlusOperationNamedNominal:
+  abstract: true
+  is: DoubleExpression
+  class: tech.kzen.lib.server.objects.ast.PlusOperationNamedNominal
+  meta:
+    addends:
+      is: Map
+      of:
+        - String
+        - ObjectLocation
+      by: Nominal
 
 
 ################################################################
@@ -58,25 +69,39 @@ Two:
 TwoPlusTwo:
   is: PlusOperation
   addends:
-  - Two
-  - Two
+    - Two
+    - Two
 
 
-TwoPlusTwoInlineMap:
+TwoPlusTwoInline:
   is: PlusOperation
   addends:
-    - TwoPlusTwoInlineMap.addends/Arg1
-    - TwoPlusTwoInlineMap.addends/Arg2
+    - TwoPlusTwoInline.addends/Arg1
+    - TwoPlusTwoInline.addends/Arg2
 
-TwoPlusTwoInlineMap.addends/Arg1:
+TwoPlusTwoInline.addends/Arg1:
   is: DoubleValue
   value: 2
 
-TwoPlusTwoInlineMap.addends/Arg2:
+TwoPlusTwoInline.addends/Arg2:
   is: DoubleValue
   value: 2
 
-############################33
+
+TwoPlusTwoNamed:
+  is: PlusOperationNamed
+  addends:
+    foo: Two
+    bar: Two
+
+
+TwoPlusTwoNamedNominal:
+  is: PlusOperationNamedNominal
+  addends:
+    foo: Two
+    bar: Two
+
+##############################
 
 Nested:
   class: tech.kzen.lib.server.objects.nested.NestedObject$Nested

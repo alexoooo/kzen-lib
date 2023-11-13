@@ -97,6 +97,11 @@ List:
   class: kotlin.collections.List
 
 
+Map:
+  abstract: true
+  class: kotlin.collections.Map
+
+
 Set:
   abstract: true
   class: kotlin.collections.Set

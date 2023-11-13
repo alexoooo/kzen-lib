@@ -10,60 +10,47 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.model.structure.notation.AttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.platform.ClassNames
 
 
 @Reflect
-object StructuralAttributeDefiner: AttributeDefiner {
-    // TODO: consider using Definer by convention, is it too "magical"?
-//    companion object {
-//        val customAttributeDefinerSuffixConvention = "Definer"
-//    }
-
-
+object StructuralAttributeDefiner: AttributeDefiner
+{
+    //-----------------------------------------------------------------------------------------------------------------
     override fun define(
-            objectLocation: ObjectLocation,
-            attributeName: AttributeName,
-            graphStructure: GraphStructure,
-            partialGraphDefinition: GraphDefinition,
-            partialGraphInstance: GraphInstance
+        objectLocation: ObjectLocation,
+        attributeName: AttributeName,
+        graphStructure: GraphStructure,
+        partialGraphDefinition: GraphDefinition,
+        partialGraphInstance: GraphInstance
     ): AttributeDefinitionAttempt {
         val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]
-                ?: return AttributeDefinitionAttempt.failure("Unknown object notation: $objectLocation")
+            ?: return AttributeDefinitionAttempt.failure("Unknown object notation: $objectLocation")
 
         val attributeNotation = objectNotation.attributes.values[attributeName]
-                ?: graphStructure.graphNotation.firstAttribute(
-                        objectLocation, attributeName.asAttributePath())
-                ?: return AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
+            ?: graphStructure.graphNotation.firstAttribute(
+                objectLocation, attributeName.asAttributePath())
+            ?: return AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
 
         val objectMetadata = graphStructure.graphMetadata.objectMetadata[objectLocation]
-                ?: return AttributeDefinitionAttempt.failure("Unknown object metadata: $objectLocation")
+            ?: return AttributeDefinitionAttempt.failure("Unknown object metadata: $objectLocation")
 
         val attributeMetadata = objectMetadata.attributes.values[attributeName]
 
         val typeMetadata = attributeMetadata?.type
-                ?: TypeMetadata.any
-
-//        val customDefinerByConvention = ClassName(
-//            typeMetadata.className.get() + "\$" + customAttributeDefinerSuffixConvention)
-//
-//        if (GlobalMirror.contains(customDefinerByConvention)) {
-//            val customDefiner =
-//                GlobalMirror.create(customDefinerByConvention, listOf()) as AttributeDefiner
-//
-//            return customDefiner.define(
-//                objectLocation, attributeName, graphStructure, partialGraphDefinition, partialGraphInstance)
-//        }
+            ?: TypeMetadata.any
 
         return defineRecursively(attributeNotation, typeMetadata)
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     private fun defineRecursively(
-            attributeNotation: AttributeNotation,
-            typeMetadata: TypeMetadata
+        attributeNotation: AttributeNotation,
+        typeMetadata: TypeMetadata
     ): AttributeDefinitionAttempt {
         return when (attributeNotation) {
             is ScalarAttributeNotation ->
@@ -72,12 +59,13 @@ object StructuralAttributeDefiner: AttributeDefiner {
             is ListAttributeNotation ->
                 defineList(attributeNotation, typeMetadata)
 
-            else ->
-                TODO()
+            is MapAttributeNotation ->
+                defineMap(attributeNotation, typeMetadata)
         }
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     private fun defineScalar(
         attributeNotation: ScalarAttributeNotation,
         typeMetadata: TypeMetadata
@@ -133,6 +121,7 @@ object StructuralAttributeDefiner: AttributeDefiner {
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     private fun defineList(
         attributeNotation: ListAttributeNotation,
         typeMetadata: TypeMetadata
@@ -156,7 +145,40 @@ object StructuralAttributeDefiner: AttributeDefiner {
                 }
             }
         }
+
         return AttributeDefinitionAttempt.success(
             ListAttributeDefinition(definitions))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun defineMap(
+        attributeNotation: MapAttributeNotation,
+        typeMetadata: TypeMetadata
+    ):
+        AttributeDefinitionAttempt
+    {
+        val keyGeneric = typeMetadata.generics[0]
+        require(keyGeneric.className == ClassNames.kotlinString)
+        val valueGeneric = typeMetadata.generics[1]
+
+        val definitions = mutableMapOf<String, AttributeDefinition>()
+        for (entry in attributeNotation.values) {
+            @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
+            val definitionAttempt = defineRecursively(entry.value, valueGeneric)
+
+            when (definitionAttempt) {
+                is AttributeDefinitionSuccess -> {
+                    definitions[entry.key.asKey()] = definitionAttempt.value
+                }
+
+                is AttributeDefinitionFailure -> {
+                    return definitionAttempt
+                }
+            }
+        }
+
+        return AttributeDefinitionAttempt.success(
+            MapAttributeDefinition(definitions))
     }
 }

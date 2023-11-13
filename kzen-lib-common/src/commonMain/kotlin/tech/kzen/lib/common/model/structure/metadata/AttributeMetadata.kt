@@ -6,7 +6,6 @@ import tech.kzen.lib.common.util.Digest
 import tech.kzen.lib.common.util.Digestible
 
 
-// TODO: add defaultValue: AttributeNotation?
 data class AttributeMetadata(
     val attributeMetadataNotation: MapAttributeNotation,
     val type: TypeMetadata?,

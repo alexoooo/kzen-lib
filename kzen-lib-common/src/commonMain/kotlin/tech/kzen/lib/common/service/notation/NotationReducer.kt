@@ -1261,7 +1261,7 @@ class NotationReducer {
                     continue
                 }
 
-                val referencingAttribute = AttributeLocation(attributeReference.key, hostObjectLocation)
+                val referencingAttribute = AttributeLocation(hostObjectLocation, attributeReference.key)
                 referenceLocations.add(referencingAttribute)
             }
         }

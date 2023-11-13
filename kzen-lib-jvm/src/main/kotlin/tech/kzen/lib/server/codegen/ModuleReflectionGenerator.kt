@@ -122,7 +122,7 @@ object ModuleReflectionGenerator
         val builder = mutableMapOf<ClassName, ConstructorReflection>()
 
         for ((sourceFile, sourceCode) in reflectSources) {
-//            if (sourceFile.fileName.toString() == "DoubleValue.kt") {
+//            if (sourceFile.fileName.toString() == "PlusOperationNamed.kt") {
 //                println("foo")
 //            }
 
@@ -218,10 +218,10 @@ object ModuleReflectionGenerator
     {
         val nestedName = sourceClass.nested()
         val nestedNameMatch = Regex(
-                "($classPrefix|$objectPrefix)" + Regex.escape(nestedName) + "(\\W|$)",
-                RegexOption.MULTILINE
+            "($classPrefix|$objectPrefix)" + Regex.escape(nestedName) + "(\\W|$)",
+            RegexOption.MULTILINE
         ).find(sourceCode)
-                ?: throw IllegalArgumentException("Unable to find: $sourceClass")
+            ?: throw IllegalArgumentException("Unable to find: $sourceClass")
 
         val startOfConstructorName = nestedNameMatch.range.first
         val endOfConstructorName = nestedNameMatch.range.last
@@ -269,7 +269,7 @@ object ModuleReflectionGenerator
             return ConstructorReflection.emptyClass
         }
 
-        val argumentList = arguments.split(",")
+        val argumentList = arguments.split(Regex(",(?![^<]*>)"))
         val hasTrailingComma = ":" !in argumentList.last()
 
         val argumentsWithoutTrailing =
@@ -569,7 +569,7 @@ package ${moduleReflectionName.packageName()}
 $uniqueTopLevelImports
 
 
-@Suppress("UNCHECKED_CAST")
+@Suppress("UNCHECKED_CAST", "KotlinRedundantDiagnosticSuppress")
 object ${moduleReflectionName.simple()}: ${ModuleReflection.simpleName} {
     override fun register(reflectionRegistry: ReflectionRegistry) {
 ${registerStatements.joinToString("\n\n")}

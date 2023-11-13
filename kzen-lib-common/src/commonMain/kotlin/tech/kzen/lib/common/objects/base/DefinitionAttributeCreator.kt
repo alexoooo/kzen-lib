@@ -11,7 +11,6 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.Reflect
 
 
-// TODO: consider convention of TypeName$Creator?
 @Reflect
 object DefinitionAttributeCreator: AttributeCreator {
     override fun create(
@@ -66,8 +65,10 @@ object DefinitionAttributeCreator: AttributeCreator {
                     createDefinition(objectLocation, it, partialGraphInstance, graphStructure, attributeName)
                 }
 
-            else ->
-                TODO("Not supported (yet): $attributeDefinition")
+            is MapAttributeDefinition ->
+                attributeDefinition.values.mapValues {
+                    createDefinition(objectLocation, it.value, partialGraphInstance, graphStructure, attributeName)
+                }
         }
     }
 }

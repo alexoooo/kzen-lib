@@ -13,6 +13,7 @@ data class AttributePath(
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         // TODO: change to "$" or something for better IntelliJ support?
+        @Suppress("ConstPropertyName")
         const val delimiter = "."
 
 

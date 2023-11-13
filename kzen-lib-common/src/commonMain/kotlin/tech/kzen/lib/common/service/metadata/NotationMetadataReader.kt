@@ -275,58 +275,138 @@ class NotationMetadataReader(
             ?.let { resolveMetadataRef(it, graphNotation) }
             ?: MapAttributeNotation.empty
 
-        val attributeMap = MapAttributeNotation(
-            refAttributeMap.values.putAll(directAttributeMap.values))
+        val mergedAttributeMap = refAttributeMap.values.putAll(directAttributeMap.values)
+        val augmentedMergedAttributeMap =
+            if (inheritanceParent != null) {
+                mergedAttributeMap.put(
+                    NotationConventions.isAttributeSegment, ScalarAttributeNotation(inheritanceParent))
+            }
+            else {
+                mergedAttributeMap
+            }
+        val mergedAttributeNotation = MapAttributeNotation(augmentedMergedAttributeMap)
 
-        val classNotation = metadataAttribute(
-            NotationConventions.classAttributePath, inheritanceParentLocation, attributeMap, graphNotation)
-        val className = ((classNotation as? ScalarAttributeNotation)?.value)
-            ?.let { ClassName(it) }
-            ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
+//        val classNotation = metadataAttribute(
+//            NotationConventions.classAttributePath, inheritanceParentLocation, attributeMap, graphNotation)
+//        val className = ((classNotation as? ScalarAttributeNotation)?.value)
+//            ?.let { ClassName(it) }
+//            ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
 
-        val definerReference = attributeMap
+        val definerReference = mergedAttributeNotation
             .values[NotationConventions.definerAttributeSegment]
             ?.asString()
 
-        val creatorReference = attributeMap
+        val creatorReference = mergedAttributeNotation
             .values[NotationConventions.creatorAttributeSegment]
             ?.asString()
 
-        val nullable = attributeMap
-            .values[NotationConventions.nullableAttributeSegment]
-            ?.asBoolean()
-            ?: false
+//        val nullable = attributeMap
+//            .values[NotationConventions.nullableAttributeSegment]
+//            ?.asBoolean()
+//            ?: false
+//
+//
+//        val genericsNotation = attributeMap.values[NotationConventions.ofAttributeSegment]
+//
+//        val generics: List<TypeMetadata> =
+//            if (genericsNotation == null) {
+//                listOf()
+//            }
+//            else {
+//                readGenerics(genericsNotation, host, graphNotation)
+//            }
+//
+//        val typeMetadata = TypeMetadata(
+//            className, generics, nullable)
 
-        @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
-        val genericsNotation = attributeMap.values[NotationConventions.ofAttributeSegment]
-
-        val generics: List<TypeMetadata> =
-            when (genericsNotation) {
-                null ->
-                    listOf()
-
-                is ScalarAttributeNotation -> {
-                    val value = genericsNotation.value
-                    val reference = ObjectReference.parse(value)
-                    val objectLocation = graphNotation.coalesce.locate(reference, host)
-                    val genericClassName = ClassName(
-                            graphNotation.getString(objectLocation, NotationConventions.classAttributePath))
-
-                    listOf(TypeMetadata(genericClassName, listOf(), false))
-                }
-
-                else ->
-                    TODO()
-            }
-
-        val typeMetadata = TypeMetadata(
-            className, generics, nullable)
+        val typeMetadata = readAttributeType(mergedAttributeNotation, host, graphNotation)
 
         return AttributeMetadata(
-            attributeMap,
+            mergedAttributeNotation,
             typeMetadata,
             definerReference?.let { ObjectReference.parse(it) },
             creatorReference?.let { ObjectReference.parse(it) })
+    }
+
+
+    private fun readAttributeType(
+        typeNotation: AttributeNotation,
+        host: ObjectReferenceHost,
+        graphNotation: GraphNotation
+    ): TypeMetadata {
+        return when (typeNotation) {
+            is ScalarAttributeNotation -> {
+                val value = typeNotation.value
+                val reference = ObjectReference.parse(value)
+                val objectLocation = graphNotation.coalesce.locate(reference, host)
+                val genericClassName = ClassName(
+                    graphNotation.getString(objectLocation, NotationConventions.classAttributePath)
+                )
+
+                TypeMetadata(genericClassName, listOf(), false)
+            }
+
+            is MapAttributeNotation -> {
+                val inheritanceParent: String = attributeInheritanceParent(typeNotation)
+                    ?: throw IllegalArgumentException("Unknown type: $host - $typeNotation")
+
+                val inheritanceParentLocation =
+                    graphNotation.coalesce.locate(ObjectReference.parse(inheritanceParent), host)
+
+                val classNotation = metadataAttribute(
+                    NotationConventions.classAttributePath, inheritanceParentLocation, typeNotation, graphNotation)
+                val className = ((classNotation as? ScalarAttributeNotation)?.value)
+                    ?.let { ClassName(it) }
+                    ?: throw IllegalArgumentException("Unknown class: $host - $typeNotation")
+
+                val nullable = typeNotation
+                    .values[NotationConventions.nullableAttributeSegment]
+                    ?.asBoolean()
+                    ?: false
+
+                val nestedGenericsNotation = typeNotation.values[NotationConventions.ofAttributeSegment]
+                val nestedGenerics: List<TypeMetadata> =
+                    if (nestedGenericsNotation == null) {
+                        listOf()
+                    }
+                    else {
+                        readAttributeTypeGenerics(nestedGenericsNotation, host, graphNotation)
+                    }
+
+                TypeMetadata(className, nestedGenerics, nullable)
+            }
+
+            else ->
+                throw IllegalArgumentException("Single type expected: $host - $typeNotation")
+        }
+    }
+
+
+    private fun readAttributeTypeGenerics(
+        genericsNotation: AttributeNotation,
+        host: ObjectReferenceHost,
+        graphNotation: GraphNotation
+    ): List<TypeMetadata> {
+        return when (genericsNotation) {
+            is ScalarAttributeNotation -> {
+                val single = readAttributeType(genericsNotation, host, graphNotation)
+                listOf(single)
+            }
+
+            is MapAttributeNotation -> {
+                val single = readAttributeType(genericsNotation, host, graphNotation)
+                listOf(single)
+            }
+
+            is ListAttributeNotation -> {
+                val builder = mutableListOf<TypeMetadata>()
+                for (parameter in genericsNotation.values) {
+                    val nested = readAttributeType(parameter, host, graphNotation)
+                    builder.add(nested)
+                }
+                return builder
+            }
+        }
     }
 
 
