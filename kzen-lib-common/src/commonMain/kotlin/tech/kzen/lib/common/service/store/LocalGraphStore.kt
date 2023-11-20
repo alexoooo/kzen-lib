@@ -9,17 +9,29 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.NotationEvent
 
 interface LocalGraphStore {
     //-----------------------------------------------------------------------------------------------------------------
+    data class Attachment(
+        val header: Map<String, Any>
+    ) {
+        companion object {
+            val empty = Attachment(mapOf())
+        }
+    }
+
+
     interface Observer {
         suspend fun onCommandSuccess(
-                event: NotationEvent,
-                graphDefinition: GraphDefinitionAttempt)
+            event: NotationEvent,
+            graphDefinition: GraphDefinitionAttempt,
+            attachment: Attachment
+        )
 
         suspend fun onCommandFailure(
-                command: NotationCommand,
-                cause: Throwable)
+            command: NotationCommand,
+            cause: Throwable,
+            attachment: Attachment)
 
         suspend fun onStoreRefresh(
-                graphDefinition: GraphDefinitionAttempt)
+            graphDefinition: GraphDefinitionAttempt)
     }
 
 

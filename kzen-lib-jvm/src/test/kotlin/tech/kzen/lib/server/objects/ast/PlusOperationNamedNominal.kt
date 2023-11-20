@@ -9,6 +9,6 @@ class PlusOperationNamedNominal(
     val addends: Map<String, ObjectLocation>
 ): DoubleExpression {
     override fun evaluate(): Double {
-        TODO()
+        throw UnsupportedOperationException()
     }
 }

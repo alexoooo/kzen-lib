@@ -33,13 +33,17 @@ class ObjectStableMapper: LocalGraphStore.Observer {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override suspend fun onCommandFailure(command: NotationCommand, cause: Throwable) {}
+    override suspend fun onCommandFailure(
+        command: NotationCommand, cause: Throwable, attachment: LocalGraphStore.Attachment
+    ) {}
 
 
     override suspend fun onStoreRefresh(graphDefinition: GraphDefinitionAttempt) {}
 
 
-    override suspend fun onCommandSuccess(event: NotationEvent, graphDefinition: GraphDefinitionAttempt) {
+    override suspend fun onCommandSuccess(
+        event: NotationEvent, graphDefinition: GraphDefinitionAttempt, attachment: LocalGraphStore.Attachment
+    ) {
         when (event) {
             is SingularNotationEvent ->
                 applySingular(event)

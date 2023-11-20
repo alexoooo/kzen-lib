@@ -11,9 +11,11 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.NotationEvent
 
 @Suppress("unused")
 class MirroredGraphStore(
-        private val localGraphStore: DirectGraphStore,
-        private val remoteGraphStore: RemoteGraphStore
-): LocalGraphStore {
+    private val localGraphStore: DirectGraphStore,
+    private val remoteGraphStore: RemoteGraphStore
+):
+    LocalGraphStore
+{
     //-----------------------------------------------------------------------------------------------------------------
     private val observers = mutableSetOf<LocalGraphStore.Observer>()
 
@@ -32,18 +34,25 @@ class MirroredGraphStore(
     }
 
 
-    private suspend fun publishSuccess(event: NotationEvent) {
+    private suspend fun publishSuccess(
+        event: NotationEvent,
+        attachment: LocalGraphStore.Attachment
+    ) {
         val graphDefinition = localGraphStore.graphDefinition()
 
         for (observer in observers) {
-            observer.onCommandSuccess(event, graphDefinition)
+            observer.onCommandSuccess(event, graphDefinition, attachment)
         }
     }
 
 
-    private suspend fun publishFailure(command: NotationCommand, cause: Throwable) {
+    private suspend fun publishFailure(
+        command: NotationCommand,
+        cause: Throwable,
+        attachment: LocalGraphStore.Attachment
+    ) {
         for (observer in observers) {
-            observer.onCommandFailure(command, cause)
+            observer.onCommandFailure(command, cause, attachment)
         }
     }
 
@@ -75,7 +84,8 @@ class MirroredGraphStore(
 
     //-----------------------------------------------------------------------------------------------------------------
     suspend fun apply(
-        command: NotationCommand
+        command: NotationCommand,
+        attachment: LocalGraphStore.Attachment = LocalGraphStore.Attachment.empty
     ):
         MirroredGraphResult
     {
@@ -83,13 +93,11 @@ class MirroredGraphStore(
             var remoteError: Throwable? = null
             val remoteDigestAsync = async {
                 try {
-//                    println("-- remote apply")
                     val result = remoteGraphStore.apply(command)
-//                    println("-- remote done")
                     result
-                } catch (e: Throwable) {
-//                    println("-- remote error")
-                    publishFailure(command, e)
+                }
+                catch (e: Throwable) {
+                    publishFailure(command, e, attachment)
                     remoteError = e
                     null
                 }
@@ -98,16 +106,12 @@ class MirroredGraphStore(
             var localError: Throwable? = null
             val localEventAsync = async {
                 try {
-//                    println("-- local apply")
                     val result = localGraphStore.apply(command)
-//                    println("-- local done")
-                    publishSuccess(result)
-//                    println("-- local published")
+                    publishSuccess(result, attachment)
                     result
                 }
                 catch (e: Throwable) {
-//                    println("-- local error")
-                    publishFailure(command, e)
+                    publishFailure(command, e, attachment)
                     localError = e
                     null
                 }
@@ -128,51 +132,15 @@ class MirroredGraphStore(
                 }
 
                 localDigest != remoteDigest -> {
-//                    println("-- digest mismatch")
                     localGraphStore.refresh()
                     publishRefresh()
                     MirroredGraphSuccess(localEvent!!, true)
                 }
 
                 else -> {
-//                    println("-- digest match")
-//                    publishSuccess(localEvent!!)
                     MirroredGraphSuccess(localEvent!!, false)
                 }
             }
         }
-
-//        // NB: for now, this has to happen before clientEvent for VisualDataflowProvider.inspectVertex
-//        // TODO: make this parallel with client processing via VisualDataflowProvider.initialVertexState
-//        val remoteDigest = try {
-//            remoteGraphStore.apply(command)
-//        }
-//        catch (e: Throwable) {
-//            publishFailure(command, e)
-//            return MirroredGraphError(e, true)
-//        }
-//
-//        val localEvent = try {
-//            localGraphStore.apply(command)
-//        }
-//        catch (e: Throwable) {
-//            publishFailure(command, e)
-//            return MirroredGraphError(e, false)
-//        }
-//
-//        val localDigest = localGraphStore.digest()
-//
-//        return when {
-//            localDigest != remoteDigest -> {
-//                localGraphStore.refresh()
-//                publishRefresh()
-//                MirroredGraphSuccess(localEvent, true)
-//            }
-//
-//            else -> {
-//                publishSuccess(localEvent)
-//                MirroredGraphSuccess(localEvent, false)
-//            }
-//        }
     }
 }

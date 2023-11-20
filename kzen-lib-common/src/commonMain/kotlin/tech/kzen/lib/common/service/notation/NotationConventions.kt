@@ -35,6 +35,7 @@ object NotationConventions {
 
     val classAttributeName = AttributeName("class")
     val classAttributePath = AttributePath.ofName(classAttributeName)
+    val classAttributeSegment = AttributeSegment.ofKey(classAttributeName.value)
 
     const val ofKey = "of"
     val ofAttributeSegment = AttributeSegment.ofKey(ofKey)
