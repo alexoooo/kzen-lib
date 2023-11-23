@@ -1,7 +1,7 @@
 // Info about which JDK each Kotlin release is compatible with:
 //  https://stackoverflow.com/a/77179226/1941359
 
-const val kotlinVersion = "1.9.20"
+const val kotlinVersion = "1.9.21"
 const val jvmTargetVersion = "20"
 const val javaVersion = 20
 const val jvmToolchainVersion = 20
