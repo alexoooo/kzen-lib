@@ -2,8 +2,8 @@ package tech.kzen.lib.common.model.location
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.obj.ObjectPath
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.ClassName
 
 

@@ -3,8 +3,8 @@ package tech.kzen.lib.common.model.document
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 
 
 data class DocumentPath(

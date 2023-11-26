@@ -1,15 +1,15 @@
 package tech.kzen.lib.common.model.obj
 
 import tech.kzen.lib.common.model.attribute.AttributePath
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 
 
 data class ObjectNestingSegment(
         val objectName: ObjectName,
         val attributePath: AttributePath
 ):
-        Digestible
+    Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {

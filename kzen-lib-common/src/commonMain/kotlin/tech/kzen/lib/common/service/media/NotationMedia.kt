@@ -3,7 +3,7 @@ package tech.kzen.lib.common.service.media
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.scan.NotationScan
-import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.ImmutableByteArray
 
 

@@ -14,7 +14,7 @@ import tech.kzen.lib.common.model.structure.notation.AttributeNotation
 import tech.kzen.lib.common.model.structure.notation.DocumentObjectNotation
 import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.model.structure.notation.PositionIndex
-import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.digest.Digest
 
 
 //---------------------------------------------------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 package tech.kzen.lib.server
 
 import org.junit.Test
-import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.digest.Digest
 import java.util.*
 
 

@@ -1,5 +1,7 @@
-package tech.kzen.lib.common.util
+package tech.kzen.lib.common.util.digest
 
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.DigestCache
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

@@ -6,8 +6,8 @@ import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.persistentMapOf
 

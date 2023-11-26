@@ -37,5 +37,4 @@ object GlobalMirror: ClassMirror {
         }
         throw IllegalArgumentException("Unknown: $className")
     }
-
 }

@@ -3,8 +3,8 @@ package tech.kzen.lib.common.model.structure
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 
 
 data class GraphStructure(

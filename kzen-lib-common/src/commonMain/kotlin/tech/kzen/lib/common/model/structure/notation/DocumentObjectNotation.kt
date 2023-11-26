@@ -2,8 +2,8 @@ package tech.kzen.lib.common.model.structure.notation
 
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.obj.ObjectPathMap
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 
 
 data class DocumentObjectNotation(

@@ -15,8 +15,8 @@ import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.notation.NotationReducer
 import tech.kzen.lib.common.service.parse.NotationParser
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.DigestCache
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.DigestCache
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 

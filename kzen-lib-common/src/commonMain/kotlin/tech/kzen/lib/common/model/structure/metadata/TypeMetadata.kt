@@ -1,7 +1,10 @@
+@file:Suppress("ConstPropertyName")
+
 package tech.kzen.lib.common.model.structure.metadata
 
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.exec.*
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.ClassNames
 
@@ -13,7 +16,12 @@ data class TypeMetadata(
 ):
     Digestible
 {
+    //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        private const val classNameKey = "class"
+        private const val genericsKey = "generics"
+        private const val nullableKey = "nullable"
+
         val any = of(ClassNames.kotlinAny)
         val string = of(ClassNames.kotlinString)
         val boolean = of(ClassNames.kotlinBoolean)
@@ -27,12 +35,49 @@ data class TypeMetadata(
                 listOf(),
                 false)
         }
+
+
+        @Suppress("MemberVisibilityCanBePrivate")
+        fun ofExecutionValue(executionValue: MapExecutionValue): TypeMetadata {
+            val className = (executionValue[classNameKey] as? TextExecutionValue)?.value
+                ?: throw IllegalArgumentException("'$classNameKey' not found: $executionValue")
+
+            val generics =
+                (executionValue[genericsKey] as? ListExecutionValue)
+                ?.values
+                ?.map {
+                    (it as? MapExecutionValue)
+                    ?: throw IllegalArgumentException("Generic not map not found: $it")
+                }
+                ?: throw IllegalArgumentException("'$classNameKey' not found: $executionValue")
+
+            val nullable = (executionValue[nullableKey] as? BooleanExecutionValue)?.value ?: false
+
+            return TypeMetadata(
+                ClassName(className),
+                generics.map { ofExecutionValue(it) },
+                nullable
+            )
+        }
     }
 
 
+    //-----------------------------------------------------------------------------------------------------------------
     override fun digest(sink: Digest.Sink) {
         sink.addDigestible(className)
         sink.addDigestibleList(generics)
         sink.addBoolean(nullable)
+    }
+
+
+    @Suppress("MemberVisibilityCanBePrivate")
+    fun asExecutionValue(): ExecutionValue {
+        return MapExecutionValue(mapOf(
+            classNameKey to TextExecutionValue(className.asString()),
+            genericsKey to ListExecutionValue(
+                generics.map { it.asExecutionValue() }
+            ),
+            nullableKey to BooleanExecutionValue.of(nullable)
+        ))
     }
 }

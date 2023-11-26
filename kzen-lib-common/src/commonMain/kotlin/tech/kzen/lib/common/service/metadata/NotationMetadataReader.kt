@@ -13,8 +13,8 @@ import tech.kzen.lib.common.model.structure.metadata.ObjectMetadata
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.DigestCache
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.DigestCache
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.ClassNames
 import tech.kzen.lib.platform.collect.persistentMapOf

@@ -1,4 +1,4 @@
-package tech.kzen.lib.common.util
+package tech.kzen.lib.common.util.digest
 
 import tech.kzen.lib.platform.IoUtils
 import kotlin.test.Test

@@ -1,8 +1,8 @@
 package tech.kzen.lib.common.model.document
 
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.common.util.Digest
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.platform.collect.persistentListOf
 import tech.kzen.lib.platform.collect.toPersistentList

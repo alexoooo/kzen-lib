@@ -14,7 +14,7 @@ import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.common.util.Digest
+import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.platform.toInputStream
@@ -56,7 +56,8 @@ class FileNotationMedia(
     private data class FileInfo(
             val path: Path,
             var modified: Instant,
-            var digest: Digest)
+            var digest: Digest
+    )
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -547,10 +548,10 @@ class FileNotationMedia(
 
 
     private fun invalidateUpsertResource(
-            resolvedResourcePath: Path,
-            resourceLocation: ResourceLocation,
-            resourceDigest: Digest,
-            resourceModified: Instant
+        resolvedResourcePath: Path,
+        resourceLocation: ResourceLocation,
+        resourceDigest: Digest,
+        resourceModified: Instant
     ) {
         invalidateResource(resourceLocation) {
             it.withResource(resourceLocation.resourcePath, resourceDigest)

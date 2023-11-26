@@ -1,6 +1,6 @@
 package tech.kzen.lib.platform
 
-import tech.kzen.lib.common.util.Digestible
+import tech.kzen.lib.common.util.digest.Digestible
 
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")

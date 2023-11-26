@@ -1,8 +1,11 @@
 package tech.kzen.lib.common.util
 
+import tech.kzen.lib.common.util.digest.Digest
+import tech.kzen.lib.common.util.digest.Digestible
+
 
 class ImmutableByteArray private constructor(
-        internal val bytes: ByteArray
+    internal val bytes: ByteArray
 ): Digestible {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
