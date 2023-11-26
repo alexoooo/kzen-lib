@@ -7,6 +7,7 @@ import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.ClassNames
+import tech.kzen.lib.platform.ClassNames.simple
 
 
 data class TypeMetadata(
@@ -79,5 +80,23 @@ data class TypeMetadata(
             ),
             nullableKey to BooleanExecutionValue.of(nullable)
         ))
+    }
+
+
+    @Suppress("MemberVisibilityCanBePrivate")
+    fun toSimple(): String {
+        val prefix = className.simple()
+
+        val parameters =
+            if (generics.isEmpty()) {
+                ""
+            }
+            else {
+                "<${generics.joinToString { it.toSimple() }}>"
+            }
+
+        val suffix = if (nullable) { "?" } else { "" }
+
+        return prefix + parameters + suffix
     }
 }

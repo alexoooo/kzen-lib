@@ -20,6 +20,8 @@ data class DocumentNotation(
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        val empty = DocumentNotation(DocumentObjectNotation.empty, null)
+
         val className = ClassName(
                 "tech.kzen.lib.common.model.structure.notation.DocumentNotation")
 

@@ -16,6 +16,10 @@ data class ObjectPath(
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
+        fun root(name: ObjectName): ObjectPath {
+            return ObjectPath(name, ObjectNesting.root)
+        }
+
         fun parse(asString: String): ObjectPath {
             val nameSuffix = ObjectNesting.extractNameSuffix(asString)
             val segmentsAsString = ObjectNesting.extractSegments(asString)
