@@ -1,8 +1,10 @@
 package tech.kzen.lib.platform
 
 
+@Suppress("unused")
 object ClassNames {
     //-----------------------------------------------------------------------------------------------------------------
+    val kotlinUnit = ClassName("kotlin.Unit")
     val kotlinAny = ClassName("kotlin.Any")
     val kotlinString = ClassName("kotlin.String")
     val kotlinBoolean = ClassName("kotlin.Boolean")
@@ -10,14 +12,10 @@ object ClassNames {
     val kotlinLong = ClassName("kotlin.Long")
     val kotlinDouble = ClassName("kotlin.Double")
 
-    @Suppress("unused")
     val kotlinList = ClassName("kotlin.collections.List")
-
-    @Suppress("unused")
     val kotlinSet = ClassName("kotlin.collections.Set")
 
 
-    @Suppress("unused")
     fun isPrimitive(className: ClassName): Boolean {
         return className == kotlinString ||
                 className == kotlinBoolean ||
@@ -28,12 +26,6 @@ object ClassNames {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    fun ClassName.dotNormalized(): String {
-//        return asString().replace('$', '.')
-//    }
-
-
-
     fun ClassName.simple(): String {
         val qualified = asString()
         val startOfSimple = qualified.lastIndexOf(".")
