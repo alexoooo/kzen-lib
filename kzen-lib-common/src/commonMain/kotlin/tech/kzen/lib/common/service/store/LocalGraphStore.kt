@@ -46,5 +46,6 @@ interface LocalGraphStore {
 
     suspend fun graphStructure(): GraphStructure
 
+    // TODO: rename graphDefinitionAttempt. Should this be cached?
     suspend fun graphDefinition(): GraphDefinitionAttempt
 }

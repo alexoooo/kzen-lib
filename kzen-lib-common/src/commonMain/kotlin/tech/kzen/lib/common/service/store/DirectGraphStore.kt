@@ -150,7 +150,7 @@ class DirectGraphStore(
 
 
     private fun graphDefinition(
-            graphNotation: GraphNotation
+        graphNotation: GraphNotation
     ): GraphDefinitionAttempt {
         val graphStructure = graphStructure(graphNotation)
         return graphDefinition(graphStructure)

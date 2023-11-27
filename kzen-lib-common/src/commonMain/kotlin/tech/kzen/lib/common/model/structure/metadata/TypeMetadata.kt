@@ -30,6 +30,10 @@ data class TypeMetadata(
         val long = of(ClassNames.kotlinLong)
         val double = of(ClassNames.kotlinDouble)
 
+        @Suppress("unused")
+        val anyNullable = TypeMetadata(ClassNames.kotlinAny, listOf(), true)
+
+
         fun of(className: ClassName): TypeMetadata {
             return TypeMetadata(
                 className,
@@ -71,7 +75,7 @@ data class TypeMetadata(
     }
 
 
-    @Suppress("MemberVisibilityCanBePrivate")
+    @Suppress("MemberVisibilityCanBePrivate", "unused")
     fun asExecutionValue(): ExecutionValue {
         return MapExecutionValue(mapOf(
             classNameKey to TextExecutionValue(className.asString()),
@@ -83,7 +87,7 @@ data class TypeMetadata(
     }
 
 
-    @Suppress("MemberVisibilityCanBePrivate")
+    @Suppress("MemberVisibilityCanBePrivate", "unused")
     fun toSimple(): String {
         val prefix = className.simple()
 
@@ -98,5 +102,11 @@ data class TypeMetadata(
         val suffix = if (nullable) { "?" } else { "" }
 
         return prefix + parameters + suffix
+    }
+
+
+    @Suppress("MemberVisibilityCanBePrivate", "unused")
+    fun classNames(): Set<ClassName> {
+        return setOf(className) + generics.flatMap { it.classNames() }
     }
 }
