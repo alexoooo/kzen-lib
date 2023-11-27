@@ -22,7 +22,7 @@ class ObjectLocationTest {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
 
         val data = ObjectLocationMap(persistentMapOf(
-                location to "foo"
+            location to "foo"
         ))
 
         val located = data.locate(ObjectReference.parse("foo"))
@@ -36,7 +36,7 @@ class ObjectLocationTest {
         val location = ObjectLocation.parse("main/main.yaml#/foo")
 
         val data = ObjectLocationMap(persistentMapOf(
-                location to "foo"
+            location to "foo"
         ))
 
         val located = data.locate(location.toReference())
@@ -50,7 +50,7 @@ class ObjectLocationTest {
         val location = ObjectLocation.parse("main/main.yaml#/main.attr/\\")
 
         val data = ObjectLocationMap(persistentMapOf(
-                location to "foo"
+            location to "foo"
         ))
 
         val located = data.locate(ObjectReference.parse("main.attr/\\"))
@@ -64,8 +64,8 @@ class ObjectLocationTest {
         val location = ObjectLocation.parse("main/main.yaml#main.steps/If.then/Text")
 
         assertEquals(
-                ObjectLocation.parse("main/main.yaml#main.steps/If"),
-                location.parent()
+            ObjectLocation.parse("main/main.yaml#main.steps/If"),
+            location.parent()
         )
     }
 
@@ -74,16 +74,14 @@ class ObjectLocationTest {
     fun parseDir() {
         val location = ObjectLocation.parse("main/Visual Target/~main.yaml#main")
 
-        assertEquals(
-                ObjectPath(ObjectName("main"), ObjectNesting.root),
-                location.objectPath)
+        assertEquals(ObjectPath.main, location.objectPath)
 
         assertEquals(
-                DocumentPath(
-                        DocumentName("Visual Target"),
-                        DocumentNesting(persistentListOf(
-                                DocumentSegment("main"))),
-                        true),
-                location.documentPath)
+            DocumentPath(
+                DocumentName("Visual Target"),
+                DocumentNesting(persistentListOf(
+                    DocumentSegment("main"))),
+            true),
+            location.documentPath)
     }
 }
