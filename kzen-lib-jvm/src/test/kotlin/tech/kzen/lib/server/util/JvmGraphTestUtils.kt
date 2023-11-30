@@ -74,7 +74,7 @@ object JvmGraphTestUtils {
 //            println("foo")
 //        }
 
-        val graphDefinition = definitionAttempt.transitiveSuccessful()
+        val graphDefinition = definitionAttempt.transitiveSuccessful
 //        if (graphDefinition.objectDefinitions.contains(ObjectLocation.parse("test/kzen-test.yaml#StringHolderNullableNominal"))) {
 //            println("foo")
 //        }

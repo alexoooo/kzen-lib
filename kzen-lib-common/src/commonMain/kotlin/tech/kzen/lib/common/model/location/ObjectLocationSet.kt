@@ -4,7 +4,7 @@ import tech.kzen.lib.common.model.obj.ObjectName
 
 
 data class ObjectLocationSet(
-        val values: Set<ObjectLocation>
+    val values: Set<ObjectLocation>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -13,15 +13,15 @@ data class ObjectLocationSet(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    class Locator {
+    class Locator: ObjectLocator {
         private val byName = mutableMapOf<ObjectName, MutableList<ObjectLocation>>()
 
 
         fun add(objectLocation: ObjectLocation) {
             val sameNameLocations = byName
-                    .getOrPut(objectLocation.objectPath.name) {
-                        mutableListOf()
-                    }
+                .getOrPut(objectLocation.objectPath.name) {
+                    mutableListOf()
+                }
 
             sameNameLocations.add(objectLocation)
         }
@@ -34,7 +34,10 @@ data class ObjectLocationSet(
         }
 
 
-        fun locateAll(reference: ObjectReference, host: ObjectReferenceHost): ObjectLocationSet {
+        override fun locateAll(
+            reference: ObjectReference,
+            host: ObjectReferenceHost
+        ): ObjectLocationSet {
             val objectName = reference.name.objectName
                 ?: return empty
 
@@ -65,5 +68,23 @@ data class ObjectLocationSet(
 
             return ObjectLocationSet(candidates)
         }
+
+
+        override fun locate(reference: ObjectReference): ObjectLocation {
+            return locateOptional(reference)
+                ?: throw IllegalArgumentException(
+                    "Missing: $reference | ${byName.flatMap { it.value }.map { it.documentPath }.toSet()}")
+        }
+
+
+        override fun locate(
+            reference: ObjectReference,
+            host: ObjectReferenceHost
+        ): ObjectLocation {
+            return locateOptional(reference, host)
+                ?: throw IllegalArgumentException(
+                    "Missing: $host - $reference | ${byName.flatMap { it.value }.map { it.documentPath }.toSet()}")
+        }
+
     }
 }

@@ -6,8 +6,10 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class ObjectLocationMap<T>(
-        val values: PersistentMap<ObjectLocation, T>
-) {
+    val values: PersistentMap<ObjectLocation, T>
+):
+    ObjectLocator
+{
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         private val empty = ObjectLocationMap(mapOf<ObjectLocation, Any>().toPersistentMap())
@@ -32,14 +34,14 @@ data class ObjectLocationMap<T>(
     }
 
 
-    fun locate(reference: ObjectReference): ObjectLocation {
+    override fun locate(reference: ObjectReference): ObjectLocation {
         return locateOptional(reference)
                 ?: throw IllegalArgumentException(
                         "Missing: $reference | ${values.keys.map { it.documentPath }.toSet()}")
     }
 
 
-    fun locate(
+    override fun locate(
         reference: ObjectReference,
         host: ObjectReferenceHost
     ): ObjectLocation {
@@ -49,52 +51,57 @@ data class ObjectLocationMap<T>(
     }
 
 
-    fun locateOptional(reference: ObjectReference): ObjectLocation? {
-        val matches = locateAll(reference)
+//    fun locateOptional(reference: ObjectReference): ObjectLocation? {
+//        val matches = locateAll(reference)
+//
+//        check(matches.values.size <= 1) {
+//            "Ambiguous: $reference - $matches"
+//        }
+//
+//        if (matches.values.isEmpty()) {
+//            return null
+//        }
+//        return matches.values.iterator().next()
+//    }
+//
+//
+//    fun locateOptional(
+//        reference: ObjectReference,
+//        host: ObjectReferenceHost
+//    ): ObjectLocation? {
+//        val matches = locateAll(reference, host)
+//
+//        check(matches.values.size <= 1) {
+//            "Ambiguous: $host - $reference - $matches"
+//        }
+//
+//        if (matches.values.isEmpty()) {
+//            return null
+//        }
+//        return matches.values.iterator().next()
+//    }
+//
+//
+//    fun locateAll(reference: ObjectReference): ObjectLocationSet {
+//        return locateAll(reference, ObjectReferenceHost.global)
+//    }
 
-        check(matches.values.size <= 1) {
-            "Ambiguous: $reference - $matches"
-        }
 
-        if (matches.values.isEmpty()) {
-            return null
-        }
-        return matches.values.iterator().next()
-    }
-
-
-    fun locateOptional(
-        reference: ObjectReference,
-        host: ObjectReferenceHost
-    ): ObjectLocation? {
-        val matches = locateAll(reference, host)
-
-        check(matches.values.size <= 1) {
-            "Ambiguous: $host - $reference - $matches"
-        }
-
-        if (matches.values.isEmpty()) {
-            return null
-        }
-        return matches.values.iterator().next()
-    }
-
-
-    fun locateAll(reference: ObjectReference): ObjectLocationSet {
-        return locateAll(reference, ObjectReferenceHost.global)
-    }
-
-
-    fun locateAll(
+    override fun locateAll(
         reference: ObjectReference,
         host: ObjectReferenceHost
     ): ObjectLocationSet {
+        val locator = locator()
+        return locator.locateAll(reference, host)
+    }
+
+
+    private fun locator(): ObjectLocator {
         if (locatorCache == null) {
             locatorCache = ObjectLocationSet.Locator()
             locatorCache!!.addAll(values.keys)
         }
-
-        return locatorCache!!.locateAll(reference, host)
+        return locatorCache!!
     }
 
 

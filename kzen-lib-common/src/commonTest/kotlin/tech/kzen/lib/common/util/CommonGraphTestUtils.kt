@@ -35,7 +35,7 @@ object CommonGraphTestUtils {
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val definitionAttempt = GraphDefiner().tryDefine(graphStructure)
-        val graphDefinition = definitionAttempt.transitiveSuccessful()
+        val graphDefinition = definitionAttempt.transitiveSuccessful
 
         return GraphCreator()
                 .createGraph(graphDefinition)

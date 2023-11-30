@@ -9,10 +9,13 @@ import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.service.context.GraphDefiner
 
-
+/**
+ * objectDefinitions could be subset of graphStructure (e.g. successful),
+ *  where graphStructure would be the entire graph (not just what is defined)
+ */
 data class GraphDefinition(
-        val objectDefinitions: ObjectLocationMap<ObjectDefinition>,
-        val graphStructure: GraphStructure
+    val objectDefinitions: ObjectLocationMap<ObjectDefinition>,
+    val graphStructure: GraphStructure
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {

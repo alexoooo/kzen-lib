@@ -6,6 +6,10 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.service.context.GraphDefiner
 
 
+/**
+ * not using {successful: GraphDefinition} to avoid implicitly elevating relation
+ *  between objectDefinitions and graphStructure vs the failures
+ */
 data class GraphDefinitionAttempt(
     val objectDefinitions: ObjectLocationMap<ObjectDefinition>,
     val failures: ObjectLocationMap<ObjectDefinitionFailure>,
@@ -16,7 +20,7 @@ data class GraphDefinitionAttempt(
     }
 
 
-    fun transitiveSuccessful(): GraphDefinition {
+    val transitiveSuccessful: GraphDefinition by lazy {
         val failedObjectLocations = failures.values.keys.toMutableSet()
         var open = objectDefinitions.values
 
@@ -68,7 +72,7 @@ data class GraphDefinitionAttempt(
             }
         }
 
-        return GraphDefinition(
+        GraphDefinition(
             ObjectLocationMap(open), graphStructure)
     }
 
