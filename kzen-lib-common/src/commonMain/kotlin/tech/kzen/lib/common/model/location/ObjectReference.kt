@@ -27,6 +27,16 @@ data class ObjectReference(
         }
 
 
+        fun tryParse(asString: String): ObjectReference? {
+            @Suppress("LiftReturnOrAssignment")
+            try {
+                return parse(asString)
+            }
+            catch (t: Throwable) {
+                return null
+            }
+        }
+
         fun parse(asString: String): ObjectReference {
             val endOfPath = asString.indexOf(nestingSeparator)
 

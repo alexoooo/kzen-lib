@@ -23,6 +23,9 @@ data class TypeMetadata(
         private const val genericsKey = "generics"
         private const val nullableKey = "nullable"
 
+        @Suppress("unused")
+        val unit = of(ClassNames.kotlinUnit)
+
         val any = of(ClassNames.kotlinAny)
         val string = of(ClassNames.kotlinString)
         val boolean = of(ClassNames.kotlinBoolean)
