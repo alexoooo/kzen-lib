@@ -61,7 +61,7 @@ kotlin {
         jsMain {
             dependencies {
                 api("org.jetbrains.kotlinx:kotlinx-coroutines-core-js:$coroutinesVersion")
-                implementation(npm("immutable", immutaleJsVersion))
+                implementation(npm("immutable", immutableJsVersion))
             }
         }
 
