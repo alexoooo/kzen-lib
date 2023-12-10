@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.exec
 
+import tech.kzen.lib.common.util.ExceptionUtils
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 
@@ -78,28 +79,8 @@ data class ExecutionFailure(
 
         @Suppress("MemberVisibilityCanBePrivate")
         fun ofException(userMessage: String, throwable: Throwable): ExecutionFailure {
-            val errorName = throwable::class
-                .simpleName
-                ?.removeSuffix("Exception")
-                ?.replace(Regex("([A-Z])"), " $1")
-                ?.trim()
-
-            val message = throwable.message
-
-            val fullMessage =
-                if (errorName != null) {
-                    if (message != null) {
-                        "$errorName: $message"
-                    }
-                    else {
-                        errorName
-                    }
-                }
-                else {
-                    message ?: "exception"
-                }
-
-            return ExecutionFailure(userMessage + fullMessage)
+            val errorMessage = ExceptionUtils.message(throwable)
+            return ExecutionFailure(userMessage + errorMessage)
         }
     }
 
