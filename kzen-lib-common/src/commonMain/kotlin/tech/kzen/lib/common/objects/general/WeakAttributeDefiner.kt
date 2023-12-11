@@ -9,14 +9,12 @@ import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.location.AttributeLocation
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectReference
-import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.model.structure.notation.AttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
-import tech.kzen.lib.common.objects.base.StructuralAttributeDefiner
 import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.platform.ClassNames
 

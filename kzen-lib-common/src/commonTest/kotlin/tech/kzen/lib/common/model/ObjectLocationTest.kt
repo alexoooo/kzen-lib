@@ -7,8 +7,6 @@ import tech.kzen.lib.common.model.document.DocumentSegment
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectLocationMap
 import tech.kzen.lib.common.model.location.ObjectReference
-import tech.kzen.lib.common.model.obj.ObjectName
-import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.platform.collect.persistentListOf
 import tech.kzen.lib.platform.collect.persistentMapOf

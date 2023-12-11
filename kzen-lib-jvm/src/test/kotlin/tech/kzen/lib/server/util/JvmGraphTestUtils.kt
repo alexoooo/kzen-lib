@@ -6,7 +6,6 @@ import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
 import tech.kzen.lib.common.model.instance.GraphInstance
-import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation

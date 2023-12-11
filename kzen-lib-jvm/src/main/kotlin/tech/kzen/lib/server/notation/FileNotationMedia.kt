@@ -14,8 +14,8 @@ import tech.kzen.lib.common.model.structure.scan.DocumentScan
 import tech.kzen.lib.common.model.structure.scan.NotationScan
 import tech.kzen.lib.common.service.media.NotationMedia
 import tech.kzen.lib.common.service.notation.NotationConventions
-import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.ImmutableByteArray
+import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.platform.toInputStream
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
