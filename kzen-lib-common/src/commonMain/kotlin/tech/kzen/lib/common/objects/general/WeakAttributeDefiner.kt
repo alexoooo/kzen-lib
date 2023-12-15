@@ -35,7 +35,7 @@ object WeakAttributeDefiner: AttributeDefiner {
     ): AttributeDefinitionAttempt {
         val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]!!
 
-        val attributeNotation = objectNotation.attributes.values[attributeName]
+        val attributeNotation = objectNotation.attributes.map[attributeName]
             ?: graphStructure.graphNotation.firstAttribute(
                 objectLocation, attributeName.asAttributePath())
             ?: return AttributeDefinitionAttempt.failure(
@@ -149,7 +149,7 @@ object WeakAttributeDefiner: AttributeDefiner {
         val valueGeneric = typeMetadata.generics[1]
 
         val definitions = mutableMapOf<String, AttributeDefinition>()
-        for (entry in attributeNotation.values) {
+        for (entry in attributeNotation.map) {
             val entryLocation = attributeLocation.nest(entry.key)
 
             @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")

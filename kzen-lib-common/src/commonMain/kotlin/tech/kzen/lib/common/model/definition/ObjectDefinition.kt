@@ -23,7 +23,7 @@ data class ObjectDefinition(
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     fun get(attributePath: AttributePath): AttributeDefinition {
-        val root = attributeDefinitions.values[attributePath.attribute]
+        val root = attributeDefinitions.map[attributePath.attribute]
                 ?: throw IllegalArgumentException("Missing attribute definition: ${attributePath.attribute}")
 
         if (attributePath.nesting.segments.isEmpty()) {
@@ -38,7 +38,7 @@ data class ObjectDefinition(
                     cursor.values[attributeSegment.asIndex()!!]
 
                 is MapAttributeDefinition ->
-                    cursor.values[attributeSegment.asKey()]
+                    cursor.map[attributeSegment.asKey()]
                             ?: throw IllegalArgumentException("Missing key: ${attributeSegment.asKey()}")
 
                 else ->
@@ -81,7 +81,7 @@ data class ObjectDefinition(
     ): Map<AttributePath, ObjectDefinitionReference> {
         val builder = mutableMapOf<AttributePath, ObjectDefinitionReference>()
 
-        for (e in attributeDefinitions.values) {
+        for (e in attributeDefinitions.map) {
             val attributePaths = attributeReferences(e.key, e.value, includeWeak)
 
             for (attributeReference in attributePaths) {
@@ -138,7 +138,7 @@ data class ObjectDefinition(
             }
 
             is MapAttributeDefinition -> {
-                for ((key, value) in definition.values) {
+                for ((key, value) in definition.map) {
                     val segment = AttributeSegment.ofKey(key)
 //                    val keyNesting = attributePath.push(segment)
                     val keyNesting = attributePath.nest(segment)

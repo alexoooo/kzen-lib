@@ -11,6 +11,6 @@ data class ObjectMetadata(
     Digestible
 {
     override fun digest(sink: Digest.Sink) {
-        sink.addDigestibleOrderedMap(attributes.values)
+        sink.addDigestibleOrderedMap(attributes.map)
     }
 }

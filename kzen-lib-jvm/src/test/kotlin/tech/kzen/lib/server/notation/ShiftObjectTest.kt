@@ -24,9 +24,9 @@ B:
                 ShiftObjectCommand(
                         location("B"), PositionRelation.first))
 
-        val packageNotation = transition.graphNotation.documents.values[testPath]!!
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
-        assertNotEquals(notation.documents.values[testPath]!!.objects, packageNotation.objects)
+        assertNotEquals(notation.documents.map[testPath]!!.objects, packageNotation.objects)
     }
 
 
@@ -44,9 +44,9 @@ B:
             ShiftObjectCommand(
                 location("A"), PositionRelation.at(1)))
 
-        val packageNotation = transition.graphNotation.documents.values[testPath]!!
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
         assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertNotEquals(notation.documents.values[testPath]!!.objects, packageNotation.objects)
+        assertNotEquals(notation.documents.map[testPath]!!.objects, packageNotation.objects)
     }
 
 
@@ -64,8 +64,8 @@ B:
             ShiftObjectCommand(
                 location("A"), PositionRelation.first))
 
-        val packageNotation = transition.graphNotation.documents.values[testPath]!!
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
         assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
-        assertEquals(notation.documents.values[testPath]!!.objects, packageNotation.objects)
+        assertEquals(notation.documents.map[testPath]!!.objects, packageNotation.objects)
     }
 }

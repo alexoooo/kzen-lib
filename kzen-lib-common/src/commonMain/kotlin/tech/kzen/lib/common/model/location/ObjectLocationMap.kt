@@ -6,7 +6,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class ObjectLocationMap<T>(
-    val values: PersistentMap<ObjectLocation, T>
+    val map: PersistentMap<ObjectLocation, T>
 ):
     ObjectLocator
 {
@@ -26,18 +26,18 @@ data class ObjectLocationMap<T>(
 
 
     val size: Int
-        get() = values.size
+        get() = map.size
 
 
     fun isEmpty(): Boolean {
-        return values.isEmpty()
+        return map.isEmpty()
     }
 
 
     override fun locate(reference: ObjectReference): ObjectLocation {
         return locateOptional(reference)
-                ?: throw IllegalArgumentException(
-                        "Missing: $reference | ${values.keys.map { it.documentPath }.toSet()}")
+            ?: throw IllegalArgumentException(
+                "Missing: $reference | ${map.keys.map { it.documentPath }.toSet()}")
     }
 
 
@@ -47,7 +47,7 @@ data class ObjectLocationMap<T>(
     ): ObjectLocation {
         return locateOptional(reference, host)
             ?: throw IllegalArgumentException(
-                "Missing: $host - $reference | ${values.keys.map { it.documentPath }.toSet()}")
+                "Missing: $host - $reference | ${map.keys.map { it.documentPath }.toSet()}")
     }
 
 
@@ -99,7 +99,7 @@ data class ObjectLocationMap<T>(
     private fun locator(): ObjectLocator {
         if (locatorCache == null) {
             locatorCache = ObjectLocationSet.Locator()
-            locatorCache!!.addAll(values.keys)
+            locatorCache!!.addAll(map.keys)
         }
         return locatorCache!!
     }
@@ -111,39 +111,39 @@ data class ObjectLocationMap<T>(
 //    }
 
     operator fun contains(objectLocation: ObjectLocation): Boolean {
-        return objectLocation in values
+        return objectLocation in map
     }
 
 
     operator fun get(objectLocation: ObjectLocation): T? {
-        return values[objectLocation]
+        return map[objectLocation]
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun filterObjectLocations(allowed: Set<ObjectLocation>): ObjectLocationMap<T> {
-        return ObjectLocationMap(values
+        return ObjectLocationMap(map
             .filter { e -> e.key in allowed }
             .toPersistentMap())
     }
 
 
     fun filterDocumentNestings(allowed: Set<DocumentNesting>): ObjectLocationMap<T> {
-        return ObjectLocationMap(values
-                .filter { e -> allowed.any(e.key.documentPath::startsWith) }
-                .toPersistentMap())
+        return ObjectLocationMap(map
+            .filter { e -> allowed.any(e.key.documentPath::startsWith) }
+            .toPersistentMap())
     }
 
 
     fun filterBy(predicate: (Pair<ObjectLocation, T>) -> Boolean): ObjectLocationMap<T> {
-        return ObjectLocationMap(values
-                .filter { predicate(it.toPair()) }
-                .toPersistentMap())
+        return ObjectLocationMap(map
+            .filter { predicate(it.toPair()) }
+            .toPersistentMap())
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun put(objectLocation: ObjectLocation, instance: T): ObjectLocationMap<T> {
-        return ObjectLocationMap(values.put(objectLocation, instance))
+        return ObjectLocationMap(map.put(objectLocation, instance))
     }
 }

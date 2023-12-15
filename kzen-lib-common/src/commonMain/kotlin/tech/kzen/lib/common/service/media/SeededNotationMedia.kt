@@ -183,7 +183,7 @@ class SeededNotationMedia(
 
         val scan = underlying.scan()
 
-        for (e in scan.documents.values) {
+        for (e in scan.documents.map) {
             val document = underlying.readDocument(e.key, e.value.documentDigest)
 
             val resources =

@@ -33,7 +33,7 @@ class RenameObjectRefactorTest {
                 RenameObjectRefactorCommand(
                         location("main.addends/OldName"), ObjectName("NewName")))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         assertEquals(1, documentNotation.indexOf(ObjectPath.parse("main.addends/NewName")).value)
         assertEquals(2, documentNotation.indexOf(ObjectPath.parse("main.addends/SameName")).value)
@@ -58,7 +58,7 @@ class RenameObjectRefactorTest {
                 RenameObjectRefactorCommand(
                         location("main.addends/OldName"), weirdName))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         assertEquals(location("main.addends/\\/"),
             transition.graphNotation.coalesce.locate(ObjectReference(
@@ -82,7 +82,7 @@ class RenameObjectRefactorTest {
                 RenameObjectRefactorCommand(
                         location("main"), ObjectName("foo")))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         assertEquals(1, documentNotation.indexOf(ObjectPath.parse("foo.addends/OldName")).value)
         assertEquals(2, documentNotation.indexOf(ObjectPath.parse("foo.addends/SameName")).value)
@@ -104,7 +104,7 @@ class RenameObjectRefactorTest {
                 RenameObjectRefactorCommand(
                         location("main.addends/OldName"), ObjectName("NewName")))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         val partialDivisionDividend =
                 documentNotation.objects.notations[ObjectPath.parse("PartialDivisionDividend")]!!
@@ -132,7 +132,7 @@ class RenameObjectRefactorTest {
                 RenameObjectRefactorCommand(
                         location("PartialDivisionDividend"), ObjectName("NewName")))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         val divisionOfPartial =
                 documentNotation.objects.notations[ObjectPath.parse("DivisionOfPartial")]!!

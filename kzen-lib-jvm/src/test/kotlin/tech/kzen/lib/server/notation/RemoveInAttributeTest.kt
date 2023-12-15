@@ -34,7 +34,7 @@ Foo:
             location("Foo"), AttributeName("hello")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+        assertTrue(containingMap.map.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("1")
         )))
     }
@@ -60,7 +60,7 @@ Foo:
             location("Foo"), AttributeName("hello")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.isEmpty())
+        assertTrue(containingMap.map.isEmpty())
     }
 
 

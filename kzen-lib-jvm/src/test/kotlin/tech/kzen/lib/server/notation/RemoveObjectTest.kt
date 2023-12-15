@@ -19,7 +19,7 @@ A:
                 RemoveObjectCommand(
                         location("A")))
 
-        val packageNotation = transition.graphNotation.documents.values[testPath]!!
-        assertEquals(0, packageNotation.objects.notations.values.size)
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
+        assertEquals(0, packageNotation.objects.notations.map.size)
     }
 }

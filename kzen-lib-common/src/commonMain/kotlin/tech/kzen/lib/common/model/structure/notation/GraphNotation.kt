@@ -30,14 +30,14 @@ data class GraphNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     val objectLocations: Set<ObjectLocation> by lazy {
-        coalesce.values.keys
+        coalesce.map.keys
     }
 
 
     val coalesce: ObjectLocationMap<ObjectNotation> by lazy {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
-        documents.values.entries
-                .flatMap { it.value.expand(it.key).values.entries }
+        documents.map.entries
+                .flatMap { it.value.expand(it.key).map.entries }
                 .forEach { buffer[it.key] = it.value }
         ObjectLocationMap(buffer.toPersistentMap())
     }
@@ -80,7 +80,7 @@ data class GraphNotation(
             return null
         }
 
-        val notation = coalesce.values[objectLocation]
+        val notation = coalesce.map[objectLocation]
             ?: throw IllegalArgumentException("Missing: $objectLocation")
 
         val isAttribute = notation.get(NotationConventions.isAttributePath)
@@ -102,7 +102,7 @@ data class GraphNotation(
         objectLocation: ObjectLocation,
         attributeName: AttributeName
     ): AttributeNotation? {
-        return coalesce.values[objectLocation]?.get(attributeName)
+        return coalesce.map[objectLocation]?.get(attributeName)
     }
 
 
@@ -110,7 +110,7 @@ data class GraphNotation(
         objectLocation: ObjectLocation,
         attributePath: AttributePath
     ): AttributeNotation? {
-        return coalesce.values[objectLocation]?.get(attributePath)
+        return coalesce.map[objectLocation]?.get(attributePath)
     }
 
 
@@ -124,7 +124,7 @@ data class GraphNotation(
 
         val transitiveAttributes = ancestors
             .mapNotNull { coalesce[it] }
-            .flatMap { it.attributes.values.keys }
+            .flatMap { it.attributes.map.keys }
             .toSet()
             .toList()
 
@@ -201,7 +201,7 @@ data class GraphNotation(
         objectLocation: ObjectLocation,
         attributePath: AttributePath
     ): AttributeNotation? {
-        val notation = coalesce.values[objectLocation]
+        val notation = coalesce.map[objectLocation]
             ?: throw IllegalArgumentException("Unknown object location: $objectLocation")
 
         val attributeNotation = notation.get(attributePath)
@@ -260,7 +260,7 @@ data class GraphNotation(
         documentPath: DocumentPath,
         documentNotation: DocumentNotation
     ): GraphNotation {
-        check(documentPath !in documents.values) {
+        check(documentPath !in documents.map) {
             "Already exists: $documentPath"
         }
         check(documentPath.directory == (documentNotation.resources != null)) {
@@ -305,7 +305,7 @@ data class GraphNotation(
     fun filterPaths(predicate: (DocumentPath) -> Boolean): GraphNotation {
         val filteredDocuments = mutableMapOf<DocumentPath, DocumentNotation>()
 
-        for (e in documents.values) {
+        for (e in documents.map) {
             if (! predicate.invoke(e.key)) {
                 continue
             }
@@ -327,7 +327,7 @@ data class GraphNotation(
         if (digest == null) {
             val builder = Digest.Builder()
 
-            builder.addDigestibleOrderedMap(documents.values)
+            builder.addDigestibleOrderedMap(documents.map)
 
             digest = builder.digest()
         }

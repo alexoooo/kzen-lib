@@ -39,7 +39,7 @@ Foo:
             location("Foo"), AttributeName("hello")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+        assertTrue(containingMap.map.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world"),
             AttributeSegment.ofKey("fizz") to ScalarAttributeNotation("1")
         )))
@@ -69,7 +69,7 @@ Foo:
             location("Foo"), AttributeName("hello")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+        assertTrue(containingMap.map.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("fizz") to ScalarAttributeNotation("1"),
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world")
         )))
@@ -100,7 +100,7 @@ Foo:
             location("Foo"), AttributePath.parse("hello.fizz")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+        assertTrue(containingMap.map.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world")
         )))
     }
@@ -128,7 +128,7 @@ Foo:
             location("Foo"), AttributePath.parse("hello.fizz")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+        assertTrue(containingMap.map.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world")
         )))
 
@@ -159,7 +159,7 @@ Foo:
             location("Foo"), AttributePath.parse("hello.fizz")
         ) as MapAttributeNotation
 
-        assertTrue(containingMap.values.equalsInOrder(persistentMapOf(
+        assertTrue(containingMap.map.equalsInOrder(persistentMapOf(
             AttributeSegment.ofKey("buzz") to ScalarAttributeNotation("world")
         )))
 

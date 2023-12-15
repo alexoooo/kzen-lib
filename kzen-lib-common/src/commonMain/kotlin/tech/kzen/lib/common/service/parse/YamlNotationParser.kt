@@ -111,7 +111,7 @@ class YamlNotationParser: NotationParser {
         val buffer = StringBuilder()
 
         var first = true
-        for ((objectPath, objectNotation) in notation.notations.values) {
+        for ((objectPath, objectNotation) in notation.notations.map) {
             if (! first) {
                 buffer.append("\n\n")
             }
@@ -131,7 +131,7 @@ class YamlNotationParser: NotationParser {
 
 
     private fun objectToYaml(objectNotation: ObjectNotation): YamlNode {
-        return YamlMap(objectNotation.attributes.values.map {
+        return YamlMap(objectNotation.attributes.map.map {
             it.key.value to attributeToYaml(it.value)
         }.toMap())
     }
@@ -146,7 +146,7 @@ class YamlNotationParser: NotationParser {
                 YamlList(attributeNotation.values.map { attributeToYaml(it) })
 
             is MapAttributeNotation ->
-                YamlMap(attributeNotation.values.map { e ->
+                YamlMap(attributeNotation.map.map { e ->
                     e.key.asKey() to attributeToYaml(e.value)
                 }.toMap())
         }

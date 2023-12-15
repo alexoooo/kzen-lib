@@ -43,7 +43,7 @@ data class ObjectNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun get(notationName: AttributeName): AttributeNotation? {
-        return attributes.values[notationName]
+        return attributes.map[notationName]
     }
 
 
@@ -57,7 +57,7 @@ data class ObjectNotation(
 //        println("attributes: $attributes - $notationPath")
 
         val firstSegment = notationPath.attribute
-        if (! attributes.values.containsKey(firstSegment)) {
+        if (! attributes.map.containsKey(firstSegment)) {
 //            println("first segment missing ($firstSegment): $attributes - $notationPath")
             return null
         }
@@ -113,7 +113,7 @@ data class ObjectNotation(
         }
 
         val root: StructuredAttributeNotation = attributes
-                .values[rootParameterName]
+                .map[rootParameterName]
                 as? StructuredAttributeNotation
                 ?: MapAttributeNotation.empty
 
@@ -143,7 +143,7 @@ data class ObjectNotation(
     override fun digest(): Digest {
         if (digest == null) {
             val builder = Digest.Builder()
-            builder.addDigestibleOrderedMap(attributes.values)
+            builder.addDigestibleOrderedMap(attributes.map)
             digest = builder.digest()
         }
         return digest!!

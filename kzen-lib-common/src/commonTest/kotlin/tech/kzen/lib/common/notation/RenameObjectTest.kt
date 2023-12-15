@@ -29,7 +29,7 @@ C:
                 RenameObjectCommand(
                         location("B"), ObjectName("Foo")))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         assertEquals(0, documentNotation.indexOf(ObjectPath.parse("A")).value)
         assertEquals(1, documentNotation.indexOf(ObjectPath.parse("Foo")).value)
@@ -62,7 +62,7 @@ C:
 
         val objectPathAsString = "\\/"
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         assertEquals(0, documentNotation.indexOf(ObjectPath.parse("A")).value)
         assertEquals(1, documentNotation.indexOf(ObjectPath.parse(objectPathAsString)).value)

@@ -60,7 +60,7 @@ object AttributeObjectDefiner: ObjectDefiner
         val attributeErrors = mutableMapOf<AttributeName, String>()
         val missingObjects = mutableSetOf<ObjectLocation>()
 
-        for ((attributeName, attributeMetadata) in objectMetadata.attributes.values) {
+        for ((attributeName, attributeMetadata) in objectMetadata.attributes.map) {
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultAttributeCreator
             creatorRequired.add(attributeCreatorReference)
 

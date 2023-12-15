@@ -101,13 +101,13 @@ class NotationMetadataReader(
             val superNotation = graphNotation.coalesce[superLocation]
                 ?: continue
 
-            allAttributes.addAll(superNotation.attributes.values.keys)
+            allAttributes.addAll(superNotation.attributes.map.keys)
 
             val metaAttribute = superNotation.get(NotationConventions.metaAttributePath)
                 as? MapAttributeNotation
                 ?: continue
 
-            for (e in metaAttribute.values) {
+            for (e in metaAttribute.map) {
                 if (e.key == NotationConventions.refAttributeSegment) {
                     continue
                 }
@@ -188,7 +188,7 @@ class NotationMetadataReader(
 
             builder.add(superLocation)
 
-            for (e in metaAttribute.values) {
+            for (e in metaAttribute.map) {
                 if (e.key == NotationConventions.refAttributeSegment) {
                     continue
                 }
@@ -275,7 +275,7 @@ class NotationMetadataReader(
             ?.let { resolveMetadataRef(it, graphNotation) }
             ?: MapAttributeNotation.empty
 
-        val mergedAttributeMap = refAttributeMap.values.putAll(directAttributeMap.values)
+        val mergedAttributeMap = refAttributeMap.map.putAll(directAttributeMap.map)
         val augmentedMergedAttributeMap =
             if (inheritanceParent != null) {
                 mergedAttributeMap.put(
@@ -293,11 +293,11 @@ class NotationMetadataReader(
 //            ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
 
         val definerReference = mergedAttributeNotation
-            .values[NotationConventions.definerAttributeSegment]
+            .map[NotationConventions.definerAttributeSegment]
             ?.asString()
 
         val creatorReference = mergedAttributeNotation
-            .values[NotationConventions.creatorAttributeSegment]
+            .map[NotationConventions.creatorAttributeSegment]
             ?.asString()
 
 //        val nullable = attributeMap
@@ -360,11 +360,11 @@ class NotationMetadataReader(
                     ?: throw IllegalArgumentException("Unknown class: $host - $typeNotation")
 
                 val nullable = typeNotation
-                    .values[NotationConventions.nullableAttributeSegment]
+                    .map[NotationConventions.nullableAttributeSegment]
                     ?.asBoolean()
                     ?: false
 
-                val nestedGenericsNotation = typeNotation.values[NotationConventions.ofAttributeSegment]
+                val nestedGenericsNotation = typeNotation.map[NotationConventions.ofAttributeSegment]
                 val nestedGenerics: List<TypeMetadata> =
                     if (nestedGenericsNotation == null) {
                         listOf()
@@ -434,7 +434,7 @@ class NotationMetadataReader(
 
             is MapAttributeNotation -> {
                 attributeNotation
-                    .values[NotationConventions.isAttributeSegment]
+                    .map[NotationConventions.isAttributeSegment]
                     ?.asString()
             }
 

@@ -20,7 +20,7 @@ data class NotationScan(
         if (digest == null) {
             val builder = Digest.Builder()
             builder.addDigestibleUnorderedMap(
-                    documents.values)
+                    documents.map)
             digest = builder.digest()
         }
         return digest!!

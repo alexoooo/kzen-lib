@@ -4,7 +4,7 @@ import tech.kzen.lib.platform.collect.PersistentMap
 
 
 data class AttributeNameMap<T>(
-        val values: PersistentMap<AttributeName, T>
+    val map: PersistentMap<AttributeName, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -19,18 +19,18 @@ data class AttributeNameMap<T>(
 
     //-----------------------------------------------------------------------------------------------------------------
     operator fun get(attributeName: AttributeName): T? {
-        return values[attributeName]
+        return map[attributeName]
 //                ?: throw IllegalArgumentException("Not found: $attributeName")
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun put(attributeName: AttributeName, value: T): AttributeNameMap<T> {
-        return AttributeNameMap(values.put(attributeName, value))
+        return AttributeNameMap(map.put(attributeName, value))
     }
 
 
     fun remove(attributeName: AttributeName): AttributeNameMap<T> {
-        return AttributeNameMap(values.remove(attributeName))
+        return AttributeNameMap(map.remove(attributeName))
     }
 }

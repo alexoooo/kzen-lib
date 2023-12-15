@@ -10,7 +10,7 @@ data class GraphInstance(
 {
     //-----------------------------------------------------------------------------------------------------------------
     val keys: Set<ObjectLocation>
-        get() = objectInstances.values.keys
+        get() = objectInstances.map.keys
 
 
     val size: Int

@@ -39,7 +39,7 @@ object AttributeObjectCreator: ObjectCreator {
         for (argumentName in constructorArgumentNames) {
             val argumentAttribute = AttributeName(argumentName)
 
-            val attributeMetadata = objectMetadata.attributes.values[argumentAttribute]
+            val attributeMetadata = objectMetadata.attributes.map[argumentAttribute]
 
             val attributeCreatorReference = attributeMetadata
                     ?.creatorReference

@@ -38,7 +38,7 @@ object JvmGraphTestUtils {
             val notationProjectBuilder =
                 mutableMapOf<DocumentPath, DocumentNotation>()
 
-            for (notationPath in notationMedia.scan().documents.values) {
+            for (notationPath in notationMedia.scan().documents.map) {
                 val notationModule = notationMedia.readDocument(notationPath.key)
                 val objects = notationParser.parseDocumentObjects(notationModule)
                 notationProjectBuilder[notationPath.key] = DocumentNotation(

@@ -32,7 +32,7 @@ object ParentChildAttributeDefiner: AttributeDefiner {
     ): AttributeDefinitionAttempt {
         val children = mutableListOf<ObjectReference>()
 
-        for (e in graphStructure.graphNotation.coalesce.values) {
+        for (e in graphStructure.graphNotation.coalesce.map) {
             val parentNotation = graphStructure.graphNotation
                     .firstAttribute(e.key, parentAttributePath)
                     ?: continue

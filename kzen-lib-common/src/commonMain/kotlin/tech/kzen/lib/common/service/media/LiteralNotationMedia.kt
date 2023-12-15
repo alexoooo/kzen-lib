@@ -24,8 +24,8 @@ class LiteralNotationMedia(
             val excludeScan = exclude.scan()
             val baseScan = base.scan()
 
-            val baseUnique = baseScan.documents.values.keys.filter {
-                it !in excludeScan.documents.values.keys
+            val baseUnique = baseScan.documents.map.keys.filter {
+                it !in excludeScan.documents.map.keys
             }
 
             val filtered = mutableMapOf<DocumentPath, Document>()
@@ -72,7 +72,7 @@ class LiteralNotationMedia(
             return it
         }
 
-        val documentScans = documents.values.mapValues { doc ->
+        val documentScans = documents.map.mapValues { doc ->
             DocumentScan(
                 Digest.ofUtf8(doc.value.body),
                 doc.value.resources?.let { resource ->

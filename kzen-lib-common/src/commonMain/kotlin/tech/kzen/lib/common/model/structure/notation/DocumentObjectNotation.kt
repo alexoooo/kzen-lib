@@ -58,7 +58,7 @@ data class DocumentObjectNotation(
         if (digest == null) {
             val builder = Digest.Builder()
 
-            builder.addDigestibleOrderedMap(notations.values)
+            builder.addDigestibleOrderedMap(notations.map)
 
             digest = builder.digest()
         }

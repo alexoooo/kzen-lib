@@ -165,11 +165,11 @@ Foo:
                 PositionRelation.at(1)))
 
         val objectNotation =
-                transition.graphNotation.coalesce.values[location("Foo")]!!
+                transition.graphNotation.coalesce.map[location("Foo")]!!
         val containerNotation =
                 objectNotation.get(attribute("hello")) as MapAttributeNotation
 
-        val fooIndex = containerNotation.values.keys.indexOf(AttributeSegment.ofKey("foo"))
+        val fooIndex = containerNotation.map.keys.indexOf(AttributeSegment.ofKey("foo"))
         assertEquals(1, fooIndex)
     }
 
@@ -191,9 +191,9 @@ Foo:
                 false))
 
         val newObjectNotation =
-                transition.graphNotation.coalesce.values[location("Foo")]!!
+                transition.graphNotation.coalesce.map[location("Foo")]!!
         val emptyList =
-                newObjectNotation.attributes.values[AttributeName("hello")] as ListAttributeNotation
+                newObjectNotation.attributes.map[AttributeName("hello")] as ListAttributeNotation
 
         assertTrue(emptyList.values.isEmpty())
 
@@ -222,11 +222,11 @@ Foo:
                 false))
 
         val newObjectNotation =
-                transition.graphNotation.coalesce.values[location("Foo")]!!
+                transition.graphNotation.coalesce.map[location("Foo")]!!
         val emptyMap =
-                newObjectNotation.attributes.values[AttributeName("hello")] as MapAttributeNotation
+                newObjectNotation.attributes.map[AttributeName("hello")] as MapAttributeNotation
 
-        assertTrue(emptyMap.values.isEmpty())
+        assertTrue(emptyMap.map.isEmpty())
 
         assertEquals("""
             Foo:

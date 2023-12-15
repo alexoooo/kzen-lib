@@ -22,17 +22,17 @@ class RenameDocumentRefactorTest {
         val graphNotation = JvmGraphTestUtils.readNotation()
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(graphNotation)
 
-        val originalDocument = graphNotation.documents.values[testPath]
+        val originalDocument = graphNotation.documents.map[testPath]
 
         val transition= reducer.applySemantic(
                 graphDefinitionAttempt,
                 RenameDocumentRefactorCommand(testPath, newName))
 
-        assert(testPath !in transition.graphNotation.documents.values)
+        assert(testPath !in transition.graphNotation.documents.map)
 
         val newDocumentPath = testPath.withName(newName)
 
-        val documentNotation = transition.graphNotation.documents.values[newDocumentPath]!!
+        val documentNotation = transition.graphNotation.documents.map[newDocumentPath]!!
 
         assertEquals(originalDocument, documentNotation)
     }

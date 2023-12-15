@@ -20,7 +20,7 @@ object DefinitionAttributeCreator: AttributeCreator {
         objectDefinition: ObjectDefinition,
         partialGraphInstance: GraphInstance
     ): Any? {
-        val attributeDefinition = objectDefinition.attributeDefinitions.values[attributeName]
+        val attributeDefinition = objectDefinition.attributeDefinitions.map[attributeName]
             ?: throw IllegalArgumentException(
                 "Attribute definition missing: $objectLocation - $attributeName - $objectDefinition")
 
@@ -66,7 +66,7 @@ object DefinitionAttributeCreator: AttributeCreator {
                 }
 
             is MapAttributeDefinition ->
-                attributeDefinition.values.mapValues {
+                attributeDefinition.map.mapValues {
                     createDefinition(objectLocation, it.value, partialGraphInstance, graphStructure, attributeName)
                 }
         }

@@ -33,6 +33,6 @@ data class GraphMetadata(
 
 
     override fun digest(sink: Digest.Sink) {
-        sink.addDigestibleOrderedMap(objectMetadata.values)
+        sink.addDigestibleOrderedMap(objectMetadata.map)
     }
 }

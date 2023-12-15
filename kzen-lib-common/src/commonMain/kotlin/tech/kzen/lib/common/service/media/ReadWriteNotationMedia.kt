@@ -48,8 +48,8 @@ class ReadWriteNotationMedia(
             return scanCache!!
         }
 
-        val writableDocuments = writableScan.documents.values
-        val readOnlyDocuments = readOnlyScan.documents.values
+        val writableDocuments = writableScan.documents.map
+        val readOnlyDocuments = readOnlyScan.documents.map
 
         val merged: PersistentMap<DocumentPath, DocumentScan> = writableDocuments.putAll(readOnlyDocuments)
         val totalIndividualSize = writableDocuments.size + readOnlyDocuments.size

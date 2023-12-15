@@ -31,8 +31,8 @@ class DirectoryScannerTest {
             scanner.scan()
         }
 
-        assertTrue(NotationConventions.kzenBasePath in paths.documents.values)
-        assertTrue(dirDocDocumentPath in paths.documents.values)
+        assertTrue(NotationConventions.kzenBasePath in paths.documents.map)
+        assertTrue(dirDocDocumentPath in paths.documents.map)
 
         val dirDocScan = paths.documents[dirDocDocumentPath]!!
         val dirDocResources = dirDocScan.resources

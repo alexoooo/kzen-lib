@@ -21,8 +21,8 @@ data class GraphDefinitionAttempt(
 
 
     val transitiveSuccessful: GraphDefinition by lazy {
-        val failedObjectLocations = failures.values.keys.toMutableSet()
-        var open = objectDefinitions.values
+        val failedObjectLocations = failures.map.keys.toMutableSet()
+        var open = objectDefinitions.map
 
         var terminated = false
         while (! terminated) {
@@ -78,6 +78,6 @@ data class GraphDefinitionAttempt(
 
 
     fun hasErrors(): Boolean {
-        return failures.values.isNotEmpty()
+        return failures.map.isNotEmpty()
     }
 }

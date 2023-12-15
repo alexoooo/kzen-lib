@@ -24,5 +24,9 @@ data class ListAttributeDefinition(
 
 
 data class MapAttributeDefinition(
-    val values: Map<String, AttributeDefinition>
-): AttributeDefinition()
+    val map: Map<String, AttributeDefinition>
+): AttributeDefinition() {
+    operator fun get(key: String): AttributeDefinition? {
+        return map[key]
+    }
+}

@@ -36,7 +36,7 @@ abstract class NotationAggregateTest {
 
 
     fun unparseDocument(graphNotation: GraphNotation): String {
-        return unparseDocument(graphNotation.documents.values[testPath]!!.objects)
+        return unparseDocument(graphNotation.documents.map[testPath]!!.objects)
     }
 
 

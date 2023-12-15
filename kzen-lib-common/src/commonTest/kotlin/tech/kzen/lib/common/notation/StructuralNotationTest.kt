@@ -34,7 +34,7 @@ abstract class StructuralNotationTest {
 
 
     fun unparseDocument(notationTree: GraphNotation): String {
-        return unparseDocument(notationTree.documents.values[testPath]!!.objects)
+        return unparseDocument(notationTree.documents.map[testPath]!!.objects)
     }
 
 

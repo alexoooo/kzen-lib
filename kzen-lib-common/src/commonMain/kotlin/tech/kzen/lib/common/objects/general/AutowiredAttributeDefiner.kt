@@ -43,7 +43,7 @@ class AutowiredAttributeDefiner(
             .graphMetadata
             .get(objectLocation)
             ?.attributes
-            ?.values
+            ?.map
             ?.get(attributeName)
             ?: throw IllegalArgumentException("Metadata not found: $objectLocation - $attributeName")
 
@@ -53,8 +53,8 @@ class AutowiredAttributeDefiner(
 
         val references = mutableListOf<AttributeDefinition>()
 
-        for ((location, notation) in graphStructure.graphNotation.coalesce.values) {
-            val isReference = notation.attributes.values[NotationConventions.isAttributeName]?.asString()
+        for ((location, notation) in graphStructure.graphNotation.coalesce.map) {
+            val isReference = notation.attributes.map[NotationConventions.isAttributeName]?.asString()
                     ?: continue
 
             val isLocation = graphStructure.graphNotation.coalesce
@@ -74,7 +74,7 @@ class AutowiredAttributeDefiner(
 
 
     private fun findIs(attributeMetadata: AttributeMetadata): String {
-        val find = attributeMetadata.attributeMetadataNotation.values[forAttributeSegment]
+        val find = attributeMetadata.attributeMetadataNotation.map[forAttributeSegment]
                 ?: return attributeOf(attributeMetadata)
 
         if (find is MapAttributeNotation) {
@@ -92,7 +92,7 @@ class AutowiredAttributeDefiner(
 
     private fun attributeOf(attributeMetadata: AttributeMetadata): String {
         val attributeNotation =
-            attributeMetadata.attributeMetadataNotation.values[NotationConventions.ofAttributeSegment]
+            attributeMetadata.attributeMetadataNotation.map[NotationConventions.ofAttributeSegment]
 
         return (attributeNotation as? ScalarAttributeNotation)?.value
                 ?: throw UnsupportedOperationException("Can't find auto-wire type: $attributeMetadata")

@@ -52,14 +52,14 @@ B:
 
             assertEquals(
                     1,
-                    repo.graphNotation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
+                    repo.graphNotation().documents.map[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "First move down")
 
             repo.apply(ShiftObjectCommand(aLocation, PositionRelation.first))
 
             assertEquals(
                     0,
-                    repo.graphNotation().documents.values[mainPath]!!.indexOf(aLocation.objectPath).value,
+                    repo.graphNotation().documents.map[mainPath]!!.indexOf(aLocation.objectPath).value,
                     "Second move back up")
         }
     }

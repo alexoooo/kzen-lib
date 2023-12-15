@@ -107,7 +107,7 @@ data class GraphDefinition(
 
     fun filterTransitive(documentPath: DocumentPath): GraphDefinition {
         val documentObjectLocations = objectDefinitions
-            .values
+            .map
             .keys
             .filter { it.documentPath == documentPath }
 

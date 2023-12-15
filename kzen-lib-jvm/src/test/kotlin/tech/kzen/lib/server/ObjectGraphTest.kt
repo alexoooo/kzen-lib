@@ -46,7 +46,7 @@ class ObjectGraphTest {
         val fooNamedInstance = objectGraph[location]?.reference as SelfAware
         assertEquals(location, fooNamedInstance.objectLocation)
         assertEquals("foo", fooNamedInstance.objectNotation.get(AttributeName("foo"))?.asString())
-        assertTrue(location.objectPath in fooNamedInstance.documentNotation.objects.notations.values)
+        assertTrue(location.objectPath in fooNamedInstance.documentNotation.objects.notations.map)
     }
 
 

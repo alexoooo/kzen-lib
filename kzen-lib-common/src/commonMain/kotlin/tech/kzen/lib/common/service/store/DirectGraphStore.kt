@@ -106,7 +106,7 @@ class DirectGraphStore(
         val documentBodies = mutableMapOf<DocumentPath, String>()
         val documents = mutableMapOf<DocumentPath, DocumentNotation>()
 
-        for (e in notationScan.documents.values) {
+        for (e in notationScan.documents.map) {
             val projectPath = e.key
 
             val body = notationMedia.readDocument(projectPath, e.value.documentDigest)
@@ -201,8 +201,8 @@ class DirectGraphStore(
 
         writeModified(graphNotation, newGraphNotation, command, transition, notationScan)
 
-        val removedDocumentPaths = graphNotation.documents.values.keys
-            .minus(newGraphNotation.documents.values.keys)
+        val removedDocumentPaths = graphNotation.documents.map.keys
+            .minus(newGraphNotation.documents.map.keys)
 
         for (removed in removedDocumentPaths) {
             delete(removed)
@@ -225,8 +225,8 @@ class DirectGraphStore(
                 ?.filterIsInstance<CopiedDocumentEvent>()
                 ?: listOf()
 
-        for (updatedDocument in newGraphNotation.documents.values) {
-            val oldDocument = oldGraphNotation.documents.values[updatedDocument.key]
+        for (updatedDocument in newGraphNotation.documents.map) {
+            val oldDocument = oldGraphNotation.documents.map[updatedDocument.key]
 
             val copiedDocumentEvent =
                 if (oldDocument != null) {

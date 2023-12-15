@@ -11,12 +11,12 @@ import tech.kzen.lib.platform.collect.*
 sealed class AttributeNotation: Digestible {
     open fun asString(): String? {
         return (this as? ScalarAttributeNotation)
-                ?.value
+            ?.value
     }
 
     fun asBoolean(): Boolean? {
         val asString = asString()
-                ?: return null
+            ?: return null
 
         return when (asString) {
             "true" -> true
@@ -82,8 +82,8 @@ data class ScalarAttributeNotation(
 
 //---------------------------------------------------------------------------------------------------------------------
 sealed class StructuredAttributeNotation: AttributeNotation() {
-    abstract fun get(key: String): AttributeNotation?
-    abstract fun get(key: AttributeSegment): AttributeNotation?
+    abstract operator fun get(key: String): AttributeNotation?
+    abstract operator fun get(key: AttributeSegment): AttributeNotation?
 
 
     override fun get(attributeNesting: AttributeNesting): AttributeNotation? {
@@ -99,7 +99,7 @@ sealed class StructuredAttributeNotation: AttributeNotation() {
                 return null
             }
 
-            cursor = cursor.get(attributeNesting.segments[index])
+            cursor = cursor[attributeNesting.segments[index]]
 
             index++
         }
@@ -189,7 +189,7 @@ data class ListAttributeNotation(
         attributeNotation: AttributeNotation
     ): ListAttributeNotation {
         return ListAttributeNotation(
-                values.set(positionIndex.value, attributeNotation))
+            values.set(positionIndex.value, attributeNotation))
     }
 
 
@@ -198,7 +198,7 @@ data class ListAttributeNotation(
         attributeNotation: AttributeNotation
     ): ListAttributeNotation {
         return ListAttributeNotation(
-                values.add(positionIndex.value, attributeNotation))
+            values.add(positionIndex.value, attributeNotation))
     }
 
 
@@ -207,7 +207,7 @@ data class ListAttributeNotation(
         attributeNotations: List<AttributeNotation>
     ): ListAttributeNotation {
         return ListAttributeNotation(
-                values.addAll(positionIndex.value, attributeNotations))
+            values.addAll(positionIndex.value, attributeNotations))
     }
 
 
@@ -215,7 +215,7 @@ data class ListAttributeNotation(
         positionIndex: PositionIndex
     ): ListAttributeNotation {
         return ListAttributeNotation(
-                values.removeAt(positionIndex.value))
+            values.removeAt(positionIndex.value))
     }
 
 
@@ -242,7 +242,7 @@ data class ListAttributeNotation(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class MapAttributeNotation(
-    val values: PersistentMap<AttributeSegment, AttributeNotation>
+    val map: PersistentMap<AttributeSegment, AttributeNotation>
 ): StructuredAttributeNotation() {
     companion object {
         val empty = MapAttributeNotation(persistentMapOf())
@@ -253,17 +253,17 @@ data class MapAttributeNotation(
 
 
     override fun get(key: AttributeSegment): AttributeNotation? {
-        return values[key]
+        return map[key]
     }
 
 
     override fun get(key: String): AttributeNotation? {
-        return values[AttributeSegment.ofKey(key)]
+        return map[AttributeSegment.ofKey(key)]
     }
 
 
     override fun isEmpty(): Boolean {
-        return values.isEmpty()
+        return map.isEmpty()
     }
 
 
@@ -273,14 +273,14 @@ data class MapAttributeNotation(
         }
 
         val notationIntersection =
-            values.keys.partition { it in previous.values }
+            map.keys.partition { it in previous.map }
 
         val ancestorIntersection =
-            previous.values.keys.partition { it in values }
+            previous.map.keys.partition { it in map }
 
         val uniqueNotation =
-            values.filterKeys { it !in previous.values } +
-                    previous.values.filterKeys { it !in values }
+            map.filterKeys { it !in previous.map } +
+                previous.map.filterKeys { it !in map }
 
         val intersectionKeys =
             notationIntersection.first.union(ancestorIntersection.first)
@@ -304,7 +304,7 @@ data class MapAttributeNotation(
         attributeNotation: AttributeNotation
     ): MapAttributeNotation {
         return MapAttributeNotation(
-                values.put(key, attributeNotation))
+            map.put(key, attributeNotation))
     }
 
 
@@ -313,15 +313,15 @@ data class MapAttributeNotation(
         key: AttributeSegment,
         positionIndex: PositionIndex
     ): MapAttributeNotation {
-        check(key !in values) {
+        check(key !in map) {
             "Already exists: $key"
         }
-        check(positionIndex.value <= values.size) {
-            "Position ($positionIndex) must be <= size (${values.size})"
+        check(positionIndex.value <= map.size) {
+            "Position ($positionIndex) must be <= size (${map.size})"
         }
 
         return MapAttributeNotation(
-                values.insert(key, attributeNotation, positionIndex.value))
+                map.insert(key, attributeNotation, positionIndex.value))
     }
 
 
@@ -329,7 +329,7 @@ data class MapAttributeNotation(
         key: AttributeSegment
     ): MapAttributeNotation {
         return MapAttributeNotation(
-                values.remove(key))
+            map.remove(key))
     }
 
 
@@ -341,7 +341,7 @@ data class MapAttributeNotation(
     override fun digest(): Digest {
         if (digest == null) {
             val builder = Digest.Builder()
-            builder.addDigestibleOrderedMap(values)
+            builder.addDigestibleOrderedMap(map)
             digest = builder.digest()
         }
         return digest!!
@@ -349,7 +349,7 @@ data class MapAttributeNotation(
 
 
     override fun toString(): String {
-        return values.toString()
+        return map.toString()
     }
 }
 

@@ -43,7 +43,7 @@ class YamlNotationParserTest {
     fun parseEmptyYaml() {
         val notation = parseGraph("")
 
-        assertTrue(notation.coalesce.values.isEmpty())
+        assertTrue(notation.coalesce.map.isEmpty())
     }
 
 

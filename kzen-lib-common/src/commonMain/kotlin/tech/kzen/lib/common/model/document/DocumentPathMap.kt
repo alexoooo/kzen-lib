@@ -5,41 +5,41 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class DocumentPathMap<T>(
-    val values: PersistentMap<DocumentPath, T>
+    val map: PersistentMap<DocumentPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     operator fun contains(documentPath: DocumentPath): Boolean {
-        return values.containsKey(documentPath)
+        return map.containsKey(documentPath)
     }
 
 
     operator fun get(documentPath: DocumentPath): T? {
-        return values[documentPath]
+        return map[documentPath]
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun put(documentPath: DocumentPath, instance: T): DocumentPathMap<T> {
         return DocumentPathMap(
-                values.put(documentPath, instance))
+                map.put(documentPath, instance))
     }
 
 
     fun remove(documentPath: DocumentPath): DocumentPathMap<T> {
         return DocumentPathMap(
-                values.remove(documentPath))
+                map.remove(documentPath))
     }
 
 
     fun filter(allowed: Set<DocumentNesting>): DocumentPathMap<T> {
-        return DocumentPathMap(values
+        return DocumentPathMap(map
                 .filter { e -> allowed.any(e.key::startsWith) }
                 .toPersistentMap())
     }
 
 
     fun contains(documentNesting: DocumentNesting): Boolean {
-        return values.any { e ->
+        return map.any { e ->
             e.key.startsWith(documentNesting)
         }
     }
@@ -47,6 +47,6 @@ data class DocumentPathMap<T>(
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
-        return values.toString()
+        return map.toString()
     }
 }

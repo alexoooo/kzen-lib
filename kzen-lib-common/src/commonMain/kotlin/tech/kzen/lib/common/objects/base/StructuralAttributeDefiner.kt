@@ -30,7 +30,7 @@ object StructuralAttributeDefiner: AttributeDefiner
         val objectNotation = graphStructure.graphNotation.coalesce[objectLocation]
             ?: return AttributeDefinitionAttempt.failure("Unknown object notation: $objectLocation")
 
-        val attributeNotation = objectNotation.attributes.values[attributeName]
+        val attributeNotation = objectNotation.attributes.map[attributeName]
             ?: graphStructure.graphNotation.firstAttribute(
                 objectLocation, attributeName.asAttributePath())
             ?: return AttributeDefinitionAttempt.failure("Unknown attribute: $objectLocation - $attributeName")
@@ -38,7 +38,7 @@ object StructuralAttributeDefiner: AttributeDefiner
         val objectMetadata = graphStructure.graphMetadata.objectMetadata[objectLocation]
             ?: return AttributeDefinitionAttempt.failure("Unknown object metadata: $objectLocation")
 
-        val attributeMetadata = objectMetadata.attributes.values[attributeName]
+        val attributeMetadata = objectMetadata.attributes.map[attributeName]
 
         val typeMetadata = attributeMetadata?.type
             ?: TypeMetadata.any
@@ -163,7 +163,7 @@ object StructuralAttributeDefiner: AttributeDefiner
         val valueGeneric = typeMetadata.generics[1]
 
         val definitions = mutableMapOf<String, AttributeDefinition>()
-        for (entry in attributeNotation.values) {
+        for (entry in attributeNotation.map) {
             @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
             val definitionAttempt = defineRecursively(entry.value, valueGeneric)
 

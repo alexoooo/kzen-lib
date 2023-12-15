@@ -77,7 +77,7 @@ class GraphCreator {
         closed.addAll(GraphDefiner.bootstrapObjects.keys)
         closedLocator.addAll(closed)
 
-        val open = graphDefinition.objectDefinitions.values.keys.toMutableSet()
+        val open = graphDefinition.objectDefinitions.map.keys.toMutableSet()
 
         val levels = mutableListOf<List<ObjectLocation>>()
         while (open.isNotEmpty()) {

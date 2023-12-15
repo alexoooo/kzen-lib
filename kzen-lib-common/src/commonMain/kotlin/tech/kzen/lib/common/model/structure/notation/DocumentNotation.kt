@@ -45,7 +45,7 @@ data class DocumentNotation(
     fun expand(path: DocumentPath): ObjectLocationMap<ObjectNotation> {
         val values = mutableMapOf<ObjectLocation, ObjectNotation>()
 
-        for (e in objects.notations.values) {
+        for (e in objects.notations.map) {
             values[ObjectLocation(path, e.key)] = e.value
         }
 
@@ -69,7 +69,7 @@ data class DocumentNotation(
 
 
     fun indexOf(objectPath: ObjectPath): PositionIndex {
-        return PositionIndex(objects.notations.values.keys.indexOf(objectPath))
+        return PositionIndex(objects.notations.map.keys.indexOf(objectPath))
     }
 
 

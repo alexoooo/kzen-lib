@@ -24,11 +24,11 @@ class AddObjectTest: StructuralNotationTest() {
                 ObjectName("Parent")
         ))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
-        assertEquals(1, documentNotation.objects.notations.values.size)
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
+        assertEquals(1, documentNotation.objects.notations.map.size)
 
         val objectNotation =
-                documentNotation.objects.notations.values.values.iterator().next()
+                documentNotation.objects.notations.map.values.iterator().next()
 
         val isValue = (objectNotation.get(NotationConventions.isAttributePath) as ScalarAttributeNotation).value
         assertEquals("Parent", isValue)

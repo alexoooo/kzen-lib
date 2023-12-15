@@ -6,7 +6,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 
 
 data class ObjectPathMap<T>(
-        val values: PersistentMap<ObjectPath, T>
+    val map: PersistentMap<ObjectPath, T>
 ) {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -21,12 +21,12 @@ data class ObjectPathMap<T>(
 
     //-----------------------------------------------------------------------------------------------------------------
     operator fun get(objectPath: ObjectPath): T? {
-        return values[objectPath]
+        return map[objectPath]
     }
 
     
     fun equalsInOrder(other: ObjectPathMap<T>): Boolean {
-        return values.equalsInOrder(other.values)
+        return map.equalsInOrder(other.map)
 //        if (values != other.values) {
 //            return false
 //        }
@@ -46,43 +46,44 @@ data class ObjectPathMap<T>(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun updateEntry(
-            key: ObjectPath,
-            value: T
+        key: ObjectPath,
+        value: T
     ): ObjectPathMap<T> {
-        check(key in values) { "Not found: $key" }
-        return ObjectPathMap(values.put(key, value))
+        check(key in map) { "Not found: $key" }
+        return ObjectPathMap(map.put(key, value))
     }
 
 
     fun insertEntry(
-            key: PositionedObjectPath,
-            value: T
+        key: PositionedObjectPath,
+        value: T
     ): ObjectPathMap<T> {
-        check(key.objectPath !in values) { "Already exists: $key" }
+        check(key.objectPath !in map) { "Already exists: $key" }
         check(0 <= key.positionIndex.value &&
-                key.positionIndex.value <= values.size) {
-            "Index (${key.positionIndex.value}) must be in [0, ${values.size}]"
+                key.positionIndex.value <= map.size
+        ) {
+            "Index (${key.positionIndex.value}) must be in [0, ${map.size}]"
         }
 
-        if (key.positionIndex.value == values.size) {
-            return ObjectPathMap(values.put(key.objectPath, value))
+        if (key.positionIndex.value == map.size) {
+            return ObjectPathMap(map.put(key.objectPath, value))
         }
 
         return ObjectPathMap(
-                values.insert(key.objectPath, value, key.positionIndex.value))
+                map.insert(key.objectPath, value, key.positionIndex.value))
     }
 
 
     fun removeKey(
-            key: ObjectPath
+        key: ObjectPath
     ): ObjectPathMap<T> {
-        check(values.containsKey(key)) { "Not found: $key" }
-        return ObjectPathMap(values.remove(key))
+        check(map.containsKey(key)) { "Not found: $key" }
+        return ObjectPathMap(map.remove(key))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun toString(): String {
-        return values.toString()
+        return map.toString()
     }
 }

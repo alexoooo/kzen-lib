@@ -17,8 +17,8 @@ class EditDocumentTest: NotationAggregateTest() {
                 GraphNotation.empty,
                 CreateDocumentCommand(testPath, DocumentObjectNotation.empty))
 
-        val documentNotation = transition.graphNotation.documents.values[testPath]!!
-        assertEquals(0, documentNotation.objects.notations.values.size)
+        val documentNotation = transition.graphNotation.documents.map[testPath]!!
+        assertEquals(0, documentNotation.objects.notations.map.size)
     }
 
 
@@ -29,6 +29,6 @@ class EditDocumentTest: NotationAggregateTest() {
         val transition = reducer.applyStructural(
                 notation, DeleteDocumentCommand(testPath))
 
-        assertTrue(transition.graphNotation.documents.values.isEmpty())
+        assertTrue(transition.graphNotation.documents.map.isEmpty())
     }
 }
