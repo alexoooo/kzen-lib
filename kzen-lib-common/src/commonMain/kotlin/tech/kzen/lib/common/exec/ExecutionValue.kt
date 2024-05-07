@@ -8,6 +8,7 @@ import tech.kzen.lib.platform.IoUtils
 
 
 //---------------------------------------------------------------------------------------------------------------------
+// TODO: use JsonElement from kotlinx.serialization?
 @Suppress("ConstPropertyName")
 sealed class ExecutionValue
     : Digestible
@@ -221,7 +222,7 @@ sealed class ExecutionValue
 
         return when (this) {
             NullExecutionValue -> mapOf(
-                    typeKey to nullType)
+                typeKey to nullType)
 
             is NumberExecutionValue ->
                 typedValue(numberType, value)

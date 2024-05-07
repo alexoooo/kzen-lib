@@ -23,12 +23,12 @@ data class DocumentNotation(
         val empty = DocumentNotation(DocumentObjectNotation.empty, null)
 
         val className = ClassName(
-                "tech.kzen.lib.common.model.structure.notation.DocumentNotation")
+            "tech.kzen.lib.common.model.structure.notation.DocumentNotation")
 
 
         fun ofObjectsWithEmptyOrNullResources(
-                objects: DocumentObjectNotation,
-                directory: Boolean
+            objects: DocumentObjectNotation,
+            directory: Boolean
         ): DocumentNotation {
             return DocumentNotation(
                     objects,
