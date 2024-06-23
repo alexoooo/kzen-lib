@@ -20,7 +20,7 @@ actual data class ClassName actual constructor(
     }
 
 
-    override fun digest(sink: Digest.Sink) {
+    actual override fun digest(sink: Digest.Sink) {
         sink.addUtf8(asString)
     }
 

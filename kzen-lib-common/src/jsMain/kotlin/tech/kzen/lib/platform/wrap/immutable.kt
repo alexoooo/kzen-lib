@@ -16,6 +16,10 @@ external class ImmutableList<E> {
     fun set(index: Int, element: E): ImmutableList<E>
     fun remove(index: Int): ImmutableList<E>
     fun slice(begin: Int, end: Int): ImmutableList<E>
+
+    fun includes(value: E): Boolean
+    fun indexOf(value: E): Int
+    fun lastIndexOf(value: E): Int
 }
 
 

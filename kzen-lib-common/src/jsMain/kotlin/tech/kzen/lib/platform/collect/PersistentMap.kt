@@ -1,6 +1,7 @@
 package tech.kzen.lib.platform.collect
 
 import tech.kzen.lib.platform.wrap.ImmutableOrderedMap
+import tech.kzen.lib.platform.wrap.IterationIterator
 import tech.kzen.lib.platform.wrap.IteratorResult
 
 
@@ -16,7 +17,7 @@ actual class PersistentMap<K, out V> private constructor(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override val entries: Set<Map.Entry<K, V>>
+    actual override val entries: Set<Map.Entry<K, V>>
         get() {
             return object: AbstractSet<Map.Entry<K, V>>() {
                 override val size: Int
@@ -54,21 +55,21 @@ actual class PersistentMap<K, out V> private constructor(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override val size: Int
+    actual override val size: Int
         get() = delegate.size
 
 
-    override fun containsKey(key: K): Boolean {
+    actual override fun containsKey(key: K): Boolean {
         return delegate.has(key)
     }
 
 
-    override operator fun get(key: K): V? {
+    actual override operator fun get(key: K): V? {
         return delegate.get(key, null)
     }
 
 
-    override val keys: Set<K>
+    actual override val keys: Set<K>
         get() {
             return object: AbstractSet<K>() {
                 override val size: Int
@@ -86,7 +87,6 @@ actual class PersistentMap<K, out V> private constructor(
                             return ! result!!.done
                         }
 
-                        @Suppress("UNCHECKED_CAST")
                         override fun next(): K {
                             check(hasNext())
                             val next = result!!.value
@@ -103,7 +103,7 @@ actual class PersistentMap<K, out V> private constructor(
         }
 
 
-    override val values: Collection<V>
+    actual override val values: Collection<V>
         get() {
             return object: AbstractCollection<V>() {
                 override val size: Int
@@ -121,7 +121,6 @@ actual class PersistentMap<K, out V> private constructor(
                             return ! result!!.done
                         }
 
-                        @Suppress("UNCHECKED_CAST")
                         override fun next(): V {
                             check(hasNext())
                             val next = result!!.value
@@ -217,5 +216,19 @@ actual class PersistentMap<K, out V> private constructor(
         }
 
         return true
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    actual override fun containsValue(value: @UnsafeVariance V): Boolean {
+        val iterator: IterationIterator<V> = delegate.values()
+        var result: IteratorResult<V> = iterator.next()
+        while (! result.done) {
+            if (result.value == value) {
+                return true
+            }
+            result = iterator.next()
+        }
+        return false
     }
 }

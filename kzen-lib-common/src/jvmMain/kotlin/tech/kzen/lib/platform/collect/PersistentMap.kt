@@ -10,23 +10,23 @@ import com.google.common.collect.Maps
 // https://youtu.be/lcI-jmh5Cf0
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING", "KotlinRedundantDiagnosticSuppress")
 actual class PersistentMap<K, out V> private constructor(
-        private val delegate: HashMap<K, Pair<V, Long>>,
-        private val orderDelegate: TreeMap<Long, K>,
-        private val insertCount: Long
+    private val delegate: HashMap<K, Pair<V, Long>>,
+    private val orderDelegate: TreeMap<Long, K>,
+    private val insertCount: Long
 ):
-        Map<K, V>,
-        AbstractMap<K, V>()
+    Map<K, V>,
+    AbstractMap<K, V>()
 {
     //-----------------------------------------------------------------------------------------------------------------
     actual constructor(): this(
-            HashMap.empty<K, Pair<V, Long>>(),
-            TreeMap<Long, K>(),
-            0
+        HashMap.empty<K, Pair<V, Long>>(),
+        TreeMap<Long, K>(),
+        0
     )
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override val entries: Set<Map.Entry<K, V>>
+    actual override val entries: Set<Map.Entry<K, V>>
         get() {
             return object: AbstractSet<Map.Entry<K, V>>() {
                 override val size: Int
@@ -52,21 +52,21 @@ actual class PersistentMap<K, out V> private constructor(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override val size: Int
+    actual override val size: Int
         get() = delegate.size()
 
 
-    override fun containsKey(key: K): Boolean {
+    actual override fun containsKey(key: K): Boolean {
         return delegate.containsKey(key!!)
     }
 
 
-    override operator fun get(key: K): V? {
+    actual override operator fun get(key: K): V? {
         return delegate.get(key!!)?.first
     }
 
 
-    override val keys: Set<K>
+    actual override val keys: Set<K>
         get() {
             return object: AbstractSet<K>() {
                 override val size: Int
@@ -83,7 +83,7 @@ actual class PersistentMap<K, out V> private constructor(
         }
 
 
-    override val values: Collection<V>
+    actual override val values: Collection<V>
         get() {
             return object: AbstractCollection<V>() {
                 override val size: Int
@@ -196,5 +196,11 @@ actual class PersistentMap<K, out V> private constructor(
         }
 
         return true
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    actual override fun containsValue(value: @UnsafeVariance V): Boolean {
+        return delegate.values().any { it.first == value }
     }
 }

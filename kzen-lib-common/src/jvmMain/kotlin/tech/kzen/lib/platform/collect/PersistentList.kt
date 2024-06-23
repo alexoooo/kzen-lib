@@ -4,24 +4,24 @@ import com.github.andrewoma.dexx.collection.Vector
 
 
 // TODO: investigate using https://github.com/lacuna/bifurcan
-@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING", "KotlinRedundantDiagnosticSuppress")
+@Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class PersistentList<out E> private constructor(
-        private val delegate: Vector<@UnsafeVariance E>
+    private val delegate: Vector<@UnsafeVariance E>
 ):
-        List<E>,
-        AbstractList<E>(),
-        RandomAccess
+    List<E>,
+    AbstractList<E>(),
+    RandomAccess
 {
     //-----------------------------------------------------------------------------------------------------------------
     actual constructor() : this(Vector.empty<E>())
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override val size: Int
+    actual override val size: Int
         get() = delegate.size()
 
 
-    override fun get(index: Int): E {
+    actual override fun get(index: Int): E {
         return delegate.get(index)
     }
 
@@ -100,5 +100,19 @@ actual class PersistentList<out E> private constructor(
     actual override fun subList(fromIndex: Int, toIndex: Int): PersistentList<E> {
         return PersistentList(
                 delegate.range(fromIndex, true, toIndex, false))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    actual override fun contains(element: @UnsafeVariance E): Boolean {
+        return delegate.contains(element)
+    }
+
+    actual override fun indexOf(element: @UnsafeVariance E): Int {
+        return delegate.indexOf(element)
+    }
+
+    actual override fun lastIndexOf(element: @UnsafeVariance E): Int {
+        return delegate.lastIndexOf(element)
     }
 }

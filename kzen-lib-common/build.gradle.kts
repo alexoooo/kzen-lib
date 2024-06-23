@@ -1,3 +1,4 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform")
@@ -11,11 +12,15 @@ kotlin {
     }
 
     jvm {
-        val main by compilations.getting {
-            kotlinOptions {
-                jvmTarget = jvmTargetVersion
-            }
+        compilerOptions {
+            jvmTarget.set(JvmTarget.fromTarget(jvmTargetVersion))
         }
+
+//        val main by compilations.getting {
+//            kotlinOptions {
+//                jvmTarget = jvmTargetVersion
+//            }
+//        }
     }
 
     js {

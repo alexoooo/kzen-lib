@@ -1,5 +1,6 @@
 package tech.kzen.lib.platform
 
+import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 
 
@@ -7,14 +8,10 @@ import tech.kzen.lib.common.util.digest.Digestible
 expect class ClassName(asString: String) :
     Digestible
 {
-//    companion object {
-//        fun ofString(asString: String): ClassName
-//    }
-
-//    val jvmClassName: String
-
     fun get(): String
 
-
     fun asString(): String
+
+
+    override fun digest(sink: Digest.Sink)
 }

@@ -5,22 +5,22 @@ import tech.kzen.lib.platform.wrap.ImmutableList
 
 @Suppress("EXPECT_ACTUAL_CLASSIFIERS_ARE_IN_BETA_WARNING")
 actual class PersistentList<out E> private constructor(
-        private val delegate: ImmutableList<@UnsafeVariance E>
+    private val delegate: ImmutableList<@UnsafeVariance E>
 ):
-        List<E>,
-        AbstractList<E>(),
-        RandomAccess
+    List<E>,
+    AbstractList<E>(),
+    RandomAccess
 {
     //-----------------------------------------------------------------------------------------------------------------
     actual constructor(): this(ImmutableList())
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    override val size: Int
+    actual override val size: Int
         get() = delegate.size
 
 
-    override fun get(index: Int): E {
+    actual override fun get(index: Int): E {
         return delegate.get(index)
     }
 
@@ -79,5 +79,19 @@ actual class PersistentList<out E> private constructor(
     actual override fun subList(fromIndex: Int, toIndex: Int): PersistentList<E> {
         return PersistentList(
                 delegate.slice(fromIndex, toIndex))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    actual override fun contains(element: @UnsafeVariance E): Boolean {
+        return delegate.includes(element)
+    }
+
+    actual override fun indexOf(element: @UnsafeVariance E): Int {
+        return delegate.indexOf(element)
+    }
+
+    actual override fun lastIndexOf(element: @UnsafeVariance E): Int {
+        return delegate.lastIndexOf(element)
     }
 }
