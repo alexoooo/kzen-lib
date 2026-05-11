@@ -29,10 +29,6 @@ data class GraphDefinitionAttempt(
             terminated = true
 
             for (e in open) {
-//                if (e.key.objectPath.name.value == "DivisionOfPartial") {
-//                    println("foo")
-//                }
-
                 val host = ObjectReferenceHost.ofLocation(e.key)
                 val objectMetadata = graphStructure.graphMetadata.get(e.key)
 

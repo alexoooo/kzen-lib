@@ -99,14 +99,8 @@ class GraphDefiner {
         while (openDefinitions.isNotEmpty()) {
             levelCount += 1
             check(levelCount < 16) { "too deep" }
-//            println("^^^^^ open - $levelCount: $openDefinitions")
 
             for (objectLocation in openDefinitions) {
-//                if (objectLocation.objectPath.name.value == "StringHolderNullableNominal") {
-//                    println("objectLocation: $objectLocation")
-//                }
-//                println("^^^^^ objectName: $objectLocation")
-
                 val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
                 if (definerReference == null) {
                     levelErrors[objectLocation] = "Definer missing"
@@ -127,7 +121,6 @@ class GraphDefiner {
                     graphStructure,
                     closedDefinitions,
                     definerAndRelatedInstances)
-//                println("  >> definition: $definition")
 
                 when (definition) {
                     is ObjectDefinitionSuccess -> {
@@ -144,13 +137,11 @@ class GraphDefiner {
                 }
             }
 
-//            println("--- missingInstances: $missingInstances")
             for (missingLocation in missingInstances) {
                 val definition =
                     closedDefinitions[missingLocation]
                     ?: continue
 
-//                println("  $$ got definition for: $missingName")
                 val creatorLocation = graphStructure.graphNotation.coalesce.locate(
                     definition.creator)
 
@@ -158,8 +149,6 @@ class GraphDefiner {
                 if (creatorLocation !in definerAndRelatedInstances) {
                     missingCreatorInstances.add(creatorLocation)
                     hasMissingCreatorInstances = true
-
-//                    println("  $$ missing creator ($missingName): $creatorLocation")
                 }
 
                 for (creatorRequired in definition.creatorDependencies) {
@@ -169,9 +158,6 @@ class GraphDefiner {
                     if (creatorReferenceLocation !in definerAndRelatedInstances) {
                         missingCreatorInstances.add(creatorReferenceLocation)
                         hasMissingCreatorInstances = true
-
-//                        println("  $$ missing creator reference ($missingName): " +
-//                                "${definition.creator} - $creatorReferenceLocation")
                     }
                 }
 
@@ -186,8 +172,6 @@ class GraphDefiner {
                     graphStructure,
                     definition,
                     definerAndRelatedInstances)
-
-//                println("  $$ created: $missingName")
 
                 definerAndRelatedInstances = definerAndRelatedInstances.put(missingLocation, instance)
                 levelCreated.add(missingLocation)

@@ -230,65 +230,6 @@ class NotationReducer {
     }
 
 
-//    private fun addObjectWithInit(
-//        graphDefinitionAttempt: GraphDefinitionAttempt,
-//        command: AddObjectCommand
-//    ): NotationTransition {
-//        val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
-//        check(command.objectLocation !in graphNotation.coalesce.values) {
-//            "Object named '${command.objectLocation}' already exists"
-//        }
-//
-//        val documentNotation = graphNotation.documents.values[command.objectLocation.documentPath]!!
-//
-//        val indexInDocument =
-//            command.indexInDocument.resolve(documentNotation.objects.notations.values.size)
-//
-//        // TODO: optimize to resolve initializer without having to pre-insert un-initialized
-//        val initializerObjectLocation = run {
-//            val documentNotationWithUninitializedObject =
-//                documentNotation.withNewObject(
-//                    PositionedObjectPath(command.objectLocation.objectPath, indexInDocument),
-//                    command.body)
-//
-//            val graphNotationWithUninitializedObject = graphNotation.withModifiedDocument(
-//                command.objectLocation.documentPath, documentNotationWithUninitializedObject)
-//
-//            val initializerObjectReference = ObjectReference.parse(
-//                graphNotationWithUninitializedObject.firstAttribute(
-//                    command.objectLocation,
-//                    NotationConventions.initializerAttributeName
-//                ).asString()!!)
-//
-//            graphNotationWithUninitializedObject.coalesce.locate(
-//                initializerObjectReference, ObjectReferenceHost.ofLocation(command.objectLocation))
-//        }
-//
-//        val initializerGraphDefinition =
-//            graphDefinitionAttempt.successful().filterTransitive(initializerObjectLocation)
-//        val initializerGraphInstance = GraphCreator().createGraph(initializerGraphDefinition)
-//        val initializerInstance = initializerGraphInstance[initializerObjectLocation] as ObjectInitializer
-//
-//        val initializedObjectNotation = initializerInstance.initialize(
-//            command.objectLocation, command.body, graphDefinitionAttempt.graphStructure)
-//
-//        val documentNotationWithInitializedObject =
-//            documentNotation.withNewObject(
-//                PositionedObjectPath(command.objectLocation.objectPath, indexInDocument),
-//                initializedObjectNotation)
-//
-//        val graphNotationWithInitializedObject = graphNotation.withModifiedDocument(
-//            command.objectLocation.documentPath, documentNotationWithInitializedObject)
-//
-//        return NotationTransition(
-//            AddedObjectEvent(
-//                command.objectLocation,
-//                indexInDocument,
-//                initializedObjectNotation),
-//            graphNotationWithInitializedObject)
-//    }
-
-
     private fun removeObject(
         state: GraphNotation,
         command: RemoveObjectCommand

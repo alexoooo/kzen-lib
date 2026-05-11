@@ -10,7 +10,7 @@ import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
-// TODO
+// TODO: figure out if this makes sense
 class MirrorMetadataReader {
     private object Constants {
         val emptyParameterMetadata = AttributeMetadata(

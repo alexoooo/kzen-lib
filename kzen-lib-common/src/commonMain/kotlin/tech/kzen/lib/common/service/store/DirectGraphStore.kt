@@ -304,27 +304,12 @@ class DirectGraphStore(
             }
 
         val updatedBody = notationParser.unparseDocument(documentNotation.objects, previousBody)
-//        println("!!! updatedBody: ${IoUtils.utf8ToString(updatedBody)}")
 
         if (updatedBody != previousBody || ! previouslyPresent) {
             notationMedia.writeDocument(documentPath, updatedBody)
         }
 
         when (command) {
-//            is CopyDocumentCommand -> {
-//                val originalDocumentPath = command.sourceDocumentPath
-//                val originalResources = originalDocument?.resources!!
-//
-//                for (resourcePath in originalResources.digests.keys) {
-//                    val contents = notationMedia.readResource(
-//                            ResourceLocation(originalDocumentPath, resourcePath))
-//
-//                    notationMedia.writeResource(
-//                            ResourceLocation(documentPath, resourcePath),
-//                            contents)
-//                }
-//            }
-
             is ResourceNotationCommand -> {
                 when (command) {
                     is AddResourceCommand -> {

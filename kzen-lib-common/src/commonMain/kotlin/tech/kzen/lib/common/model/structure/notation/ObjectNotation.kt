@@ -54,16 +54,10 @@ data class ObjectNotation(
 //
 //        val segments = notationPath.split(".")
 
-//        println("attributes: $attributes - $notationPath")
-
         val firstSegment = notationPath.attribute
         if (! attributes.map.containsKey(firstSegment)) {
-//            println("first segment missing ($firstSegment): $attributes - $notationPath")
             return null
         }
-//        println("first segment: $firstSegment")
-
-//        val root = attributes.values[firstSegment]!!
 
         val root = get(notationPath.attribute)
                 ?: return null
@@ -77,8 +71,6 @@ data class ObjectNotation(
                 ?: return null
 
         for (segment in notationPath.nesting.segments.dropLast(1)) {
-//            println("get - next: $next - $segment")
-
             val sub = next.get(segment.asString())
                     as? StructuredAttributeNotation
                     ?: return null

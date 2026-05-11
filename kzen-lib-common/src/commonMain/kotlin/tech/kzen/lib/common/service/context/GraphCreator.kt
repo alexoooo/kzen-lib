@@ -110,10 +110,6 @@ class GraphCreator {
     ): List<ObjectLocation> {
         val allSatisfied = mutableListOf<ObjectLocation>()
         for (candidate in open) {
-//            if (candidate.objectPath.name.value == "StringHolderNullRef") {
-//                println("foo")
-//            }
-
             val definition = graphDefinition.objectDefinitions[candidate]
                 ?: throw IllegalArgumentException("Missing definition: $candidate")
 

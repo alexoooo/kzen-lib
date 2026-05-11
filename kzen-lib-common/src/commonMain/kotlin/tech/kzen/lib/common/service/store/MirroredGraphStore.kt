@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.structure.notation.cqrs.NotationCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.NotationEvent
 
 
+// Used by kzen-auto's ClientContext
 @Suppress("unused")
 class MirroredGraphStore(
     private val localGraphStore: DirectGraphStore,

@@ -15,6 +15,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 import java.util.concurrent.ConcurrentHashMap
 
 
+// Used by kzen-auto's KzenAutoContext
 @Suppress("unused")
 class ClasspathNotationMedia(
     private val prefix: String = NotationConventions.documentPathPrefix,

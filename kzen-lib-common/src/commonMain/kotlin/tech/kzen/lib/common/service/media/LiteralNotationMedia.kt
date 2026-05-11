@@ -12,6 +12,7 @@ import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
+// Public API; no internal callers currently
 @Suppress("unused")
 class LiteralNotationMedia(
     private val documents: DocumentPathMap<Document>

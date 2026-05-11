@@ -226,7 +226,6 @@ data class GraphNotation(
                     throw IllegalArgumentException("$objectLocation - $attributePath - $isAttribute")
             }
 
-//        println("coalesce keys ($objectLocation - $attributePath - $superReference): " + coalesce.values.keys)
         val superLocation = coalesce.locateOptional(
             superReference, ObjectReferenceHost.ofLocation(objectLocation))
 

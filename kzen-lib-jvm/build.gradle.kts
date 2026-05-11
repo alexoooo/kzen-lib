@@ -1,5 +1,4 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 
 plugins {
@@ -28,14 +27,6 @@ dependencies {
 
     testImplementation(kotlin("test"))
 }
-
-
-//tasks.withType<KotlinCompile> {
-//    kotlinOptions {
-//        freeCompilerArgs += "-Xjsr305=strict"
-//        jvmTarget = jvmTargetVersion
-//    }
-//}
 
 
 tasks.compileJava {

@@ -15,12 +15,6 @@ kotlin {
         compilerOptions {
             jvmTarget.set(JvmTarget.fromTarget(jvmTargetVersion))
         }
-
-//        val main by compilations.getting {
-//            kotlinOptions {
-//                jvmTarget = jvmTargetVersion
-//            }
-//        }
     }
 
     js {

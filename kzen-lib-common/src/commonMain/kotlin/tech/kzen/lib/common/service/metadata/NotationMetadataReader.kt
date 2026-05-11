@@ -62,10 +62,6 @@ class NotationMetadataReader(
         objectLocation: ObjectLocation,
         graphNotation: GraphNotation
     ): ObjectMetadata {
-//        if (objectLocation.objectPath.name.value == "StringHolderRef") {
-//            println("fooo")
-//        }
-
         val objectReferenceHost = ObjectReferenceHost.ofLocation(objectLocation)
         val inheritanceChain = graphNotation.inheritanceChain(objectLocation)
         val objectNotations = graphNotation.coalesce
