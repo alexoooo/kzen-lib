@@ -11,5 +11,5 @@ const val coroutinesVersion = "1.11.0"
 const val guavaVersion = "33.6.0-jre"
 const val dexxVersion = "0.7"
 
-const val coreJsVersion = "3.47.0"
-const val immutableJsVersion = "5.1.4"
+const val coreJsVersion = "3.49.0"
+const val immutableJsVersion = "5.1.5"
