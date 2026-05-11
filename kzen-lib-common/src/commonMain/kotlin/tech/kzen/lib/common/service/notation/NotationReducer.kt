@@ -626,7 +626,7 @@ class NotationReducer {
 
         val containingMapExists = containingAttribute != null
 
-        val containingMapSize = (containingAttribute as? MapAttributeNotation)?.map?.size ?: 0
+        val containingMapSize = containingAttribute?.map?.size ?: 0
         val indexInMap = command.indexInMap.resolve(containingMapSize)
 
         val createdAncestors = mutableListOf<AttributePath>()
@@ -682,7 +682,7 @@ class NotationReducer {
                 }
             }
             else {
-                val mapInAttribute = containingAttribute as MapAttributeNotation
+                val mapInAttribute = containingAttribute
                 val mapWithInsert = mapInAttribute.insert(
                     command.value, command.mapKey, indexInMap)
 

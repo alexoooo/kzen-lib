@@ -124,11 +124,11 @@ class MirroredGraphStore(
 
             when {
                 remoteError != null -> {
-                    MirroredGraphError(remoteError!!, true)
+                    MirroredGraphError(remoteError, true)
                 }
 
                 localError != null -> {
-                    MirroredGraphError(localError!!, false)
+                    MirroredGraphError(localError, false)
                 }
 
                 localDigest != remoteDigest -> {

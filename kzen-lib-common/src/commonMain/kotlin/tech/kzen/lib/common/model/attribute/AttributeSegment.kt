@@ -4,7 +4,7 @@ import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 
 
-@Suppress("DataClassPrivateConstructor")
+@ConsistentCopyVisibility
 data class AttributeSegment private constructor(
     private val asKey: String
 ):
