@@ -52,7 +52,7 @@ class ImmutableByteArray private constructor(
 
         other as ImmutableByteArray
 
-        if (! bytes.contentEquals(other.bytes)) return false
+        if (!bytes.contentEquals(other.bytes)) return false
 
         return true
     }

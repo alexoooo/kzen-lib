@@ -24,7 +24,7 @@ class ReadWriteNotationMedia(
 
     //-----------------------------------------------------------------------------------------------------------------
     init {
-        require(! writable.isReadOnly())
+        require(!writable.isReadOnly())
     }
 
 
@@ -83,7 +83,7 @@ class ReadWriteNotationMedia(
 
 
     override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
-        check(! readOnly.containsDocument(documentPath)) {
+        check(!readOnly.containsDocument(documentPath)) {
             "Writing document overlap with read-only: $documentPath"
         }
 
@@ -107,7 +107,7 @@ class ReadWriteNotationMedia(
 
 
     override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
-        check(! readOnly.containsResource(resourceLocation)) {
+        check(!readOnly.containsResource(resourceLocation)) {
             "Writing resource overlap with read-only: $resourceLocation"
         }
 
@@ -116,7 +116,7 @@ class ReadWriteNotationMedia(
 
 
     override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
-        check(! readOnly.containsResource(destination)) {
+        check(!readOnly.containsResource(destination)) {
             "Copying resource overlap with read-only: $destination"
         }
 

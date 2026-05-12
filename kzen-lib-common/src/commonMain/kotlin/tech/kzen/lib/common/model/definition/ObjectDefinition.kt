@@ -120,7 +120,7 @@ data class ObjectDefinition(
         when (definition) {
             is ReferenceAttributeDefinition -> {
                 if (definition.objectReference == null ||
-                        definition.weak && ! includeWeak) {
+                        definition.weak && !includeWeak) {
                     return
                 }
 

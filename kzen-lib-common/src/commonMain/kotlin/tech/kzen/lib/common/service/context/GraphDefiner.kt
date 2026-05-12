@@ -63,7 +63,7 @@ object GraphDefiner {
         graphStructure: GraphStructure
     ): GraphDefinition {
         val attempt = tryDefine(graphStructure)
-        require(! attempt.hasErrors()) {
+        require(!attempt.hasErrors()) {
             "Definition errors: ${attempt.failures}"
         }
         return attempt.successful()
@@ -80,7 +80,7 @@ object GraphDefiner {
             .objectLocations
             .filter {
                 it !in bootstrapObjects &&
-                    ! isAbstract(it, graphStructure.graphNotation)
+                    !isAbstract(it, graphStructure.graphNotation)
             }.toMutableSet()
 
         var closedDefinitions = GraphDefinition.empty

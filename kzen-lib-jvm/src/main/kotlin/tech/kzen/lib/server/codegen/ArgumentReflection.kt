@@ -27,7 +27,7 @@ data class ArgumentReflection(
         }
 
         for (typeClass in typeClasses) {
-            if (! typeClass.get().startsWith(topLevel)) {
+            if (!typeClass.get().startsWith(topLevel)) {
                 continue
             }
 

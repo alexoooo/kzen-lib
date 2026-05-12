@@ -305,7 +305,7 @@ class DirectGraphStore(
 
         val updatedBody = notationParser.unparseDocument(documentNotation.objects, previousBody)
 
-        if (updatedBody != previousBody || ! previouslyPresent) {
+        if (updatedBody != previousBody || !previouslyPresent) {
             notationMedia.writeDocument(documentPath, updatedBody)
         }
 

@@ -11,7 +11,7 @@ actual data class ClassName actual constructor(
     Digestible
 {
     init {
-        require(! asString.endsWith("?"))
+        require(!asString.endsWith("?"))
     }
 
 

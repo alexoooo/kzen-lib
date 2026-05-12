@@ -129,7 +129,7 @@ data class GraphNotation(
             .toList()
 
         val attributeValues: PersistentMap<AttributeName, AttributeNotation> = transitiveAttributes
-            .filter { ! NotationConventions.isSpecial(it) }
+            .filter { !NotationConventions.isSpecial(it) }
             .map { it to mergeAttribute(it, ancestors) }
             .filter { it.second != null }
             .map { it.first to it.second!! }
@@ -305,7 +305,7 @@ data class GraphNotation(
         val filteredDocuments = mutableMapOf<DocumentPath, DocumentNotation>()
 
         for (e in documents.map) {
-            if (! predicate.invoke(e.key)) {
+            if (!predicate.invoke(e.key)) {
                 continue
             }
 

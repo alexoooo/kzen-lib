@@ -120,7 +120,7 @@ object GraphCreator {
             val (emptyReferences, nonEmptyReferences) = definition.references()
                 .partition { i -> i.objectReference.isEmpty() }
 
-            val requiredEmptyReferences = emptyReferences.filter { ! it.isNullable(objectMetadata) }
+            val requiredEmptyReferences = emptyReferences.filter { !it.isNullable(objectMetadata) }
             if (requiredEmptyReferences.isNotEmpty()) {
                 continue
             }
@@ -128,7 +128,7 @@ object GraphCreator {
             val locatedNonEmptyReference = nonEmptyReferences.map { reference ->
                     tryLocate(closedLocator, reference.objectReference, referenceHost)
                 }
-            if (! locatedNonEmptyReference.all { it in closed }) {
+            if (!locatedNonEmptyReference.all { it in closed }) {
                 continue
             }
 

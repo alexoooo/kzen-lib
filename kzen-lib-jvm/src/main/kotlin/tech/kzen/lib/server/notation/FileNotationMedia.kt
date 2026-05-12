@@ -99,7 +99,7 @@ class FileNotationMedia(
         val locationTimes = scanDocumentModifiedTimes(root)
 
         for ((documentPath, modified) in locationTimes) {
-            if (! allowed(documentPath)) {
+            if (!allowed(documentPath)) {
                 continue
             }
 
@@ -149,7 +149,7 @@ class FileNotationMedia(
     private fun scanDocumentModifiedTimes(
         root: Path
     ): Map<DocumentPath, Instant> {
-        if (! Files.exists(root)) {
+        if (!Files.exists(root)) {
             return mapOf()
         }
 

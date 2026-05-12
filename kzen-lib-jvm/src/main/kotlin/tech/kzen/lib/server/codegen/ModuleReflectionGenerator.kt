@@ -299,7 +299,7 @@ object ModuleReflectionGenerator
 
 
     private fun unescapeArgumentName(rawArgumentName: String): String {
-        if (! rawArgumentName.startsWith('`')) {
+        if (!rawArgumentName.startsWith('`')) {
             return rawArgumentName
         }
         return rawArgumentName.substring(1, rawArgumentName.length - 1)
@@ -418,7 +418,7 @@ object ModuleReflectionGenerator
             sourceClass: ClassName,
             sourceFile: Path
     ): Set<ClassName> {
-        if (! Files.exists(sourceFile)) {
+        if (!Files.exists(sourceFile)) {
             return setOf()
         }
 

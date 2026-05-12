@@ -32,7 +32,7 @@ actual class PersistentMap<K, out V> private constructor(
                             if (result == null) {
                                 result = delegateIterator.next()
                             }
-                            return ! result!!.done
+                            return !result!!.done
                         }
 
                         @Suppress("UNCHECKED_CAST")
@@ -84,7 +84,7 @@ actual class PersistentMap<K, out V> private constructor(
                             if (result == null) {
                                 result = delegateIterator.next()
                             }
-                            return ! result!!.done
+                            return !result!!.done
                         }
 
                         override fun next(): K {
@@ -118,7 +118,7 @@ actual class PersistentMap<K, out V> private constructor(
                             if (result == null) {
                                 result = delegateIterator.next()
                             }
-                            return ! result!!.done
+                            return !result!!.done
                         }
 
                         override fun next(): V {
@@ -183,7 +183,7 @@ actual class PersistentMap<K, out V> private constructor(
 
         builder = builder.put(key, value)
 
-        while (! result.done) {
+        while (!result.done) {
             val entryKey = result.value[0] as K
             val entryValue = result.value[1] as V
 
@@ -223,7 +223,7 @@ actual class PersistentMap<K, out V> private constructor(
     actual override fun containsValue(value: @UnsafeVariance V): Boolean {
         val iterator: IterationIterator<V> = delegate.values()
         var result: IteratorResult<V> = iterator.next()
-        while (! result.done) {
+        while (!result.done) {
             if (result.value == value) {
                 return true
             }

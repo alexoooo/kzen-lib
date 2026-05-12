@@ -146,7 +146,7 @@ object NotationReducer {
         state: GraphNotation,
         command: CreateDocumentCommand
     ): NotationTransition {
-        check(! state.documents.map.containsKey(command.documentPath)) {
+        check(!state.documents.map.containsKey(command.documentPath)) {
             "Already exists: ${command.documentPath}"
         }
 
@@ -572,7 +572,7 @@ object NotationReducer {
         val createdAncestors = mutableListOf<AttributePath>()
 
         val modifiedObjectNotation =
-            if (! containingMapExists) {
+            if (!containingMapExists) {
                 require(command.createAncestorsIfAbsent) {
                     "Containing map missing: ${command.containingMap}"
                 }
@@ -1193,7 +1193,7 @@ object NotationReducer {
                     objectDefinition.attributeReferencesIncludingWeak()
 
             for (attributeReference in attributeReferences) {
-                if (! isReferenced(
+                if (!isReferenced(
                         objectLocation,
                         attributeReference.value.objectReference,
                         ObjectReferenceHost.ofLocation(hostObjectLocation),

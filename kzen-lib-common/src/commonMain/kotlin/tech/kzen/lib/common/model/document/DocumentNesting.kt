@@ -27,7 +27,7 @@ data class DocumentNesting(
             val pathMatches = segments
                     .subList(0, segments.size - 1)
                     .all { DocumentSegment.segmentPattern.matches(it) }
-            if (! pathMatches) {
+            if (!pathMatches) {
                 return false
             }
 

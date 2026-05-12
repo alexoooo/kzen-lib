@@ -133,8 +133,8 @@ object YamlParser {
                 if (value.isEmpty()) {
                     ""
                 }
-                else if (! value.contains('"') &&
-                        ! value.contains('\'')) {
+                else if (!value.contains('"') &&
+                        !value.contains('\'')) {
                     value
                 }
                 else if (value.startsWith('"')) {
@@ -175,7 +175,7 @@ object YamlParser {
 
 
     private fun unescapeString(escaped: String): String {
-        if (! escaped.contains('\\')) {
+        if (!escaped.contains('\\')) {
             return escaped
         }
 

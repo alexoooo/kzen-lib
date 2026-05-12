@@ -93,7 +93,7 @@ data class ObjectNesting(
 
 
         fun extractNameSuffix(encodedObjectPath: String): String {
-            if (! containsSegments(encodedObjectPath)) {
+            if (!containsSegments(encodedObjectPath)) {
                 return decodeDelimiter(encodedObjectPath)
             }
             val startOfSuffix = lastIndexOfDelimiter(encodedObjectPath)
@@ -108,7 +108,7 @@ data class ObjectNesting(
 
 
         fun extractSegments(encodedObjectPath: String): String? {
-            if (! containsSegments(encodedObjectPath)) {
+            if (!containsSegments(encodedObjectPath)) {
                 return null
             }
             val startOfSuffix = lastIndexOfDelimiter(encodedObjectPath)

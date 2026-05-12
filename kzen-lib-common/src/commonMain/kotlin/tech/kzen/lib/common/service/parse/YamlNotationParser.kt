@@ -112,7 +112,7 @@ class YamlNotationParser: NotationParser {
 
         var first = true
         for ((objectPath, objectNotation) in notation.notations.map) {
-            if (! first) {
+            if (!first) {
                 buffer.append("\n\n")
             }
             first = false

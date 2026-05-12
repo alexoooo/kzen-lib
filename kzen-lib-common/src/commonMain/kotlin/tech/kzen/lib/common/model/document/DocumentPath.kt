@@ -21,7 +21,7 @@ data class DocumentPath(
 
 
         fun matches(relativeLocation: String): Boolean {
-            if (! relativeLocation.endsWith(NotationConventions.fileDocumentSuffix)) {
+            if (!relativeLocation.endsWith(NotationConventions.fileDocumentSuffix)) {
                 return false
             }
 

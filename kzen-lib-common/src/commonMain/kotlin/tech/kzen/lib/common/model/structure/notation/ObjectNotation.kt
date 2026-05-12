@@ -55,7 +55,7 @@ data class ObjectNotation(
 //        val segments = notationPath.split(".")
 
         val firstSegment = notationPath.attribute
-        if (! attributes.map.containsKey(firstSegment)) {
+        if (!attributes.map.containsKey(firstSegment)) {
             return null
         }
 

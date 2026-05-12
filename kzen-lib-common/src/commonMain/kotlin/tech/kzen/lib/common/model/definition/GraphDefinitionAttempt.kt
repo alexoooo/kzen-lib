@@ -25,7 +25,7 @@ data class GraphDefinitionAttempt(
         var open = objectDefinitions.map
 
         var terminated = false
-        while (! terminated) {
+        while (!terminated) {
             terminated = true
 
             for (e in open) {
@@ -49,7 +49,7 @@ data class GraphDefinitionAttempt(
                                 ?.nullable
                                 ?: false
 
-                            ! nullable
+                            !nullable
                         }
                         else {
                             val location = objectDefinitions.locateOptional(objectReference, host)
