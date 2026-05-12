@@ -26,36 +26,35 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 import kotlin.reflect.KClass
 
 
-// TODO: convert to object?
-class GraphDefiner {
+object GraphDefiner {
     //-----------------------------------------------------------------------------------------------------------------
-    companion object {
-        val bootstrapObjects = GraphInstance(
-            ObjectLocationMap(persistentMapOf(
-                bootstrapEntry(DefaultConstructorObjectCreator),
-                bootstrapEntry(DefaultConstructorObjectDefiner)
-            )))
-
-        fun isBootstrap(objectReference: ObjectReference): Boolean {
-            return bootstrapObjects.objectInstances.locateOptional(objectReference) != null
-        }
-
-        private fun bootstrapEntry(bootstrapObject: Any): Pair<ObjectLocation, ObjectInstance> {
-            val objectPath = bootstrapPath(bootstrapObject::class)
-            return objectPath to ObjectInstance(bootstrapObject, AttributeNameMap.of())
-        }
+    val bootstrapObjects = GraphInstance(
+        ObjectLocationMap(persistentMapOf(
+            bootstrapEntry(DefaultConstructorObjectCreator),
+            bootstrapEntry(DefaultConstructorObjectDefiner)
+        )))
 
 
-        private fun bootstrapPath(type: KClass<*>): ObjectLocation {
-            return bootstrapPath(ObjectName(type.simpleName!!))
-        }
+    fun isBootstrap(objectReference: ObjectReference): Boolean {
+        return bootstrapObjects.objectInstances.locateOptional(objectReference) != null
+    }
 
 
-        private fun bootstrapPath(objectName: ObjectName): ObjectLocation {
-            return ObjectLocation(
-                NotationConventions.kzenBasePath,
-                ObjectPath(objectName, ObjectNesting.root))
-        }
+    private fun bootstrapEntry(bootstrapObject: Any): Pair<ObjectLocation, ObjectInstance> {
+        val objectPath = bootstrapPath(bootstrapObject::class)
+        return objectPath to ObjectInstance(bootstrapObject, AttributeNameMap.of())
+    }
+
+
+    private fun bootstrapPath(type: KClass<*>): ObjectLocation {
+        return bootstrapPath(ObjectName(type.simpleName!!))
+    }
+
+
+    private fun bootstrapPath(objectName: ObjectName): ObjectLocation {
+        return ObjectLocation(
+            NotationConventions.kzenBasePath,
+            ObjectPath(objectName, ObjectNesting.root))
     }
 
 

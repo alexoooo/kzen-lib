@@ -59,7 +59,7 @@ object JvmGraphTestUtils {
 
     fun graphDefinition(graphNotation: GraphNotation): GraphDefinitionAttempt {
         val graphMetadata = graphMetadata(graphNotation)
-        return GraphDefiner().tryDefine(
+        return GraphDefiner.tryDefine(
                 GraphStructure(graphNotation, graphMetadata))
     }
 
@@ -68,7 +68,7 @@ object JvmGraphTestUtils {
         val graphMetadata = graphMetadata(graphNotation)
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
-        val definitionAttempt = GraphDefiner().tryDefine(graphStructure)
+        val definitionAttempt = GraphDefiner.tryDefine(graphStructure)
 //        if (definitionAttempt.objectDefinitions.contains(ObjectLocation.parse("test/kzen-test.yaml#StringHolderNullableNominal"))) {
 //            println("foo")
 //        }
@@ -78,7 +78,7 @@ object JvmGraphTestUtils {
 //            println("foo")
 //        }
 
-        return GraphCreator()
+        return GraphCreator
                 .createGraph(graphDefinition)
     }
 

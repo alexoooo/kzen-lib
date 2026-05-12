@@ -20,9 +20,9 @@ class CommonTest {
                 GraphNotation(DocumentPathMap(persistentMapOf())),
                 emptyMetadata)
 
-        val emptyDefinition = GraphDefiner().define(graphStructure)
+        val emptyDefinition = GraphDefiner.define(graphStructure)
 
-        val emptyGraph = GraphCreator().createGraph(
+        val emptyGraph = GraphCreator.createGraph(
                 emptyDefinition)
 
         assertEquals(

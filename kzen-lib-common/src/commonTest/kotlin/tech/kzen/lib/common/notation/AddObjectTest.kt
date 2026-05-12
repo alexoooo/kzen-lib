@@ -16,7 +16,7 @@ class AddObjectTest: StructuralNotationTest() {
     fun addObjectOfParent() {
         val notation = parseGraph("")
 
-        val project = NotationReducer()
+        val project = NotationReducer
 
         val transition = project.applyStructural(notation, AddObjectCommand.ofParent(
                 location("Foo"),

@@ -11,8 +11,7 @@ import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 
 
-// TODO: convert to object?
-class GraphCreator {
+object GraphCreator {
     //-----------------------------------------------------------------------------------------------------------------
     private data class UnsatisfiedReference(
         val objectReferenceHost: ObjectReferenceHost,

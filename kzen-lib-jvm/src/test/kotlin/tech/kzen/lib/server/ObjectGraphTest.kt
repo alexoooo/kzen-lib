@@ -27,9 +27,9 @@ class ObjectGraphTest {
     fun `ObjectGraph can be empty`() {
         val emptyStructure = GraphStructure(GraphNotation.empty, GraphMetadata.empty)
 
-        val emptyDefinition = GraphDefiner().define(emptyStructure)
+        val emptyDefinition = GraphDefiner.define(emptyStructure)
 
-        val emptyGraph = GraphCreator().createGraph(
+        val emptyGraph = GraphCreator.createGraph(
                 emptyDefinition)
 
         assertEquals(

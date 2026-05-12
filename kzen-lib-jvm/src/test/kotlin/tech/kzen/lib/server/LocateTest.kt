@@ -39,7 +39,7 @@ class LocateTest {
         val media = MapNotationMedia()
 //        val repo = NotationRepository(
         val repo = DirectGraphStore(
-                media, yamlParser, metadataReader, GraphDefiner(), NotationReducer())
+                media, yamlParser, metadataReader, GraphDefiner, NotationReducer)
 
         val notation = runBlocking {
             media.writeDocument(aPath, """

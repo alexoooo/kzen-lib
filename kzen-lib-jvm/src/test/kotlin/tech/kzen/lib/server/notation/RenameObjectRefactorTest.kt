@@ -19,7 +19,7 @@ import kotlin.test.assertEquals
 class RenameObjectRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val testPath = DocumentPath.parse("test/refactor-test.yaml")
-    private val reducer = NotationReducer()
+    private val reducer = NotationReducer
 
 
     //-----------------------------------------------------------------------------------------------------------------

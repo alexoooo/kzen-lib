@@ -21,16 +21,15 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
-// TODO: convert to object?
-class NotationReducer {
+object NotationReducer {
     //-----------------------------------------------------------------------------------------------------------------
-    private inner class StructuralBuffer(
+    private class StructuralBuffer(
         var graphNotation: GraphNotation
     ) {
         fun apply(
             structuralNotationCommand: StructuralNotationCommand
         ): NotationEvent {
-            val transition = applyStructural(graphNotation, structuralNotationCommand)
+            val transition = NotationReducer.applyStructural(graphNotation, structuralNotationCommand)
             graphNotation = transition.graphNotation
             return transition.notationEvent
         }

@@ -55,8 +55,8 @@ class ResourceCrudTest {
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
-                GraphDefiner(),
-                NotationReducer())
+                GraphDefiner,
+                NotationReducer)
 
         val resource = runBlocking {
             repo.apply(CreateDocumentCommand(
@@ -82,8 +82,8 @@ class ResourceCrudTest {
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
-                GraphDefiner(),
-                NotationReducer())
+                GraphDefiner,
+                NotationReducer)
 
         val graphNotation = runBlocking {
             repo.apply(CreateDocumentCommand(
@@ -111,8 +111,8 @@ class ResourceCrudTest {
                 media,
                 YamlNotationParser(),
                 NotationMetadataReader(),
-                GraphDefiner(),
-                NotationReducer())
+                GraphDefiner,
+                NotationReducer)
 
         val resource = runBlocking {
             repo.apply(CreateDocumentCommand(
