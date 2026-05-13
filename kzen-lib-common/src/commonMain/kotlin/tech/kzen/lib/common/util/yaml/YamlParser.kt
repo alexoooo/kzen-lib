@@ -106,23 +106,23 @@ object YamlParser {
         }
 
         val value: String =
-                if (block.size == 1) {
-                    block[0]
+            if (block.size == 1) {
+                block[0]
+            }
+            else {
+                val nonCommentLines = block.filter {
+                    it.isNotEmpty() &&
+                        Patterns.decorator.matchEntire(it) == null
                 }
-                else {
-                    val nonCommentLines = block.filter {
-                        it.isNotEmpty() &&
-                                Patterns.decorator.matchEntire(it) == null
-                    }
 
-                    if (nonCommentLines.isEmpty()) {
-                        return YamlString.empty
-                    }
-
-                    check(nonCommentLines.size == 1) { "Scalar expected: $nonCommentLines" }
-
-                    nonCommentLines[0]
+                if (nonCommentLines.isEmpty()) {
+                    return YamlString.empty
                 }
+
+                check(nonCommentLines.size == 1) { "Scalar expected: $nonCommentLines" }
+
+                nonCommentLines[0]
+            }
 
         return parseString(value)
     }
@@ -130,34 +130,34 @@ object YamlParser {
 
     private fun parseString(value: String): YamlString {
         val escaped =
-                if (value.isEmpty()) {
-                    ""
-                }
-                else if (!value.contains('"') &&
-                        !value.contains('\'')) {
-                    value
-                }
-                else if (value.startsWith('"')) {
-                    val lastQuoteIndex = value.lastIndexOf('"')
-                    require(lastQuoteIndex != 0) { "Missing closing double quote: $value" }
+            if (value.isEmpty()) {
+                ""
+            }
+            else if (!value.contains('"') &&
+                    !value.contains('\'')) {
+                value
+            }
+            else if (value.startsWith('"')) {
+                val lastQuoteIndex = value.lastIndexOf('"')
+                require(lastQuoteIndex != 0) { "Missing closing double quote: $value" }
 
-                    val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
-                    require(withoutComment.endsWith('"')) { "Can't parse String: $value" }
+                val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
+                require(withoutComment.endsWith('"')) { "Can't parse String: $value" }
 
-                    withoutComment.substring(1, withoutComment.length - 1)
-                }
-                else if (value.startsWith('\'')) {
-                    val lastQuoteIndex = value.lastIndexOf('\'')
-                    require(lastQuoteIndex != 0) { "Missing closing single quote: $value" }
+                withoutComment.substring(1, withoutComment.length - 1)
+            }
+            else if (value.startsWith('\'')) {
+                val lastQuoteIndex = value.lastIndexOf('\'')
+                require(lastQuoteIndex != 0) { "Missing closing single quote: $value" }
 
-                    val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
-                    require(withoutComment.endsWith('\'')) { "Can't parse String: $value" }
+                val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
+                require(withoutComment.endsWith('\'')) { "Can't parse String: $value" }
 
-                    withoutComment.substring(1, withoutComment.length - 1)
-                }
-                else {
-                    throw IllegalArgumentException("Can't parse String: $value")
-                }
+                withoutComment.substring(1, withoutComment.length - 1)
+            }
+            else {
+                throw IllegalArgumentException("Can't parse String: $value")
+            }
 
         val raw = unescapeString(escaped)
 
@@ -193,33 +193,32 @@ object YamlParser {
                 val ch = escaped[i++]
 
                 val decoded: Any =
-                        when (ch) {
-                            '\\', '/', '"', '\'' ->
-                                ch
+                    when (ch) {
+                        '\\', '/', '"', '\'' ->
+                            ch
 
-                            'n' -> '\n'
-                            'r' -> '\r'
-                            't' -> '\t'
-                            'b' -> '\b'
-                            'f' -> "\\u000C"
+                        'n' -> '\n'
+                        'r' -> '\r'
+                        't' -> '\t'
+                        'b' -> '\b'
+                        'f' -> "\\u000C"
 
-                            'u' -> {
-                                // expect 4 digits
-                                require(i + 4 <= escaped.length) { "Not enough unicode digits! " }
+                        'u' -> {
+                            // expect 4 digits
+                            require(i + 4 <= escaped.length) { "Not enough unicode digits! " }
 
-                                val digits: String = escaped.substring(i, i + 4)
-                                val parsed: Int = digits.toIntOrNull(16)
-                                        ?: throw IllegalArgumentException("Bad character in unicode escape")
+                            val digits: String = escaped.substring(i, i + 4)
+                            val parsed: Int = digits.toIntOrNull(16)
+                                    ?: throw IllegalArgumentException("Bad character in unicode escape")
 
-                                val asChar = parsed.toChar()
+                            val asChar = parsed.toChar()
 
-//                            StringBuilder().append(asChar).toString()
-                                asChar.toString()
-                            }
-
-                            else ->
-                                throw IllegalArgumentException("Illegal escape at $i: $escaped")
+                            asChar.toString()
                         }
+
+                        else ->
+                            throw IllegalArgumentException("Illegal escape at $i: $escaped")
+                    }
 
                 builder.append(decoded)
             }
@@ -320,8 +319,8 @@ object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
     private fun matchEntireEntry(line: String): MatchResult? {
         return Patterns.entryBare.matchEntire(line)
-                ?: Patterns.entrySingleQuoted.matchEntire(line)
-                ?: Patterns.entryDoubleQuoted.matchEntire(line)
+            ?: Patterns.entrySingleQuoted.matchEntire(line)
+            ?: Patterns.entryDoubleQuoted.matchEntire(line)
     }
 
 
@@ -351,8 +350,8 @@ object YamlParser {
 
 
     private fun splitElements(
-            block: List<String>,
-            startOfElement: (String) -> Boolean
+        block: List<String>,
+        startOfElement: (String) -> Boolean
     ): List<List<String>> {
         val buffer = mutableListOf<String>()
 
@@ -395,12 +394,12 @@ object YamlParser {
         val doubleQuoteCount = yamlString.value.count { it == '"' }
 
         val quotation: Char =
-                if (singleQuoteCount >= doubleQuoteCount) {
-                    '"'
-                }
-                else {
-                    '\''
-                }
+            if (singleQuoteCount >= doubleQuoteCount) {
+                '"'
+            }
+            else {
+                '\''
+            }
 
         val escaped = escape(yamlString.value, quotation)
 
