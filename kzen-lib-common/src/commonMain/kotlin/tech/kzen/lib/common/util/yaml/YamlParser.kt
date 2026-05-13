@@ -3,65 +3,34 @@ package tech.kzen.lib.common.util.yaml
 
 /**
  * Similar to https://github.com/crdoconnor/strictyaml/ but with [] and {}
+ *
+ * Parsing is a single forward scan that builds a line index (indent + content offsets) over the
+ * source `CharSequence`, then a recursive descent that walks the index by position without slicing.
+ * Scalar lexing is hand-rolled char-by-char — no regex on the parse path.
  */
 object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
     const val fileExtension = "yaml"
 
-    private const val emptyListJson = "[]"
-    private const val emptyMapJson = "{}"
+    private const val emptyListMarker = "[]"
+    private const val emptyMapMarker = "{}"
+
+    private const val indentStep = 2
 
 
     private object Patterns {
-        val lineBreak = Regex(
-            "\r\n|\n")
-
-        val decorator = Regex(
-            "#(.*)")
-
+        // Retained for unparseString only — the parse path is regex-free.
         // https://stackoverflow.com/questions/32155133/regex-to-match-a-json-string
         // https://stackoverflow.com/questions/4264877/why-is-the-slash-an-escapable-character-in-json
-        private const val bareStringPattern =
-            "([0-9a-zA-Z_\\-/.][0-9a-zA-Z_\\-/. ]*[0-9a-zA-Z_\\-/.]|[0-9a-zA-Z_\\-/.]+)"
-
-        private const val singleQuotedString =
-            "'((?:[^']|\\\\(?:['/bfnrt]|u[0-9a-fA-F]{4}))*)'"
-
-        private const val doubleQuotedString =
-            "\"((?:[^\"]|\\\\(?:[\"/bfnrt]|u[0-9a-fA-F]{4}))*)\""
-
-        private const val entrySuffix = "\\s*:\\s*(.*)"
-
-        val entryBare = Regex(
-            "$bareStringPattern$entrySuffix")
-
-        val entrySingleQuoted = Regex(
-            "$singleQuotedString$entrySuffix")
-
-        val entryDoubleQuoted = Regex(
-            "$doubleQuotedString$entrySuffix")
-
-        val item = Regex(
-            "- .*")
-
         val bareString = Regex(
-            bareStringPattern)
-//        val bareStringX = Regex(
-//            doubleQuotedString)
-    }
-
-
-    private enum class NotationStructure {
-        Scalar,
-        List,
-        Map
+            "([0-9a-zA-Z_\\-/.][0-9a-zA-Z_\\-/. ]*[0-9a-zA-Z_\\-/.]|[0-9a-zA-Z_\\-/.]+)")
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun parse(document: String): YamlNode {
-        val lines = document.split(Patterns.lineBreak)
-        return parse(lines)
+        val cursor = Cursor.of(document)
+        return cursor.parseBlock(0)
     }
 
 
@@ -82,301 +51,429 @@ object YamlParser {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parse(block: List<String>): YamlNode {
-        @Suppress("MoveVariableDeclarationIntoWhen")
-        val structure = identifyStructure(block)
+    private class Cursor private constructor(
+        private val source: String,
+        private val indents: IntArray,
+        private val starts: IntArray,
+        private val ends: IntArray,
+        private val lineCount: Int
+    ) {
+        companion object {
+            fun of(document: String): Cursor {
+                val initialCapacity = estimateCapacity(document.length)
+                var indents = IntArray(initialCapacity)
+                var starts = IntArray(initialCapacity)
+                var ends = IntArray(initialCapacity)
+                var count = 0
 
-        return when (structure) {
-            NotationStructure.Scalar ->
-                parseStringBlock(block)
+                val n = document.length
+                var i = 0
+                while (i < n) {
+                    val lineStart = i
+                    while (i < n && document[i] == ' ') {
+                        i++
+                    }
+                    val contentStart = i
+                    while (i < n && document[i] != '\n' && document[i] != '\r') {
+                        i++
+                    }
+                    val contentEnd = i
+                    if (i < n) {
+                        if (document[i] == '\r' && i + 1 < n && document[i + 1] == '\n') {
+                            i += 2
+                        }
+                        else {
+                            i++
+                        }
+                    }
+                    if (contentStart == contentEnd) {
+                        continue
+                    }
+                    if (document[contentStart] == '#') {
+                        continue
+                    }
+                    if (count == indents.size) {
+                        val grown = indents.size * 2
+                        indents = indents.copyOf(grown)
+                        starts = starts.copyOf(grown)
+                        ends = ends.copyOf(grown)
+                    }
+                    indents[count] = contentStart - lineStart
+                    starts[count] = contentStart
+                    ends[count] = contentEnd
+                    count++
+                }
 
-            NotationStructure.List ->
-                parseList(block)
+                return Cursor(document, indents, starts, ends, count)
+            }
 
-            NotationStructure.Map ->
-                parseMap(block)
+
+            private fun estimateCapacity(documentLength: Int): Int {
+                return when {
+                    documentLength < 64 -> 4
+                    documentLength < 1024 -> 32
+                    else -> minOf(1024, documentLength / 24)
+                }
+            }
+        }
+
+
+        //-------------------------------------------------------------------------------------------------------------
+        private var lineIdx = 0
+
+        // At most one synthetic "virtual line" can be pending — used by parseList/parseMap to
+        // inject inline content (after `- ` or `key:`) without allocating substrings.
+        private var synIndent = -1
+        private var synStart = 0
+        private var synEnd = 0
+
+        // Output of matchMapEntryShape — avoids per-call IntArray allocation in the hot loop.
+        private var matchKeyStart = 0
+        private var matchKeyEnd = 0
+        private var matchValueStart = 0
+
+
+        private fun peekIndent(): Int =
+            when {
+                synIndent >= 0 -> synIndent
+                lineIdx < lineCount -> indents[lineIdx]
+                else -> Int.MAX_VALUE
+            }
+
+        private fun peekStart(): Int =
+            if (synIndent >= 0) synStart else starts[lineIdx]
+
+        private fun peekEnd(): Int =
+            if (synIndent >= 0) synEnd else ends[lineIdx]
+
+        private fun advance() {
+            if (synIndent >= 0) {
+                synIndent = -1
+            }
+            else {
+                lineIdx++
+            }
+        }
+
+        private fun pushSynthetic(indent: Int, start: Int, end: Int) {
+            check(synIndent < 0) { "Synthetic already pushed" }
+            synIndent = indent
+            synStart = start
+            synEnd = end
+        }
+
+
+        //-------------------------------------------------------------------------------------------------------------
+        fun parseBlock(baseline: Int): YamlNode {
+            val curIndent = peekIndent()
+            if (curIndent == Int.MAX_VALUE || curIndent < baseline) {
+                return YamlString.empty
+            }
+
+            val s = peekStart()
+            val e = peekEnd()
+            val length = e - s
+
+            if (length == 2 && source[s] == '[' && source[s + 1] == ']') {
+                advance()
+                return YamlList(listOf())
+            }
+            if (length == 2 && source[s] == '{' && source[s + 1] == '}') {
+                advance()
+                return YamlMap(mapOf())
+            }
+            if (length >= 2 && source[s] == '-' && source[s + 1] == ' ') {
+                return parseList(baseline)
+            }
+            if (matchMapEntryShape()) {
+                return parseMap(baseline)
+            }
+
+            val scalar = parseScalarContent(s, e)
+            advance()
+            return scalar
+        }
+
+
+        private fun parseList(baseline: Int): YamlList {
+            val items = mutableListOf<YamlNode>()
+            while (peekIndent() == baseline && startsWithListMarker()) {
+                val inlineStart = peekStart() + 2  // skip "- "
+                val inlineEnd = peekEnd()
+                advance()
+
+                if (inlineStart < inlineEnd) {
+                    pushSynthetic(baseline + indentStep, inlineStart, inlineEnd)
+                }
+                items.add(parseBlock(baseline + indentStep))
+            }
+            return YamlList(items)
+        }
+
+
+        private fun parseMap(baseline: Int): YamlMap {
+            val entries = mutableMapOf<String, YamlNode>()
+            while (peekIndent() == baseline && matchMapEntryShape()) {
+                val keyStart = matchKeyStart
+                val keyEnd = matchKeyEnd
+                val valueStart = matchValueStart
+                val lineEnd = peekEnd()
+                val key = decodeKey(keyStart, keyEnd)
+                advance()
+
+                val value: YamlNode =
+                    if (valueStart < lineEnd) {
+                        pushSynthetic(baseline + indentStep, valueStart, lineEnd)
+                        parseBlock(baseline + indentStep)
+                    }
+                    else if (peekIndent() == baseline && startsWithListMarker()) {
+                        // Inline-list form: the value's `- ` markers share the key's indent.
+                        parseBlock(baseline)
+                    }
+                    else {
+                        parseBlock(baseline + indentStep)
+                    }
+
+                entries[key] = value
+            }
+            return YamlMap(entries)
+        }
+
+
+        //-------------------------------------------------------------------------------------------------------------
+        private fun startsWithListMarker(): Boolean {
+            val s = peekStart()
+            val e = peekEnd()
+            return e - s >= 2 && source[s] == '-' && source[s + 1] == ' '
+        }
+
+
+        // Sets matchKeyStart / matchKeyEnd / matchValueStart and returns true if the current peek
+        // is a `key:` map entry shape. The key may be bare, single-quoted, or double-quoted.
+        private fun matchMapEntryShape(): Boolean {
+            val s = peekStart()
+            val e = peekEnd()
+            if (s >= e) {
+                return false
+            }
+            return when (source[s]) {
+                '"' -> matchQuotedEntry(s, e, '"')
+                '\'' -> matchQuotedEntry(s, e, '\'')
+                else -> matchBareEntry(s, e)
+            }
+        }
+
+
+        private fun matchBareEntry(s: Int, e: Int): Boolean {
+            if (!isBareStartChar(source[s])) {
+                return false
+            }
+            var lastNonSpace = s
+            var i = s + 1
+            while (i < e) {
+                val c = source[i]
+                if (c == ':') {
+                    break
+                }
+                if (!isBareMidChar(c)) {
+                    return false
+                }
+                if (c != ' ') {
+                    lastNonSpace = i
+                }
+                i++
+            }
+            var j = lastNonSpace + 1
+            while (j < e && source[j] == ' ') {
+                j++
+            }
+            if (j >= e || source[j] != ':') {
+                return false
+            }
+            var v = j + 1
+            while (v < e && (source[v] == ' ' || source[v] == '\t')) {
+                v++
+            }
+            matchKeyStart = s
+            matchKeyEnd = lastNonSpace + 1
+            matchValueStart = v
+            return true
+        }
+
+
+        private fun matchQuotedEntry(s: Int, e: Int, quote: Char): Boolean {
+            var i = s + 1
+            while (i < e) {
+                val c = source[i]
+                when (c) {
+                    '\\' -> {
+                        if (i + 1 >= e) {
+                            return false
+                        }
+                        i += 2
+                    }
+                    quote -> {
+                        var j = i + 1
+                        while (j < e && source[j] == ' ') {
+                            j++
+                        }
+                        if (j >= e || source[j] != ':') {
+                            return false
+                        }
+                        var v = j + 1
+                        while (v < e && (source[v] == ' ' || source[v] == '\t')) {
+                            v++
+                        }
+                        matchKeyStart = s
+                        matchKeyEnd = i + 1
+                        matchValueStart = v
+                        return true
+                    }
+                    else -> i++
+                }
+            }
+            return false
+        }
+
+
+        //-------------------------------------------------------------------------------------------------------------
+        private fun parseScalarContent(s: Int, e: Int): YamlString {
+            if (s >= e) {
+                return YamlString.empty
+            }
+            return when (source[s]) {
+                '"' -> parseQuotedScalar(s, e, '"')
+                '\'' -> parseQuotedScalar(s, e, '\'')
+                else -> YamlString(unescape(source, s, e))
+            }
+        }
+
+
+        private fun parseQuotedScalar(s: Int, e: Int, quote: Char): YamlString {
+            var lastQuote = -1
+            var j = e - 1
+            while (j > s) {
+                if (source[j] == quote) {
+                    lastQuote = j
+                    break
+                }
+                j--
+            }
+            require(lastQuote > s) {
+                "Missing closing ${if (quote == '"') "double" else "single"} quote: ${source.substring(s, e)}"
+            }
+
+            val lastHash = lastIndexOf(source, '#', s, e)
+            val truncated: Int =
+                if (lastHash > lastQuote) {
+                    lastQuote + 1
+                }
+                else {
+                    e
+                }
+
+            var endTrim = truncated
+            while (endTrim > s && source[endTrim - 1] == ' ') {
+                endTrim--
+            }
+            require(endTrim > s && source[endTrim - 1] == quote) {
+                "Can't parse String: ${source.substring(s, e)}"
+            }
+            return YamlString(unescape(source, s + 1, endTrim - 1))
+        }
+
+
+        private fun decodeKey(s: Int, e: Int): String {
+            if (s >= e) {
+                return ""
+            }
+            return when (source[s]) {
+                '"', '\'' -> unescape(source, s + 1, e - 1)
+                else -> unescape(source, s, e)
+            }
         }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun parseStringBlock(block: List<String>): YamlString {
-        if (block.isEmpty()) {
-            return YamlString.empty
+    private fun isBareStartChar(c: Char): Boolean =
+        c in '0'..'9' || c in 'a'..'z' || c in 'A'..'Z' ||
+            c == '_' || c == '-' || c == '/' || c == '.'
+
+
+    private fun isBareMidChar(c: Char): Boolean =
+        isBareStartChar(c) || c == ' '
+
+
+    private fun lastIndexOf(s: CharSequence, ch: Char, from: Int, to: Int): Int {
+        var i = to - 1
+        while (i >= from) {
+            if (s[i] == ch) {
+                return i
+            }
+            i--
         }
-
-        val value: String =
-            if (block.size == 1) {
-                block[0]
-            }
-            else {
-                val nonCommentLines = block.filter {
-                    it.isNotEmpty() &&
-                        Patterns.decorator.matchEntire(it) == null
-                }
-
-                if (nonCommentLines.isEmpty()) {
-                    return YamlString.empty
-                }
-
-                check(nonCommentLines.size == 1) { "Scalar expected: $nonCommentLines" }
-
-                nonCommentLines[0]
-            }
-
-        return parseString(value)
+        return -1
     }
 
 
-    private fun parseString(value: String): YamlString {
-        val escaped =
-            if (value.isEmpty()) {
-                ""
+    // https://gist.github.com/jjfiv/2ac5c081e088779f49aa
+    private fun unescape(source: CharSequence, from: Int, to: Int): String {
+        var i = from
+        while (i < to) {
+            if (source[i] == '\\') {
+                break
             }
-            else if (!value.contains('"') &&
-                    !value.contains('\'')) {
-                value
-            }
-            else if (value.startsWith('"')) {
-                val lastQuoteIndex = value.lastIndexOf('"')
-                require(lastQuoteIndex != 0) { "Missing closing double quote: $value" }
-
-                val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
-                require(withoutComment.endsWith('"')) { "Can't parse String: $value" }
-
-                withoutComment.substring(1, withoutComment.length - 1)
-            }
-            else if (value.startsWith('\'')) {
-                val lastQuoteIndex = value.lastIndexOf('\'')
-                require(lastQuoteIndex != 0) { "Missing closing single quote: $value" }
-
-                val withoutComment = removeTrailingQuotedStringComment(value, lastQuoteIndex)
-                require(withoutComment.endsWith('\'')) { "Can't parse String: $value" }
-
-                withoutComment.substring(1, withoutComment.length - 1)
-            }
-            else {
-                throw IllegalArgumentException("Can't parse String: $value")
-            }
-
-        val raw = unescapeString(escaped)
-
-        return YamlString(raw)
-    }
-
-
-    private fun removeTrailingQuotedStringComment(value: String, lastQuoteIndex: Int): String {
-        val lastCommentIndex = value.lastIndexOf('#')
-        if (lastCommentIndex < lastQuoteIndex) {
-            return value.trim()
+            i++
         }
-        return value.substring(0 .. lastQuoteIndex).trim()
-    }
-
-
-    private fun unescapeString(escaped: String): String {
-        if (!escaped.contains('\\')) {
-            return escaped
+        if (i == to) {
+            return source.substring(from, to)
         }
 
-        // https://gist.github.com/jjfiv/2ac5c081e088779f49aa
-        val builder = StringBuilder()
+        val builder = StringBuilder(to - from)
+        builder.append(source, from, i)
 
-        var i = 0
-        while (i < escaped.length) {
-            // consume letter or backslash
-            val delimiter = escaped[i++]
-
-            if (delimiter == '\\' && i < escaped.length) {
-                // consume first after backslash
-                @Suppress("MoveVariableDeclarationIntoWhen")
-                val ch = escaped[i++]
-
-                val decoded: Any =
-                    when (ch) {
-                        '\\', '/', '"', '\'' ->
-                            ch
-
-                        'n' -> '\n'
-                        'r' -> '\r'
-                        't' -> '\t'
-                        'b' -> '\b'
-                        'f' -> "\\u000C"
-
-                        'u' -> {
-                            // expect 4 digits
-                            require(i + 4 <= escaped.length) { "Not enough unicode digits! " }
-
-                            val digits: String = escaped.substring(i, i + 4)
-                            val parsed: Int = digits.toIntOrNull(16)
-                                    ?: throw IllegalArgumentException("Bad character in unicode escape")
-
-                            val asChar = parsed.toChar()
-
-                            asChar.toString()
-                        }
-
-                        else ->
-                            throw IllegalArgumentException("Illegal escape at $i: $escaped")
+        while (i < to) {
+            val ch = source[i++]
+            if (ch == '\\' && i < to) {
+                val esc = source[i++]
+                when (esc) {
+                    '\\', '/', '"', '\'' -> builder.append(esc)
+                    'n' -> builder.append('\n')
+                    'r' -> builder.append('\r')
+                    't' -> builder.append('\t')
+                    'b' -> builder.append('\b')
+                    'f' -> builder.append("\\u000C")
+                    'u' -> {
+                        require(i + 4 <= to) { "Not enough unicode digits! " }
+                        builder.append(parseHex4(source, i).toChar())
+                        i += 4
                     }
-
-                builder.append(decoded)
+                    else -> throw IllegalArgumentException(
+                        "Illegal escape at $i: ${source.subSequence(from, to)}")
+                }
             }
             else {
-                // it's not a backslash, or it's the last character
-                builder.append(delimiter)
+                builder.append(ch)
             }
         }
         return builder.toString()
     }
 
 
-    //-----------------------------------------------------------------------------------------------------------------
-    private fun parseList(block: List<String>): YamlList {
-        if (block.size == 1 && block[0] == emptyListJson) {
-            return YamlList(listOf())
-        }
-
-        val items = splitListItems(block)
-
-        val nodes = items.map { parseListItem(it) }
-
-        return YamlList(nodes)
-    }
-
-
-    private fun parseListItem(block: List<String>): YamlNode {
-        val withoutIndent: List<String> =
-                block.map { it.substring(2) }
-
-        return parse(withoutIndent)
-    }
-
-
-    private fun splitListItems(block: List<String>): List<List<String>> {
-        return splitElements(block) {
-            Patterns.item.matches(it)
-        }
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    private fun parseMap(block: List<String>): YamlMap {
-        if (block.size == 1 && block[0] == emptyMapJson) {
-            return YamlMap(mapOf())
-        }
-
-        val entries = splitMapEntries(block)
-
-        val values = mutableMapOf<String, YamlNode>()
-        for (entry in entries) {
-            val parsedEntry = parseMapEntry(entry)
-            values[parsedEntry.first] = parsedEntry.second
-        }
-
-        return YamlMap(values)
-    }
-
-
-    private fun parseMapEntry(block: List<String>): Pair<String, YamlNode> {
-        val startLine = block.find { matchEntireEntry(it) != null }
-                ?: throw IllegalArgumentException("Key-value pair not found: $block")
-
-        val startMatch = matchEntireEntry(startLine)!!
-
-        val key = unescapeString(startMatch.groupValues[1])
-        val startSuffix = startMatch.groupValues[2]
-
-        val valueBuffer = mutableListOf<String>()
-        valueBuffer.add(startSuffix)
-
-        var prefixLength = -1
-        for (i in 1 until block.size) {
-            if (prefixLength == -1) {
-                prefixLength = prefixLength(block[i])
+    private fun parseHex4(s: CharSequence, from: Int): Int {
+        var value = 0
+        for (k in 0 until 4) {
+            val c = s[from + k]
+            val digit = when (c) {
+                in '0'..'9' -> c.code - '0'.code
+                in 'a'..'f' -> 10 + (c.code - 'a'.code)
+                in 'A'..'F' -> 10 + (c.code - 'A'.code)
+                else -> throw IllegalArgumentException("Bad character in unicode escape")
             }
-            else {
-                check(prefixLength(block[i]) == prefixLength) {
-                    "Prefix mis-match ($prefixLength): ${block[i]}"
-                }
-            }
-
-            valueBuffer.add(block[i].substring(prefixLength))
+            value = (value shl 4) or digit
         }
-
-        val value = parse(valueBuffer)
-        return key to value
-    }
-
-
-    private fun splitMapEntries(block: List<String>): List<List<String>> {
-        return splitElements(block) {
-            matchEntireEntry(it) != null
-        }
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    private fun matchEntireEntry(line: String): MatchResult? {
-        return Patterns.entryBare.matchEntire(line)
-            ?: Patterns.entrySingleQuoted.matchEntire(line)
-            ?: Patterns.entryDoubleQuoted.matchEntire(line)
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    private fun identifyStructure(block: List<String>): NotationStructure {
-        for (line in block) {
-            if (Patterns.item.matchEntire(line) != null || line == emptyListJson) {
-                return NotationStructure.List
-            }
-            if (matchEntireEntry(line) != null || line == emptyMapJson) {
-                return NotationStructure.Map
-            }
-        }
-
-        return NotationStructure.Scalar
-    }
-
-
-    private fun prefixLength(line: String): Int {
-        return if (line.startsWith("  ")) {
-            2
-        }
-        else {
-            0
-        }
-    }
-
-
-    private fun splitElements(
-        block: List<String>,
-        startOfElement: (String) -> Boolean
-    ): List<List<String>> {
-        val buffer = mutableListOf<String>()
-
-        val declarations = mutableListOf<List<String>>()
-
-        for (line in block) {
-            if (line.isEmpty() || Patterns.decorator.matchEntire(line) != null) {
-                continue
-            }
-
-            val match = startOfElement.invoke(line)
-
-            if (match && buffer.isNotEmpty()) {
-                declarations.add(buffer.toList())
-                buffer.clear()
-            }
-
-            buffer.add(line)
-        }
-
-        if (buffer.isNotEmpty()) {
-            declarations.add(buffer.toList())
-        }
-
-        return declarations
+        return value
     }
 
 
@@ -421,7 +518,7 @@ object YamlParser {
                 '\\' -> "\\\\"
                 '\b' -> "\\b"
 
-                '\u000C' -> "\\f"
+                '' -> "\\f"
 
                 '"' ->
                     if (quotation == '"') {
@@ -439,7 +536,7 @@ object YamlParser {
                         "'"
                     }
 
-                in 128.toChar() .. '\uffff' -> {
+                in 128.toChar() .. '￿' -> {
                     val hex = ch.code.toString(16)
                     val prefixed = "000$hex"
                     val padded = prefixed.substring(prefixed.length - 4)
@@ -459,7 +556,7 @@ object YamlParser {
 
     private fun unparseList(yamlList: YamlList): String {
         if (yamlList.values.isEmpty()) {
-            return emptyListJson
+            return emptyListMarker
         }
 
         return yamlList.values.joinToString("\n") {
@@ -480,7 +577,7 @@ object YamlParser {
 
     private fun unparseMap(yamlMap: YamlMap): String {
         if (yamlMap.values.isEmpty()) {
-            return emptyMapJson
+            return emptyMapMarker
         }
 
         return yamlMap.values.map { entry ->
