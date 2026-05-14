@@ -52,7 +52,6 @@ data class AddObjectCommand(
     val body: ObjectNotation
 ):
     StructuralNotationCommand()
-//    SemanticNotationCommand()
 {
     companion object {
         fun ofParent(
