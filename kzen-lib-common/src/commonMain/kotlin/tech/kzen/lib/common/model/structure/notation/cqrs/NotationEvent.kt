@@ -50,6 +50,12 @@ data class CopiedDocumentEvent(
 ): SingularNotationEvent()
 
 
+data class SetDocumentObjectsEvent(
+        override val documentPath: DocumentPath,
+        val documentObjectNotation: DocumentObjectNotation
+): SingularNotationEvent()
+
+
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedObjectEvent(
         val objectLocation: ObjectLocation,

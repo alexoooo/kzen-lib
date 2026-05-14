@@ -81,48 +81,55 @@ data class DocumentNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun withModifiedObject(
-            objectPath: ObjectPath,
-            objectNotation: ObjectNotation
+        objectPath: ObjectPath,
+        objectNotation: ObjectNotation
     ): DocumentNotation {
         return copy(objects = objects
-                .withModifiedObject(objectPath, objectNotation))
+            .withModifiedObject(objectPath, objectNotation))
     }
 
 
     fun withNewObject(
-            positionedObjectPath: PositionedObjectPath,
-            objectNotation: ObjectNotation
+        positionedObjectPath: PositionedObjectPath,
+        objectNotation: ObjectNotation
     ): DocumentNotation {
         return copy(objects = objects
-                .withNewObject(positionedObjectPath, objectNotation))
+            .withNewObject(positionedObjectPath, objectNotation))
     }
 
 
     fun withoutObject(
-            objectPath: ObjectPath
+        objectPath: ObjectPath
     ): DocumentNotation {
         return copy(objects = objects
-                .withoutObject(objectPath))
+            .withoutObject(objectPath))
+    }
+
+
+    fun withObjects(
+        objects: DocumentObjectNotation
+    ): DocumentNotation {
+        return copy(objects = objects)
     }
 
 
     fun withNewResource(
-            resourcePath: ResourcePath,
-            contentDigest: Digest
+        resourcePath: ResourcePath,
+        contentDigest: Digest
     ): DocumentNotation {
         val resources = resources
-                ?: throw IllegalStateException("Resources not allowed")
+            ?: throw IllegalStateException("Resources not allowed")
 
         return copy(resources = resources
-                .withNewResource(resourcePath, contentDigest))
+            .withNewResource(resourcePath, contentDigest))
     }
 
 
     fun withoutResource(
-            resourcePath: ResourcePath
+        resourcePath: ResourcePath
     ): DocumentNotation {
         val resources = resources
-                ?: throw IllegalStateException("Resources not allowed")
+            ?: throw IllegalStateException("Resources not allowed")
 
         return copy(resources = resources
                 .withoutResource(resourcePath))

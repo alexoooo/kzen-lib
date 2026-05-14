@@ -45,6 +45,12 @@ data class CopyDocumentCommand(
 ): StructuralNotationCommand()
 
 
+data class SetDocumentObjectsCommand(
+    val documentPath: DocumentPath,
+    val documentObjectNotation: DocumentObjectNotation
+): StructuralNotationCommand()
+
+
 //---------------------------------------------------------------------------------------------------------------------
 data class AddObjectCommand(
     val objectLocation: ObjectLocation,

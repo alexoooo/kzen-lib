@@ -51,6 +51,9 @@ object NotationReducer {
             is CopyDocumentCommand ->
                 copyDocument(graphNotation, structuralNotationCommand)
 
+            is SetDocumentObjectsCommand ->
+                setDocumentObjects(graphNotation, structuralNotationCommand)
+
 
             is AddObjectCommand ->
                 addObject(graphNotation, structuralNotationCommand)
@@ -195,6 +198,27 @@ object NotationReducer {
         return NotationTransition(
                 CopiedDocumentEvent(command.sourceDocumentPath, command.destinationDocumentPath),
                 withDocumentNotationCopy)
+    }
+
+
+    private fun setDocumentObjects(
+        state: GraphNotation,
+        command: SetDocumentObjectsCommand
+    ): NotationTransition {
+        val documentNotation = state.documents.map[command.documentPath]
+        checkNotNull(documentNotation) {
+            "Does not exist: ${command.documentPath} - ${state.documents.map.keys}"
+        }
+
+        val modifiedDocumentNotation = documentNotation.withObjects(command.documentObjectNotation)
+
+        val nextState = state.withModifiedDocument(
+            command.documentPath, modifiedDocumentNotation)
+
+        val event = SetDocumentObjectsEvent(
+            command.documentPath, command.documentObjectNotation)
+
+        return NotationTransition(event, nextState)
     }
 
 
