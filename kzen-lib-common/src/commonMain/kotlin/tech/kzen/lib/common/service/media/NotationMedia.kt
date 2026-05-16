@@ -27,6 +27,16 @@ interface NotationMedia {
 
 
     /**
+     * Bulk read; default impl loops [readDocument]. Implementations that can
+     * fetch many documents in a single round trip (e.g. REST clients) should
+     * override.
+     */
+    suspend fun readDocuments(paths: Collection<DocumentPath>): Map<DocumentPath, String> {
+        return paths.associateWith { readDocument(it) }
+    }
+
+
+    /**
      * Create if not exists
      */
     suspend fun writeDocument(documentPath: DocumentPath, contents: String)

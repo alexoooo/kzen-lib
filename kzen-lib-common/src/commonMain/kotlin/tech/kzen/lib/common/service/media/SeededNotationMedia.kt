@@ -182,9 +182,11 @@ class SeededNotationMedia(
         }
 
         val scan = underlying.scan()
+        val documents = underlying.readDocuments(scan.documents.map.keys)
 
         for (e in scan.documents.map) {
-            val document = underlying.readDocument(e.key, e.value.documentDigest)
+            val document = documents[e.key]
+                ?: throw IllegalStateException("Missing document: ${e.key}")
 
             val resources =
                 if (e.key.directory) {
