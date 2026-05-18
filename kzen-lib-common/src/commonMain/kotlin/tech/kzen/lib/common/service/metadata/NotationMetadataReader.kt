@@ -11,6 +11,8 @@ import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.metadata.ObjectMetadata
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
+import tech.kzen.lib.common.model.structure.metadata.tag.ObjectTag
+import tech.kzen.lib.common.model.structure.metadata.tag.ObjectTagSet
 import tech.kzen.lib.common.model.structure.notation.*
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.common.util.digest.Digest
@@ -92,6 +94,7 @@ class NotationMetadataReader(
         val allAttributes = mutableSetOf<AttributeName>()
 
         val builder = mutableMapOf<AttributeName, AttributeMetadata>()
+        val tagsBuilder = mutableSetOf<ObjectTag>()
 
         for (superLocation in inheritanceChain) {
             val superNotation = graphNotation.coalesce[superLocation]
@@ -105,6 +108,17 @@ class NotationMetadataReader(
 
             for (e in metaAttribute.map) {
                 if (e.key == NotationConventions.refAttributeSegment) {
+                    continue
+                }
+
+                if (e.key == NotationConventions.tagsAttributeSegment) {
+                    val list = e.value as? ListAttributeNotation
+                        ?: continue
+                    for (entry in list.values) {
+                        val scalar = entry as? ScalarAttributeNotation
+                            ?: continue
+                        tagsBuilder.add(ObjectTag(scalar.value))
+                    }
                     continue
                 }
 
@@ -124,7 +138,9 @@ class NotationMetadataReader(
             }
         }
 
-        return ObjectMetadata(AttributeNameMap(builder.toPersistentMap()))
+        return ObjectMetadata(
+            AttributeNameMap(builder.toPersistentMap()),
+            ObjectTagSet.of(tagsBuilder))
     }
 
 
@@ -189,6 +205,10 @@ class NotationMetadataReader(
                     continue
                 }
 
+                if (e.key == NotationConventions.tagsAttributeSegment) {
+                    continue
+                }
+
                 val inheritanceParent: String =
                     attributeInheritanceParent(e.value)
                     ?: continue
@@ -222,8 +242,7 @@ class NotationMetadataReader(
                 graphNotation.coalesce.locate(reference, objectReferenceHost)
                 attributeNotation.value
             }
-            catch (t: Throwable) {
-//                "String"
+            catch (_: Throwable) {
                 return null
             }
 

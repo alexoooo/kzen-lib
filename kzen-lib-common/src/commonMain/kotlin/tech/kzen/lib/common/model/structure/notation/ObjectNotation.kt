@@ -20,7 +20,7 @@ data class ObjectNotation(
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val className = ClassName(
-                "tech.kzen.lib.common.model.structure.notation.ObjectNotation")
+            "tech.kzen.lib.common.model.structure.notation.ObjectNotation")
 
 
         fun ofParent(name: ObjectName): ObjectNotation {

@@ -23,8 +23,8 @@ data class DocumentObjectNotation(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun withModifiedObject(
-            objectPath: ObjectPath,
-            objectNotation: ObjectNotation
+        objectPath: ObjectPath,
+        objectNotation: ObjectNotation
     ): DocumentObjectNotation {
         return DocumentObjectNotation(
                 notations.updateEntry(objectPath, objectNotation))
@@ -32,8 +32,8 @@ data class DocumentObjectNotation(
 
 
     fun withNewObject(
-            positionedObjectPath: PositionedObjectPath,
-            objectNotation: ObjectNotation
+        positionedObjectPath: PositionedObjectPath,
+        objectNotation: ObjectNotation
     ): DocumentObjectNotation {
         return DocumentObjectNotation(
                 notations.insertEntry(positionedObjectPath, objectNotation))
@@ -41,7 +41,7 @@ data class DocumentObjectNotation(
 
 
     fun withoutObject(
-            objectPath: ObjectPath
+        objectPath: ObjectPath
     ): DocumentObjectNotation {
         return DocumentObjectNotation(
                 notations.removeKey(objectPath))
@@ -68,7 +68,7 @@ data class DocumentObjectNotation(
 
     override fun equals(other: Any?): Boolean {
         val otherNotations = (other as? DocumentObjectNotation)?.notations
-                ?: return false
+            ?: return false
 
         return notations.equalsInOrder(otherNotations)
     }

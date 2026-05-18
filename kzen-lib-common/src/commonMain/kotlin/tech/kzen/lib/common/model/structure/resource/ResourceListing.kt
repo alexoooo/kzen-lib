@@ -34,36 +34,36 @@ data class ResourceListing(
 
     //-----------------------------------------------------------------------------------------------------------------
     fun withResource(
-            resourcePath: ResourcePath,
-            contentDigest: Digest
+        resourcePath: ResourcePath,
+        contentDigest: Digest
     ): ResourceListing {
         return ResourceListing(
-                digests.put(resourcePath, contentDigest))
+            digests.put(resourcePath, contentDigest))
     }
 
 
     fun withNewResource(
-            resourcePath: ResourcePath,
-            contentDigest: Digest
+        resourcePath: ResourcePath,
+        contentDigest: Digest
     ): ResourceListing {
         check(resourcePath !in digests) {
             "Resource already exists: $resourcePath"
         }
 
         return ResourceListing(
-                digests.put(resourcePath, contentDigest))
+            digests.put(resourcePath, contentDigest))
     }
 
 
     fun withoutResource(
-            resourcePath: ResourcePath
+        resourcePath: ResourcePath
     ): ResourceListing {
         check(resourcePath in digests) {
             "Resource missing: $resourcePath"
         }
 
         return ResourceListing(
-                digests.remove(resourcePath))
+            digests.remove(resourcePath))
     }
 
 

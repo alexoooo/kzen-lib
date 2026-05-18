@@ -72,6 +72,10 @@ object NotationConventions {
     val refAttributeSegment = AttributeSegment.ofKey(refValue)
     val refAttributePath = AttributePath(metaAttributeName, AttributeNesting(persistentListOf(refAttributeSegment)))
 
+    const val tagsKey = "tags"
+    val tagsAttributeSegment = AttributeSegment.ofKey(tagsKey)
+    val tagsAttributePath = AttributePath(metaAttributeName, AttributeNesting(persistentListOf(tagsAttributeSegment)))
+
     val kzenBaseDocumentNesting = DocumentNesting.parse("base/")
     val kzenBasePath = DocumentPath(DocumentName("kzen-base"), kzenBaseDocumentNesting, false)
 
