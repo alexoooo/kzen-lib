@@ -123,6 +123,30 @@ class RenameObjectRefactorTest {
 
 
     @Test
+    fun `Rename should update is references`() {
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
+
+        val transition = reducer.applySemantic(
+                graphDefinitionAttempt,
+                RenameObjectRefactorCommand(
+                        location("DivideOperation"), ObjectName("RenamedDivideOperation")))
+
+        assertEquals("RenamedDivideOperation",
+                transition.graphNotation.getString(
+                        location("CompleteDivision"), AttributePath.parse("is")))
+
+        assertEquals("RenamedDivideOperation",
+                transition.graphNotation.getString(
+                        location("PartialDivisionDividend"), AttributePath.parse("is")))
+
+        assertEquals("RenamedDivideOperation",
+                transition.graphNotation.getString(
+                        location("PartialDivisionDivisor"), AttributePath.parse("is")))
+    }
+
+
+    @Test
     fun `Rename should update references to partial object`() {
         val notationTree = JvmGraphTestUtils.readNotation()
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)

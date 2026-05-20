@@ -1091,10 +1091,6 @@ object NotationReducer {
             )
         }
 
-        val renamedObject = buffer
-            .apply(RenameObjectCommand(objectLocation, newName))
-            as RenamedObjectEvent
-
         val newObjectPath = objectLocation.objectPath.copy(name = newName)
         val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
 
@@ -1104,6 +1100,10 @@ object NotationReducer {
         val adjustedReferenceEvents = adjustedReferenceCommands
             .map { buffer.apply(it) as UpdatedInAttributeEvent }
             .toList()
+
+        val renamedObject = buffer
+            .apply(RenameObjectCommand(objectLocation, newName))
+            as RenamedObjectEvent
 
         return NotationTransition(
             RenamedObjectRefactorEvent(
@@ -1145,11 +1145,8 @@ object NotationReducer {
         buffer: StructuralBuffer,
         graphDefinitionAttempt: GraphDefinitionAttempt
     ): NestedObjectRename {
-        val renamedObject = buffer
-            .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
-            as RenamedNestedObjectEvent
-
-        val newObjectLocation = renamedObject.newObjectLocation()
+        val newObjectPath = objectLocation.objectPath.copy(nesting = newObjectNesting)
+        val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
 
         val adjustedReferenceCommands = adjustReferenceCommands(
             objectLocation, newObjectLocation, graphDefinitionAttempt)
@@ -1157,6 +1154,10 @@ object NotationReducer {
         val adjustedReferenceEvents = adjustedReferenceCommands
             .map { buffer.apply(it) as UpdatedInAttributeEvent }
             .toList()
+
+        val renamedObject = buffer
+            .apply(RenameNestedObjectCommand(objectLocation, newObjectNesting))
+            as RenamedNestedObjectEvent
 
         return NestedObjectRename(
             renamedObject, adjustedReferenceEvents)
@@ -1168,33 +1169,18 @@ object NotationReducer {
         newObjectLocation: ObjectLocation,
         graphDefinitionAttempt: GraphDefinitionAttempt
     ): List<UpdateInAttributeCommand> {
-        val newFullReference = newObjectLocation.toReference()
-
         val commands = mutableListOf<UpdateInAttributeCommand>()
 
+        val newFullReference = newObjectLocation.toReference()
         val referenceLocations = locateReferences(objectLocation, graphDefinitionAttempt)
-
         for (referenceLocation in referenceLocations) {
-            val existingReferenceDefinition =
-                graphDefinitionAttempt
-                    .objectDefinitions[referenceLocation.objectLocation]
-                    ?.get(referenceLocation.attributePath)
-                ?: graphDefinitionAttempt
-                    .failures[referenceLocation.objectLocation]!!
-                    .partial!!
-                    .get(referenceLocation.attributePath)
-
-            val existingReference =
-                    (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
-
+            val existingReference = existingReference(referenceLocation, graphDefinitionAttempt)
             val newReference = newFullReference.crop(existingReference.hasPath())
-
             if (existingReference == newReference) {
                 continue
             }
 
             val newReferenceNotation = ScalarAttributeNotation(newReference.asString())
-
             commands.add(UpdateInAttributeCommand(
                 referenceLocation.objectLocation,
                 referenceLocation.attributePath,
@@ -1203,6 +1189,32 @@ object NotationReducer {
         }
 
         return commands
+    }
+
+
+    private fun existingReference(
+        referenceLocation: AttributeLocation,
+        graphDefinitionAttempt: GraphDefinitionAttempt
+    ): ObjectReference {
+        if (referenceLocation.attributePath == NotationConventions.isAttributePath) {
+            val notation = graphDefinitionAttempt
+                    .graphStructure
+                    .graphNotation
+                    .coalesce
+                    .map[referenceLocation.objectLocation]!!
+            val isAttribute = notation.get(NotationConventions.isAttributePath) as ScalarAttributeNotation
+            return ObjectReference.parse(isAttribute.value)
+        }
+
+        val existingReferenceDefinition =
+            graphDefinitionAttempt
+                .objectDefinitions[referenceLocation.objectLocation]
+                ?.get(referenceLocation.attributePath)
+            ?: graphDefinitionAttempt
+                .failures[referenceLocation.objectLocation]!!
+                .partial!!
+                .get(referenceLocation.attributePath)
+        return (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
     }
 
 
@@ -1239,6 +1251,35 @@ object NotationReducer {
                 ?: continue
 
             locateInObjectDefinition(e.key, partial)
+        }
+
+        referenceLocations.addAll(locateIsReferences(objectLocation, graphDefinitionAttempt))
+
+        return referenceLocations
+    }
+
+
+    private fun locateIsReferences(
+        objectLocation: ObjectLocation,
+        graphDefinitionAttempt: GraphDefinitionAttempt
+    ): Set<AttributeLocation> {
+        val referenceLocations = mutableSetOf<AttributeLocation>()
+        val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+
+        for ((hostObjectLocation, objectNotation) in graphNotation.coalesce.map) {
+            val isAttribute = objectNotation.get(NotationConventions.isAttributePath) as? ScalarAttributeNotation
+                ?: continue
+
+            val isReference = ObjectReference.parse(isAttribute.value)
+            val resolvedLocation = graphNotation.coalesce.locateOptional(
+                    isReference, ObjectReferenceHost.ofLocation(hostObjectLocation))
+
+            if (resolvedLocation != objectLocation) {
+                continue
+            }
+
+            referenceLocations.add(
+                    AttributeLocation(hostObjectLocation, NotationConventions.isAttributePath))
         }
 
         return referenceLocations
