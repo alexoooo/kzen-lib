@@ -3,46 +3,36 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("jvm")
-    id("com.google.devtools.ksp")
     `maven-publish`
 }
 
+
+// KSP processor JARs are loaded into the KSP worker JVM (which lags the main toolchain), so we
+// compile this module against Java 17 to stay compatible regardless of what KSP's worker runs on.
+val kspProcessorJavaVersion = 17
 
 kotlin {
     jvmToolchain {
         languageVersion.set(JavaLanguageVersion.of(jvmToolchainVersion))
     }
     compilerOptions {
-        jvmTarget.set(JvmTarget.fromTarget(jvmTargetVersion))
+        jvmTarget.set(JvmTarget.fromTarget(kspProcessorJavaVersion.toString()))
     }
 }
 
 
 dependencies {
-    implementation(project(":kzen-lib-common"))
-
-    api("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
-
-    implementation("com.google.guava:guava:$guavaVersion")
-    implementation("com.github.andrewoma.dexx:collection:$dexxVersion")
-
-    kspTest(project(":kzen-lib-reflect-ksp"))
+    implementation("com.google.devtools.ksp:symbol-processing-api:$kspVersion")
 
     testImplementation(kotlin("test"))
 }
 
 
-ksp {
-    arg("kzen.reflect.moduleClassName", "tech.kzen.lib.server.codegen.KzenLibJvmTestModule")
-}
-
-
 tasks.compileJava {
-    options.release.set(javaVersion)
+    options.release.set(kspProcessorJavaVersion)
 }
 
 
-// https://stackoverflow.com/questions/61432006/building-an-executable-jar-that-can-be-published-to-maven-local-repo-with-publi
 val sourcesJar by tasks.registering(Jar::class) {
     archiveClassifier.set("sources")
     from(sourceSets.main.get().allSource)

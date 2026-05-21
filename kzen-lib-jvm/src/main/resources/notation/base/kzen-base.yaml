@@ -48,10 +48,6 @@ AttributeObjectCreator:
   class: tech.kzen.lib.common.objects.base.AttributeObjectCreator
 
 
-#PassThroughObjectInitializer:
-#  class: tech.kzen.lib.common.objects.bootstrap.PassThroughObjectInitializer
-
-
 ###########################################################
 
 # Specially handled default "is", if none is specified
@@ -61,7 +57,6 @@ Object:
   class: kotlin.Any
   by: AttributeObjectDefiner
   creator: AttributeObjectCreator
-#  init: PassThroughObjectInitializer
 
 
 ###########################################################
@@ -71,36 +66,29 @@ Boolean:
   abstract: true
   class: kotlin.Boolean
 
-
 String:
   abstract: true
   class: kotlin.String
-
 
 Int:
   abstract: true
   class: kotlin.Int
 
-
 Long:
   abstract: true
   class: kotlin.Long
-
 
 Double:
   abstract: true
   class: kotlin.Double
 
-
 List:
   abstract: true
   class: kotlin.collections.List
 
-
 Map:
   abstract: true
   class: kotlin.collections.Map
-
 
 Set:
   abstract: true
@@ -113,7 +101,6 @@ Set:
 ParentChild:
   class: tech.kzen.lib.common.objects.general.ParentChildAttributeDefiner
 
-
 ParentPointer:
   abstract: true
   order: 0
@@ -123,7 +110,6 @@ ParentPointer:
       by: Nominal
     order: Int
 
-
 ChildList:
   abstract: true
   meta:
@@ -131,7 +117,6 @@ ChildList:
       is: List
       of: ParentPointer
       by: ParentChild
-
 
 ChildContainer:
   abstract: true
@@ -146,11 +131,9 @@ ObjectLocation:
   abstract: true
   class: tech.kzen.lib.common.model.locate.ObjectLocation
 
-
 ObjectNotation:
   abstract: true
   class: tech.kzen.lib.common.model.structure.notation.ObjectNotation
-
 
 DocumentNotation:
   abstract: true
@@ -163,7 +146,6 @@ DocumentNotation:
 # NB: 'Self' name referenced in Kotlin code: SelfAttributeDefiner
 Self:
   class: tech.kzen.lib.common.objects.general.SelfAttributeDefiner
-
 
 SelfLocation:
   abstract: true
@@ -182,18 +164,15 @@ Autowired:
   meta:
     weak: Boolean
 
-
 AutowiredNominal:
   is: Autowired
   weak: true
-
 
 Nominal:
   class: tech.kzen.lib.common.objects.general.WeakAttributeDefiner
 #  reference: false
 #  meta:
 #    reference: Boolean
-
 
 #NominalReference:
 #  is: Nominal
