@@ -4,6 +4,7 @@ import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
 import tech.kzen.lib.common.model.structure.metadata.ObjectMetadata
+import tech.kzen.lib.common.model.structure.metadata.tag.ObjectTagSet
 import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
 import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.platform.ClassName
@@ -30,6 +31,8 @@ class MirrorMetadataReader {
             attributes[AttributeName(parameterName)] = Constants.emptyParameterMetadata
         }
 
-        return ObjectMetadata(AttributeNameMap(attributes.toPersistentMap()))
+        return ObjectMetadata(
+            AttributeNameMap(attributes.toPersistentMap()),
+            ObjectTagSet.empty)
     }
 }

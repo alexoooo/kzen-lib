@@ -8,7 +8,7 @@ import tech.kzen.lib.common.util.digest.Digestible
 
 data class ObjectMetadata(
     val attributes: AttributeNameMap<AttributeMetadata>,
-    val tags: ObjectTagSet = ObjectTagSet.empty
+    val tags: ObjectTagSet
 ):
     Digestible
 {

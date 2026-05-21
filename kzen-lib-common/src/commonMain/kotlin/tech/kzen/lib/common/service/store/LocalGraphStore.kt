@@ -31,7 +31,7 @@ interface LocalGraphStore {
             attachment: Attachment)
 
         suspend fun onStoreRefresh(
-            graphDefinition: GraphDefinitionAttempt)
+            graphDefinitionAttempt: GraphDefinitionAttempt)
     }
 
 

@@ -38,7 +38,7 @@ class ObjectStableMapper: LocalGraphStore.Observer {
     ) {}
 
 
-    override suspend fun onStoreRefresh(graphDefinition: GraphDefinitionAttempt) {}
+    override suspend fun onStoreRefresh(graphDefinitionAttempt: GraphDefinitionAttempt) {}
 
 
     override suspend fun onCommandSuccess(
