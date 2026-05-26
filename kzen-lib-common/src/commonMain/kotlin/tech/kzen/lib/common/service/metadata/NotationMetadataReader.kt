@@ -213,8 +213,10 @@ class NotationMetadataReader(
                     attributeInheritanceParent(e.value)
                     ?: continue
 
+                // NB: dangling meta-attribute 'is:' is skipped so startup survives partial-broken Notation
                 val inheritanceParentLocation = objectNotations
-                    .locate(ObjectReference.parse(inheritanceParent), objectReferenceHost)
+                    .locateOptional(ObjectReference.parse(inheritanceParent), objectReferenceHost)
+                    ?: continue
 
                 val attributeInheritanceChain = graphNotation
                     .inheritanceChain(inheritanceParentLocation)
@@ -280,7 +282,8 @@ class NotationMetadataReader(
                 null
             }
             else {
-                graphNotation.coalesce.locate(ObjectReference.parse(inheritanceParent), host)
+                // NB: dangling 'is:' falls back to null so the attribute reads without inherited fields
+                graphNotation.coalesce.locateOptional(ObjectReference.parse(inheritanceParent), host)
             }
 
         val directAttributeMap = attributeNotation as? MapAttributeNotation
@@ -353,7 +356,9 @@ class NotationMetadataReader(
             is ScalarAttributeNotation -> {
                 val value = typeNotation.value
                 val reference = ObjectReference.parse(value)
-                val objectLocation = graphNotation.coalesce.locate(reference, host)
+                // NB: dangling type ref degrades to Any so startup survives partial-broken Notation
+                val objectLocation = graphNotation.coalesce.locateOptional(reference, host)
+                    ?: return TypeMetadata(ClassNames.kotlinAny, listOf(), false)
                 val genericClassName = ClassName(
                     graphNotation.getString(objectLocation, NotationConventions.classAttributePath)
                 )
@@ -365,8 +370,10 @@ class NotationMetadataReader(
                 val inheritanceParent: String = attributeInheritanceParent(typeNotation)
                     ?: throw IllegalArgumentException("Unknown type: $host - $typeNotation")
 
+                // NB: dangling type ref degrades to Any so startup survives partial-broken Notation
                 val inheritanceParentLocation =
-                    graphNotation.coalesce.locate(ObjectReference.parse(inheritanceParent), host)
+                    graphNotation.coalesce.locateOptional(ObjectReference.parse(inheritanceParent), host)
+                        ?: return TypeMetadata(ClassNames.kotlinAny, listOf(), false)
 
                 val classNotation = metadataAttribute(
                     NotationConventions.classAttributePath, inheritanceParentLocation, typeNotation, graphNotation)

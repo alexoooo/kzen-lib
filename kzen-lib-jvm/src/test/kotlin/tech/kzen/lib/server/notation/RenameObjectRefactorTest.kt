@@ -143,6 +143,16 @@ class RenameObjectRefactorTest {
         assertEquals("RenamedDivideOperation",
                 transition.graphNotation.getString(
                         location("PartialDivisionDivisor"), AttributePath.parse("is")))
+
+        assertEquals("RenamedDivideOperation",
+                transition.graphNotation.getString(
+                        location("MetaIsHolder"),
+                        AttributePath.parse("meta.embeddedDivider.is")))
+
+        assertEquals("RenamedDivideOperation",
+                transition.graphNotation.getString(
+                        location("MetaIsHolder"),
+                        AttributePath.parse("meta.scalarDivider")))
     }
 
 

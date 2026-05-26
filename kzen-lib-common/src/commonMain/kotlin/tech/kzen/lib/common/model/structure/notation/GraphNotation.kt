@@ -93,7 +93,9 @@ data class GraphNotation(
         val isValue = isAttribute.value
         val superReference = ObjectReference.parse(isValue)
 
-        return coalesce.locate(superReference, ObjectReferenceHost.ofLocation(objectLocation))
+        // NB: dangling 'is:' (e.g. parent renamed/removed) degrades to no-super so startup survives
+        return coalesce.locateOptional(superReference, ObjectReferenceHost.ofLocation(objectLocation))
+            ?: BootstrapConventions.rootObjectLocation
     }
 
 

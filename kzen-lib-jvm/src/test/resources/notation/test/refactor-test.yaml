@@ -46,3 +46,12 @@ DivisionOfPartial:
   is: DivideOperation
   dividend: PartialDivisionDividend
   divisor: PartialDivisionDivisor
+
+
+MetaIsHolder:
+  abstract: true
+  class: tech.kzen.lib.server.objects.ast.DivideOperation
+  meta:
+    embeddedDivider:
+      is: DivideOperation
+    scalarDivider: DivideOperation
