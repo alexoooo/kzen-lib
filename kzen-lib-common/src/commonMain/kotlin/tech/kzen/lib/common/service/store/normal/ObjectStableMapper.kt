@@ -44,6 +44,11 @@ class ObjectStableMapper: LocalGraphStore.Observer {
     override suspend fun onCommandSuccess(
         event: NotationEvent, graphDefinition: GraphDefinitionAttempt, attachment: LocalGraphStore.Attachment
     ) {
+        apply(event)
+    }
+
+
+    fun apply(event: NotationEvent) {
         when (event) {
             is SingularNotationEvent ->
                 applySingular(event)
@@ -110,6 +115,19 @@ class ObjectStableMapper: LocalGraphStore.Observer {
                 newLocation = event.newObjectLocation()
             }
 
+            is RemovedObjectEvent -> {
+                removeLocation(event.objectLocation)
+                return
+            }
+
+            is DeletedDocumentEvent -> {
+                val affected = locationToId.keys.filter { it.documentPath == event.documentPath }
+                for (location in affected) {
+                    removeLocation(location)
+                }
+                return
+            }
+
             else ->
                 return
         }
@@ -118,6 +136,14 @@ class ObjectStableMapper: LocalGraphStore.Observer {
             locationToId.remove(oldLocation)
             locationToId[newLocation] = id
             idToLocation[id] = newLocation
+        }
+    }
+
+
+    private fun removeLocation(location: ObjectLocation) {
+        val id = locationToId.remove(location)
+        if (id != null) {
+            idToLocation.remove(id)
         }
     }
 }
