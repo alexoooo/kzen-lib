@@ -86,6 +86,19 @@ Cross-document references use `ObjectReference` + `ObjectReferenceHost`. The hos
 
 Reasoning about the codebase: when you see a function take an `ObjectLocation`, it works at *every* layer transparently because the three layers are aligned on that key.
 
+## Stable identity (`ObjectStableMapper`)
+
+`ObjectLocation` addresses *current* state, but it is **rename-mutable** — renaming a document or object changes the location of everything under it. Long-lived execution state (a `LogicTrace`, a paused run's per-step models) must outlive renames, so it is keyed by **`ObjectStableId`** — a stable token minted on first encounter (`ObjectStableId(objectLocation.asString())`) that never changes afterward.
+
+`ObjectStableMapper` (`service/store/normal/`) is a `LocalGraphStore.Observer` that maintains a bidirectional `ObjectLocation ↔ ObjectStableId` map. It updates the map in place on the relevant CQRS events — `RenamedObjectEvent` / `RenamedNestedObjectEvent` / `RenamedDocumentRefactorEvent` re-point an existing id to the new location; `RemovedObjectEvent` / `DeletedDocumentEvent` drop it. `objectStableId(location)` is lookup-or-mint; `objectLocation(id)` translates back; `snapshot()` / `seed(...)` move the whole map across the wire.
+
+There is **one mapper per process**, observing the local graph store from boot:
+
+- **Server** — constructed in `KzenAutoContext`, `graphStore.observe(...)` once (never unobserved), and *pre-warmed* by iterating the initial notation so ids deterministically reflect names-at-boot. This is what lets a trace survive a rename even in the gap between a run ending and the user editing the notation afterward.
+- **Client** — constructed in `ClientContext`, `seed()`ed from the server's `snapshot()` at connect, then observing `mirroredGraphStore`. The client can therefore translate a stable-keyed trace path back to the current `ObjectLocation` locally, without re-fetching from the server on every notation edit.
+
+> Accepted limitation: the mapper assumes a single linear history of notation changes. Revert / version-control would require restarting execution.
+
 ## Suffix glossary
 
 These suffixes carry consistent semantic meaning. Reading a type name without knowing the suffix is half-blind.
@@ -117,6 +130,21 @@ These suffixes carry consistent semantic meaning. Reading a type name without kn
 
 Bootstrap implementations live in `objects/` — `DefaultConstructorObjectDefiner` / `DefaultConstructorObjectCreator` are the fallbacks used for plain Kotlin classes. Downstream siblings register their own definers/creators against this SPI (kzen-auto-plugin is the public SPI surface for third-party plugins).
 
+## Execution model (Logic / Task / Trace)
+
+`exec/` holds general execution abstractions — not kzen-auto domain concepts. They relocated here from kzen-auto on 2026-05-28: the `Logic`/`Task` types were always platform-agnostic, and `Logic` is the abstraction that consumes `ObjectStableMapper`, so the two belong in the same module.
+
+| Concept | What it is | Key types |
+|---------|-----------|-----------|
+| **Logic** | A long-running, stateful execution that can be paused, stepped, and resumed, emitting a trace as it goes. | `Logic`, `LogicHandle`, `LogicControl`, `LogicExecution`, `LogicDefinition` (tuple in/out), `LogicResult` |
+| **Trace** | The values a Logic run records, queryable by path. | `LogicTrace`, `LogicTraceHandle`, `LogicTracePath`, `LogicTraceQuery`, `LogicTraceSnapshot` |
+| **Task** | A one-shot async unit of work tracked to completion. | `ManagedTask`, `TaskHandle`, `TaskRepository`, `TaskModel`, `TaskState` |
+| **Tuple** | The named-component value/definition model for Logic inputs and outputs. | `TupleDefinition`, `TupleValue`, `TupleComponent*` |
+
+Interfaces and pure-data models live in `kzen-lib-common/commonMain`. Server-side execution *primitives* live in `kzen-lib-jvm`: `server/exec/logic/context/` (`LogicContext`, `LogicFrame`, `MutableLogicControl`) and `server/exec/logic/trace/LogicTraceStore` — the in-memory, `ObjectStableId`-keyed trace store (see [Stable identity](#stable-identity-objectstablemapper)).
+
+**Concrete wiring stays in the consumer (kzen-auto):** `ServerLogicController` (the run state machine), `ModelTaskRepository`, and `LogicConventions` (the REST wire surface) are HTTP / thread-pool concerns that don't belong in lib. kzen-auto's `ScriptDocument` is the reference `Logic` implementation — see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md) § 1.
+
 ## Package map
 
 Top-level `tech.kzen.lib.common`:
@@ -124,7 +152,14 @@ Top-level `tech.kzen.lib.common`:
 ```
 api/         — SPI: ObjectDefiner, ObjectCreator, AttributeDefiner/Creator
 codegen/     — code generation helpers
-exec/        — execution-layer abstractions
+exec/        — execution-layer abstractions (Logic/Task/Trace; relocated from kzen-auto 2026-05-28)
+  logic/     — Logic, LogicHandle/Control/Execution (+ *Facade), StatefulLogicElement;
+               run/model/ (LogicRunId/ExecutionId/RunExecutionId, LogicStatus, LogicRun*);
+               trace/ (LogicTrace, LogicTraceHandle, model/LogicTracePath/Query/Snapshot);
+               model/ (LogicCommand/Definition/Result/Type)
+  task/      — ManagedTask, TaskHandle, TaskRepository, TaskRun; model/ (TaskId/Model/Progress/State)
+  tuple/     — TupleDefinition/Value, TupleComponentDefinition/Name/Value
+  (root)     — ExecutionRequest, ExecutionResult, ExecutionValue, RequestParams
 model/
   attribute/ — AttributeName, AttributePath, AttributeNesting
   definition/ — ObjectDefinition, GraphDefinition, *Attempt
@@ -144,7 +179,7 @@ service/
   metadata/  — NotationMetadataReader
   notation/  — NotationReducer, NotationConventions
   parse/     — NotationParser
-  store/     — LocalGraphStore, DirectGraphStore, RemoteGraphStore
+  store/     — LocalGraphStore, DirectGraphStore, RemoteGraphStore; normal/ObjectStableMapper
 util/        — collections, digests, misc
 ```
 
