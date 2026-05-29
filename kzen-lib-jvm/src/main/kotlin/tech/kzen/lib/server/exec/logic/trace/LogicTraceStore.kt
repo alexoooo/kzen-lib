@@ -9,6 +9,7 @@ import tech.kzen.lib.common.exec.logic.trace.model.LogicTracePath
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceQuery
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceSnapshot
 import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import tech.kzen.lib.common.service.store.normal.ObjectStableMapper
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
@@ -33,7 +34,10 @@ class LogicTraceStore(
 
     //-----------------------------------------------------------------------------------------------------------------
     private val history = ConcurrentHashMap<RunExecution, TraceBuffer>()
-    private val objectLocationHistory = ConcurrentHashMap<ObjectLocation, LogicRunExecutionId>()
+
+    // The run-scope entry point is keyed by its stable id (not its current ObjectLocation) so the
+    // "most recent run" / "Reset" association survives a rename of the script's root document.
+    private val stableIdHistory = ConcurrentHashMap<ObjectStableId, LogicRunExecutionId>()
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -71,11 +75,12 @@ class LogicTraceStore(
         runExecutionId: LogicRunExecutionId,
         objectLocation: ObjectLocation
     ): TraceBuffer {
-        val previous = objectLocationHistory[objectLocation]
+        val stableId = objectStableMapper.objectStableId(objectLocation)
+        val previous = stableIdHistory[stableId]
         if (previous != null && previous.logicRunId != runExecutionId.logicRunId) {
             evict(previous.logicRunId)
         }
-        objectLocationHistory[objectLocation] = runExecutionId
+        stableIdHistory[stableId] = runExecutionId
 
         val runExecution = RunExecution(runExecutionId)
         return history.getOrPut(runExecution) { TraceBuffer() }
@@ -108,14 +113,34 @@ class LogicTraceStore(
     }
 
 
+    // Trace values cross the wire keyed by ObjectStableId; the client translates each path to the
+    // current ObjectLocation via its own mapper. Keep the stable key here, but drop entries whose
+    // object no longer exists so deleted steps don't linger in the snapshot.
+    private fun retainStoredPath(
+        storedPath: LogicTracePath
+    ): LogicTracePath? {
+        val stableId = storedPath.objectStableId()
+            ?: return storedPath
+        return try {
+            objectStableMapper.objectLocation(stableId)
+            storedPath
+        }
+        catch (_: IllegalArgumentException) {
+            null
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override fun mostRecent(objectLocation: ObjectLocation): LogicRunExecutionId? {
-        return objectLocationHistory[objectLocation]
+        val stableId = objectStableMapper.objectStableId(objectLocation)
+        return stableIdHistory[stableId]
     }
 
 
     override fun clear(objectLocation: ObjectLocation): Boolean {
-        return objectLocationHistory.remove(objectLocation) != null
+        val stableId = objectStableMapper.objectStableId(objectLocation)
+        return stableIdHistory.remove(stableId) != null
     }
 
 
@@ -132,22 +157,22 @@ class LogicTraceStore(
 
         buffer.callbacks.forEach { it(logicTraceQuery) }
 
-        val resolvedValues = mutableMapOf<LogicTracePath, ExecutionValue>()
+        val retainedValues = mutableMapOf<LogicTracePath, ExecutionValue>()
         for ((storedPath, value) in buffer.values) {
-            val resolvedPath = resolveStoredPath(storedPath)
+            val retainedPath = retainStoredPath(storedPath)
                 ?: continue
-            if (logicTraceQuery.match(resolvedPath)) {
-                resolvedValues[resolvedPath] = value
+            if (logicTraceQuery.match(retainedPath)) {
+                retainedValues[retainedPath] = value
             }
         }
 
-        return LogicTraceSnapshot(resolvedValues)
+        return LogicTraceSnapshot(retainedValues)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun evict(logicRunId: LogicRunId) {
         history.keys.removeAll { it.runExecutionId.logicRunId == logicRunId }
-        objectLocationHistory.entries.removeAll { it.value.logicRunId == logicRunId }
+        stableIdHistory.entries.removeAll { it.value.logicRunId == logicRunId }
     }
 }

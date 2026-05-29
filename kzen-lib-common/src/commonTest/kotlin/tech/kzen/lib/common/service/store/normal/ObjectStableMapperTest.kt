@@ -211,6 +211,41 @@ class ObjectStableMapperTest {
 
 
     @Test
+    fun `snapshot then seed in a fresh mapper restores the prior mapping`() {
+        val source = ObjectStableMapper()
+        val a = objectLocation("doc.yaml", "A")
+        val b = objectLocation("doc.yaml", "B")
+        val idA = source.objectStableId(a)
+        val idB = source.objectStableId(b)
+
+        val snapshot = source.snapshot()
+
+        val seeded = ObjectStableMapper()
+        seeded.seed(snapshot)
+
+        assertEquals(idA, seeded.objectStableId(a))
+        assertEquals(idB, seeded.objectStableId(b))
+        assertEquals(a, seeded.objectLocation(idA))
+        assertEquals(b, seeded.objectLocation(idB))
+    }
+
+
+    @Test
+    fun `seed on a non-empty mapper fails`() {
+        val mapper = ObjectStableMapper()
+        mapper.objectStableId(objectLocation("doc.yaml", "X"))
+
+        val other = ObjectStableMapper()
+        val foreign = objectLocation("doc.yaml", "Y")
+        other.objectStableId(foreign)
+
+        assertFailsWith<IllegalStateException> {
+            mapper.seed(other.snapshot())
+        }
+    }
+
+
+    @Test
     fun `DeletedDocumentEvent drops every entry under that document`() {
         val mapper = ObjectStableMapper()
         val a1 = objectLocation("doomed.yaml", "X")

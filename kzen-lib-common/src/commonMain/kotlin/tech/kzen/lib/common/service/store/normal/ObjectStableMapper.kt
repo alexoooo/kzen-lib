@@ -32,6 +32,22 @@ class ObjectStableMapper: LocalGraphStore.Observer {
     }
 
 
+    fun snapshot(): Map<ObjectStableId, ObjectLocation> {
+        return idToLocation.toMap()
+    }
+
+
+    fun seed(snapshot: Map<ObjectStableId, ObjectLocation>) {
+        check(idToLocation.isEmpty() && locationToId.isEmpty()) {
+            "Mapper must be empty before seed"
+        }
+        for ((id, location) in snapshot) {
+            idToLocation[id] = location
+            locationToId[location] = id
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun onCommandFailure(
         command: NotationCommand, cause: Throwable, attachment: LocalGraphStore.Attachment
