@@ -10,4 +10,11 @@ interface LogicControl {
 
 
     fun subscribeRequest(subscriber: (ExecutionRequest) -> ExecutionResult)
+
+
+    /**
+     * Run-level option, fixed for the lifetime of the run: when true, a recoverable step failure
+     * pauses the run (so it can be fixed and re-run) instead of ending it.
+     */
+    fun pauseOnError(): Boolean = false
 }

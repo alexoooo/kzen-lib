@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 class MutableLogicControl(
 //    private val arguments: TupleValue
+    private val pauseOnError: Boolean = false
 ):
     LogicControl,
     AutoCloseable
@@ -65,6 +66,11 @@ class MutableLogicControl(
 
     override fun pollCommand(): LogicCommand {
         return command.get()
+    }
+
+
+    override fun pauseOnError(): Boolean {
+        return pauseOnError
     }
 
 
