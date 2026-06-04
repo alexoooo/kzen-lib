@@ -9,7 +9,11 @@ import java.util.stream.Collectors
 
 
 class GradleLocator(
-    private var includeTest: Boolean = false
+    private var includeTest: Boolean = false,
+
+    // Explicit module root (the directory containing src/main/resources/notation), bypassing
+    //  the cwd heuristic below — for processes whose cwd is not the module they serve.
+    private val moduleRootOverride: Path? = null
 ): FileNotationLocator {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
@@ -19,7 +23,9 @@ class GradleLocator(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private val moduleRoot: String by lazy { moduleRootImpl() }
+    private val moduleRoot: String by lazy {
+        moduleRootOverride?.toString() ?: moduleRootImpl()
+    }
 
     private val scanRoots: List<Path> by lazy { scanRootsImpl() }
 
