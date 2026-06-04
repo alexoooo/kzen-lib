@@ -5,6 +5,7 @@ import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 
 
 interface ObjectCreator {
@@ -12,6 +13,7 @@ interface ObjectCreator {
         objectLocation: ObjectLocation,
         graphStructure: GraphStructure,
         objectDefinition: ObjectDefinition,
-        partialGraphInstance: GraphInstance
+        partialGraphInstance: GraphInstance,
+        environment: GraphEnvironment
     ): ObjectInstance
 }

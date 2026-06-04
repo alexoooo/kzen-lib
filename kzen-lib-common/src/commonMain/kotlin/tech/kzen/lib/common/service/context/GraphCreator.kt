@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 
 
 object GraphCreator {
@@ -31,7 +32,8 @@ object GraphCreator {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun createGraph(
-        graphDefinition: GraphDefinition
+        graphDefinition: GraphDefinition,
+        environment: GraphEnvironment = GraphEnvironment.empty
     ): GraphInstance {
         val graphStructure = graphDefinition.graphStructure
         var partialObjectGraph = GraphDefiner.bootstrapObjects
@@ -57,7 +59,8 @@ object GraphCreator {
                     objectLocation,
                     graphStructure,
                     objectDefinition,
-                    partialObjectGraph)
+                    partialObjectGraph,
+                    environment)
 
             partialObjectGraph = partialObjectGraph.put(objectLocation, instance)
         }

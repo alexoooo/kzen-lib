@@ -16,34 +16,34 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 class YamlNotationParser: NotationParser {
     //-----------------------------------------------------------------------------------------------------------------
     override fun parseDocumentObjects(
-            document: String
+        document: String
     ): DocumentObjectNotation {
-        @Suppress("MoveVariableDeclarationIntoWhen")
+        @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
         val node = YamlParser.parse(document)
 
         val topLevelMap =
-                when (node) {
-                    is YamlMap ->
-                        node
+            when (node) {
+                is YamlMap ->
+                    node
 
-                    is YamlString ->
-                        if (node.value.isEmpty()) {
-                            YamlMap(mapOf())
-                        }
-                        else {
-                            YamlMap(mapOf(NotationConventions.isKey to node))
-                        }
+                is YamlString ->
+                    if (node.value.isEmpty()) {
+                        YamlMap(mapOf())
+                    }
+                    else {
+                        YamlMap(mapOf(NotationConventions.isKey to node))
+                    }
 
-                    else ->
-                        throw IllegalArgumentException("Top-level map expected: $node")
-                }
+                else ->
+                    throw IllegalArgumentException("Top-level map expected: $node")
+            }
 
         val objects = mutableMapOf<ObjectPath, ObjectNotation>()
         for (e in topLevelMap.values) {
             val objectMap = e.value
-                    as? YamlMap
-                    ?: throw IllegalArgumentException(
-                            "Sub-map expected: ${e.key} - ${YamlParser.unparse(e.value)}")
+                as? YamlMap
+                ?: throw IllegalArgumentException(
+                        "Sub-map expected: ${e.key} - ${YamlParser.unparse(e.value)}")
 
             if (objectMap.values.isEmpty()) {
                 continue
@@ -93,15 +93,15 @@ class YamlNotationParser: NotationParser {
 
             is YamlList ->
                 ListAttributeNotation(
-                        node.values.map { i ->
-                            yamlToAttribute(i)
-                        }.toPersistentList())
+                    node.values.map { i ->
+                        yamlToAttribute(i)
+                    }.toPersistentList())
 
             is YamlMap ->
                 MapAttributeNotation(
-                        node.values.map { e ->
-                            AttributeSegment.ofKey(e.key) to yamlToAttribute(e.value)
-                        }.toPersistentMap())
+                    node.values.map { e ->
+                        AttributeSegment.ofKey(e.key) to yamlToAttribute(e.value)
+                    }.toPersistentMap())
         }
     }
 

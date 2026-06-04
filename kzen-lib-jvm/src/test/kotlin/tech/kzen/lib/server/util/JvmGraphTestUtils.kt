@@ -12,13 +12,16 @@ import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
 import tech.kzen.lib.common.service.parse.NotationParser
 import tech.kzen.lib.common.service.parse.YamlNotationParser
+import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.server.codegen.KzenLibJvmTestModule
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
+import tech.kzen.lib.server.objects.service.SampleService
 
 
 object JvmGraphTestUtils {
@@ -26,6 +29,13 @@ object JvmGraphTestUtils {
         KzenLibCommonModule.register()
         KzenLibJvmTestModule.register()
     }
+
+
+    // Default environment so the full test graph (which includes @Service-consuming fixtures like
+    // ServiceHolder) is buildable; ServiceInjectionTest supplies its own to assert the wiring.
+    val testEnvironment: GraphEnvironment = GraphEnvironment.builder()
+        .put(ClassName(SampleService::class.qualifiedName!!), SampleService("test-service-token"))
+        .build()
 
 
     fun readNotation(): GraphNotation {
@@ -64,22 +74,19 @@ object JvmGraphTestUtils {
     }
 
 
-    fun newObjectGraph(graphNotation: GraphNotation): GraphInstance {
+    fun newObjectGraph(
+        graphNotation: GraphNotation,
+        environment: GraphEnvironment = testEnvironment
+    ): GraphInstance {
         val graphMetadata = graphMetadata(graphNotation)
         val graphStructure = GraphStructure(graphNotation, graphMetadata)
 
         val definitionAttempt = GraphDefiner.tryDefine(graphStructure)
-//        if (definitionAttempt.objectDefinitions.contains(ObjectLocation.parse("test/kzen-test.yaml#StringHolderNullableNominal"))) {
-//            println("foo")
-//        }
 
         val graphDefinition = definitionAttempt.transitiveSuccessful
-//        if (graphDefinition.objectDefinitions.contains(ObjectLocation.parse("test/kzen-test.yaml#StringHolderNullableNominal"))) {
-//            println("foo")
-//        }
 
         return GraphCreator
-                .createGraph(graphDefinition)
+                .createGraph(graphDefinition, environment)
     }
 
 

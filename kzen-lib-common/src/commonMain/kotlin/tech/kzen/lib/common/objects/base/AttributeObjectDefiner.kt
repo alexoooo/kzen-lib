@@ -10,6 +10,7 @@ import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectLocationSet
 import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.platform.ClassName
@@ -25,6 +26,9 @@ object AttributeObjectDefiner: ObjectDefiner
 
     private val defaultAttributeCreator = ObjectReference.parse(
         DefinitionAttributeCreator::class.simpleName!!)
+
+    private val serviceAttributeCreator = ObjectReference.parse(
+        ServiceAttributeCreator::class.simpleName!!)
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -100,6 +104,18 @@ object AttributeObjectDefiner: ObjectDefiner
                     attributeErrors[attributeName] = attributeDefinitionAttempt.errorMessage
                 }
             }
+        }
+
+        // @Service constructor parameters are not declared in notation; route each to the
+        // ServiceAttributeCreator, which resolves it from the GraphEnvironment at creation time.
+        // A notation-declared attribute of the same name wins (service entry skipped).
+        for ((argumentName, serviceClassName) in GlobalMirror.serviceArguments(className)) {
+            val attributeName = AttributeName(argumentName)
+            if (attributeName in attributeDefinitions) {
+                continue
+            }
+            attributeDefinitions[attributeName] = ServiceAttributeDefinition(serviceClassName)
+            creatorRequired.add(serviceAttributeCreator)
         }
 
         val objectDefinition = partialDefinition()

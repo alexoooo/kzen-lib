@@ -38,6 +38,11 @@ DefinitionAttributeCreator:
   class: tech.kzen.lib.common.objects.base.DefinitionAttributeCreator
 
 
+ServiceAttributeCreator:
+  is: DefaultConstructorObject
+  class: tech.kzen.lib.common.objects.base.ServiceAttributeCreator
+
+
 AttributeObjectDefiner:
   is: DefaultConstructorObject
   class: tech.kzen.lib.common.objects.base.AttributeObjectDefiner

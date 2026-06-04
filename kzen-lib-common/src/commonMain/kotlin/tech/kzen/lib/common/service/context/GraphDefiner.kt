@@ -20,6 +20,7 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectCreator
 import tech.kzen.lib.common.objects.bootstrap.DefaultConstructorObjectDefiner
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 import tech.kzen.lib.common.service.notation.NotationConventions
 import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.platform.collect.toPersistentMap
@@ -170,7 +171,8 @@ object GraphDefiner {
                     missingLocation,
                     graphStructure,
                     definition,
-                    definerAndRelatedInstances)
+                    definerAndRelatedInstances,
+                    GraphEnvironment.empty)
 
                 definerAndRelatedInstances = definerAndRelatedInstances.put(missingLocation, instance)
                 levelCreated.add(missingLocation)

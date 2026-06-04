@@ -5,6 +5,7 @@ import tech.kzen.lib.common.model.definition.ObjectDefinition
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 
 
 interface AttributeCreator {
@@ -13,6 +14,7 @@ interface AttributeCreator {
         attributeName: AttributeName,
         graphStructure: GraphStructure,
         objectDefinition: ObjectDefinition,
-        partialGraphInstance: GraphInstance
+        partialGraphInstance: GraphInstance,
+        environment: GraphEnvironment
     ): Any?
 }

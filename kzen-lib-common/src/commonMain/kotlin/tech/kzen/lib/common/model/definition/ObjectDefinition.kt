@@ -131,7 +131,6 @@ data class ObjectDefinition(
             is ListAttributeDefinition -> {
                 for ((index, value) in definition.values.withIndex()) {
                     val segment = AttributeSegment.ofIndex(index)
-//                    val indexNesting = attributePath.push(segment)
                     val indexNesting = attributePath.nest(segment)
                     traverseAttribute(indexNesting, value, builder, includeWeak)
                 }
@@ -140,13 +139,16 @@ data class ObjectDefinition(
             is MapAttributeDefinition -> {
                 for ((key, value) in definition.map) {
                     val segment = AttributeSegment.ofKey(key)
-//                    val keyNesting = attributePath.push(segment)
                     val keyNesting = attributePath.nest(segment)
                     traverseAttribute(keyNesting, value, builder, includeWeak)
                 }
             }
 
             is ValueAttributeDefinition -> {}
+
+            // A service is resolved from the GraphEnvironment, not the graph, so it adds no
+            // construction-order dependency.
+            is ServiceAttributeDefinition -> {}
         }
     }
 }

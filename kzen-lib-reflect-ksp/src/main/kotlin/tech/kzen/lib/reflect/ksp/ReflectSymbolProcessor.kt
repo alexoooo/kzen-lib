@@ -2,36 +2,6 @@ package tech.kzen.lib.reflect.ksp
 
 import com.google.devtools.ksp.processing.*
 import com.google.devtools.ksp.symbol.*
-import kotlin.collections.ArrayDeque
-import kotlin.collections.List
-import kotlin.collections.MutableSet
-import kotlin.collections.Set
-import kotlin.collections.emptyList
-import kotlin.collections.first
-import kotlin.collections.isEmpty
-import kotlin.collections.joinToString
-import kotlin.collections.map
-import kotlin.collections.mutableListOf
-import kotlin.collections.mutableSetOf
-import kotlin.collections.sortedBy
-import kotlin.collections.sortedSetOf
-import kotlin.collections.toList
-import kotlin.collections.toTypedArray
-import kotlin.collections.withIndex
-import kotlin.io.bufferedWriter
-import kotlin.io.use
-import kotlin.ranges.first
-import kotlin.sequences.first
-import kotlin.sequences.joinToString
-import kotlin.sequences.sortedBy
-import kotlin.text.buildString
-import kotlin.text.first
-import kotlin.text.isEmpty
-import kotlin.text.isNotEmpty
-import kotlin.text.replace
-import kotlin.text.substringAfterLast
-import kotlin.text.substringBeforeLast
-import kotlin.text.trimMargin
 
 
 class ReflectSymbolProcessor(
@@ -119,8 +89,26 @@ class ReflectSymbolProcessor(
                         logger.error("Constructor parameter without a name in @Reflect class", param)
                         return null
                     }
-                    val typeExpr = renderType(param.type.resolve(), imports)
-                    ReflectArg(name, typeExpr)
+                    val resolvedType = param.type.resolve()
+                    val typeExpr = renderType(resolvedType, imports)
+
+                    val isService = param.annotations.any { annotation ->
+                        annotation.annotationType.resolve().declaration.qualifiedName?.asString() ==
+                                SERVICE_ANNOTATION_FQN
+                    }
+                    val serviceTypeQualifiedName =
+                        if (! isService) {
+                            null
+                        }
+                        else {
+                            resolvedType.declaration.qualifiedName?.asString()
+                                ?: run {
+                                    logger.error("@Service parameter type without a qualified name", param)
+                                    return null
+                                }
+                        }
+
+                    ReflectArg(name, typeExpr, serviceTypeQualifiedName)
                 }
             }
         }
@@ -261,14 +249,26 @@ class ReflectSymbolProcessor(
             else -> {
                 val argsCast = c.arguments.withIndex()
                     .joinToString(", ") { (i, a) -> "args[$i] as ${a.typeExpr}" }
-                """
-                |reflectionRegistry.put(
-                |    $classNameLit,
-                |    listOf($argNamesList)
-                |) { args ->
-                |    ${c.kotlinReference}($argsCast)
-                |}
-                """.trimMargin()
+
+                val serviceArgs = c.arguments.filter { it.serviceTypeQualifiedName != null }
+
+                val lines = mutableListOf<String>()
+                lines.add("reflectionRegistry.put(")
+                lines.add("    $classNameLit,")
+                if (serviceArgs.isEmpty()) {
+                    lines.add("    listOf($argNamesList)")
+                }
+                else {
+                    lines.add("    listOf($argNamesList),")
+                    val serviceEntries = serviceArgs.joinToString(", ") {
+                        "\"${it.name}\" to \"${escapeKotlinStringLiteral(it.serviceTypeQualifiedName!!)}\""
+                    }
+                    lines.add("    mapOf($serviceEntries)")
+                }
+                lines.add(") { args ->")
+                lines.add("    ${c.kotlinReference}($argsCast)")
+                lines.add("}")
+                lines.joinToString("\n")
             }
         }
     }
@@ -290,11 +290,13 @@ class ReflectSymbolProcessor(
 
     private data class ReflectArg(
         val name: String,
-        val typeExpr: String
+        val typeExpr: String,
+        val serviceTypeQualifiedName: String?
     )
 
 
     companion object {
         private const val REFLECT_ANNOTATION_FQN = "tech.kzen.lib.common.reflect.Reflect"
+        private const val SERVICE_ANNOTATION_FQN = "tech.kzen.lib.common.reflect.Service"
     }
 }

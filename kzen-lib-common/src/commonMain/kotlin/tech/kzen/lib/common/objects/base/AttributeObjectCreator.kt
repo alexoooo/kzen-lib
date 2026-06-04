@@ -5,6 +5,7 @@ import tech.kzen.lib.common.api.ObjectCreator
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
 import tech.kzen.lib.common.model.definition.ObjectDefinition
+import tech.kzen.lib.common.model.definition.ServiceAttributeDefinition
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.instance.ObjectInstance
 import tech.kzen.lib.common.model.location.ObjectLocation
@@ -12,6 +13,7 @@ import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
@@ -20,11 +22,15 @@ object AttributeObjectCreator: ObjectCreator {
     private val defaultParameterCreator = ObjectReference.parse(
             DefinitionAttributeCreator::class.simpleName!!)
 
+    private val serviceParameterCreator = ObjectReference.parse(
+            ServiceAttributeCreator::class.simpleName!!)
+
     override fun create(
         objectLocation: ObjectLocation,
         graphStructure: GraphStructure,
         objectDefinition: ObjectDefinition,
-        partialGraphInstance: GraphInstance
+        partialGraphInstance: GraphInstance,
+        environment: GraphEnvironment
     ): ObjectInstance {
         val objectMetadata = graphStructure.graphMetadata.get(objectLocation)
             ?: throw IllegalArgumentException("Missing metadata: $objectLocation")
@@ -39,11 +45,17 @@ object AttributeObjectCreator: ObjectCreator {
         for (argumentName in constructorArgumentNames) {
             val argumentAttribute = AttributeName(argumentName)
 
-            val attributeMetadata = objectMetadata.attributes.map[argumentAttribute]
-
-            val attributeCreatorReference = attributeMetadata
-                    ?.creatorReference
-                    ?: defaultParameterCreator
+            // A @Service parameter is resolved from the environment, not notation, so it has no
+            // attribute metadata and routes to the ServiceAttributeCreator by its definition type.
+            val attributeCreatorReference =
+                if (objectDefinition.attributeDefinitions.map[argumentAttribute] is ServiceAttributeDefinition) {
+                    serviceParameterCreator
+                }
+                else {
+                    objectMetadata.attributes.map[argumentAttribute]
+                            ?.creatorReference
+                            ?: defaultParameterCreator
+                }
 
             val attributeCreatorLocation = partialGraphInstance.objectInstances.locate(
                     attributeCreatorReference)
@@ -52,7 +64,8 @@ object AttributeObjectCreator: ObjectCreator {
                     .objectInstances[attributeCreatorLocation]?.reference as AttributeCreator
 
             val attributeInstance = attributeCreator.create(
-                    objectLocation, argumentAttribute, graphStructure, objectDefinition, partialGraphInstance)
+                    objectLocation, argumentAttribute, graphStructure, objectDefinition, partialGraphInstance,
+                    environment)
 
             constructorArguments.add(attributeInstance)
 

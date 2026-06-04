@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 
 
 @Reflect
@@ -17,7 +18,8 @@ object DefaultConstructorObjectCreator: ObjectCreator {
             objectLocation: ObjectLocation,
             graphStructure: GraphStructure,
             objectDefinition: ObjectDefinition,
-            partialGraphInstance: GraphInstance
+            partialGraphInstance: GraphInstance,
+            environment: GraphEnvironment
     ): ObjectInstance {
         val instance = GlobalMirror
                 .create(objectDefinition.className, emptyList())

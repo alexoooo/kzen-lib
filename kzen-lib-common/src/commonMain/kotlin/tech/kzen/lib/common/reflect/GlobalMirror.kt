@@ -29,6 +29,16 @@ object GlobalMirror: ClassMirror {
     }
 
 
+    override fun serviceArguments(className: ClassName): Map<String, ClassName> {
+        for (delegate in delegates) {
+            if (delegate.contains(className)) {
+                return delegate.serviceArguments(className)
+            }
+        }
+        return mapOf()
+    }
+
+
     override fun create(className: ClassName, constructorArguments: List<Any?>): Any {
         for (delegate in delegates) {
             if (delegate.contains(className)) {

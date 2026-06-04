@@ -7,14 +7,7 @@ import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
-import tech.kzen.lib.common.model.structure.notation.cqrs.CopiedDocumentEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.DeletedDocumentEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.RemovedObjectEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.RenamedDocumentRefactorEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.RenamedNestedObjectEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.RenamedObjectEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.RenamedObjectRefactorEvent
-import tech.kzen.lib.common.model.structure.notation.cqrs.UpdatedInAttributeEvent
+import tech.kzen.lib.common.model.structure.notation.cqrs.*
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith

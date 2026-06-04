@@ -26,9 +26,13 @@ class ReflectionRegistry: ClassMirror {
 
     fun put(className: String,
             constructorArgumentNames: List<String>,
+            serviceArguments: Map<String, String> = mapOf(),
             constructorFunction: (List<Any?>) -> Any
     ) {
-        registry[ClassName(className)] = ClassReflection(constructorArgumentNames, constructorFunction)
+        registry[ClassName(className)] = ClassReflection(
+            constructorArgumentNames,
+            serviceArguments.mapValues { ClassName(it.value) },
+            constructorFunction)
     }
 
 
@@ -41,6 +45,11 @@ class ReflectionRegistry: ClassMirror {
     override fun constructorArgumentNames(className: ClassName): List<String> {
         return get(className)?.constructorArgumentNames
                 ?: throw IllegalArgumentException("Not found: $className")
+    }
+
+
+    override fun serviceArguments(className: ClassName): Map<String, ClassName> {
+        return get(className)?.serviceArguments ?: mapOf()
     }
 
 

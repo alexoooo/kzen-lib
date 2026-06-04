@@ -8,5 +8,7 @@ interface ClassMirror {
 
     fun constructorArgumentNames(className: ClassName): List<String>
 
+    fun serviceArguments(className: ClassName): Map<String, ClassName>
+
     fun create(className: ClassName, constructorArguments: List<Any?>): Any
 }

@@ -1,0 +1,9 @@
+
+
+# `label` is declared in notation; the `service` constructor parameter is annotated @Service and is
+# deliberately NOT declared here — it is injected from the GraphEnvironment at creation time.
+ServiceHolder:
+  class: tech.kzen.lib.server.objects.service.ServiceHolder
+  label: "hello"
+  meta:
+    label: String

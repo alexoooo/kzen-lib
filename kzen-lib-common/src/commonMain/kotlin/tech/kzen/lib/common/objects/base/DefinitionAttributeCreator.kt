@@ -9,6 +9,7 @@ import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.Reflect
+import tech.kzen.lib.common.service.context.environment.GraphEnvironment
 
 
 @Reflect
@@ -18,7 +19,8 @@ object DefinitionAttributeCreator: AttributeCreator {
         attributeName: AttributeName,
         graphStructure: GraphStructure,
         objectDefinition: ObjectDefinition,
-        partialGraphInstance: GraphInstance
+        partialGraphInstance: GraphInstance,
+        environment: GraphEnvironment
     ): Any? {
         val attributeDefinition = objectDefinition.attributeDefinitions.map[attributeName]
             ?: throw IllegalArgumentException(
@@ -69,6 +71,11 @@ object DefinitionAttributeCreator: AttributeCreator {
                 attributeDefinition.map.mapValues {
                     createDefinition(objectLocation, it.value, partialGraphInstance, graphStructure, attributeName)
                 }
+
+            is ServiceAttributeDefinition ->
+                throw IllegalStateException(
+                    "Service attribute must be created by ServiceAttributeCreator: " +
+                            "$objectLocation - $attributeName")
         }
     }
 }
