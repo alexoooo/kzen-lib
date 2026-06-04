@@ -17,8 +17,31 @@ class GradleLocator(
 ): FileNotationLocator {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
-        private const val mainResources = "/src/main/resources/" + NotationConventions.documentPathPrefix
+        private const val mainResourcesRelative = "src/main/resources/" + NotationConventions.documentPathPrefix
+        private const val mainResources = "/$mainResourcesRelative"
         private const val testResources = "/src/test/resources/" + NotationConventions.documentPathPrefix
+
+
+        /**
+         * Module root (the directory containing src/main/resources/notation) of the module whose
+         *  build produced the given class, walked up from its code source (classes dir in IDE /
+         *  Gradle builds, jar under build/libs in distributions) — for processes whose working
+         *  directory is not the module they serve (pass the result as moduleRootOverride).
+         */
+        fun moduleRootOfCodeSource(clazz: Class<*>): Path {
+            val codeSource = clazz.protectionDomain.codeSource?.location
+                ?: error("Code source unavailable: ${clazz.name}")
+
+            var dir: Path? = Paths.get(codeSource.toURI()).parent
+            while (dir != null) {
+                if (Files.isDirectory(dir.resolve(mainResourcesRelative))) {
+                    return dir
+                }
+                dir = dir.parent
+            }
+
+            error("Module root not found above code source: $codeSource")
+        }
     }
 
 
