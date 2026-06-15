@@ -56,45 +56,107 @@ data class GraphNotation(
             return cached
         }
 
-        val builder = mutableListOf<ObjectLocation>()
-
-        builder.add(objectLocation)
-
-        val parentLocation = inheritanceParent(objectLocation)
-        if (parentLocation != null) {
-            val parentInheritanceChain = inheritanceChain(parentLocation)
-            builder.addAll(parentInheritanceChain)
-        }
-
-        inheritanceChainCache[objectLocation] = builder
-
-        return builder
+        return buildInheritanceChain(objectLocation, mutableSetOf())
     }
 
 
-    private fun inheritanceParent(
+    /**
+     * Linearize the (possibly multiple-inheritance) ancestor graph into a C3-like order: most-derived first,
+     * primary parent ahead of mix-ins, with shared ancestors and root sinking to the end via keep-last dedup.
+     * Keep-last is total (never raises), so a partial/broken hierarchy still starts. The `visiting` set guards
+     * against 'is' cycles, which multiple inheritance makes more plausible.
+     */
+    private fun buildInheritanceChain(
+        objectLocation: ObjectLocation,
+        visiting: MutableSet<ObjectLocation>
+    ): List<ObjectLocation> {
+        val cached = inheritanceChainCache[objectLocation]
+        if (cached != null) {
+            return cached
+        }
+
+        if (! visiting.add(objectLocation)) {
+            // NB: cycle detected — contribute just this location and stop descending (not cached)
+            return listOf(objectLocation)
+        }
+
+        val builder = mutableListOf<ObjectLocation>()
+        builder.add(objectLocation)
+        for (parentLocation in inheritanceParents(objectLocation)) {
+            builder.addAll(buildInheritanceChain(parentLocation, visiting))
+        }
+        visiting.remove(objectLocation)
+
+        val linearized = dedupKeepLast(builder)
+        inheritanceChainCache[objectLocation] = linearized
+        return linearized
+    }
+
+
+    private fun dedupKeepLast(locations: List<ObjectLocation>): List<ObjectLocation> {
+        val seen = mutableSetOf<ObjectLocation>()
+        val reversedUnique = mutableListOf<ObjectLocation>()
+        for (i in locations.indices.reversed()) {
+            val location = locations[i]
+            if (seen.add(location)) {
+                reversedUnique.add(location)
+            }
+        }
+        return reversedUnique.reversed()
+    }
+
+
+    private fun inheritanceParents(
         objectLocation: ObjectLocation
-    ): ObjectLocation? {
+    ): List<ObjectLocation> {
         if (objectLocation == BootstrapConventions.rootObjectLocation ||
                 objectLocation == BootstrapConventions.bootstrapObjectLocation) {
-            return null
+            return listOf()
         }
 
         val notation = coalesce.map[objectLocation]
             ?: throw IllegalArgumentException("Missing: $objectLocation")
 
         val isAttribute = notation.get(NotationConventions.isAttributePath)
-            ?: return BootstrapConventions.rootObjectLocation
+            ?: return listOf(BootstrapConventions.rootObjectLocation)
 
-        require(isAttribute is ScalarAttributeNotation) {
-            "Scalar 'is' attribute expected: $objectLocation - $isAttribute"
+        val referenceHost = ObjectReferenceHost.ofLocation(objectLocation)
+
+        return when (isAttribute) {
+            is ScalarAttributeNotation ->
+                listOf(inheritanceParent(isAttribute.value, referenceHost))
+
+            is ListAttributeNotation -> {
+                // NB: multiple inheritance — a non-empty list of parent references (mix-ins);
+                //  an empty list degrades to no-super so startup survives
+                if (isAttribute.values.isEmpty()) {
+                    listOf(BootstrapConventions.rootObjectLocation)
+                }
+                else {
+                    isAttribute.values.map { element ->
+                        require(element is ScalarAttributeNotation) {
+                            "Scalar 'is' list element expected: $objectLocation - $element"
+                        }
+                        inheritanceParent(element.value, referenceHost)
+                    }
+                }
+            }
+
+            else ->
+                throw IllegalArgumentException(
+                    "Scalar or list 'is' attribute expected: $objectLocation - $isAttribute")
         }
+    }
 
-        val isValue = isAttribute.value
+
+    private fun inheritanceParent(
+        isValue: String,
+        referenceHost: ObjectReferenceHost
+    ): ObjectLocation {
         val superReference = ObjectReference.parse(isValue)
 
         // NB: dangling 'is:' (e.g. parent renamed/removed) degrades to no-super so startup survives
-        return coalesce.locateOptional(superReference, ObjectReferenceHost.ofLocation(objectLocation))
+        return coalesce.locateOptional(superReference, referenceHost)
             ?: BootstrapConventions.rootObjectLocation
     }
 
@@ -198,46 +260,19 @@ data class GraphNotation(
 
     /**
      * Traverse inheritance chain (starting at objectLocation) until finding attributePath from the closest ancestor.
+     * Uses the linearized inheritance chain so single- and multiple-inheritance resolve consistently with merge.
      */
     fun firstAttribute(
         objectLocation: ObjectLocation,
         attributePath: AttributePath
     ): AttributeNotation? {
-        val notation = coalesce.map[objectLocation]
-            ?: throw IllegalArgumentException("Unknown object location: $objectLocation")
-
-        val attributeNotation = notation.get(attributePath)
-        if (attributeNotation != null) {
-            return attributeNotation
-        }
-
-        @Suppress("MoveVariableDeclarationIntoWhen", "RedundantSuppression")
-        val isAttribute = notation.get(NotationConventions.isAttributePath)
-
-        val superReference =
-            when (isAttribute) {
-                null ->
-                    BootstrapConventions.rootObjectReference
-
-                is ScalarAttributeNotation -> {
-                    val isValue = isAttribute.value
-                    ObjectReference.parse(isValue)
-                }
-
-                else ->
-                    throw IllegalArgumentException("$objectLocation - $attributePath - $isAttribute")
+        for (ancestor in inheritanceChain(objectLocation)) {
+            val attributeNotation = coalesce.map[ancestor]?.get(attributePath)
+            if (attributeNotation != null) {
+                return attributeNotation
             }
-
-        val superLocation = coalesce.locateOptional(
-            superReference, ObjectReferenceHost.ofLocation(objectLocation))
-
-        if (superLocation == null ||
-                objectLocation == BootstrapConventions.rootObjectLocation ||
-                objectLocation == BootstrapConventions.bootstrapObjectLocation) {
-            return null
         }
-
-        return firstAttribute(superLocation, attributePath)
+        return null
     }
 
 

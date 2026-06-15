@@ -157,6 +157,23 @@ class RenameObjectRefactorTest {
 
 
     @Test
+    fun `Rename should update is references in a list`() {
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
+
+        val transition = reducer.applySemantic(
+                graphDefinitionAttempt,
+                RenameObjectRefactorCommand(
+                        location("DivideOperation"), ObjectName("RenamedDivideOperation")))
+
+        // NB: the renamed parent is the first element of the multiple-inheritance 'is' list
+        assertEquals("RenamedDivideOperation",
+                transition.graphNotation.getString(
+                        location("MultipleInheritanceChild"), AttributePath.parse("is.0")))
+    }
+
+
+    @Test
     fun `Rename should update references to partial object`() {
         val notationTree = JvmGraphTestUtils.readNotation()
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)

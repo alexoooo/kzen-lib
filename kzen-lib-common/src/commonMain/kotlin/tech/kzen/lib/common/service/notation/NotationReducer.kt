@@ -1198,8 +1198,9 @@ object NotationReducer {
     ): ObjectReference {
         val attributePath = referenceLocation.attributePath
 
-        // NB: top-level 'is:' and meta-attribute inheritance refs live in the notation, not the definition
-        if (attributePath == NotationConventions.isAttributePath || isMetaInheritancePath(attributePath)) {
+        // NB: top-level 'is:' (incl. list-element 'is[i]:') and meta-attribute inheritance refs
+        //  live in the notation, not the definition
+        if (isInheritancePath(attributePath) || isMetaInheritancePath(attributePath)) {
             val notation = graphDefinitionAttempt
                     .graphStructure
                     .graphNotation
@@ -1218,6 +1219,19 @@ object NotationReducer {
                 .partial!!
                 .get(attributePath)
         return (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
+    }
+
+
+    private fun isInheritancePath(path: AttributePath): Boolean {
+        if (path == NotationConventions.isAttributePath) {
+            return true
+        }
+        // NB: list-element 'is[i]:' for multiple inheritance
+        if (path.attribute != NotationConventions.isAttributeName) {
+            return false
+        }
+        val segments = path.nesting.segments
+        return segments.size == 1 && segments.first().asIndex() != null
     }
 
 
@@ -1285,10 +1299,28 @@ object NotationReducer {
         for ((hostObjectLocation, objectNotation) in graphNotation.coalesce.map) {
             val host = ObjectReferenceHost.ofLocation(hostObjectLocation)
 
-            val isAttribute = objectNotation.get(NotationConventions.isAttributePath) as? ScalarAttributeNotation
-            if (isAttribute != null && resolvesToTarget(graphNotation, isAttribute.value, host, objectLocation)) {
-                referenceLocations.add(
-                        AttributeLocation(hostObjectLocation, NotationConventions.isAttributePath))
+            when (val isAttribute = objectNotation.get(NotationConventions.isAttributePath)) {
+                is ScalarAttributeNotation -> {
+                    if (resolvesToTarget(graphNotation, isAttribute.value, host, objectLocation)) {
+                        referenceLocations.add(
+                                AttributeLocation(hostObjectLocation, NotationConventions.isAttributePath))
+                    }
+                }
+
+                is ListAttributeNotation -> {
+                    // NB: multiple inheritance — each list element is a parent reference
+                    isAttribute.values.forEachIndexed { index, element ->
+                        val scalar = element as? ScalarAttributeNotation
+                            ?: return@forEachIndexed
+                        if (resolvesToTarget(graphNotation, scalar.value, host, objectLocation)) {
+                            referenceLocations.add(AttributeLocation(
+                                    hostObjectLocation,
+                                    NotationConventions.isAttributePath.nest(AttributeSegment.ofIndex(index))))
+                        }
+                    }
+                }
+
+                else -> {}
             }
 
             // NB: meta.<attr>: OldName  (scalar)  and  meta.<attr>.is: OldName  (map) are both inheritance refs

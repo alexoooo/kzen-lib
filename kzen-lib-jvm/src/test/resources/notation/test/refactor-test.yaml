@@ -55,3 +55,12 @@ MetaIsHolder:
     embeddedDivider:
       is: DivideOperation
     scalarDivider: DivideOperation
+
+
+# NB: multiple inheritance — 'is' as a list (DivideOperation already extends DoubleExpression, so this is a diamond)
+MultipleInheritanceChild:
+  is:
+    - DivideOperation
+    - DoubleExpression
+  dividend: "main.addends/OldName"
+  divisor: "main.addends/SameName"

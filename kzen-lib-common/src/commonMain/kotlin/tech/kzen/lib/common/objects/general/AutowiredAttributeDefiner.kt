@@ -10,6 +10,7 @@ import tech.kzen.lib.common.model.location.ObjectReference
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.AttributeMetadata
+import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.reflect.Reflect
@@ -54,12 +55,19 @@ class AutowiredAttributeDefiner(
         val references = mutableListOf<AttributeDefinition>()
 
         for ((location, notation) in graphStructure.graphNotation.coalesce.map) {
-            val isReference = notation.attributes.map[NotationConventions.isAttributeName]?.asString()
-                    ?: continue
+            // NB: 'is' may be a single reference or, under multiple inheritance, a list of them
+            val isReferences = when (val isAttribute = notation.attributes.map[NotationConventions.isAttributeName]) {
+                is ScalarAttributeNotation -> listOf(isAttribute.value)
+                is ListAttributeNotation -> isAttribute.values.mapNotNull { it.asString() }
+                else -> continue
+            }
 
-            val isLocation = graphStructure.graphNotation.coalesce
-                    .locate(ObjectReference.parse(isReference), objectReferenceHost)
-            if (findIsLocation != isLocation) {
+            val matchesFindIs = isReferences.any { isReference ->
+                val isLocation = graphStructure.graphNotation.coalesce
+                        .locate(ObjectReference.parse(isReference), objectReferenceHost)
+                findIsLocation == isLocation
+            }
+            if (! matchesFindIs) {
                 continue
             }
 
