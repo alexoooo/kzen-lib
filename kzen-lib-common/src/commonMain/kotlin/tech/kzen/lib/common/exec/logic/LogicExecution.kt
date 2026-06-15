@@ -23,6 +23,7 @@ interface LogicExecution {
      */
     fun continueOrStart(
         logicControl: LogicControl,
+        resourceScope: LogicResourceScope,
         graphDefinition: GraphDefinition
     ): LogicResult
 
