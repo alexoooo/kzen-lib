@@ -6,26 +6,26 @@ package tech.kzen.lib.common.exec.logic
  * reaches a terminal state. Declared per-resource on the opening step; consumed by
  * [LogicResourceScope.disposeAll].
  */
-enum class ResourceClosePolicy {
+enum class ResourceClosePolicy(
+    /** Canonical notation wire value; the inverse of [parse]. */
+    val key: String
+) {
     /** Dispose at run completion (success, failure, or cancel). */
-    Auto,
+    Auto("auto"),
 
     /** Never auto-dispose; only the explicit closing step disposes (survives a forgotten close). */
-    Manual,
+    Manual("manual"),
 
     /** Dispose on success/cancel, but keep on a failed run so it can be inspected. */
-    KeepOnFailure;
+    KeepOnFailure("keepOnFailure");
 
 
     companion object {
         fun parse(value: String): ResourceClosePolicy {
-            return when (value.lowercase()) {
-                "auto" -> Auto
-                "manual" -> Manual
-                "keeponfailure" -> KeepOnFailure
-                else -> throw IllegalArgumentException(
-                    "Unknown closePolicy '$value', expected one of: auto, manual, keepOnFailure")
-            }
+            val normalized = value.lowercase()
+            return entries.firstOrNull { it.key.lowercase() == normalized }
+                ?: throw IllegalArgumentException(
+                    "Unknown closePolicy '$value', expected one of: ${entries.joinToString(", ") { it.key }}")
         }
     }
 }
