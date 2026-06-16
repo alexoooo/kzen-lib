@@ -2,6 +2,7 @@ package tech.kzen.lib.common.service.media
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
+import tech.kzen.lib.common.model.document.DocumentSegment
 import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.resource.ResourceListing
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
@@ -43,9 +44,26 @@ class SeededNotationMedia(
     private suspend fun scanImpl(): NotationScan {
         seedIfRequired()
 
+        // Mirror FileNotationMedia: a folder entry is only surfaced when its directory holds no documents
+        // (otherwise the folder is implied by its nested documents). The explicit entry stays in `data`, but
+        // suppressing it here keeps this client scan in agreement with the server's — so MirroredGraphStore
+        // doesn't see a phantom mismatch and refresh the folder away, and the folder resurfaces here as soon
+        // as its last document is deleted.
+        val documentNestings = data.keys
+            .filter { !it.folder }
+            .map { it.nesting }
+
         val documents = mutableMapOf<DocumentPath, DocumentScan>()
 
         for (e in data) {
+            if (e.key.folder) {
+                val contentNesting = e.key.nesting.plus(DocumentSegment(e.key.name.value))
+                val hasNestedDocument = documentNestings.any { it.startsWith(contentNesting) }
+                if (hasNestedDocument) {
+                    continue
+                }
+            }
+
             val resources: ResourceListing? =
                 e.value.resources?.let {
                     ResourceListing(it.toPersistentMap())
@@ -77,6 +95,15 @@ class SeededNotationMedia(
         val documentMedia = getOrInitDocumentMedia(documentPath)
 
         documentMedia.document = contents
+        notationScanCache = null
+    }
+
+
+    override suspend fun createFolder(documentPath: DocumentPath) {
+        seedIfRequired()
+
+        // a folder has no body and no resources; its DocumentPath form (Folder) is the discriminator
+        data.getOrPut(documentPath) { SeededDocumentMedia("", null) }
         notationScanCache = null
     }
 
@@ -182,9 +209,17 @@ class SeededNotationMedia(
         }
 
         val scan = underlying.scan()
-        val documents = underlying.readDocuments(scan.documents.map.keys)
+
+        // folders have no body to read — skip them in the batch read, seed them as empty markers below
+        val documentPaths = scan.documents.map.keys.filter { !it.folder }
+        val documents = underlying.readDocuments(documentPaths)
 
         for (e in scan.documents.map) {
+            if (e.key.folder) {
+                data[e.key] = SeededDocumentMedia("", null)
+                continue
+            }
+
             val document = documents[e.key]
                 ?: throw IllegalStateException("Missing document: ${e.key}")
 

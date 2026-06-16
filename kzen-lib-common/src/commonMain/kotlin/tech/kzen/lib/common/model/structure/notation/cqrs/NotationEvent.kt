@@ -27,40 +27,51 @@ sealed class SingularNotationEvent: NotationEvent()
 
 
 sealed class CompoundNotationEvent(
-        @Suppress("unused")
-        val singularEvents: List<SingularNotationEvent>
+    @Suppress("unused")
+    val singularEvents: List<SingularNotationEvent>
 ): NotationEvent()
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class CreatedDocumentEvent(
-        override val documentPath: DocumentPath,
-        val documentNotation: DocumentObjectNotation
+    override val documentPath: DocumentPath,
+    val documentNotation: DocumentObjectNotation
 ): SingularNotationEvent()
 
 
 data class DeletedDocumentEvent(
-        override val documentPath: DocumentPath
+    override val documentPath: DocumentPath
+): SingularNotationEvent()
+
+
+data class CreatedFolderEvent(
+    override val documentPath: DocumentPath
+): SingularNotationEvent()
+
+
+// NB: the cascade-removed descendants are reflected in the resulting GraphNotation, not enumerated here.
+data class DeletedFolderEvent(
+    override val documentPath: DocumentPath
 ): SingularNotationEvent()
 
 
 data class CopiedDocumentEvent(
-        override val documentPath: DocumentPath,
-        val destination: DocumentPath
+    override val documentPath: DocumentPath,
+    val destination: DocumentPath
 ): SingularNotationEvent()
 
 
 data class SetDocumentObjectsEvent(
-        override val documentPath: DocumentPath,
-        val documentObjectNotation: DocumentObjectNotation
+    override val documentPath: DocumentPath,
+    val documentObjectNotation: DocumentObjectNotation
 ): SingularNotationEvent()
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedObjectEvent(
-        val objectLocation: ObjectLocation,
-        val indexInDocument: PositionIndex,
-        val objectNotation: ObjectNotation
+    val objectLocation: ObjectLocation,
+    val indexInDocument: PositionIndex,
+    val objectNotation: ObjectNotation
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -68,7 +79,7 @@ data class AddedObjectEvent(
 
 
 data class RemovedObjectEvent(
-        val objectLocation: ObjectLocation
+    val objectLocation: ObjectLocation
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -76,8 +87,8 @@ data class RemovedObjectEvent(
 
 
 data class ShiftedObjectEvent(
-        val objectLocation: ObjectLocation,
-        val newPositionInDocument: PositionIndex
+    val objectLocation: ObjectLocation,
+    val newPositionInDocument: PositionIndex
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -85,18 +96,16 @@ data class ShiftedObjectEvent(
 
 
 data class RenamedObjectEvent(
-        val objectLocation: ObjectLocation,
-        val newName: ObjectName
+    val objectLocation: ObjectLocation,
+    val newName: ObjectName
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
-
 
     @Suppress("MemberVisibilityCanBePrivate")
     fun newObjectPath(): ObjectPath {
         return objectLocation.objectPath.copy(name = newName)
     }
-
 
     @Suppress("unused")
     fun newObjectLocation(): ObjectLocation {
@@ -107,31 +116,29 @@ data class RenamedObjectEvent(
 
 
 data class RenamedNestedObjectEvent(
-        val objectLocation: ObjectLocation,
-        val newObjectNesting: ObjectNesting
+    val objectLocation: ObjectLocation,
+    val newObjectNesting: ObjectNesting
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
-
 
     @Suppress("MemberVisibilityCanBePrivate")
     fun newObjectPath(): ObjectPath {
         return objectLocation.objectPath.copy(nesting = newObjectNesting)
     }
 
-
     fun newObjectLocation(): ObjectLocation {
         return objectLocation.copy(
-                objectPath = newObjectPath())
+            objectPath = newObjectPath())
     }
 }
 
 
 //---------------------------------------------------------------------------------------------------------------------
 data class UpsertedAttributeEvent(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName,
-        val attributeValue: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val attributeName: AttributeName,
+    val attributeValue: AttributeNotation
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -139,9 +146,9 @@ data class UpsertedAttributeEvent(
 
 
 data class UpdatedInAttributeEvent(
-        val objectLocation: ObjectLocation,
-        val attributeNesting: AttributePath,
-        val attributeNotation: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val attributeNesting: AttributePath,
+    val attributeNotation: AttributeNotation
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -149,10 +156,10 @@ data class UpdatedInAttributeEvent(
 
 
 data class UpdatedAllNestingsInAttributeEvent(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName,
-        val attributeNestings: List<AttributeNesting>,
-        val attributeNotation: AttributeNotation
+    val objectLocation: ObjectLocation,
+    val attributeName: AttributeName,
+    val attributeNestings: List<AttributeNesting>,
+    val attributeNotation: AttributeNotation
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -160,9 +167,9 @@ data class UpdatedAllNestingsInAttributeEvent(
 
 
 data class UpdatedAllValuesInAttributeEvent(
-        val objectLocation: ObjectLocation,
-        val attributeName: AttributeName,
-        val nestingNotations: Map<AttributeNesting, AttributeNotation>
+    val objectLocation: ObjectLocation,
+    val attributeName: AttributeName,
+    val nestingNotations: Map<AttributeNesting, AttributeNotation>
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -170,8 +177,8 @@ data class UpdatedAllValuesInAttributeEvent(
 
 
 data class RemovedInAttributeEvent(
-        val objectLocation: ObjectLocation,
-        val attributePath: AttributePath
+    val objectLocation: ObjectLocation,
+    val attributePath: AttributePath
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -179,8 +186,8 @@ data class RemovedInAttributeEvent(
 
 
 data class RemovedAllInAttributeEvent(
-        val objectLocation: ObjectLocation,
-        val attributePaths: List<AttributePath>
+    val objectLocation: ObjectLocation,
+    val attributePaths: List<AttributePath>
 ): SingularNotationEvent() {
     override val documentPath
         get() = objectLocation.documentPath
@@ -197,35 +204,35 @@ sealed class InsertedInAttributeEvent: SingularNotationEvent() {
 
 
 data class InsertedListItemInAttributeEvent(
-        override val objectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val indexInList: PositionIndex,
-        val item: AttributeNotation
+    override val objectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val indexInList: PositionIndex,
+    val item: AttributeNotation
 ): InsertedInAttributeEvent()
 
 
 data class InsertedAllListItemsInAttributeEvent(
-        override val objectLocation: ObjectLocation,
-        val containingList: AttributePath,
-        val indexInList: PositionIndex,
-        val items: List<AttributeNotation>
+    override val objectLocation: ObjectLocation,
+    val containingList: AttributePath,
+    val indexInList: PositionIndex,
+    val items: List<AttributeNotation>
 ): InsertedInAttributeEvent()
 
 
 data class InsertedMapEntryInAttributeEvent(
-        override val objectLocation: ObjectLocation,
-        val containingMap: AttributePath,
-        val indexInMap: PositionIndex,
-        val key: AttributeSegment,
-        val item: AttributeNotation,
-        val createdAncestors: List<AttributePath>
+    override val objectLocation: ObjectLocation,
+    val containingMap: AttributePath,
+    val indexInMap: PositionIndex,
+    val key: AttributeSegment,
+    val item: AttributeNotation,
+    val createdAncestors: List<AttributePath>
 ): InsertedInAttributeEvent()
 
 
 //--------------------------------------------------------------
 data class ShiftedInAttributeEvent(
-        val removedInAttribute: RemovedInAttributeEvent,
-        val reinsertedInAttribute: InsertedInAttributeEvent
+    val removedInAttribute: RemovedInAttributeEvent,
+    val reinsertedInAttribute: InsertedInAttributeEvent
 ): CompoundNotationEvent(
         listOf(removedInAttribute, reinsertedInAttribute)
 ) {
@@ -235,8 +242,8 @@ data class ShiftedInAttributeEvent(
 
 
 data class AddedObjectAtAttributeEvent(
-        val addedObject: AddedObjectEvent,
-        val addedInAttribute: UpsertedAttributeEvent
+    val addedObject: AddedObjectEvent,
+    val addedInAttribute: UpsertedAttributeEvent
 ): CompoundNotationEvent(
         listOf(addedObject, addedInAttribute)
 ) {
@@ -246,8 +253,8 @@ data class AddedObjectAtAttributeEvent(
 
 
 data class InsertedObjectInListAttributeEvent(
-        val addedObject: AddedObjectEvent,
-        val insertedInAttribute: InsertedListItemInAttributeEvent
+    val addedObject: AddedObjectEvent,
+    val insertedInAttribute: InsertedListItemInAttributeEvent
 ): CompoundNotationEvent(
         listOf(addedObject, insertedInAttribute)
 ) {
@@ -257,9 +264,9 @@ data class InsertedObjectInListAttributeEvent(
 
 
 data class RemovedObjectInAttributeEvent(
-        val removedInAttribute: RemovedInAttributeEvent,
-        val removedObject: RemovedObjectEvent,
-        val removedNestedObjects: List<RemovedObjectEvent>
+    val removedInAttribute: RemovedInAttributeEvent,
+    val removedObject: RemovedObjectEvent,
+    val removedNestedObjects: List<RemovedObjectEvent>
 ): CompoundNotationEvent(
         listOf(removedInAttribute, removedObject) + removedNestedObjects
 ) {
@@ -270,9 +277,9 @@ data class RemovedObjectInAttributeEvent(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class RenamedObjectRefactorEvent(
-        val renamedObject: RenamedObjectEvent,
-        val adjustedReferences: List<UpdatedInAttributeEvent>,
-        val nestedObjectRenames: List<NestedObjectRename>
+    val renamedObject: RenamedObjectEvent,
+    val adjustedReferences: List<UpdatedInAttributeEvent>,
+    val nestedObjectRenames: List<NestedObjectRename>
 ): CompoundNotationEvent(
         listOf(renamedObject) +
                 adjustedReferences +
@@ -287,8 +294,8 @@ data class RenamedObjectRefactorEvent(
 
 
 data class NestedObjectRename(
-        val renamedNestedObject: RenamedNestedObjectEvent,
-        val adjustedReferences: List<UpdatedInAttributeEvent>
+    val renamedNestedObject: RenamedNestedObjectEvent,
+    val adjustedReferences: List<UpdatedInAttributeEvent>
 ) {
     fun singularEvents(): List<SingularNotationEvent> {
         return listOf(renamedNestedObject).plus(adjustedReferences)
@@ -297,9 +304,9 @@ data class NestedObjectRename(
 
 
 data class RenamedDocumentRefactorEvent(
-        val createdWithNewName: CopiedDocumentEvent,
-        val removedUnderOldName: DeletedDocumentEvent,
-        val adjustedReferences: List<UpdatedInAttributeEvent>
+    val createdWithNewName: CopiedDocumentEvent,
+    val removedUnderOldName: DeletedDocumentEvent,
+    val adjustedReferences: List<UpdatedInAttributeEvent>
 ): CompoundNotationEvent(
     listOf(createdWithNewName, removedUnderOldName) +
             adjustedReferences
@@ -311,8 +318,8 @@ data class RenamedDocumentRefactorEvent(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedResourceEvent(
-        val resourceLocation: ResourceLocation,
-        val contentDigest: Digest
+    val resourceLocation: ResourceLocation,
+    val contentDigest: Digest
 ): SingularNotationEvent() {
     override val documentPath
         get() = resourceLocation.documentPath
@@ -320,7 +327,7 @@ data class AddedResourceEvent(
 
 
 data class RemovedResourceEvent(
-        val resourceLocation: ResourceLocation
+    val resourceLocation: ResourceLocation
 ): SingularNotationEvent() {
     override val documentPath
         get() = resourceLocation.documentPath

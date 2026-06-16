@@ -4,6 +4,7 @@ import com.google.common.cache.Cache
 import com.google.common.cache.CacheBuilder
 import com.google.common.io.MoreFiles
 import com.google.common.io.RecursiveDeleteOption
+import tech.kzen.lib.common.model.document.DocumentForm
 import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
@@ -20,6 +21,7 @@ import tech.kzen.lib.platform.collect.toPersistentMap
 import tech.kzen.lib.platform.toInputStream
 import tech.kzen.lib.server.notation.locate.FileNotationLocator
 import java.io.ByteArrayInputStream
+import java.io.IOException
 import java.nio.file.*
 import java.nio.file.attribute.BasicFileAttributes
 import java.time.Instant
@@ -58,6 +60,11 @@ class FileNotationMedia(
             var modified: Instant,
             var digest: Digest
     )
+
+
+    // A folder has no body; this matches the empty-body digest the client (SeededNotationMedia) computes, so
+    // local/remote scan digests agree and folder create/delete doesn't trigger a spurious mirror refresh.
+    private val folderDigest = Digest.ofUtf8("")
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -100,6 +107,12 @@ class FileNotationMedia(
 
         for ((documentPath, modified) in locationTimes) {
             if (!allowed(documentPath)) {
+                continue
+            }
+
+            if (documentPath.folder) {
+                // a folder is a bare directory — no file to digest, no resources
+                notationScanMirror[documentPath] = DocumentScan(folderDigest, null)
                 continue
             }
 
@@ -155,9 +168,25 @@ class FileNotationMedia(
 
         val locationTimes = mutableMapOf<DocumentPath, Instant>()
 
+        // Directories that contain a document (a .yaml file, or a directory-document) somewhere beneath them.
+        // Every other directory is a pure FOLDER — emitted so empty folders persist across restarts. A folder
+        // that contains documents is already implied by those documents' nesting, so we don't emit it.
+        val directoriesWithDocuments = mutableSetOf<Path>()
+
+        fun markAncestorsWithDocument(documentLocation: Path) {
+            var ancestor: Path? = documentLocation.parent
+            while (ancestor != null && ancestor.startsWith(root)) {
+                directoriesWithDocuments.add(ancestor)
+                if (ancestor == root) {
+                    break
+                }
+                ancestor = ancestor.parent
+            }
+        }
+
         Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
-            override fun preVisitDirectory(dir: Path?, attrs: BasicFileAttributes?): FileVisitResult {
-                val possibleDirectoryDocument = dir!!.resolve(NotationConventions.directoryDocumentName)
+            override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
+                val possibleDirectoryDocument = dir.resolve(NotationConventions.directoryDocumentName)
 
                 if (Files.exists(possibleDirectoryDocument)) {
                     val relative = root.relativize(possibleDirectoryDocument).toString()
@@ -165,15 +194,18 @@ class FileNotationMedia(
                     check(DocumentPath.matches(normalized))
 
                     val documentPath = DocumentPath.parse(normalized)
-                    locationTimes[documentPath] = attrs!!.lastModifiedTime().toInstant()
+                    locationTimes[documentPath] = attrs.lastModifiedTime().toInstant()
+
+                    // the directory-document counts as a document under its parent (but is itself a leaf)
+                    markAncestorsWithDocument(dir)
                     return FileVisitResult.SKIP_SUBTREE
                 }
 
                 return FileVisitResult.CONTINUE
             }
 
-            override fun visitFile(file: Path?, attrs: BasicFileAttributes?): FileVisitResult {
-                val fileName = file!!.fileName.toString()
+            override fun visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult {
+                val fileName = file.fileName.toString()
 
                 if (fileName.endsWith(NotationConventions.fileDocumentSuffix)) {
                     val relative = root.relativize(file).toString()
@@ -181,7 +213,21 @@ class FileNotationMedia(
                     check(DocumentPath.matches(normalized))
 
                     val documentPath = DocumentPath.parse(normalized)
-                    locationTimes[documentPath] = attrs!!.lastModifiedTime().toInstant()
+                    locationTimes[documentPath] = attrs.lastModifiedTime().toInstant()
+
+                    markAncestorsWithDocument(file)
+                }
+
+                return FileVisitResult.CONTINUE
+            }
+
+            override fun postVisitDirectory(dir: Path, exc: IOException?): FileVisitResult {
+                if (dir != root && dir !in directoriesWithDocuments) {
+                    val relative = root.relativize(dir).toString().replace('\\', '/')
+                    if (relative.isNotEmpty()) {
+                        val folderPath = DocumentPath.parse("$relative/")
+                        locationTimes[folderPath] = Files.getLastModifiedTime(dir).toInstant()
+                    }
                 }
 
                 return FileVisitResult.CONTINUE
@@ -357,6 +403,52 @@ class FileNotationMedia(
     }
 
 
+    override suspend fun createFolder(documentPath: DocumentPath) {
+        createFolderSynchronized(documentPath)
+    }
+
+
+    @Synchronized
+    private fun createFolderSynchronized(documentPath: DocumentPath) {
+        check(documentPath.folder) {
+            "Not a folder: $documentPath"
+        }
+
+        val resolved = notationLocator.locateExisting(documentPath)
+            ?: notationLocator.resolveNew(documentPath)
+            ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
+
+        Files.createDirectories(resolved)
+
+        if (notationScanMirror.isNotEmpty()) {
+            notationScanMirror[documentPath] = DocumentScan(folderDigest, null)
+        }
+        notationScanCache = null
+    }
+
+
+    override suspend fun deleteFolder(documentPath: DocumentPath) {
+        deleteFolderSynchronized(documentPath)
+    }
+
+
+    @Synchronized
+    private fun deleteFolderSynchronized(documentPath: DocumentPath) {
+        check(documentPath.folder) {
+            "Not a folder: $documentPath"
+        }
+
+        // tolerant: the folder directory may already be gone (e.g. it had a scan entry that was deleted in the
+        // per-document pass), or it contained documents and is only now empty
+        val path = notationLocator.locateExisting(documentPath)
+            ?: return
+
+        MoreFiles.deleteRecursively(path, RecursiveDeleteOption.ALLOW_INSECURE)
+
+        invalidateDocument(documentPath)
+    }
+
+
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         deleteDocumentSynchronized(documentPath)
     }
@@ -367,11 +459,18 @@ class FileNotationMedia(
         val path = notationLocator.locateExisting(documentPath)
             ?: throw IllegalArgumentException("Not found: $documentPath")
 
-        if (documentPath.directory) {
-            MoreFiles.deleteRecursively(path.parent, RecursiveDeleteOption.ALLOW_INSECURE)
-        }
-        else {
-            Files.delete(path)
+        when (documentPath.form) {
+            // a folder IS the directory at `path`; its graph-tracked contents are deleted first (deepest-first
+            // ordering in DirectGraphStore), so the directory is empty by the time we remove it
+            DocumentForm.Folder ->
+                MoreFiles.deleteRecursively(path, RecursiveDeleteOption.ALLOW_INSECURE)
+
+            // a directory-document's `path` is its ~main.yaml marker; remove the whole containing directory
+            DocumentForm.Directory ->
+                MoreFiles.deleteRecursively(path.parent, RecursiveDeleteOption.ALLOW_INSECURE)
+
+            DocumentForm.Document ->
+                Files.delete(path)
         }
 
         invalidateDocument(documentPath)

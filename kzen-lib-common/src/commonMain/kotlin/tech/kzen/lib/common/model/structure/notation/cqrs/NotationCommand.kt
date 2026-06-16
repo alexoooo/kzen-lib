@@ -39,6 +39,18 @@ data class DeleteDocumentCommand(
 ): StructuralNotationCommand()
 
 
+// A pure folder (markerless directory) — NOT a document. documentPath.form must be DocumentForm.Folder.
+data class CreateFolderCommand(
+    val documentPath: DocumentPath
+): StructuralNotationCommand()
+
+
+// Cascade: removes the folder and everything nested under it (see NotationReducer.deleteFolder).
+data class DeleteFolderCommand(
+    val documentPath: DocumentPath
+): StructuralNotationCommand()
+
+
 data class CopyDocumentCommand(
     val sourceDocumentPath: DocumentPath,
     val destinationDocumentPath: DocumentPath

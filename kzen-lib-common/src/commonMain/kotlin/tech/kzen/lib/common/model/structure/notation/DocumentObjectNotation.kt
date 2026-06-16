@@ -7,13 +7,31 @@ import tech.kzen.lib.common.util.digest.Digestible
 
 
 data class DocumentObjectNotation(
-    val notations: ObjectPathMap<ObjectNotation>
+    val notations: ObjectPathMap<ObjectNotation>,
+    // Explicit discriminator: a folder is a pure directory, NOT a document. It carries no objects, but must remain
+    // distinguishable from an empty document (which also has no objects) — hence this flag participates in
+    // equals/hashCode/digest. See DocumentNotation.folder / DocumentPath(form = Folder).
+    val folder: Boolean = false
 ):
     Digestible
 {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = DocumentObjectNotation(ObjectPathMap.empty())
+
+        val folder = DocumentObjectNotation(ObjectPathMap.empty(), folder = true)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    fun isFolder(): Boolean {
+        return folder
+    }
+
+
+    // A folder is a pure directory with no objects — it must never be mutated as if it held object notations.
+    private fun assertNotFolder() {
+        check(!folder) { "Cannot modify objects of a folder (pure directory)" }
     }
 
 
@@ -26,8 +44,9 @@ data class DocumentObjectNotation(
         objectPath: ObjectPath,
         objectNotation: ObjectNotation
     ): DocumentObjectNotation {
+        assertNotFolder()
         return DocumentObjectNotation(
-                notations.updateEntry(objectPath, objectNotation))
+            notations.updateEntry(objectPath, objectNotation))
     }
 
 
@@ -35,16 +54,18 @@ data class DocumentObjectNotation(
         positionedObjectPath: PositionedObjectPath,
         objectNotation: ObjectNotation
     ): DocumentObjectNotation {
+        assertNotFolder()
         return DocumentObjectNotation(
-                notations.insertEntry(positionedObjectPath, objectNotation))
+            notations.insertEntry(positionedObjectPath, objectNotation))
     }
 
 
     fun withoutObject(
         objectPath: ObjectPath
     ): DocumentObjectNotation {
+        assertNotFolder()
         return DocumentObjectNotation(
-                notations.removeKey(objectPath))
+            notations.removeKey(objectPath))
     }
 
 
@@ -58,6 +79,7 @@ data class DocumentObjectNotation(
         if (digest == null) {
             val builder = Digest.Builder()
 
+            builder.addBoolean(folder)
             builder.addDigestibleOrderedMap(notations.map)
 
             digest = builder.digest()
@@ -67,14 +89,15 @@ data class DocumentObjectNotation(
 
 
     override fun equals(other: Any?): Boolean {
-        val otherNotations = (other as? DocumentObjectNotation)?.notations
+        val that = other as? DocumentObjectNotation
             ?: return false
 
-        return notations.equalsInOrder(otherNotations)
+        return folder == that.folder &&
+                notations.equalsInOrder(that.notations)
     }
 
 
     override fun hashCode(): Int {
-        return notations.hashCode()
+        return 31 * notations.hashCode() + folder.hashCode()
     }
 }

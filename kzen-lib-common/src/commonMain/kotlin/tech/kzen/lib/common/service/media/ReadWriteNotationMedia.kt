@@ -91,6 +91,20 @@ class ReadWriteNotationMedia(
     }
 
 
+    override suspend fun createFolder(documentPath: DocumentPath) {
+        check(!readOnly.containsDocument(documentPath)) {
+            "Folder overlap with read-only: $documentPath"
+        }
+
+        writable.createFolder(documentPath)
+    }
+
+
+    override suspend fun deleteFolder(documentPath: DocumentPath) {
+        writable.deleteFolder(documentPath)
+    }
+
+
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         writable.deleteDocument(documentPath)
     }

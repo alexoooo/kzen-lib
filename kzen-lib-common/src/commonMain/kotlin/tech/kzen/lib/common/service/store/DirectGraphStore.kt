@@ -109,6 +109,12 @@ class DirectGraphStore(
         for (e in notationScan.documents.map) {
             val projectPath = e.key
 
+            if (projectPath.folder) {
+                // a folder is a markerless directory with no body to read
+                documents[projectPath] = DocumentNotation.folder
+                continue
+            }
+
             val body = notationMedia.readDocument(projectPath, e.value.documentDigest)
 
             documentBodies[projectPath] = body
@@ -203,9 +209,17 @@ class DirectGraphStore(
 
         val removedDocumentPaths = graphNotation.documents.map.keys
             .minus(newGraphNotation.documents.map.keys)
+            // deepest-first: a folder's contents are removed before the (now-empty) folder directory itself
+            .sortedByDescending { it.nesting.segments.size }
 
         for (removed in removedDocumentPaths) {
             delete(removed)
+        }
+
+        if (command is DeleteFolderCommand) {
+            // a folder that contained documents has no scan entry of its own, so it isn't in removedDocumentPaths;
+            // remove its (now-empty) directory explicitly. Tolerant if already gone or on media without dirs.
+            notationMedia.deleteFolder(command.documentPath)
         }
 
         return transition.notationEvent
@@ -292,6 +306,17 @@ class DirectGraphStore(
         if (documentNotation == originalDocument) {
             return
         }
+
+        if (documentPath.folder) {
+            // a folder is persisted as a bare directory — no body to unparse/write; just ensure the dir exists.
+            // the path form is authoritative; assert the notation agrees so the two can never diverge.
+            documentNotation.assertFolder(documentPath)
+            if (originalDocument == null) {
+                notationMedia.createFolder(documentPath)
+            }
+            return
+        }
+        documentNotation.assertDocument(documentPath)
 
         val previouslyPresent = originalDocument != null
 

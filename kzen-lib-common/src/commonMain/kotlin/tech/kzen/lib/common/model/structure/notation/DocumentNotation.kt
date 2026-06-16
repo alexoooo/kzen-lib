@@ -22,6 +22,11 @@ data class DocumentNotation(
     companion object {
         val empty = DocumentNotation(DocumentObjectNotation.empty, null)
 
+        // Sentinel for a pure folder (a markerless directory, not a document). Has no objects and no resources;
+        // distinguished from `empty` by DocumentObjectNotation.folder. Never written to a file — the media just
+        // creates the directory (see DirectGraphStore / FileNotationMedia.createFolder).
+        val folder = DocumentNotation(DocumentObjectNotation.folder, null)
+
         val className = ClassName(
             "tech.kzen.lib.common.model.structure.notation.DocumentNotation")
 
@@ -42,6 +47,24 @@ data class DocumentNotation(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    fun isFolder(): Boolean {
+        return objects.isFolder()
+    }
+
+
+    fun assertDocument(documentPath: DocumentPath? = null) {
+        check(!isFolder()) { "Folder used where a document is required: $documentPath" }
+    }
+
+
+    fun assertFolder(documentPath: DocumentPath? = null) {
+        check(isFolder()) { "Document used where a folder is required: $documentPath" }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // NB: a folder has no objects, so this naturally yields an empty map — folders contribute nothing to the
+    // graph definition / coalesce / metadata pipeline.
     fun expand(path: DocumentPath): ObjectLocationMap<ObjectNotation> {
         val values = mutableMapOf<ObjectLocation, ObjectNotation>()
 
@@ -109,6 +132,8 @@ data class DocumentNotation(
     fun withObjects(
         objects: DocumentObjectNotation
     ): DocumentNotation {
+        assertDocument()
+        check(!objects.isFolder()) { "Cannot set a document's objects to a folder marker" }
         return copy(objects = objects)
     }
 
@@ -117,6 +142,8 @@ data class DocumentNotation(
         resourcePath: ResourcePath,
         contentDigest: Digest
     ): DocumentNotation {
+        assertDocument()
+
         val resources = resources
             ?: throw IllegalStateException("Resources not allowed")
 
@@ -128,6 +155,8 @@ data class DocumentNotation(
     fun withoutResource(
         resourcePath: ResourcePath
     ): DocumentNotation {
+        assertDocument()
+
         val resources = resources
             ?: throw IllegalStateException("Resources not allowed")
 

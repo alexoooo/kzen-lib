@@ -76,6 +76,12 @@ class MapNotationMedia: NotationMedia {
     }
 
 
+    override suspend fun createFolder(documentPath: DocumentPath) {
+        // a folder has no document body and no resources; the key's form (Folder) carries the discriminator
+        data.getOrPut(documentPath) { MapDocumentMedia("", null) }
+    }
+
+
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         data.remove(documentPath)
     }

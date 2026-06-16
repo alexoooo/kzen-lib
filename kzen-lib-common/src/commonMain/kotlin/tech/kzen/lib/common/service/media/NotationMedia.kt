@@ -43,6 +43,23 @@ interface NotationMedia {
 
 
     /**
+     * Create a pure folder (a markerless directory that is NOT a document). documentPath.form must be Folder.
+     * Default impls that don't support writing folders throw — only writable media (file / seeded / map) override.
+     */
+    suspend fun createFolder(documentPath: DocumentPath) {
+        throw UnsupportedOperationException("Folders not supported here: $documentPath")
+    }
+
+
+    /**
+     * Remove a folder directory and anything still in it. Tolerant of the folder being absent (it may already
+     * have been removed entry-by-entry, or never had an entry because it contained documents). Default no-op for
+     * media with no directory concept (e.g. the in-memory client seed, where entries are removed individually).
+     */
+    suspend fun deleteFolder(documentPath: DocumentPath) {}
+
+
+    /**
      * Deletes document notation, and any associated resources
      */
     suspend fun deleteDocument(documentPath: DocumentPath)

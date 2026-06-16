@@ -7,6 +7,7 @@ import tech.kzen.lib.common.model.definition.ObjectDefinition
 import tech.kzen.lib.common.model.definition.ReferenceAttributeDefinition
 import tech.kzen.lib.common.model.document.DocumentName
 import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentSegment
 import tech.kzen.lib.common.model.location.AttributeLocation
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectReference
@@ -47,6 +48,12 @@ object NotationReducer {
 
             is DeleteDocumentCommand ->
                 deleteDocument(graphNotation, structuralNotationCommand)
+
+            is CreateFolderCommand ->
+                createFolder(graphNotation, structuralNotationCommand)
+
+            is DeleteFolderCommand ->
+                deleteFolder(graphNotation, structuralNotationCommand)
 
             is CopyDocumentCommand ->
                 copyDocument(graphNotation, structuralNotationCommand)
@@ -149,6 +156,9 @@ object NotationReducer {
         state: GraphNotation,
         command: CreateDocumentCommand
     ): NotationTransition {
+        check(!command.documentPath.folder) {
+            "Cannot create a document at a folder path (use CreateFolderCommand): ${command.documentPath}"
+        }
         check(!state.documents.map.containsKey(command.documentPath)) {
             "Already exists: ${command.documentPath}"
         }
@@ -179,6 +189,60 @@ object NotationReducer {
         return NotationTransition(
                 DeletedDocumentEvent(command.documentPath),
                 nextState)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun createFolder(
+        state: GraphNotation,
+        command: CreateFolderCommand
+    ): NotationTransition {
+        check(command.documentPath.folder) {
+            "Not a folder path: ${command.documentPath}"
+        }
+        check(!state.documents.map.containsKey(command.documentPath)) {
+            "Already exists: ${command.documentPath}"
+        }
+
+        val nextState = state.withNewDocument(
+            command.documentPath, DocumentNotation.folder)
+
+        return NotationTransition(
+            CreatedFolderEvent(command.documentPath),
+            nextState)
+    }
+
+
+    private fun deleteFolder(
+        state: GraphNotation,
+        command: DeleteFolderCommand
+    ): NotationTransition {
+        check(command.documentPath.folder) {
+            "Not a folder path: ${command.documentPath}"
+        }
+
+        // Cascade: remove the folder entry (if any) plus every document/folder nested under its content nesting
+        // (folder "foo" at nesting N holds its contents at N + foo). NB: a folder that contains documents has no
+        // entry of its own — it's implied by its contents — so we match on contained paths, not the folder key.
+        val contentNesting = command.documentPath.nesting.plus(
+            DocumentSegment(command.documentPath.name.value))
+
+        val toRemove = state.documents.map.keys.filter { path ->
+            path == command.documentPath || path.nesting.startsWith(contentNesting)
+        }
+
+        check(toRemove.isNotEmpty()) {
+            "Empty or unknown folder: ${command.documentPath} - ${state.documents.map.keys}"
+        }
+
+        var nextState = state
+        for (path in toRemove) {
+            nextState = nextState.withoutDocument(path)
+        }
+
+        return NotationTransition(
+            DeletedFolderEvent(command.documentPath),
+            nextState)
     }
 
 

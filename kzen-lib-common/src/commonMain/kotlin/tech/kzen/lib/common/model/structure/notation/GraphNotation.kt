@@ -24,7 +24,7 @@ data class GraphNotation(
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         val empty = GraphNotation(DocumentPathMap(
-                mapOf<DocumentPath, DocumentNotation>().toPersistentMap()))
+            mapOf<DocumentPath, DocumentNotation>().toPersistentMap()))
     }
 
 
@@ -37,8 +37,8 @@ data class GraphNotation(
     val coalesce: ObjectLocationMap<ObjectNotation> by lazy {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
         documents.map.entries
-                .flatMap { it.value.expand(it.key).map.entries }
-                .forEach { buffer[it.key] = it.value }
+            .flatMap { it.value.expand(it.key).map.entries }
+            .forEach { buffer[it.key] = it.value }
         ObjectLocationMap(buffer.toPersistentMap())
     }
 
@@ -253,7 +253,7 @@ data class GraphNotation(
         attributeName: AttributeName
     ): AttributeNotation {
         return firstAttribute(
-                objectLocation, AttributePath.ofName(attributeName))
+            objectLocation, AttributePath.ofName(attributeName))
             ?: throw IllegalArgumentException("Unknown attribute: $objectLocation - $attributeName")
     }
 
@@ -304,7 +304,7 @@ data class GraphNotation(
         }
 
         return GraphNotation(
-                documents.put(documentPath, documentNotation))
+            documents.put(documentPath, documentNotation))
     }
 
 
@@ -316,7 +316,7 @@ data class GraphNotation(
             "Not found: $documentPath"
         }
         return GraphNotation(
-                documents.put(documentPath, documentNotation))
+            documents.put(documentPath, documentNotation))
     }
 
 
@@ -327,14 +327,14 @@ data class GraphNotation(
             "Already absent: $documentPath"
         }
         return GraphNotation(
-                documents.remove(documentPath))
+            documents.remove(documentPath))
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     fun filter(allowed: Set<DocumentNesting>): GraphNotation {
         return GraphNotation(
-                documents.filter(allowed))
+            documents.filter(allowed))
     }
 
 
