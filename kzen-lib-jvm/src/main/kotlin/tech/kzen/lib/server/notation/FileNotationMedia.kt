@@ -168,22 +168,6 @@ class FileNotationMedia(
 
         val locationTimes = mutableMapOf<DocumentPath, Instant>()
 
-        // Directories that contain a document (a .yaml file, or a directory-document) somewhere beneath them.
-        // Every other directory is a pure FOLDER — emitted so empty folders persist across restarts. A folder
-        // that contains documents is already implied by those documents' nesting, so we don't emit it.
-        val directoriesWithDocuments = mutableSetOf<Path>()
-
-        fun markAncestorsWithDocument(documentLocation: Path) {
-            var ancestor: Path? = documentLocation.parent
-            while (ancestor != null && ancestor.startsWith(root)) {
-                directoriesWithDocuments.add(ancestor)
-                if (ancestor == root) {
-                    break
-                }
-                ancestor = ancestor.parent
-            }
-        }
-
         Files.walkFileTree(root, object : SimpleFileVisitor<Path>() {
             override fun preVisitDirectory(dir: Path, attrs: BasicFileAttributes): FileVisitResult {
                 val possibleDirectoryDocument = dir.resolve(NotationConventions.directoryDocumentName)
@@ -196,8 +180,7 @@ class FileNotationMedia(
                     val documentPath = DocumentPath.parse(normalized)
                     locationTimes[documentPath] = attrs.lastModifiedTime().toInstant()
 
-                    // the directory-document counts as a document under its parent (but is itself a leaf)
-                    markAncestorsWithDocument(dir)
+                    // the directory-document is a leaf, not a folder; don't descend (so it never reaches postVisit)
                     return FileVisitResult.SKIP_SUBTREE
                 }
 
@@ -214,19 +197,24 @@ class FileNotationMedia(
 
                     val documentPath = DocumentPath.parse(normalized)
                     locationTimes[documentPath] = attrs.lastModifiedTime().toInstant()
-
-                    markAncestorsWithDocument(file)
                 }
 
                 return FileVisitResult.CONTINUE
             }
 
             override fun postVisitDirectory(dir: Path, exc: IOException?): FileVisitResult {
-                if (dir != root && dir !in directoriesWithDocuments) {
+                // every markerless directory is a pure FOLDER and gets its own entry (directory-documents are
+                // SKIP_SUBTREE'd above so they never reach here). One folder ⇔ one entry, regardless of contents.
+                if (dir != root) {
                     val relative = root.relativize(dir).toString().replace('\\', '/')
                     if (relative.isNotEmpty()) {
                         val folderPath = DocumentPath.parse("$relative/")
-                        locationTimes[folderPath] = Files.getLastModifiedTime(dir).toInstant()
+
+                        // exclude the top-level container (e.g. `main/` → empty nesting); only directories strictly
+                        // below it are user folders. Without this guard every project grows a spurious `main` folder.
+                        if (folderPath.nesting.segments.isNotEmpty()) {
+                            locationTimes[folderPath] = Files.getLastModifiedTime(dir).toInstant()
+                        }
                     }
                 }
 
@@ -427,28 +415,6 @@ class FileNotationMedia(
     }
 
 
-    override suspend fun deleteFolder(documentPath: DocumentPath) {
-        deleteFolderSynchronized(documentPath)
-    }
-
-
-    @Synchronized
-    private fun deleteFolderSynchronized(documentPath: DocumentPath) {
-        check(documentPath.folder) {
-            "Not a folder: $documentPath"
-        }
-
-        // tolerant: the folder directory may already be gone (e.g. it had a scan entry that was deleted in the
-        // per-document pass), or it contained documents and is only now empty
-        val path = notationLocator.locateExisting(documentPath)
-            ?: return
-
-        MoreFiles.deleteRecursively(path, RecursiveDeleteOption.ALLOW_INSECURE)
-
-        invalidateDocument(documentPath)
-    }
-
-
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         deleteDocumentSynchronized(documentPath)
     }
@@ -457,7 +423,15 @@ class FileNotationMedia(
     @Synchronized
     private fun deleteDocumentSynchronized(documentPath: DocumentPath) {
         val path = notationLocator.locateExisting(documentPath)
-            ?: throw IllegalArgumentException("Not found: $documentPath")
+            ?: if (documentPath.folder) {
+                // tolerant for folders: a deepest-first cascade may have already removed this directory as part of
+                // an ancestor's recursive delete. The goal state (dir absent) is reached — just drop the entry.
+                invalidateDocument(documentPath)
+                return
+            }
+            else {
+                throw IllegalArgumentException("Not found: $documentPath")
+            }
 
         when (documentPath.form) {
             // a folder IS the directory at `path`; its graph-tracked contents are deleted first (deepest-first

@@ -52,15 +52,8 @@ interface NotationMedia {
 
 
     /**
-     * Remove a folder directory and anything still in it. Tolerant of the folder being absent (it may already
-     * have been removed entry-by-entry, or never had an entry because it contained documents). Default no-op for
-     * media with no directory concept (e.g. the in-memory client seed, where entries are removed individually).
-     */
-    suspend fun deleteFolder(documentPath: DocumentPath) {}
-
-
-    /**
-     * Deletes document notation, and any associated resources
+     * Deletes document notation, and any associated resources. A folder is a directory with its own entry, so a
+     * folder delete also routes here (its now-empty directory is removed deepest-first by the graph store).
      */
     suspend fun deleteDocument(documentPath: DocumentPath)
 

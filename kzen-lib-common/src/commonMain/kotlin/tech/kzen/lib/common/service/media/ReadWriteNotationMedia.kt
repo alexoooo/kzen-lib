@@ -100,11 +100,6 @@ class ReadWriteNotationMedia(
     }
 
 
-    override suspend fun deleteFolder(documentPath: DocumentPath) {
-        writable.deleteFolder(documentPath)
-    }
-
-
     override suspend fun deleteDocument(documentPath: DocumentPath) {
         writable.deleteDocument(documentPath)
     }

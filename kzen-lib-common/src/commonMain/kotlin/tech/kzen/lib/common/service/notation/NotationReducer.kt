@@ -221,9 +221,10 @@ object NotationReducer {
             "Not a folder path: ${command.documentPath}"
         }
 
-        // Cascade: remove the folder entry (if any) plus every document/folder nested under its content nesting
-        // (folder "foo" at nesting N holds its contents at N + foo). NB: a folder that contains documents has no
-        // entry of its own — it's implied by its contents — so we match on contained paths, not the folder key.
+        // Cascade: remove the folder's own entry plus every document/folder nested under its content nesting
+        // (folder "foo" at nesting N holds its contents at N + foo). Every folder has its own entry, so removing
+        // the whole subtree here puts the folder directory itself into the store's removed set — the generic
+        // deepest-first delete loop then drops the directory with no folder-specific special-casing.
         val contentNesting = command.documentPath.nesting.plus(
             DocumentSegment(command.documentPath.name.value))
 

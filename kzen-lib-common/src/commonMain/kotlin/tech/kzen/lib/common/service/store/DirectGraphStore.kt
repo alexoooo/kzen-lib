@@ -209,17 +209,13 @@ class DirectGraphStore(
 
         val removedDocumentPaths = graphNotation.documents.map.keys
             .minus(newGraphNotation.documents.map.keys)
-            // deepest-first: a folder's contents are removed before the (now-empty) folder directory itself
+            // deepest-first: a folder's contents are removed before the (now-empty) folder directory itself.
+            // Every folder has its own scan/notation entry, so a DeleteFolderCommand's cascade puts the folder
+            // directory here too — the generic loop removes it; no special-casing needed.
             .sortedByDescending { it.nesting.segments.size }
 
         for (removed in removedDocumentPaths) {
             delete(removed)
-        }
-
-        if (command is DeleteFolderCommand) {
-            // a folder that contained documents has no scan entry of its own, so it isn't in removedDocumentPaths;
-            // remove its (now-empty) directory explicitly. Tolerant if already gone or on media without dirs.
-            notationMedia.deleteFolder(command.documentPath)
         }
 
         return transition.notationEvent

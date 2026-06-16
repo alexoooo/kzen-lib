@@ -2,7 +2,6 @@ package tech.kzen.lib.common.service.media
 
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
-import tech.kzen.lib.common.model.document.DocumentSegment
 import tech.kzen.lib.common.model.location.ResourceLocation
 import tech.kzen.lib.common.model.structure.resource.ResourceListing
 import tech.kzen.lib.common.model.structure.resource.ResourcePath
@@ -44,37 +43,22 @@ class SeededNotationMedia(
     private suspend fun scanImpl(): NotationScan {
         seedIfRequired()
 
-        // Mirror FileNotationMedia: a folder entry is only surfaced when its directory holds no documents
-        // (otherwise the folder is implied by its nested documents). The explicit entry stays in `data`, but
-        // suppressing it here keeps this client scan in agreement with the server's — so MirroredGraphStore
-        // doesn't see a phantom mismatch and refresh the folder away, and the folder resurfaces here as soon
-        // as its last document is deleted.
-        val documentNestings = data.keys
-            .filter { !it.folder }
-            .map { it.nesting }
-
+        // Emit an entry for every key, folders included — symmetric with FileNotationMedia, which now also emits
+        // one entry per directory. Matching scans keep MirroredGraphStore from seeing a phantom mismatch.
         val documents = mutableMapOf<DocumentPath, DocumentScan>()
 
         for (e in data) {
-            if (e.key.folder) {
-                val contentNesting = e.key.nesting.plus(DocumentSegment(e.key.name.value))
-                val hasNestedDocument = documentNestings.any { it.startsWith(contentNesting) }
-                if (hasNestedDocument) {
-                    continue
-                }
-            }
-
             val resources: ResourceListing? =
                 e.value.resources?.let {
                     ResourceListing(it.toPersistentMap())
                 }
 
             documents[e.key] = DocumentScan(
-                    Digest.ofUtf8(e.value.document), resources)
+                Digest.ofUtf8(e.value.document), resources)
         }
 
         return NotationScan(DocumentPathMap(
-                documents.toPersistentMap()))
+            documents.toPersistentMap()))
     }
 
 
@@ -112,18 +96,18 @@ class SeededNotationMedia(
         seedIfRequired()
 
         val sourceDocumentMedia = data[resourceLocation.documentPath]
-                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
         val sourceResources = sourceDocumentMedia.resources
-                ?: throw IllegalArgumentException("No resources: $resourceLocation")
+            ?: throw IllegalArgumentException("No resources: $resourceLocation")
 
         val sourceResourceDigest = sourceResources[resourceLocation.resourcePath]
-                ?: throw IllegalArgumentException("Resource not found: $resourceLocation")
+            ?: throw IllegalArgumentException("Resource not found: $resourceLocation")
 
         val destinationDocumentMedia = getOrInitDocumentMedia(destination.documentPath)
 
         val destinationResources = destinationDocumentMedia.resources
-                ?: throw IllegalArgumentException("No resources: $destination")
+            ?: throw IllegalArgumentException("No resources: $destination")
 
         destinationResources[destination.resourcePath] = sourceResourceDigest
     }
@@ -232,7 +216,7 @@ class SeededNotationMedia(
                 }
 
             data[e.key] = SeededDocumentMedia(
-                    document, resources)
+                document, resources)
         }
     }
 }
