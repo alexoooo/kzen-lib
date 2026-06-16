@@ -316,6 +316,28 @@ data class RenamedDocumentRefactorEvent(
 }
 
 
+// Emitted by both folder rename and folder move (see NotationReducer.relocateFolderRefactor). createdFolder
+// is the new folder path, removedFolder the old (cascade-removed) one; copiedDocuments / createdSubfolders
+// relocate the subtree, adjustedReferences rewrite references into it. The copiedDocuments MUST stay in
+// singularEvents — DirectGraphStore.writeModified discovers document/resource copies by filtering them out.
+data class RenamedFolderRefactorEvent(
+    val createdFolder: CreatedFolderEvent,
+    val createdSubfolders: List<CreatedFolderEvent>,
+    val copiedDocuments: List<CopiedDocumentEvent>,
+    val adjustedReferences: List<UpdatedInAttributeEvent>,
+    val removedFolder: DeletedFolderEvent
+): CompoundNotationEvent(
+    listOf(createdFolder) +
+            createdSubfolders +
+            copiedDocuments +
+            adjustedReferences +
+            listOf(removedFolder)
+) {
+    override val documentPath: DocumentPath
+        get() = removedFolder.documentPath
+}
+
+
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedResourceEvent(
     val resourceLocation: ResourceLocation,

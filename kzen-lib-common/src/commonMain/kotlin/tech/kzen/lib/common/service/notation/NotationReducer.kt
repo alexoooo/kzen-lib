@@ -5,7 +5,7 @@ import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.definition.ObjectDefinition
 import tech.kzen.lib.common.model.definition.ReferenceAttributeDefinition
-import tech.kzen.lib.common.model.document.DocumentName
+import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentSegment
 import tech.kzen.lib.common.model.location.AttributeLocation
@@ -145,8 +145,28 @@ object NotationReducer {
                     graphDefinitionAttempt, semanticNotationCommand.objectLocation, semanticNotationCommand.newName)
 
             is RenameDocumentRefactorCommand ->
-                renameDocumentRefactor(
-                    graphDefinitionAttempt, semanticNotationCommand.documentPath, semanticNotationCommand.newName)
+                relocateDocumentRefactor(
+                    graphDefinitionAttempt,
+                    semanticNotationCommand.documentPath,
+                    semanticNotationCommand.documentPath.withName(semanticNotationCommand.newName))
+
+            is MoveDocumentRefactorCommand ->
+                relocateDocumentRefactor(
+                    graphDefinitionAttempt,
+                    semanticNotationCommand.documentPath,
+                    semanticNotationCommand.documentPath.copy(nesting = semanticNotationCommand.newNesting))
+
+            is RenameFolderRefactorCommand ->
+                relocateFolderRefactor(
+                    graphDefinitionAttempt,
+                    semanticNotationCommand.documentPath,
+                    semanticNotationCommand.documentPath.withName(semanticNotationCommand.newName))
+
+            is MoveFolderRefactorCommand ->
+                relocateFolderRefactor(
+                    graphDefinitionAttempt,
+                    semanticNotationCommand.documentPath,
+                    semanticNotationCommand.documentPath.copy(nesting = semanticNotationCommand.newNesting))
         }
     }
 
@@ -1456,19 +1476,22 @@ object NotationReducer {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    private fun renameDocumentRefactor(
+    // Relocate a single document to a new path (rename = same nesting / new name; move = same name / new
+    // nesting). Copies old→new, deletes old, and rewrites references into the document's root objects.
+    private fun relocateDocumentRefactor(
         graphDefinitionAttempt: GraphDefinitionAttempt,
         documentPath: DocumentPath,
-        newName: DocumentName
+        newDocumentPath: DocumentPath
     ): NotationTransition {
         val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
         val documentNotation = graphNotation.documents.map[documentPath]
         require(documentNotation != null) {
             "documentPath missing: $documentPath - ${graphNotation.documents.map.keys}"
         }
+        require(newDocumentPath !in graphNotation.documents.map) {
+            "Destination already exists: $newDocumentPath"
+        }
         val buffer = StructuralBuffer(graphNotation)
-
-        val newDocumentPath = documentPath.withName(newName)
 
         val createdWithNewName = buffer
             .apply(CopyDocumentCommand(
@@ -1522,6 +1545,143 @@ object NotationReducer {
                 .map { buffer.apply(it) as UpdatedInAttributeEvent }
 
             allAdjustedReferenceEvents.addAll(adjustedReferenceEvents)
+        }
+
+        return allAdjustedReferenceEvents
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // Relocate a folder and its whole subtree (rename = same nesting / new name; move = same name / new
+    // nesting). Every nested document/folder is re-nested by swapping the old content-nesting prefix for the
+    // new one, and references into the moved objects are rewritten — including intra-subtree references
+    // between two moved documents (handled by adjusting at the referencing object's FINAL location, below).
+    private fun relocateFolderRefactor(
+        graphDefinitionAttempt: GraphDefinitionAttempt,
+        folderPath: DocumentPath,
+        newFolderPath: DocumentPath
+    ): NotationTransition {
+        val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+
+        check(folderPath.folder) { "Not a folder: $folderPath" }
+        check(newFolderPath.folder) { "Not a folder: $newFolderPath" }
+        require(folderPath in graphNotation.documents.map) {
+            "Folder missing: $folderPath - ${graphNotation.documents.map.keys}"
+        }
+        require(newFolderPath !in graphNotation.documents.map) {
+            "Destination already exists: $newFolderPath"
+        }
+
+        // "foo" at nesting N holds its contents at N + foo
+        val oldContentNesting = folderPath.nesting.plus(DocumentSegment(folderPath.name.value))
+        val newContentNesting = newFolderPath.nesting.plus(DocumentSegment(newFolderPath.name.value))
+
+        require(!newContentNesting.startsWith(oldContentNesting)) {
+            "Cannot move a folder into itself or a descendant: $folderPath -> $newFolderPath"
+        }
+
+        fun reNestPath(path: DocumentPath): DocumentPath {
+            if (path == folderPath) {
+                return newFolderPath
+            }
+            return path.copy(nesting = path.nesting.replacePrefix(oldContentNesting, newContentNesting))
+        }
+
+        // documents + nested folders strictly under the old content nesting
+        val descendants = graphNotation.documents.map.keys
+            .filter { it.nesting.startsWith(oldContentNesting) }
+        val descendantFolders = descendants.filter { it.folder }
+        val descendantDocuments = descendants.filter { !it.folder }
+
+        val buffer = StructuralBuffer(graphNotation)
+
+        // 1. create the new folder and its nested folders (empty folders persist this way too)
+        val createdFolder = buffer
+            .apply(CreateFolderCommand(newFolderPath)) as CreatedFolderEvent
+        val createdSubfolders = descendantFolders.map {
+            buffer.apply(CreateFolderCommand(reNestPath(it))) as CreatedFolderEvent
+        }
+
+        // 2. copy each descendant document to its new location (body byte-identical at this stage)
+        val copiedDocuments = descendantDocuments.map {
+            buffer.apply(CopyDocumentCommand(it, reNestPath(it))) as CopiedDocumentEvent
+        }
+
+        // 3. rewrite references into the moved objects, AT the referencing object's final location (so an
+        //    inside→inside reference lands on the just-made copy, which DirectGraphStore then persists)
+        val adjustedReferences = adjustReferencesForRelocatedFolder(
+            descendantDocuments, oldContentNesting, folderPath, ::reNestPath, graphDefinitionAttempt, buffer)
+
+        // 4. cascade-delete the old subtree (the folder's own entry + everything under its content nesting)
+        val removedFolder = buffer
+            .apply(DeleteFolderCommand(folderPath)) as DeletedFolderEvent
+
+        return NotationTransition(
+            RenamedFolderRefactorEvent(
+                createdFolder, createdSubfolders, copiedDocuments, adjustedReferences, removedFolder),
+            buffer.graphNotation)
+    }
+
+
+    private fun adjustReferencesForRelocatedFolder(
+        movedDocuments: List<DocumentPath>,
+        oldContentNesting: DocumentNesting,
+        oldFolderPath: DocumentPath,
+        reNestPath: (DocumentPath) -> DocumentPath,
+        graphDefinitionAttempt: GraphDefinitionAttempt,
+        buffer: StructuralBuffer
+    ): List<UpdatedInAttributeEvent> {
+        val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+
+        fun finalReferencingLocation(referencingObjectLocation: ObjectLocation): ObjectLocation {
+            val documentPath = referencingObjectLocation.documentPath
+            val insideSubtree = documentPath == oldFolderPath ||
+                    documentPath.nesting.startsWith(oldContentNesting)
+            return if (insideSubtree) {
+                referencingObjectLocation.copy(documentPath = reNestPath(documentPath))
+            }
+            else {
+                referencingObjectLocation
+            }
+        }
+
+        val allAdjustedReferenceEvents = mutableListOf<UpdatedInAttributeEvent>()
+
+        for (movedDocument in movedDocuments) {
+            // NB: only top-level (root) objects cross-document reference are currently supported
+            val rootObjectPaths = graphNotation.documents.map[movedDocument]!!
+                .objects
+                .notations
+                .map
+                .keys
+                .filter { it.nesting.isRoot() }
+
+            val newDocumentPath = reNestPath(movedDocument)
+
+            for (rootObjectPath in rootObjectPaths) {
+                val oldObjectLocation = ObjectLocation(movedDocument, rootObjectPath)
+                val newFullReference = ObjectLocation(newDocumentPath, rootObjectPath).toReference()
+
+                val referenceLocations = locateReferences(oldObjectLocation, graphDefinitionAttempt)
+                for (referenceLocation in referenceLocations) {
+                    val existingReference = existingReference(referenceLocation, graphDefinitionAttempt)
+                    val newReference = newFullReference.crop(existingReference.hasPath())
+                    if (existingReference == newReference) {
+                        continue
+                    }
+
+                    val finalObjectLocation = finalReferencingLocation(referenceLocation.objectLocation)
+                    val newReferenceNotation = ScalarAttributeNotation(newReference.asString())
+
+                    val event = buffer.apply(UpdateInAttributeCommand(
+                        finalObjectLocation,
+                        referenceLocation.attributePath,
+                        newReferenceNotation
+                    )) as UpdatedInAttributeEvent
+
+                    allAdjustedReferenceEvents.add(event)
+                }
+            }
         }
 
         return allAdjustedReferenceEvents

@@ -5,6 +5,7 @@ import tech.kzen.lib.common.model.attribute.AttributeNesting
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.attribute.AttributeSegment
 import tech.kzen.lib.common.model.document.DocumentName
+import tech.kzen.lib.common.model.document.DocumentNesting
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectReference
@@ -275,6 +276,30 @@ data class RenameObjectRefactorCommand(
 data class RenameDocumentRefactorCommand(
     val documentPath: DocumentPath,
     val newName: DocumentName
+): SemanticNotationCommand()
+
+
+// Rename a folder: re-nests the folder and its whole subtree, rewriting references into it (see
+// NotationReducer.relocateFolderRefactor). documentPath.form must be DocumentForm.Folder.
+data class RenameFolderRefactorCommand(
+    val documentPath: DocumentPath,
+    val newName: DocumentName
+): SemanticNotationCommand()
+
+
+// Move a document under a different parent folder (newNesting = destination folder's content nesting),
+// rewriting references into it (see NotationReducer.relocateDocumentRefactor).
+data class MoveDocumentRefactorCommand(
+    val documentPath: DocumentPath,
+    val newNesting: DocumentNesting
+): SemanticNotationCommand()
+
+
+// Move a folder (and its whole subtree) under a different parent folder (newNesting = destination folder's
+// content nesting), rewriting references into it (see NotationReducer.relocateFolderRefactor).
+data class MoveFolderRefactorCommand(
+    val documentPath: DocumentPath,
+    val newNesting: DocumentNesting
 ): SemanticNotationCommand()
 
 

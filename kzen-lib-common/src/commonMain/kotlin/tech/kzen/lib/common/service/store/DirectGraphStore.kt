@@ -251,6 +251,7 @@ class DirectGraphStore(
 
                 writeCopy(
                     oldGraphNotation,
+                    newGraphNotation,
                     copiedDocumentEvent,
                     oldDocumentScan?.documentDigest)
             }
@@ -270,6 +271,7 @@ class DirectGraphStore(
 
     private suspend fun writeCopy(
         oldGraphNotation: GraphNotation,
+        newGraphNotation: GraphNotation,
         copiedDocumentEvent: CopiedDocumentEvent,
         originalDocumentDigest: Digest?
     ) {
@@ -279,9 +281,23 @@ class DirectGraphStore(
         val sourceDocumentContents = notationMedia
                 .readDocument(sourceDocumentPath, originalDocumentDigest)
 
-        notationMedia.writeDocument(destinationDocumentPath, sourceDocumentContents)
-
         val sourceDocument = oldGraphNotation.documents[sourceDocumentPath]!!
+        val destinationDocument = newGraphNotation.documents[destinationDocumentPath]!!
+
+        // A folder relocation that rewrote intra-subtree references changes the copied body; persist the
+        // rewritten notation in that case (using the source body as the unparse template for a minimal diff).
+        // A pure copy/move keeps the byte-for-byte source so formatting/comments that parse→unparse would
+        // lose are preserved.
+        val destinationContents =
+            if (destinationDocument.objects == sourceDocument.objects) {
+                sourceDocumentContents
+            }
+            else {
+                notationParser.unparseDocument(destinationDocument.objects, sourceDocumentContents)
+            }
+
+        notationMedia.writeDocument(destinationDocumentPath, destinationContents)
+
         if (sourceDocument.resources != null) {
             for (resourcePath in sourceDocument.resources.digests.keys) {
                 notationMedia.copyResource(

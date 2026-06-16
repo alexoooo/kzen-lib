@@ -74,6 +74,16 @@ data class DocumentNesting(
     }
 
 
+    // Swap a leading prefix for another (used to re-nest a subtree when a folder is renamed or moved).
+    fun replacePrefix(oldPrefix: DocumentNesting, newPrefix: DocumentNesting): DocumentNesting {
+        check(startsWith(oldPrefix)) {
+            "Not prefixed by $oldPrefix: $this"
+        }
+        val tail = segments.subList(oldPrefix.segments.size, segments.size)
+        return DocumentNesting((newPrefix.segments + tail).toPersistentList())
+    }
+
+
     fun asString(): String {
         return segments.joinToString(NotationConventions.pathDelimiter) { it.value }
     }

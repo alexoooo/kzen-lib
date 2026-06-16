@@ -1,6 +1,8 @@
 package tech.kzen.lib.common.service.store.normal
 
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.document.DocumentSegment
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.structure.notation.cqrs.*
 import tech.kzen.lib.common.service.store.LocalGraphStore
@@ -100,6 +102,33 @@ class ObjectStableMapper: LocalGraphStore.Observer {
             for (oldLocation in affectedObjectLocations) {
                 val id = locationToId[oldLocation]!!
                 val newLocation = oldLocation.copy(documentPath = event.createdWithNewName.destination)
+
+                locationToId.remove(oldLocation)
+                locationToId[newLocation] = id
+                idToLocation[id] = newLocation
+            }
+            return true
+        }
+
+        if (event is RenamedFolderRefactorEvent) {
+            // A folder relocation re-nests its whole subtree; remap every tracked id under the old content
+            // nesting (otherwise the inner DeletedFolderEvent cascade would destroy the ids).
+            val oldFolderPath = event.removedFolder.documentPath
+            val newFolderPath = event.createdFolder.documentPath
+            val oldContentNesting = oldFolderPath.nesting.plus(DocumentSegment(oldFolderPath.name.value))
+            val newContentNesting = newFolderPath.nesting.plus(DocumentSegment(newFolderPath.name.value))
+
+            fun reNest(documentPath: DocumentPath): DocumentPath =
+                documentPath.copy(
+                    nesting = documentPath.nesting.replacePrefix(oldContentNesting, newContentNesting))
+
+            val affectedObjectLocations = locationToId
+                .keys
+                .filter { it.documentPath.nesting.startsWith(oldContentNesting) }
+
+            for (oldLocation in affectedObjectLocations) {
+                val id = locationToId[oldLocation]!!
+                val newLocation = oldLocation.copy(documentPath = reNest(oldLocation.documentPath))
 
                 locationToId.remove(oldLocation)
                 locationToId[newLocation] = id

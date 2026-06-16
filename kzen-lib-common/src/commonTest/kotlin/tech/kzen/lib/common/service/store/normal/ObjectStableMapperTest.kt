@@ -168,6 +168,39 @@ class ObjectStableMapperTest {
 
 
     @Test
+    fun `folder rename re-nests every registered location under it`() {
+        val mapper = ObjectStableMapper()
+        val inside1 = objectLocation("main/foo/a.yaml", "X")
+        val inside2 = objectLocation("main/foo/bar/b.yaml", "Y")
+        val outside = objectLocation("main/other.yaml", "Z")
+        val idIn1 = mapper.objectStableId(inside1)
+        val idIn2 = mapper.objectStableId(inside2)
+        val idOut = mapper.objectStableId(outside)
+
+        mapper.apply(renamedFolderRefactorEvent("main/foo/", "main/foo2/"))
+
+        assertEquals(objectLocation("main/foo2/a.yaml", "X"), mapper.objectLocation(idIn1))
+        assertEquals(objectLocation("main/foo2/bar/b.yaml", "Y"), mapper.objectLocation(idIn2))
+        assertEquals(outside, mapper.objectLocation(idOut))
+    }
+
+
+    @Test
+    fun `folder move re-nests its subtree under the destination`() {
+        val mapper = ObjectStableMapper()
+        val inside = objectLocation("main/foo/a.yaml", "X")
+        val id = mapper.objectStableId(inside)
+
+        // move main/foo/ under main/bar/ -> main/bar/foo/
+        mapper.apply(renamedFolderRefactorEvent("main/foo/", "main/bar/foo/"))
+
+        val after = objectLocation("main/bar/foo/a.yaml", "X")
+        assertEquals(after, mapper.objectLocation(id))
+        assertEquals(id, mapper.objectStableId(after))
+    }
+
+
+    @Test
     fun `rename of unregistered location is a no-op`() {
         val mapper = ObjectStableMapper()
         val registered = objectLocation("a.yaml", "Reg")
@@ -271,5 +304,16 @@ class ObjectStableMapperTest {
             CopiedDocumentEvent(fromPath, toPath),
             DeletedDocumentEvent(fromPath),
             listOf())
+    }
+
+
+    private fun renamedFolderRefactorEvent(from: String, to: String): RenamedFolderRefactorEvent {
+        // the mapper only consults the old/new folder paths; the copy/reference lists are irrelevant here
+        return RenamedFolderRefactorEvent(
+            CreatedFolderEvent(DocumentPath.parse(to)),
+            listOf(),
+            listOf(),
+            listOf(),
+            DeletedFolderEvent(DocumentPath.parse(from)))
     }
 }
