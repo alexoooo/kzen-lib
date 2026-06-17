@@ -5,6 +5,7 @@ import org.junit.Test
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.server.objects.autowire.NestedHolder
 import tech.kzen.lib.server.objects.autowire.ObjectGroup
 import tech.kzen.lib.server.objects.autowire.StrongHolder
 import tech.kzen.lib.server.objects.autowire.WeakHolder
@@ -21,8 +22,8 @@ class AutowiredTest {
         val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
         
         assertEquals(listOf(
-                location("AbstractFoo"),
-                location("AbstractBar")
+            location("AbstractFoo"),
+            location("AbstractBar")
         ), weakHolderInstance.locations)
     }
 
@@ -36,8 +37,8 @@ class AutowiredTest {
         val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
 
         assertEquals(listOf(
-                location("AbstractFoo"),
-                location("AbstractBar")
+            location("AbstractFoo"),
+            location("AbstractBar")
         ), weakHolderInstance.locations)
     }
 
@@ -67,9 +68,24 @@ class AutowiredTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Nested list by document position`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val nestedHolder = objectGraph[location("NestedHolder")]?.reference as NestedHolder
+
+        // Document order, not name order: 'Second' is declared before 'First' in the notation.
+        assertEquals(listOf(
+            location("NestedHolder.children/Second"),
+            location("NestedHolder.children/First")
+        ), nestedHolder.children)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private fun location(name: String): ObjectLocation {
         return ObjectLocation(
-                DocumentPath.parse("test/autowired.yaml"),
-                ObjectPath.parse(name))
+            DocumentPath.parse("test/autowired.yaml"),
+            ObjectPath.parse(name))
     }
 }

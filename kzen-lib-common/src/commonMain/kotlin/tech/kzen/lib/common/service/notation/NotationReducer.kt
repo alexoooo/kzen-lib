@@ -71,6 +71,9 @@ object NotationReducer {
             is ShiftObjectCommand ->
                 shiftObject(graphNotation, structuralNotationCommand)
 
+            is ShiftObjectTreeCommand ->
+                shiftObjectTree(graphNotation, structuralNotationCommand)
+
             is RenameObjectCommand ->
                 renameObject(graphNotation, structuralNotationCommand)
 
@@ -382,6 +385,44 @@ object NotationReducer {
 
         return NotationTransition(
                 ShiftedObjectEvent(command.objectLocation, newPositionInDocument),
+                nextState)
+    }
+
+
+    private fun shiftObjectTree(
+        state: GraphNotation,
+        command: ShiftObjectTreeCommand
+    ): NotationTransition {
+        check(command.objectLocation in state.coalesce.map)
+
+        val documentPath = command.objectLocation.documentPath
+        val documentNotation = state.documents.map[documentPath]!!
+        val rootObjectPath = command.objectLocation.objectPath
+
+        // The subtree: root + every descendant object, captured in current document order.
+        val subtree = documentNotation.objects.notations.map.entries
+            .filter { it.key == rootObjectPath || it.key.startsWith(rootObjectPath) }
+            .map { it.key to it.value }
+
+        var remaining = documentNotation
+        for ((objectPath, _) in subtree) {
+            remaining = remaining.withoutObject(objectPath)
+        }
+
+        val rootPositionInDocument = command.newPositionInDocument.resolve(
+            remaining.objects.notations.map.size)
+
+        var rebuilt = remaining
+        for ((index, entry) in subtree.withIndex()) {
+            rebuilt = rebuilt.withNewObject(
+                PositionedObjectPath(entry.first, PositionIndex(rootPositionInDocument.value + index)),
+                entry.second)
+        }
+
+        val nextState = state.withModifiedDocument(documentPath, rebuilt)
+
+        return NotationTransition(
+                ShiftedObjectTreeEvent(command.objectLocation, rootPositionInDocument),
                 nextState)
     }
 
@@ -1349,6 +1390,15 @@ object NotationReducer {
                         attributeReference.value.objectReference,
                         ObjectReferenceHost.ofLocation(hostObjectLocation),
                         graphDefinitionAttempt)) {
+                    continue
+                }
+
+                // Skip references that live in a derived/auto-wired attribute with no notation backing — e.g.
+                // the synthetic NestedList step lists (and Autowired / ParentChild). They re-compute from object
+                // structure after a rename/move, so there is nothing to rewrite; trying would throw in
+                // updateInAttribute (which guards on this same null merged attribute).
+                if (graphDefinitionAttempt.graphStructure.graphNotation.mergeAttribute(
+                        hostObjectLocation, attributeReference.key.attribute) == null) {
                     continue
                 }
 

@@ -108,6 +108,15 @@ data class ShiftObjectCommand(
 ): StructuralNotationCommand()
 
 
+// Moves an object together with its whole nested subtree (every descendant object) to a new document
+// position, keeping the subtree contiguous and preserving its internal order. newPositionInDocument is
+// resolved as an insertion index against the document with the subtree removed.
+data class ShiftObjectTreeCommand(
+    val objectLocation: ObjectLocation,
+    val newPositionInDocument: PositionRelation
+): StructuralNotationCommand()
+
+
 data class RenameObjectCommand(
     val objectLocation: ObjectLocation,
     val newName: ObjectName
@@ -120,24 +129,12 @@ data class RenameNestedObjectCommand(
 ): StructuralNotationCommand()
 
 
-//data class RelocateObjectCommand(
-//        val location: ObjectLocation,
-//        val newObjectPath: PositionedObjectPath
-//): StructuralNotationCommand()
-
-
 //---------------------------------------------------------------------------------------------------------------------
 data class UpsertAttributeCommand(
     val objectLocation: ObjectLocation,
     val attributeName: AttributeName,
     val attributeNotation: AttributeNotation
 ): StructuralNotationCommand()
-
-
-//data class ClearAttributeCommand(
-//        val objectLocation: ObjectLocation,
-//        val attributeName: AttributeName
-//): StructuralNotationCommand()
 
 
 data class UpdateInAttributeCommand(
@@ -301,12 +298,6 @@ data class MoveFolderRefactorCommand(
     val documentPath: DocumentPath,
     val newNesting: DocumentNesting
 ): SemanticNotationCommand()
-
-
-//data class MoveRefactorCommand(
-//        val objectLocation: ObjectLocation,
-//        val newName: ObjectName
-//): ProjectCommand()
 
 
 //---------------------------------------------------------------------------------------------------------------------

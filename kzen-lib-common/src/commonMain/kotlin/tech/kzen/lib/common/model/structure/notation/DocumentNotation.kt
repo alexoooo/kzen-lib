@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.model.structure.notation
 
+import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectLocationMap
@@ -93,6 +94,23 @@ data class DocumentNotation(
 
     fun indexOf(objectPath: ObjectPath): PositionIndex {
         return PositionIndex(objects.notations.map.keys.indexOf(objectPath))
+    }
+
+
+    // The objects nested directly under parentObjectPath at the given attribute, in document order.
+    // Membership and order are derived purely from object paths and insertion order — the same rule
+    // NestedListAttributeDefiner uses to auto-wire a parent's child-list attribute (e.g. Script steps).
+    // (startsWith already guarantees the segment at parentDepth names parentObjectPath.)
+    fun directNestedObjectPaths(
+        parentObjectPath: ObjectPath,
+        attributeName: AttributeName
+    ): List<ObjectPath> {
+        val parentDepth = parentObjectPath.nesting.segments.size
+        return objects.notations.map.keys.filter { childPath ->
+            childPath.startsWith(parentObjectPath) &&
+            childPath.nesting.segments.size == parentDepth + 1 &&
+            childPath.nesting.segments[parentDepth].attributePath.attribute == attributeName
+        }
     }
 
 

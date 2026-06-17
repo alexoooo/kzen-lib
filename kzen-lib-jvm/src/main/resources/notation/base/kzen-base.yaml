@@ -179,6 +179,10 @@ Nominal:
 #  meta:
 #    reference: Boolean
 
+# NB: 'NestedList' name referenced from step-list metadata (Script.steps, IfStep.then/else, MappingStep.steps)
+NestedList:
+  class: tech.kzen.lib.common.objects.general.NestedListAttributeDefiner
+
 #NominalReference:
 #  is: Nominal
 #  reference: true

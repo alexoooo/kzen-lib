@@ -89,3 +89,27 @@ ItemFoo:
 ItemBar:
   is: ObjectItem
   parent: ObjectGroup
+
+
+################################################################
+
+# NestedList auto-wires the objects nested under this object at the given attribute, in document order.
+# 'Second' is declared before 'First' on purpose, to prove the order is document position, not name.
+
+NestedHolder:
+  class: tech.kzen.lib.server.objects.autowire.NestedHolder
+  meta:
+    children:
+      is: List
+      of: ObjectLocation
+      by: NestedList
+
+NestedHolder.children/Second:
+  is: NestedChild
+
+NestedHolder.children/First:
+  is: NestedChild
+
+NestedChild:
+  abstract: true
+  class: tech.kzen.lib.server.objects.autowire.NestedChild

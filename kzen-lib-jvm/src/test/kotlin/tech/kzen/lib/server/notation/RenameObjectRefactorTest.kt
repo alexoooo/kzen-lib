@@ -29,9 +29,9 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("main.addends/OldName"), ObjectName("NewName")))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("main.addends/OldName"), ObjectName("NewName")))
 
         val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
@@ -39,8 +39,8 @@ class RenameObjectRefactorTest {
         assertEquals(2, documentNotation.indexOf(ObjectPath.parse("main.addends/SameName")).value)
 
         assertEquals("main.addends/NewName",
-                transition.graphNotation.getString(location("main"),
-                        AttributePath.parse("addends.0")))
+            transition.graphNotation.getString(location("main"),
+                AttributePath.parse("addends.0")))
     }
 
 
@@ -54,9 +54,9 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("main.addends/OldName"), weirdName))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("main.addends/OldName"), weirdName))
 
         val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
@@ -67,8 +67,8 @@ class RenameObjectRefactorTest {
         assertEquals(1, documentNotation.indexOf(weirdPath).value)
 
         assertEquals(weirdPath.asString(),
-                transition.graphNotation.getString(
-                        location("main"), AttributePath.parse("addends.0")))
+            transition.graphNotation.getString(
+                location("main"), AttributePath.parse("addends.0")))
     }
 
 
@@ -78,9 +78,9 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("main"), ObjectName("foo")))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("main"), ObjectName("foo")))
 
         val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
@@ -88,8 +88,8 @@ class RenameObjectRefactorTest {
         assertEquals(2, documentNotation.indexOf(ObjectPath.parse("foo.addends/SameName")).value)
 
         assertEquals("foo.addends/OldName",
-                transition.graphNotation.getString(location("foo"),
-                        AttributePath.parse("addends.0")))
+            transition.graphNotation.getString(location("foo"),
+                AttributePath.parse("addends.0")))
     }
 
 
@@ -100,21 +100,21 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("main.addends/OldName"), ObjectName("NewName")))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("main.addends/OldName"), ObjectName("NewName")))
 
         val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         val partialDivisionDividend =
-                documentNotation.objects.notations[ObjectPath.parse("PartialDivisionDividend")]!!
+            documentNotation.objects.notations[ObjectPath.parse("PartialDivisionDividend")]!!
 
         val dividendDependency = partialDivisionDividend.get(AttributeName("dividend"))?.asString()!!
 
         assertEquals("main.addends/NewName", dividendDependency)
 
         val partialDivisionDivisor =
-                documentNotation.objects.notations[ObjectPath.parse("PartialDivisionDivisor")]!!
+            documentNotation.objects.notations[ObjectPath.parse("PartialDivisionDivisor")]!!
 
         val divisorDependency = partialDivisionDivisor.get(AttributeName("divisor"))?.asString()!!
 
@@ -128,31 +128,31 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("DivideOperation"), ObjectName("RenamedDivideOperation")))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("DivideOperation"), ObjectName("RenamedDivideOperation")))
 
         assertEquals("RenamedDivideOperation",
-                transition.graphNotation.getString(
-                        location("CompleteDivision"), AttributePath.parse("is")))
+            transition.graphNotation.getString(
+                location("CompleteDivision"), AttributePath.parse("is")))
 
         assertEquals("RenamedDivideOperation",
-                transition.graphNotation.getString(
-                        location("PartialDivisionDividend"), AttributePath.parse("is")))
+            transition.graphNotation.getString(
+                location("PartialDivisionDividend"), AttributePath.parse("is")))
 
         assertEquals("RenamedDivideOperation",
-                transition.graphNotation.getString(
-                        location("PartialDivisionDivisor"), AttributePath.parse("is")))
+            transition.graphNotation.getString(
+                location("PartialDivisionDivisor"), AttributePath.parse("is")))
 
         assertEquals("RenamedDivideOperation",
-                transition.graphNotation.getString(
-                        location("MetaIsHolder"),
-                        AttributePath.parse("meta.embeddedDivider.is")))
+            transition.graphNotation.getString(
+                location("MetaIsHolder"),
+                AttributePath.parse("meta.embeddedDivider.is")))
 
         assertEquals("RenamedDivideOperation",
-                transition.graphNotation.getString(
-                        location("MetaIsHolder"),
-                        AttributePath.parse("meta.scalarDivider")))
+            transition.graphNotation.getString(
+                location("MetaIsHolder"),
+                AttributePath.parse("meta.scalarDivider")))
     }
 
 
@@ -162,14 +162,14 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("DivideOperation"), ObjectName("RenamedDivideOperation")))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("DivideOperation"), ObjectName("RenamedDivideOperation")))
 
         // NB: the renamed parent is the first element of the multiple-inheritance 'is' list
         assertEquals("RenamedDivideOperation",
-                transition.graphNotation.getString(
-                        location("MultipleInheritanceChild"), AttributePath.parse("is.0")))
+            transition.graphNotation.getString(
+                location("MultipleInheritanceChild"), AttributePath.parse("is.0")))
     }
 
 
@@ -179,14 +179,14 @@ class RenameObjectRefactorTest {
         val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
 
         val transition = reducer.applySemantic(
-                graphDefinitionAttempt,
-                RenameObjectRefactorCommand(
-                        location("PartialDivisionDividend"), ObjectName("NewName")))
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                location("PartialDivisionDividend"), ObjectName("NewName")))
 
         val documentNotation = transition.graphNotation.documents.map[testPath]!!
 
         val divisionOfPartial =
-                documentNotation.objects.notations[ObjectPath.parse("DivisionOfPartial")]!!
+            documentNotation.objects.notations[ObjectPath.parse("DivisionOfPartial")]!!
 
         val dividendDependency = divisionOfPartial.get(AttributeName("dividend"))?.asString()!!
 
@@ -195,9 +195,34 @@ class RenameObjectRefactorTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Rename object referenced only by a synthetic nested list should not fail`() {
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
+
+        val autowiredPath = DocumentPath.parse("test/autowired.yaml")
+
+        // 'Second' is nested under NestedHolder.children, which is an auto-wired NestedList with no notation
+        // backing. Before the fix the refactor tried to rewrite that synthetic list reference and threw
+        // "Not found: NestedHolder - children"; now it is skipped (the list re-derives from object paths).
+        val transition = reducer.applySemantic(
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                ObjectLocation(autowiredPath, ObjectPath.parse("NestedHolder.children/Second")),
+                ObjectName("Renamed")))
+
+        val documentNotation = transition.graphNotation.documents.map[autowiredPath]!!
+        assertEquals(false, documentNotation.objects.notations.map
+            .containsKey(ObjectPath.parse("NestedHolder.children/Second")))
+        assertEquals(true, documentNotation.objects.notations.map
+            .containsKey(ObjectPath.parse("NestedHolder.children/Renamed")))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private fun location(objectPath: String): ObjectLocation {
         return ObjectLocation(
-                testPath,
-                ObjectPath.parse(objectPath))
+            testPath,
+            ObjectPath.parse(objectPath))
     }
 }

@@ -95,6 +95,17 @@ data class ShiftedObjectEvent(
 }
 
 
+// NB: the subtree's repositioned descendants are reflected in the resulting GraphNotation, not enumerated here
+// (newPositionInDocument is the resolved insertion index of the subtree root).
+data class ShiftedObjectTreeEvent(
+    val objectLocation: ObjectLocation,
+    val newPositionInDocument: PositionIndex
+): SingularNotationEvent() {
+    override val documentPath
+        get() = objectLocation.documentPath
+}
+
+
 data class RenamedObjectEvent(
     val objectLocation: ObjectLocation,
     val newName: ObjectName
