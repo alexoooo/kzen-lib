@@ -1,17 +1,15 @@
 package tech.kzen.lib.common.exec.logic.trace.model
 
-import tech.kzen.lib.common.exec.ExecutionValue
-
-// {LogicTracePath -> value}?
+// {LogicTracePath -> LogicTraceEntry}?
 data class LogicTraceSnapshot(
-    val values: Map<LogicTracePath, ExecutionValue>
+    val values: Map<LogicTracePath, LogicTraceEntry>
 ) {
     companion object {
         fun ofCollection(
             collection: Map<String, Map<String, Any>>
         ): LogicTraceSnapshot {
             val values = collection
-                .map { LogicTracePath.parse(it.key) to ExecutionValue.fromJsonCollection(it.value) }
+                .map { LogicTracePath.parse(it.key) to LogicTraceEntry.ofCollection(it.value) }
                 .toMap()
 
             return LogicTraceSnapshot(values)
@@ -21,7 +19,7 @@ data class LogicTraceSnapshot(
 
     fun asCollection(): Map<String, Map<String, Any>> {
         return values
-            .map { it.key.asString() to it.value.toJsonCollection() }
+            .map { it.key.asString() to it.value.toCollection() }
             .toMap()
     }
 

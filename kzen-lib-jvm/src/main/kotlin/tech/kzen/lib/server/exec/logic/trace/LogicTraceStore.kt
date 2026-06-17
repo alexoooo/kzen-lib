@@ -5,6 +5,8 @@ import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionId
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunId
 import tech.kzen.lib.common.exec.logic.trace.LogicTrace
 import tech.kzen.lib.common.exec.logic.trace.LogicTraceHandle
+import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceEntry
+import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceEvent
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTracePath
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceQuery
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceSnapshot
@@ -13,6 +15,8 @@ import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import tech.kzen.lib.common.service.store.normal.ObjectStableMapper
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Clock
 
 
 class LogicTraceStore(
@@ -26,8 +30,16 @@ class LogicTraceStore(
     )
 
 
-    private class TraceBuffer {
-        val values = ConcurrentHashMap<LogicTracePath, ExecutionValue>()
+    private class TraceBuffer(
+        // The execution's root object (the originalObjectLocation it was opened for), so history
+        // events can be attributed to / labelled by their sub-logic without re-deriving it.
+        val rootStableId: ObjectStableId
+    ) {
+        val values = ConcurrentHashMap<LogicTracePath, LogicTraceEntry>()
+
+        // Append-only history; NOT cleared by clearAll, so loop iterations accumulate.
+        val events = CopyOnWriteArrayList<LogicTraceEvent>()
+
         val callbacks = CopyOnWriteArrayList<(LogicTraceQuery) -> Unit>()
     }
 
@@ -38,6 +50,11 @@ class LogicTraceStore(
     // The run-scope entry point is keyed by its stable id (not its current ObjectLocation) so the
     // "most recent run" / "Reset" association survives a rename of the script's root document.
     private val stableIdHistory = ConcurrentHashMap<ObjectStableId, LogicRunExecutionId>()
+
+    // Stamp every write at the single choke point: wall-clock for the human-facing "when", and a
+    // process-global monotonic sequence for a total order across all buffers (the run-merge tiebreaker).
+    private val clock = Clock.System
+    private val sequence = AtomicLong(0L)
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -56,7 +73,18 @@ class LogicTraceStore(
             }
 
             override fun set(logicTracePath: LogicTracePath, executionValue: ExecutionValue) {
-                buffer.values[logicTracePath] = executionValue
+                buffer.values[logicTracePath] = LogicTraceEntry(
+                    executionValue, clock.now(), sequence.incrementAndGet())
+            }
+
+            override fun append(objectStableId: ObjectStableId, value: ExecutionValue) {
+                buffer.events.add(LogicTraceEvent(
+                    runExecutionId.logicExecutionId,
+                    buffer.rootStableId,
+                    objectStableId,
+                    sequence.incrementAndGet(),
+                    clock.now(),
+                    value))
             }
 
             override fun clearAll(prefix: LogicTracePath) {
@@ -83,7 +111,7 @@ class LogicTraceStore(
         stableIdHistory[stableId] = runExecutionId
 
         val runExecution = RunExecution(runExecutionId)
-        return history.getOrPut(runExecution) { TraceBuffer() }
+        return history.getOrPut(runExecution) { TraceBuffer(stableId) }
     }
 
 
@@ -157,7 +185,7 @@ class LogicTraceStore(
 
         buffer.callbacks.forEach { it(logicTraceQuery) }
 
-        val retainedValues = mutableMapOf<LogicTracePath, ExecutionValue>()
+        val retainedValues = mutableMapOf<LogicTracePath, LogicTraceEntry>()
         for ((storedPath, value) in buffer.values) {
             val retainedPath = retainStoredPath(storedPath)
                 ?: continue
@@ -167,6 +195,56 @@ class LogicTraceStore(
         }
 
         return LogicTraceSnapshot(retainedValues)
+    }
+
+
+    // Whole-run view: a RunStep's sub-script runs under a fresh LogicExecutionId but the parent's
+    // LogicRunId, so its frames live in a separate buffer. Merge every buffer of the run into one
+    // snapshot; on a path collision (a sub-script invoked more than once) keep the latest write.
+    override fun lookupRun(
+        logicRunId: LogicRunId,
+        logicTraceQuery: LogicTraceQuery
+    ):
+        LogicTraceSnapshot?
+    {
+        val buffers = history
+            .filterKeys { it.runExecutionId.logicRunId == logicRunId }
+            .values
+        if (buffers.isEmpty()) {
+            return null
+        }
+
+        val merged = mutableMapOf<LogicTracePath, LogicTraceEntry>()
+        for (buffer in buffers) {
+            buffer.callbacks.forEach { it(logicTraceQuery) }
+
+            for ((storedPath, entry) in buffer.values) {
+                val retainedPath = retainStoredPath(storedPath)
+                    ?: continue
+                if (!logicTraceQuery.match(retainedPath)) {
+                    continue
+                }
+                val existing = merged[retainedPath]
+                if (existing == null || entry.sequence > existing.sequence) {
+                    merged[retainedPath] = entry
+                }
+            }
+        }
+
+        return LogicTraceSnapshot(merged)
+    }
+
+
+    override fun lookupRunHistory(
+        logicRunId: LogicRunId,
+        sinceSequence: Long
+    ): List<LogicTraceEvent> {
+        return history
+            .filterKeys { it.runExecutionId.logicRunId == logicRunId }
+            .values
+            .flatMap { it.events }
+            .filter { it.sequence > sinceSequence }
+            .sortedBy { it.sequence }
     }
 
 

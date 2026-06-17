@@ -248,15 +248,15 @@ sealed class ExecutionValue
 
     private fun isJsonPrimitive(): Boolean {
         return this is TextExecutionValue ||
-                this is BooleanExecutionValue ||
-                this is NumberExecutionValue && value.isFinite()
+            this is BooleanExecutionValue ||
+            this is NumberExecutionValue && value.isFinite()
     }
 
 
     private fun isJsonPrimitiveCollection(): Boolean {
         return isJsonPrimitive() ||
-                this is ListExecutionValue && values.all { it.isJsonPrimitiveCollection() } ||
-                this is MapExecutionValue && values.all { it.value.isJsonPrimitiveCollection() }
+            this is ListExecutionValue && values.all { it.isJsonPrimitiveCollection() } ||
+            this is MapExecutionValue && values.all { it.value.isJsonPrimitiveCollection() }
     }
 
 
@@ -274,8 +274,8 @@ sealed class ExecutionValue
 
     private fun typedValue(type: String, value: Any): Map<String, Any> {
         return mapOf(
-                typeKey to type,
-                valueKey to value)
+            typeKey to type,
+            valueKey to value)
     }
 
 
