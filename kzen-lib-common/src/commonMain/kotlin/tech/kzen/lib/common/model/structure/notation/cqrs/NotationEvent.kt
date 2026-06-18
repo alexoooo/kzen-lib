@@ -314,6 +314,21 @@ data class NestedObjectRename(
 }
 
 
+// Re-parent of an object subtree into a different branch + reposition (see
+// NotationReducer.relocateObjectTreeRefactor). nestedObjectRenames re-nest the root and every descendant
+// (each a RenamedNestedObjectEvent so ObjectStableMapper remaps the stable id) and rewrite references into
+// the subtree; shiftedObjectTree repositions the re-nested subtree.
+data class RelocatedObjectTreeRefactorEvent(
+    val nestedObjectRenames: List<NestedObjectRename>,
+    val shiftedObjectTree: ShiftedObjectTreeEvent
+): CompoundNotationEvent(
+    nestedObjectRenames.flatMap { it.singularEvents() } + shiftedObjectTree
+) {
+    override val documentPath: DocumentPath
+        get() = shiftedObjectTree.documentPath
+}
+
+
 data class RenamedDocumentRefactorEvent(
     val createdWithNewName: CopiedDocumentEvent,
     val removedUnderOldName: DeletedDocumentEvent,

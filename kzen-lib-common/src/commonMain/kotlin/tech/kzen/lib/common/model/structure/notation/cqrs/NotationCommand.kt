@@ -300,6 +300,18 @@ data class MoveFolderRefactorCommand(
 ): SemanticNotationCommand()
 
 
+// Re-parent an object together with its whole nested subtree (every descendant object) into a different
+// containing branch (newObjectNesting = the root's nesting in the destination branch) and reposition it.
+// Re-nests root + descendants (prefix-rewrite), rewrites references into the subtree, and shifts the
+// contiguous subtree to newPositionInDocument (resolved against the document with the subtree removed).
+// Rejects re-parenting into the subtree's own descendants (see NotationReducer.relocateObjectTreeRefactor).
+data class RelocateObjectTreeRefactorCommand(
+    val objectLocation: ObjectLocation,
+    val newObjectNesting: ObjectNesting,
+    val newPositionInDocument: PositionRelation
+): SemanticNotationCommand()
+
+
 //---------------------------------------------------------------------------------------------------------------------
 data class AddResourceCommand(
     val resourceLocation: ResourceLocation,

@@ -170,6 +170,13 @@ object NotationReducer {
                     graphDefinitionAttempt,
                     semanticNotationCommand.documentPath,
                     semanticNotationCommand.documentPath.copy(nesting = semanticNotationCommand.newNesting))
+
+            is RelocateObjectTreeRefactorCommand ->
+                relocateObjectTreeRefactor(
+                    graphDefinitionAttempt,
+                    semanticNotationCommand.objectLocation,
+                    semanticNotationCommand.newObjectNesting,
+                    semanticNotationCommand.newPositionInDocument)
         }
     }
 
@@ -1236,6 +1243,69 @@ object NotationReducer {
                 renamedObject,
                 adjustedReferenceEvents,
                 nestedObjects),
+            buffer.graphNotation)
+    }
+
+
+    private fun relocateObjectTreeRefactor(
+        graphDefinitionAttempt: GraphDefinitionAttempt,
+        objectLocation: ObjectLocation,
+        newObjectNesting: ObjectNesting,
+        newPositionInDocument: PositionRelation
+    ): NotationTransition {
+        val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+        check(objectLocation in graphNotation.coalesce.map)
+
+        val documentPath = objectLocation.documentPath
+        val oldRootPath = objectLocation.objectPath
+        val newRootPath = oldRootPath.copy(nesting = newObjectNesting)
+
+        // Reject re-parenting an object into its own subtree (e.g. an If into its own Then branch);
+        // startsWith catches any descendant destination, the equality check the no-op case.
+        require(newRootPath != oldRootPath && ! newRootPath.startsWith(oldRootPath)) {
+            "Cannot relocate an object into its own subtree: $oldRootPath -> $newRootPath"
+        }
+
+        val oldNestingSize = oldRootPath.nesting.segments.size
+
+        // Root + every descendant, in current document order.
+        val subtreePaths = graphNotation
+            .documents[documentPath]!!
+            .objects
+            .notations
+            .map
+            .keys
+            .filter { it == oldRootPath || it.startsWith(oldRootPath) }
+            .toList()
+
+        val buffer = StructuralBuffer(graphNotation)
+
+        // Re-nest each subtree object by swapping its old root-nesting prefix for the new one (segments past
+        // the prefix reference the root + inner containers by name, which are unchanged). Reuses the refactor
+        // helper, so references into each object are rewritten as it moves. Re-nesting one object never moves
+        // another's path, so each old location is still present when its command runs (same invariant as
+        // renameObjectRefactor).
+        val nestedObjectRenames = subtreePaths.map { path ->
+            val newNesting = ObjectNesting(
+                (newObjectNesting.segments +
+                    path.nesting.segments.subList(oldNestingSize, path.nesting.segments.size)
+                ).toPersistentList())
+
+            nestedRenameObjectRefactor(
+                ObjectLocation(documentPath, path),
+                newNesting,
+                buffer,
+                graphDefinitionAttempt)
+        }
+
+        // Reposition the now-re-nested subtree as a contiguous block (resolved against the doc minus subtree).
+        val shiftedObjectTree = buffer
+            .apply(ShiftObjectTreeCommand(
+                ObjectLocation(documentPath, newRootPath), newPositionInDocument))
+            as ShiftedObjectTreeEvent
+
+        return NotationTransition(
+            RelocatedObjectTreeRefactorEvent(nestedObjectRenames, shiftedObjectTree),
             buffer.graphNotation)
     }
 
