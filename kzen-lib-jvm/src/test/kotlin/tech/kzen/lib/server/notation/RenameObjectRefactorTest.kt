@@ -93,6 +93,33 @@ class RenameObjectRefactorTest {
     }
 
 
+    @Test
+    fun `Rename container should preserve grandchild nesting`() {
+        val nestedPath = DocumentPath.parse("test/refactor-nested-test.yaml")
+
+        val notationTree = JvmGraphTestUtils.readNotation()
+        val graphDefinitionAttempt = JvmGraphTestUtils.graphDefinition(notationTree)
+
+        val transition = reducer.applySemantic(
+            graphDefinitionAttempt,
+            RenameObjectRefactorCommand(
+                ObjectLocation(nestedPath, ObjectPath.parse("main.children/Outer")),
+                ObjectName("Renamed")))
+
+        val documentNotation = transition.graphNotation.documents.map[nestedPath]!!
+        val objectPaths = documentNotation.objects.notations.map.keys
+
+        // The middle child renames, and crucially the grandchild keeps its full nesting under it — before the
+        // fix the Middle segment was dropped, re-parenting Leaf directly under Renamed.
+        assertEquals(true, objectPaths.contains(
+            ObjectPath.parse("main.children/Renamed.children/Middle")))
+        assertEquals(true, objectPaths.contains(
+            ObjectPath.parse("main.children/Renamed.children/Middle.children/Leaf")))
+        assertEquals(false, objectPaths.contains(
+            ObjectPath.parse("main.children/Renamed.children/Leaf")))
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun `Rename should update references in partial object`() {

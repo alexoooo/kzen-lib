@@ -1,0 +1,29 @@
+# Deeply-nested fixture for the rename-refactor grandchild-nesting regression. The children are auto-wired
+# NestedList entries (no explicit references between them — exactly like Script steps / then / else), so
+# renaming the container `main.children/Outer` must keep Leaf nested under Middle
+# (Renamed.children/Middle.children/Leaf), not drop the Middle segment and re-parent Leaf under Renamed.
+
+Holder:
+  abstract: true
+  class: tech.kzen.lib.server.objects.autowire.NestedHolder
+  meta:
+    children:
+      is: List
+      of: ObjectLocation
+      by: NestedList
+
+
+main:
+  is: Holder
+
+
+"main.children/Outer":
+  is: Holder
+
+
+"main.children/Outer.children/Middle":
+  is: Holder
+
+
+"main.children/Outer.children/Middle.children/Leaf":
+  is: NestedChild

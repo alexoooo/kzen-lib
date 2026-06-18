@@ -1256,7 +1256,10 @@ object NotationReducer {
         val renamedSegment = ObjectNestingSegment(
             newName, containingSegment.attributePath)
 
-        val suffix = segments.subList(prefix.size + 2, segments.size)
+        // The containing segment sits at index prefix.size; everything after it (the descendant's own deeper
+        // nesting) must be preserved verbatim. Starting the suffix at prefix.size + 2 dropped the segment at
+        // prefix.size + 1, re-parenting grandchildren up to the renamed container's branch.
+        val suffix = segments.subList(prefix.size + 1, segments.size)
 
         return nestedObjectPath.copy(
             nesting = ObjectNesting((
