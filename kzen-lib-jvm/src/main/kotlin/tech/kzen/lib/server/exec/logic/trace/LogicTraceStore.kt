@@ -176,9 +176,32 @@ class LogicTraceStore(
     }
 
 
+    override fun tracedLocations(): Set<ObjectLocation> {
+        val result = mutableSetOf<ObjectLocation>()
+        for (stableId in stableIdHistory.keys) {
+            val location =
+                try {
+                    objectStableMapper.objectLocation(stableId)
+                }
+                catch (_: IllegalArgumentException) {
+                    // Document was deleted since the run — its trace can't be addressed; skip it.
+                    continue
+                }
+            result.add(location)
+        }
+        return result
+    }
+
+
     override fun clear(objectLocation: ObjectLocation): Boolean {
         val stableId = objectStableMapper.objectStableId(objectLocation)
         return stableIdHistory.remove(stableId) != null
+    }
+
+
+    override fun clearAll() {
+        history.clear()
+        stableIdHistory.clear()
     }
 
 

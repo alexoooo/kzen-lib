@@ -45,4 +45,15 @@ interface LogicController
         runId: LogicRunId,
         snapshotGraphDefinitionAttempt: GraphDefinitionAttempt? = null
     ): LogicRunResponse
+
+
+    /**
+     * Like [step], but runs any sub-document (RunStep child logic) entered on this tick to completion
+     * instead of descending into it — pausing at the next step of the current frame. Default delegates
+     * to [step] so controllers that don't support step-over degrade to a normal step.
+     */
+    fun stepOver(
+        runId: LogicRunId,
+        snapshotGraphDefinitionAttempt: GraphDefinitionAttempt? = null
+    ): LogicRunResponse = step(runId, snapshotGraphDefinitionAttempt)
 }

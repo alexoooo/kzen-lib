@@ -14,9 +14,18 @@ interface LogicTrace {
     ): LogicRunExecutionId?
 
 
+    // Every document that currently holds a retained trace (each run root plus every RunStep sub-logic
+    // root), resolved to its current ObjectLocation; ids that no longer resolve (deleted) are omitted.
+    fun tracedLocations(): Set<ObjectLocation>
+
+
     fun clear(
         objectLocation: ObjectLocation
     ): Boolean
+
+
+    // Drop every retained trace across all runs (the global "Clear all" — run controls are global).
+    fun clearAll()
 
 
     fun lookup(
