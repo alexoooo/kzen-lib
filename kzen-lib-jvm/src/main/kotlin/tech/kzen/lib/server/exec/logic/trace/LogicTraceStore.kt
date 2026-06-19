@@ -105,8 +105,18 @@ class LogicTraceStore(
     ): TraceBuffer {
         val stableId = objectStableMapper.objectStableId(objectLocation)
         val previous = stableIdHistory[stableId]
-        if (previous != null && previous.logicRunId != runExecutionId.logicRunId) {
-            evict(previous.logicRunId)
+        if (previous != null && previous != runExecutionId) {
+            if (previous.logicRunId != runExecutionId.logicRunId) {
+                evict(previous.logicRunId)
+            }
+            else {
+                // Same run, same logic re-opened under a new execution id — i.e. a sub-logic invoked
+                // again (a loop iteration / a RunStep re-run). Drop the previous invocation's live
+                // per-path values so the whole-run merge (lookupRun) shows this invocation starting
+                // fresh instead of the prior iteration's finished state. Its append-only events are
+                // kept — the retained film-strip history must survive across loop iterations.
+                history[RunExecution(previous)]?.values?.clear()
+            }
         }
         stableIdHistory[stableId] = runExecutionId
 
