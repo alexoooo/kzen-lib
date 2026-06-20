@@ -39,6 +39,14 @@ class MutableLogicControl(
     @Volatile
     private var stepOver: Boolean = false
 
+    // Current frame depth (root = 0), maintained by every frame boundary via enterFrame/exitFrame.
+    private val frameDepth = AtomicInteger(0)
+
+    // Target depth for an active Step Out (-1 = inactive): frames at depth >= this run free until the
+    // stepped-out frame completes and control returns to a shallower caller (see inStepOutRegion).
+    @Volatile
+    private var stepOutTargetDepth: Int = -1
+
 
     //-----------------------------------------------------------------------------------------------------------------
     fun commandCancel(): Boolean {
@@ -58,10 +66,21 @@ class MutableLogicControl(
 
 
     // Grant the per-tick stepping budget (1 for a normal Step / Step Over). Also (re)sets the
-    // step-over mode for the tick. Called by the controller before submitting the execution.
+    // step-over mode for the tick and clears any prior Step Out. Called by the controller before
+    // submitting the execution.
     fun grantStepBudget(count: Int, stepOver: Boolean = false) {
         stepBudget.set(count)
         this.stepOver = stepOver
+        this.stepOutTargetDepth = -1
+    }
+
+
+    // Arm a Step Out for this tick: no fresh-step budget and no step-over, but frames at depth >=
+    // targetDepth run free (see inStepOutRegion). Called by the controller before submitting.
+    fun grantStepOut(targetDepth: Int) {
+        stepBudget.set(0)
+        this.stepOver = false
+        this.stepOutTargetDepth = targetDepth
     }
 
 
@@ -124,6 +143,22 @@ class MutableLogicControl(
 
     override fun popSuppressPause() {
         suppressPauseDepth.decrementAndGet()
+    }
+
+
+    override fun enterFrame() {
+        frameDepth.incrementAndGet()
+    }
+
+
+    override fun exitFrame() {
+        frameDepth.decrementAndGet()
+    }
+
+
+    override fun inStepOutRegion(): Boolean {
+        val target = stepOutTargetDepth
+        return target in 0..frameDepth.get()
     }
 
 

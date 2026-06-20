@@ -50,4 +50,23 @@ interface LogicControl {
     // Enter/leave a run-free region (see [suppressPause]); nestable. No-ops by default.
     fun pushSuppressPause() {}
     fun popSuppressPause() {}
+
+
+    /**
+     * Enter/leave a sub-logic frame, maintaining the current frame depth (root = 0). Called by every
+     * frame boundary (a Script's RunStep, a Flow's Run-Logic vertex) around the child execution. Used by
+     * Step Out (see [inStepOutRegion]). No-ops by default.
+     */
+    fun enterFrame() {}
+    fun exitFrame() {}
+
+
+    /**
+     * True when a Step Out is active and the currently-executing frame is at or below the frame the user
+     * stepped out of (i.e. its depth >= the step-out target depth). A fresh step in such a frame runs
+     * regardless of the Pause command, so the target frame and its descendants run to completion; once
+     * control returns to a shallower (caller) frame this is false again and it pauses at the next step.
+     * False by default.
+     */
+    fun inStepOutRegion(): Boolean = false
 }

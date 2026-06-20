@@ -56,4 +56,16 @@ interface LogicController
         runId: LogicRunId,
         snapshotGraphDefinitionAttempt: GraphDefinitionAttempt? = null
     ): LogicRunResponse = step(runId, snapshotGraphDefinitionAttempt)
+
+
+    /**
+     * Runs the deepest currently-paused frame (and its descendants) to completion, then pauses at the
+     * caller's next step — or, if the deepest frame is the run root, runs the whole logic to the end
+     * ("run to end of current document" / step out). Default delegates to [step] so controllers that
+     * don't support step-out degrade to a normal step.
+     */
+    fun stepOut(
+        runId: LogicRunId,
+        snapshotGraphDefinitionAttempt: GraphDefinitionAttempt? = null
+    ): LogicRunResponse = step(runId, snapshotGraphDefinitionAttempt)
 }
