@@ -5,11 +5,7 @@ import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionId
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunId
 import tech.kzen.lib.common.exec.logic.trace.LogicTrace
 import tech.kzen.lib.common.exec.logic.trace.LogicTraceHandle
-import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceEntry
-import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceEvent
-import tech.kzen.lib.common.exec.logic.trace.model.LogicTracePath
-import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceQuery
-import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceSnapshot
+import tech.kzen.lib.common.exec.logic.trace.model.*
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import tech.kzen.lib.common.service.store.normal.ObjectStableMapper

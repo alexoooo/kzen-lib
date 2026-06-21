@@ -10,6 +10,7 @@ class DoubleValue(
 ): DoubleExpression {
     init {
         // NB: used to add an import that starts with this class name to test codegen
+        @Suppress("UNUSED_EXPRESSION")
         DoubleValueSuffix
     }
 

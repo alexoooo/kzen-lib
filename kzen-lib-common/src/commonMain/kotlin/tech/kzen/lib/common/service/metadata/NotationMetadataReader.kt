@@ -426,7 +426,7 @@ class NotationMetadataReader(
                     val nested = readAttributeType(parameter, host, graphNotation)
                     builder.add(nested)
                 }
-                return builder
+                builder
             }
         }
     }

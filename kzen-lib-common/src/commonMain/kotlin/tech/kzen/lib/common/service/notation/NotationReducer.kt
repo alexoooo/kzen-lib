@@ -30,7 +30,7 @@ object NotationReducer {
         fun apply(
             structuralNotationCommand: StructuralNotationCommand
         ): NotationEvent {
-            val transition = NotationReducer.applyStructural(graphNotation, structuralNotationCommand)
+            val transition = applyStructural(graphNotation, structuralNotationCommand)
             graphNotation = transition.graphNotation
             return transition.notationEvent
         }
@@ -779,8 +779,7 @@ object NotationReducer {
                 }
             }
             else {
-                val mapInAttribute = containingAttribute
-                val mapWithInsert = mapInAttribute.insert(
+                val mapWithInsert = containingAttribute.insert(
                     command.value, command.mapKey, indexInMap)
 
                 objectNotation.upsertAttribute(
