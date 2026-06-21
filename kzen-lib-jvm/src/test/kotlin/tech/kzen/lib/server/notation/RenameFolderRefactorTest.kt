@@ -29,7 +29,7 @@ class RenameFolderRefactorTest {
     private val insideB = DocumentPath.parse("test/relocate/inside-b.yaml")
     private val outside = DocumentPath.parse("test/relocate-outside.yaml")
 
-    private val reducer = NotationReducer
+    private val reducer = NotationReducer()
 
 
     //-----------------------------------------------------------------------------------------------------------------

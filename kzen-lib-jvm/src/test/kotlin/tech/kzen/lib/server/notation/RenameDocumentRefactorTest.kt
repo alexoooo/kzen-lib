@@ -13,7 +13,7 @@ class RenameDocumentRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val testPath = DocumentPath.parse("test/refactor-test.yaml")
     private val newName = DocumentName("new-name")
-    private val reducer = NotationReducer
+    private val reducer = NotationReducer()
 
 
     //-----------------------------------------------------------------------------------------------------------------

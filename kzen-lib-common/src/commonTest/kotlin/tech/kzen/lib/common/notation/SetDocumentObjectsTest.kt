@@ -36,7 +36,7 @@ Foo:
   hello: "foo"
 """)
 
-        val transition = NotationReducer.applyStructural(
+        val transition = NotationReducer().applyStructural(
             notation,
             SetDocumentObjectsCommand(testPath, replacement))
 
@@ -66,7 +66,7 @@ MyHelper:
   class: java.lang.String
 """)
 
-        val transition = NotationReducer.applyStructural(
+        val transition = NotationReducer().applyStructural(
             notation,
             SetDocumentObjectsCommand(testPath, replacement))
 
@@ -101,7 +101,7 @@ B:
   hello: "b"
 """)
 
-        val transition = NotationReducer.applyStructural(
+        val transition = NotationReducer().applyStructural(
             notation,
             SetDocumentObjectsCommand(testPath, replacement))
 
@@ -126,7 +126,7 @@ Foo:
 """)
 
         assertFailsWith<IllegalStateException> {
-            NotationReducer.applyStructural(
+            NotationReducer().applyStructural(
                 notation,
                 SetDocumentObjectsCommand(DocumentPath.parse("missing.yaml"), replacement))
         }

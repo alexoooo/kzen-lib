@@ -22,9 +22,13 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
-object NotationReducer {
+class NotationReducer(
+    // Domain-specific rewriters for object references embedded in free-form code attributes (e.g. kzen-auto's
+    // Formula expressions). Consulted on object rename; empty by default so plain notation use needs no wiring.
+    private val codeReferenceRewriters: List<CodeReferenceRewriter> = listOf()
+) {
     //-----------------------------------------------------------------------------------------------------------------
-    private class StructuralBuffer(
+    private inner class StructuralBuffer(
         var graphNotation: GraphNotation
     ) {
         fun apply(
@@ -1229,7 +1233,13 @@ object NotationReducer {
         val adjustedReferenceCommands = adjustReferenceCommands(
             objectLocation, newObjectLocation, graphDefinitionAttempt)
 
-        val adjustedReferenceEvents = adjustedReferenceCommands
+        // Embedded code references (e.g. a Formula naming this step by its variable identifier) are rewritten in
+        // place by the injected domain rewriters and applied within this same refactor — see CodeReferenceRewriter.
+        val codeReferenceCommands = codeReferenceRewriters.flatMap {
+            it.renameObjectReferences(objectLocation, newObjectLocation, graphDefinitionAttempt)
+        }
+
+        val adjustedReferenceEvents = (adjustedReferenceCommands + codeReferenceCommands)
             .map { buffer.apply(it) as UpdatedInAttributeEvent }
             .toList()
 

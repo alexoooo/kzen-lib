@@ -17,7 +17,7 @@ abstract class NotationAggregateTest {
     //-----------------------------------------------------------------------------------------------------------------
     val yamlParser = YamlNotationParser()
     val testPath = DocumentPath.parse("test.yaml")
-    val reducer = NotationReducer
+    val reducer = NotationReducer()
 
 
     //-----------------------------------------------------------------------------------------------------------------

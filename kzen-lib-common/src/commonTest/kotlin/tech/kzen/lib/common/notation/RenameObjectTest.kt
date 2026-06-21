@@ -22,7 +22,7 @@ C:
   hello: "C"
 """)
 
-        val reducer = NotationReducer
+        val reducer = NotationReducer()
 
         val transition = reducer.applyStructural(
                 notation,
@@ -51,7 +51,7 @@ C:
   hello: "C"
 """)
 
-        val reducer = NotationReducer
+        val reducer = NotationReducer()
 
         val newName = ObjectName("/")
 

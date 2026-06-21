@@ -36,7 +36,7 @@ class RepositoryTest {
         val media = MapNotationMedia()
 
         val repo = DirectGraphStore(
-                media, yamlParser, metadataReader, GraphDefiner, NotationReducer)
+                media, yamlParser, metadataReader, GraphDefiner, NotationReducer())
 
         runBlocking {
             media.writeDocument(mainPath, """
@@ -71,7 +71,7 @@ B:
         val media = MapNotationMedia()
 
         val repo = DirectGraphStore(
-                media, yamlParser, metadataReader, GraphDefiner, NotationReducer)
+                media, yamlParser, metadataReader, GraphDefiner, NotationReducer())
 
         runBlocking {
             media.writeDocument(mainPath, """
@@ -97,7 +97,7 @@ A:
         val media = MapNotationMedia()
 
         val repo = DirectGraphStore(
-                media, yamlParser, metadataReader, GraphDefiner, NotationReducer)
+                media, yamlParser, metadataReader, GraphDefiner, NotationReducer())
 
         runBlocking {
             media.writeDocument(mainPath, """

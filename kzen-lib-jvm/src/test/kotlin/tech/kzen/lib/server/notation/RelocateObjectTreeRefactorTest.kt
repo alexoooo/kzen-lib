@@ -18,7 +18,7 @@ import kotlin.test.assertFailsWith
 class RelocateObjectTreeRefactorTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val nestedPath = DocumentPath.parse("test/refactor-nested-test.yaml")
-    private val reducer = NotationReducer
+    private val reducer = NotationReducer()
 
 
     //-----------------------------------------------------------------------------------------------------------------
