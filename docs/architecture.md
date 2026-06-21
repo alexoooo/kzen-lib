@@ -56,7 +56,7 @@ Services involved (all under `service/`):
 All mutations to the notation layer go through commands and emit events. State is never edited in place.
 
 ```
-NotationCommand   →   NotationReducer.applyStructural()   →   NotationEvent   →   LocalGraphStore.Observer
+NotationCommand   →   notationReducer.applyStructural()   →   NotationEvent   →   LocalGraphStore.Observer
    (intent)              (validation + apply)                   (fact)              (subscribers)
 ```
 
@@ -64,7 +64,7 @@ Key types in `model/structure/notation/cqrs/`:
 
 - `NotationCommand` (sealed) — `StructuralNotationCommand` (create/rename/delete documents, objects, attributes) and `SemanticNotationCommand` (attribute value changes).
 - `NotationEvent` — immutable record of what changed; downstream consumers rebuild derived state from this stream.
-- `NotationReducer` (`service/notation/NotationReducer.kt`) — the only place commands are applied; produces the event.
+- `NotationReducer` (`service/notation/NotationReducer.kt`) — the only place commands are applied; produces the event. A class (not a singleton `object`): it is constructed with a list of `CodeReferenceRewriter`s, so a refactor such as a rename can also emit downstream adjustments — e.g. kzen-auto rewriting the Kotlin expressions that reference a renamed step — bundled into the same event.
 
 Why this matters:
 
@@ -181,7 +181,7 @@ service/
   context/   — GraphDefiner, GraphCreator
   media/     — NotationMedia (I/O)
   metadata/  — NotationMetadataReader
-  notation/  — NotationReducer, NotationConventions
+  notation/  — NotationReducer, NotationConventions, CodeReferenceRewriter (refactor hook)
   parse/     — NotationParser
   store/     — LocalGraphStore, DirectGraphStore, RemoteGraphStore; normal/ObjectStableMapper
 util/        — collections, digests, misc
