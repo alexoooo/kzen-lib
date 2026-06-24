@@ -7,6 +7,10 @@ package tech.kzen.lib.common.util.yaml
  * Parsing is a single forward scan that builds a line index (indent + content offsets) over the
  * source `CharSequence`, then a recursive descent that walks the index by position without slicing.
  * Scalar lexing is hand-rolled char-by-char — no regex on the parse path.
+ *
+ * TODO: handle \ in bare string to align with real yaml
+ * TODO: add support for |- for more ergonomic multi-line strings (e.g. code snippets)
+ * TODO: explicitly model comments, for them to ebe a first class citizen of the notation
  */
 object YamlParser {
     //-----------------------------------------------------------------------------------------------------------------
