@@ -9,43 +9,43 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 
+/**
+ * The stepping model is two per-spine primitives plus the run command:
+ *
+ * - [stepBudget] — granted per Step tick, consumed by the first fresh boundary reached ([consumeStepBudget]).
+ * - [depthLimit] — a fresh boundary DEEPER than this runs free ([runningFreeByDepth]); together with the
+ *   budget this expresses Step Into ([arm] budget 1, limit MAX), Step Over (budget 1, limit = stepped depth)
+ *   and Step Out (budget 0, limit = caller depth). A plain pause is budget 0, limit MAX.
+ *
+ * All step state is per-control: a Script / Flow run uses one control across its frame tree, while a Job
+ * gives each concurrently-hosted child its own control, so concurrent spines never corrupt one another's
+ * [frameDepth] / budget. Only the run COMMAND is shared — a child control delegates [pollCommand] to its
+ * host via [commandSource], so a pause / cancel reaches every child instantly with no broadcast race.
+ */
 class MutableLogicControl(
-//    private val arguments: TupleValue
-    private val pauseOnError: Boolean = false
+    private val pauseOnError: Boolean = false,
+
+    // When set, [pollCommand] delegates here instead of reading this control's own [command]: a Job child
+    // control sources the run command from the shared host control while keeping its own step state.
+    private val commandSource: (() -> LogicCommand)? = null
 ):
     LogicControl,
     AutoCloseable
 {
     //-----------------------------------------------------------------------------------------------------------------
-//    private class RequestPromise(
-//        val request: ExecutionRequest,
-//        val promise: CompletableFuture<ExecutionResult>
-//    )
-
-
-    //-----------------------------------------------------------------------------------------------------------------
     private val command = AtomicReference(LogicCommand.None)
-//    private val requests = ConcurrentLinkedDeque<RequestPromise>()
     private val requestSubscriber = AtomicReference<(ExecutionRequest) -> ExecutionResult>()
 
-    // Stepping budget shared across the frame tree (this single control spans the root + every
-    // sub-logic). Granted per Step/Step-Over tick, consumed by the first fresh step reached.
+    // Stepping budget for this spine. Granted per Step tick, consumed by the first fresh boundary reached.
     private val stepBudget = AtomicInteger(0)
-
-    // Nesting depth of run-free regions (Step Over runs a sub-document's child to completion).
-    private val suppressPauseDepth = AtomicInteger(0)
-
-    // True for the duration of a single Step-Over tick.
-    @Volatile
-    private var stepOver: Boolean = false
 
     // Current frame depth (root = 0), maintained by every frame boundary via enterFrame/exitFrame.
     private val frameDepth = AtomicInteger(0)
 
-    // Target depth for an active Step Out (-1 = inactive): frames at depth >= this run free until the
-    // stepped-out frame completes and control returns to a shallower caller (see inStepOutRegion).
+    // A fresh boundary deeper than this runs free regardless of pause/budget (MAX = unbounded). Set per
+    // Step tick: MAX for plain pause / Step Into, the stepped depth for Step Over, caller depth for Step Out.
     @Volatile
-    private var stepOutTargetDepth: Int = -1
+    private var depthLimit: Int = Int.MAX_VALUE
 
 
     //-----------------------------------------------------------------------------------------------------------------
@@ -65,22 +65,14 @@ class MutableLogicControl(
     }
 
 
-    // Grant the per-tick stepping budget (1 for a normal Step / Step Over). Also (re)sets the
-    // step-over mode for the tick and clears any prior Step Out. Called by the controller before
-    // submitting the execution.
-    fun grantStepBudget(count: Int, stepOver: Boolean = false) {
-        stepBudget.set(count)
-        this.stepOver = stepOver
-        this.stepOutTargetDepth = -1
-    }
-
-
-    // Arm a Step Out for this tick: no fresh-step budget and no step-over, but frames at depth >=
-    // targetDepth run free (see inStepOutRegion). Called by the controller before submitting.
-    fun grantStepOut(targetDepth: Int) {
-        stepBudget.set(0)
-        this.stepOver = false
-        this.stepOutTargetDepth = targetDepth
+    // Arm this spine for the next tick: a budget (0 or 1) of fresh boundaries to run, and a depth limit
+    // beyond which boundaries run free. Called by the controller before submitting the execution:
+    //   resume / pause -> arm(0)        step into -> arm(1)
+    //   step over -> arm(1, steppedDepth)        step out -> arm(0, callerDepth)
+    // The Job host arms each child with arm(1) per wavefront (descend one boundary into each child).
+    fun arm(budget: Int, depthLimit: Int = Int.MAX_VALUE) {
+        stepBudget.set(budget)
+        this.depthLimit = depthLimit
     }
 
 
@@ -98,13 +90,14 @@ class MutableLogicControl(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    override fun arguments(): TupleValue {
-//        return arguments
-//    }
-
-
     override fun pollCommand(): LogicCommand {
-        return command.get()
+        // A locally-set Cancel always wins (so cancelAll can abort a child whose host control is NOT cancelled —
+        // a migrate / deadlock teardown); otherwise a child delegates the run command to its host.
+        val own = command.get()
+        if (own == LogicCommand.Cancel || commandSource == null) {
+            return own
+        }
+        return commandSource.invoke()
     }
 
 
@@ -126,23 +119,8 @@ class MutableLogicControl(
     }
 
 
-    override fun suppressPause(): Boolean {
-        return suppressPauseDepth.get() > 0
-    }
-
-
-    override fun stepOverActive(): Boolean {
-        return stepOver
-    }
-
-
-    override fun pushSuppressPause() {
-        suppressPauseDepth.incrementAndGet()
-    }
-
-
-    override fun popSuppressPause() {
-        suppressPauseDepth.decrementAndGet()
+    override fun runningFreeByDepth(): Boolean {
+        return frameDepth.get() > depthLimit
     }
 
 
@@ -156,12 +134,6 @@ class MutableLogicControl(
     }
 
 
-    override fun inStepOutRegion(): Boolean {
-        val target = stepOutTargetDepth
-        return target in 0..frameDepth.get()
-    }
-
-
     override fun subscribeRequest(subscriber: (ExecutionRequest) -> ExecutionResult) {
         val wasSet = requestSubscriber.compareAndSet(null, subscriber)
         check(wasSet) { "Already subscribed" }
@@ -170,11 +142,5 @@ class MutableLogicControl(
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun close() {
-//        while (true) {
-//            val next = requests.poll()
-//                ?: return
-//
-//            next.promise.cancel(true)
-//        }
     }
 }
