@@ -23,11 +23,16 @@ import java.util.concurrent.atomic.AtomicReference
  * host via [commandSource], so a pause / cancel reaches every child instantly with no broadcast race.
  */
 class MutableLogicControl(
-    private val pauseOnError: Boolean = false,
+    pauseOnError: Boolean = false,
 
     // When set, [pollCommand] delegates here instead of reading this control's own [command]: a Job child
     // control sources the run command from the shared host control while keeping its own step state.
-    private val commandSource: (() -> LogicCommand)? = null
+    private val commandSource: (() -> LogicCommand)? = null,
+
+    // When set, [pauseOnError] delegates here instead of reading this control's own [pauseOnErrorFlag]: a Job
+    // child control sources the (live-togglable) pause-on-error setting from the shared host control, so a
+    // mid-run toggle reaches every concurrent child without copying the flag into each one.
+    private val pauseOnErrorSource: (() -> Boolean)? = null
 ):
     LogicControl,
     AutoCloseable
@@ -35,6 +40,12 @@ class MutableLogicControl(
     //-----------------------------------------------------------------------------------------------------------------
     private val command = AtomicReference(LogicCommand.None)
     private val requestSubscriber = AtomicReference<(ExecutionRequest) -> ExecutionResult>()
+
+    // Run-level pause-on-error, now live-togglable mid-run (set from the controller / REST thread while
+    // [pauseOnError] is read on the execution thread, hence @Volatile). A Job child control instead delegates
+    // to [pauseOnErrorSource] and never reads this field.
+    @Volatile
+    private var pauseOnErrorFlag: Boolean = pauseOnError
 
     // Stepping budget for this spine. Granted per Step tick, consumed by the first fresh boundary reached.
     private val stepBudget = AtomicInteger(0)
@@ -101,8 +112,13 @@ class MutableLogicControl(
     }
 
 
+    fun setPauseOnError(value: Boolean) {
+        pauseOnErrorFlag = value
+    }
+
+
     override fun pauseOnError(): Boolean {
-        return pauseOnError
+        return pauseOnErrorSource?.invoke() ?: pauseOnErrorFlag
     }
 
 
