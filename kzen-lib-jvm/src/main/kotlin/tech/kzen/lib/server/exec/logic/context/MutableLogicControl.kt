@@ -124,6 +124,16 @@ class MutableLogicControl(
     }
 
 
+    override fun armedStepBudget(): Int {
+        return stepBudget.get()
+    }
+
+
+    override fun armedDepthLimit(): Int {
+        return depthLimit
+    }
+
+
     override fun enterFrame() {
         frameDepth.incrementAndGet()
     }

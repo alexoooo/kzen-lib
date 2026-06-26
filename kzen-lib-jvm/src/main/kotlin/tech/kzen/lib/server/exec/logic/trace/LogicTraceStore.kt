@@ -282,4 +282,15 @@ class LogicTraceStore(
         history.keys.removeAll { it.runExecutionId.logicRunId == logicRunId }
         stableIdHistory.entries.removeAll { it.value.logicRunId == logicRunId }
     }
+
+
+    // Reclaim a single execution's buffer when its frame closes. A nested Logic invocation (e.g. a Job
+    // RunWorker's per-element child) is one frame with its OWN execution id; evicting on close bounds a
+    // streaming run to its LIVE frames instead of leaking one buffer per element, and makes a re-entry a
+    // brand-new (empty) buffer. Only this run-execution is touched — sibling / parallel invocations of the
+    // same logic keep their own buffers.
+    fun evict(runExecutionId: LogicRunExecutionId) {
+        history.remove(RunExecution(runExecutionId))
+        stableIdHistory.entries.removeAll { it.value == runExecutionId }
+    }
 }

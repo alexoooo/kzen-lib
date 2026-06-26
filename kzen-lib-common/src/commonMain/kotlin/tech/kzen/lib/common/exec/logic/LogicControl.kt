@@ -51,4 +51,20 @@ interface LogicControl {
      */
     fun enterFrame() {}
     fun exitFrame() {}
+
+
+    /**
+     * The step budget currently armed for the next tick (the value [consumeStepBudget] will draw from), read
+     * by a Job host to mirror the controller's step plan onto each confined child control — so Step Over /
+     * Step Out cross the Job boundary, not just Step Into. Returns 0 by default (no step armed).
+     */
+    fun armedStepBudget(): Int = 0
+
+
+    /**
+     * The depth limit currently armed for the next tick (the bound [runningFreeByDepth] compares against),
+     * read alongside [armedStepBudget] by a Job host to propagate the step plan to its children. Returns
+     * unbounded ([Int.MAX_VALUE]) by default (no depth-bounded step armed).
+     */
+    fun armedDepthLimit(): Int = Int.MAX_VALUE
 }
