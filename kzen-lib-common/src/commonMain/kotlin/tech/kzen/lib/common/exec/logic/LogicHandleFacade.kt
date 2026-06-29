@@ -9,8 +9,9 @@ class LogicHandleFacade(
     private val logicHandle: LogicHandle
 ) {
     fun start(
-        originalObjectLocation: ObjectLocation
+        originalObjectLocation: ObjectLocation,
+        callerLocation: ObjectLocation?
     ): LogicExecutionFacade {
-        return logicHandle.start(logicRunExecutionId, originalObjectLocation)
+        return logicHandle.start(logicRunExecutionId, originalObjectLocation, callerLocation)
     }
 }

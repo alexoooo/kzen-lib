@@ -1,7 +1,9 @@
 package tech.kzen.lib.server.exec.logic.trace
 
 import tech.kzen.lib.common.exec.ExecutionValue
+import tech.kzen.lib.common.exec.logic.run.model.LogicExecutionId
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionId
+import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionInfo
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunId
 import tech.kzen.lib.common.exec.logic.trace.LogicTrace
 import tech.kzen.lib.common.exec.logic.trace.LogicTraceHandle
@@ -29,7 +31,14 @@ class LogicTraceStore(
     private class TraceBuffer(
         // The execution's root object (the originalObjectLocation it was opened for), so history
         // events can be attributed to / labelled by their sub-logic without re-deriving it.
-        val rootStableId: ObjectStableId
+        val rootStableId: ObjectStableId,
+
+        // The execution tree linkage: the execution that launched this one, and the call-site object
+        // (Run step / worker / vertex) that launched it. Both null for a run's root execution. Set once
+        // at buffer creation (per-execution constants); exposed via lookupRunExecutions so the client
+        // can scope a Run step's view to the executions that step actually spawned.
+        val parentExecutionId: LogicExecutionId?,
+        val callerStableId: ObjectStableId?
     ) {
         val values = ConcurrentHashMap<LogicTracePath, LogicTraceEntry>()
 
@@ -56,9 +65,12 @@ class LogicTraceStore(
     //-----------------------------------------------------------------------------------------------------------------
     fun handle(
         runExecutionId: LogicRunExecutionId,
-        objectLocation: ObjectLocation
+        objectLocation: ObjectLocation,
+        parentExecutionId: LogicExecutionId?,
+        callerLocation: ObjectLocation?
     ): LogicTraceHandle {
-        val buffer = getOrCreateBuffer(runExecutionId, objectLocation)
+        val callerStableId = callerLocation?.let { objectStableMapper.objectStableId(it) }
+        val buffer = getOrCreateBuffer(runExecutionId, objectLocation, parentExecutionId, callerStableId)
 
         return object: LogicTraceHandle {
             override fun register(callback: (LogicTraceQuery) -> Unit): AutoCloseable {
@@ -97,7 +109,9 @@ class LogicTraceStore(
 
     private fun getOrCreateBuffer(
         runExecutionId: LogicRunExecutionId,
-        objectLocation: ObjectLocation
+        objectLocation: ObjectLocation,
+        parentExecutionId: LogicExecutionId?,
+        callerStableId: ObjectStableId?
     ): TraceBuffer {
         val stableId = objectStableMapper.objectStableId(objectLocation)
         val previous = stableIdHistory[stableId]
@@ -117,7 +131,7 @@ class LogicTraceStore(
         stableIdHistory[stableId] = runExecutionId
 
         val runExecution = RunExecution(runExecutionId)
-        return history.getOrPut(runExecution) { TraceBuffer(stableId) }
+        return history.getOrPut(runExecution) { TraceBuffer(stableId, parentExecutionId, callerStableId) }
     }
 
 
@@ -274,6 +288,20 @@ class LogicTraceStore(
             .flatMap { it.events }
             .filter { it.sequence > sinceSequence }
             .sortedBy { it.sequence }
+    }
+
+
+    override fun lookupRunExecutions(
+        logicRunId: LogicRunId
+    ): List<LogicRunExecutionInfo> {
+        return history
+            .filterKeys { it.runExecutionId.logicRunId == logicRunId }
+            .map { (runExecution, buffer) ->
+                LogicRunExecutionInfo(
+                    runExecution.runExecutionId.logicExecutionId,
+                    buffer.parentExecutionId,
+                    buffer.callerStableId)
+            }
     }
 
 

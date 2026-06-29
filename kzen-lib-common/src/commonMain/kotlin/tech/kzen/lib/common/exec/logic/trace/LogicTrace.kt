@@ -1,6 +1,7 @@
 package tech.kzen.lib.common.exec.logic.trace
 
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionId
+import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionInfo
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunId
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceEvent
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceQuery
@@ -49,4 +50,12 @@ interface LogicTrace {
         logicRunId: LogicRunId,
         sinceSequence: Long
     ): List<LogicTraceEvent>
+
+
+    // Every execution that ran (or is running) under this run id, with its parent execution and
+    // call-site — i.e. the run's execution tree. Includes event-less executions (wrapper sub-scripts),
+    // so a consumer can attribute each Run step's trace events to the executions that step launched.
+    fun lookupRunExecutions(
+        logicRunId: LogicRunId
+    ): List<LogicRunExecutionInfo>
 }
