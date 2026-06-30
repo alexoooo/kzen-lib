@@ -12,6 +12,7 @@ import tech.kzen.lib.common.exec.engine.Logic
 import tech.kzen.lib.common.exec.engine.LogicSignature
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
+import tech.kzen.lib.common.exec.engine.PauseReason
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import kotlin.test.Test
@@ -110,6 +111,30 @@ class RunEngineTest {
                     .awaitAll()
             }
             return TupleValue.ofMain("done")
+        }
+    }
+
+
+    /**
+     * Runs a single [Execution.recoverable] unit that throws on its first [failBefore] attempts, then succeeds —
+     * the shape of a recoverable failure that a fix (or a transient condition clearing) eventually lets proceed.
+     * Records every attempt + every rendered error so a test can assert retry behaviour under pause-on-error.
+     */
+    private class FlakyLogic(
+        private val failBefore: Int,
+        private val attempts: java.util.concurrent.atomic.AtomicInteger,
+        private val renderedErrors: MutableList<String>
+    ): Logic {
+        override fun signature() = LogicSignature.empty
+
+        override suspend fun run(execution: Execution): TupleValue {
+            return execution.recoverable({ t -> renderedErrors.add(t.message ?: "?") }) {
+                val attempt = attempts.incrementAndGet()
+                if (attempt <= failBefore) {
+                    throw RuntimeException("boom $attempt")
+                }
+                TupleValue.ofMain(attempt.toLong())
+            }
         }
     }
 
@@ -293,6 +318,58 @@ class RunEngineTest {
 
             assertEquals(5L, assertIs<Outcome.Success>(outcome).value.mainComponentValue())
             assertEquals(ExecutionValue.of(5L), engine.snapshot().root.live[Address.of("count")])
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun recoverableFailurePropagatesWhenPauseOnErrorDisabled() = runBlocking {
+        // Default (pause-on-error off): a recoverable unit's failure settles the node failed, rendered once.
+        val attempts = java.util.concurrent.atomic.AtomicInteger()
+        val errors = mutableListOf<String>()
+        val engine = RunEngine(FlakyLogic(failBefore = 1, attempts, errors), rootId)
+        try {
+            engine.resume()
+            val outcome = engine.await()
+
+            assertTrue(assertIs<Outcome.Failed>(outcome).message.contains("boom 1"))
+            assertEquals(1, attempts.get())
+            assertEquals(listOf("boom 1"), errors)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun recoverableFailureParksErrorThenRetriesToSuccessOnResume() = runBlocking {
+        // Pause-on-error on: the unit fails its first two attempts, parking Suspended(Error) each time instead
+        // of failing the run; each resume retries; the third attempt succeeds and the run completes. Proves the
+        // engine parks-without-unwinding and re-runs the recoverable unit on resume (fix-and-resume mechanics).
+        val attempts = java.util.concurrent.atomic.AtomicInteger()
+        val errors = mutableListOf<String>()
+        val engine = RunEngine(FlakyLogic(failBefore = 2, attempts, errors), rootId)
+        try {
+            engine.pauseOnError(true)
+
+            engine.resume()
+            engine.awaitQuiescent()
+            assertEquals(NodeStatus.Suspended(PauseReason.Error), engine.snapshot().root.status)
+            assertEquals(1, attempts.get())
+
+            engine.resume()
+            engine.awaitQuiescent()
+            assertEquals(NodeStatus.Suspended(PauseReason.Error), engine.snapshot().root.status)
+            assertEquals(2, attempts.get())
+
+            engine.resume()
+            val outcome = engine.await()
+            assertEquals(3L, assertIs<Outcome.Success>(outcome).value.mainComponentValue())
+            assertEquals(listOf("boom 1", "boom 2"), errors)
         }
         finally {
             engine.close()

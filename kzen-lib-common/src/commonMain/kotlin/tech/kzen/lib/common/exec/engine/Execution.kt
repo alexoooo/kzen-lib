@@ -44,6 +44,21 @@ interface Execution {
     suspend fun pauseHere(reason: PauseReason = PauseReason.Explicit)
 
     /**
+     * Run [block] as a **pause-on-error recoverable unit** (logic-spec §4). If it throws (a coroutine cancel
+     * excepted — that is never recoverable and always propagates), [onError] is invoked to render the failure
+     * (e.g. trace it on the failing element); then, *when pause-on-error is enabled for the run*, this node
+     * settles as [NodeStatus.Suspended] with [PauseReason.Error] for inspect / fix + resume, and on resume
+     * [block] is re-run — so a still-broken unit pauses anew while a fix (an edit that triggers a migrate, or a
+     * transient failure that clears) lets it proceed. When pause-on-error is disabled the failure propagates and
+     * the node settles failed.
+     *
+     * A flavour wraps each recoverable boundary (a Script step, a Flow vertex) in this; the catch / park / retry
+     * policy lives once in the engine, so flavours add no pause-on-error control code (only the [onError]
+     * rendering and the unit of work). The toggle itself is the run-level [Run.pauseOnError], read live here.
+     */
+    suspend fun <R> recoverable(onError: (Throwable) -> Unit, block: suspend () -> R): R
+
+    /**
      * Run [child] as a confined sub-execution and return its output. The child runs as a new node under
      * this one — its own trace scope and resource scope — and the engine drives its stepping uniformly
      * (step-over/out cross the boundary). A child failure surfaces here as [LogicFailure]; a child cancel

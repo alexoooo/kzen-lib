@@ -480,6 +480,32 @@ class RunEngine(
     }
 
 
+    private suspend fun <R> recoverable(nodeId: NodeId, onError: (Throwable) -> Unit, block: suspend () -> R): R {
+        while (true) {
+            try {
+                return block()
+            }
+            catch (e: CancellationException) {
+                // A cancel (engine-driven, surfaced from a checkpoint) is never recoverable.
+                throw e
+            }
+            catch (e: Throwable) {
+                // Render the failure (e.g. trace it on the failing element) before deciding park-vs-propagate.
+                onError(e)
+                val enabled = synchronized(lock) { pauseOnError }
+                if (!enabled) {
+                    throw e
+                }
+                // Pause-on-error: park this node Suspended(Error) WITHOUT unwinding — the caller's coroutine
+                // stack (and its run-scoped state) stays alive, so a plain resume retries [block] here and an
+                // edit-then-resume can capture this node's state at the migrate barrier. A cancel while
+                // error-parked surfaces from pauseHere and propagates out (not re-caught — we are past block()).
+                pauseHere(nodeId, PauseReason.Error)
+            }
+        }
+    }
+
+
     // Must hold lock.
     private fun park(nodeId: NodeId, depth: Int, reason: PauseReason): CompletableDeferred<Unit> {
         val deferred = CompletableDeferred<Unit>()
@@ -666,6 +692,9 @@ class RunEngine(
 
         override suspend fun pauseHere(reason: PauseReason) =
             this@RunEngine.pauseHere(nodeId, reason)
+
+        override suspend fun <R> recoverable(onError: (Throwable) -> Unit, block: suspend () -> R): R =
+            this@RunEngine.recoverable(nodeId, onError, block)
 
         override suspend fun host(stableId: ObjectStableId, child: Logic, inputs: TupleValue): TupleValue =
             this@RunEngine.host(nodeId, stableId, child, inputs)
