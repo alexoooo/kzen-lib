@@ -136,6 +136,11 @@ Bootstrap implementations live in `objects/` — `DefaultConstructorObjectDefine
 
 `exec/` holds general execution abstractions — not kzen-auto domain concepts. They relocated here from kzen-auto on 2026-05-28: the `Logic`/`Task` types were always platform-agnostic, and `Logic` is the abstraction that consumes `ObjectStableMapper`, so the two belong in the same module.
 
+> For the **implementation-agnostic functional requirements** of the Logic framework (the basis for
+> re-architecting it), see [`logic-spec.md`](logic-spec.md). The section below describes the *current*
+> wiring; the spec describes *what must hold* — and deliberately diverges where today's design relies on
+> global singletons or run-global resources.
+
 | Concept | What it is | Key types |
 |---------|-----------|-----------|
 | **Logic** | A long-running, stateful execution that can be paused, stepped, and resumed, emitting a trace as it goes. | `Logic`, `LogicHandle`, `LogicControl`, `LogicExecution`, `LogicDefinition` (tuple in/out), `LogicResult` |

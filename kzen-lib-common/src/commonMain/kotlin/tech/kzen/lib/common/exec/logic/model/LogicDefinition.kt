@@ -5,6 +5,5 @@ import tech.kzen.lib.common.exec.tuple.TupleDefinition
 
 data class LogicDefinition(
     val inputs: TupleDefinition,
-    val outputs: TupleDefinition,
-//    val canPause: Boolean
+    val outputs: TupleDefinition
 )
