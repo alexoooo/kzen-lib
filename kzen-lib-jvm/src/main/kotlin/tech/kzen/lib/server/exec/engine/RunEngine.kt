@@ -29,6 +29,9 @@ import tech.kzen.lib.common.exec.engine.TraceEvent
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import tech.kzen.lib.common.util.ExceptionUtils
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 
 /**
@@ -89,9 +92,28 @@ class RunEngine(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    private companion object {
+        // How long the run must stay quiescent-while-running (no dispatch in flight, command Running, nothing
+        // parked) before a stall is declared a deadlock — long enough that a transient channel handoff or a brief
+        // suspension is not mistaken for one. Mirrors the old JobExecution.deadlockGraceMillis (a touch larger to
+        // absorb scheduler jitter).
+        const val deadlockGraceMillis = 50L
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private val lock = Any()
     private val dispatcher = CountingDispatcher(threads)
     private var scope = CoroutineScope(dispatcher + SupervisorJob())
+
+    // Deadlock watchdog: a single daemon timer that, [deadlockGraceMillis] after the run goes quiescent while
+    // still Running, checks whether it is genuinely stalled (see [checkDeadlock]). [deadlockGeneration] is bumped
+    // on every quiescence transition (both directions), so a check whose generation is stale — work resumed in
+    // the grace window — is a no-op: only SUSTAINED quiescence reaches the deadlock verdict.
+    private val watchdog = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "kzen-engine-watchdog").apply { isDaemon = true }
+    }
+    private val deadlockGeneration = AtomicLong(0)
 
     private val nodes = HashMap<NodeId, NodeRuntime>()
     private val parked = HashMap<NodeId, Parked>()
@@ -124,6 +146,10 @@ class RunEngine(
         nodeCounter = 1
         nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, inputs = rootInputs)
         published = RunState(buildNode(rootId), sequence)
+
+        // Deadlock watchdog wiring: any activity invalidates a pending check; quiescence arms a fresh one.
+        dispatcher.onActive = { deadlockGeneration.incrementAndGet() }
+        dispatcher.onQuiescent = { scheduleDeadlockCheck() }
     }
 
 
@@ -263,6 +289,7 @@ class RunEngine(
 
 
     override fun close() {
+        watchdog.shutdownNow()
         sweepOrphans()
         dispatcher.close()
     }
@@ -355,6 +382,68 @@ class RunEngine(
         orphans.forEach { state ->
             (state as? AutoCloseable)?.let { runCatching { it.close() } }
         }
+    }
+
+
+    //----------------------------------------------------------------------------------------------- deadlock watchdog
+    // Arm a deadlock check [deadlockGraceMillis] out, tagged with a fresh generation. Called when the dispatcher
+    // goes quiescent; any later activity bumps the generation, stranding this check as a no-op — so only quiescence
+    // SUSTAINED across the grace window reaches a verdict.
+    private fun scheduleDeadlockCheck() {
+        val generation = deadlockGeneration.incrementAndGet()
+        val arm = synchronized(lock) {
+            command == Command.Running && !terminal.isCompleted && !cancelling && !migrating
+        }
+        if (arm) {
+            try {
+                watchdog.schedule({ checkDeadlock(generation) }, deadlockGraceMillis, TimeUnit.MILLISECONDS)
+            }
+            catch (e: java.util.concurrent.RejectedExecutionException) {
+                // Engine closed during the grace window — nothing left to watch.
+            }
+        }
+    }
+
+
+    // A run is deadlocked when, having been quiescent (no dispatch in flight) for the whole grace window while
+    // still Running, with nothing parked and no node externally serviceable, at least TWO non-terminal LEAF nodes
+    // are blocked — the deadlock topology of two or more spines each waiting on the other (Job Workers stuck on
+    // channels). A single blocked spine is merely waiting (a timer, an awaited child), not a deadlock; an
+    // externally serviceable run (an open serve port) may legitimately idle awaiting a UI request, so it is spared.
+    private fun checkDeadlock(generation: Long) {
+        val deadlocked = synchronized(lock) {
+            if (generation != deadlockGeneration.get()) {
+                return  // activity in the grace window: quiescence was not sustained
+            }
+            if (command != Command.Running || terminal.isCompleted || cancelling || migrating) {
+                return
+            }
+            if (parked.isNotEmpty()) {
+                return  // a self-pause / error-park is a legitimate halt, not a deadlock
+            }
+            if (nodes.values.any { it.status !is NodeStatus.Terminal && it.requestHandler != null }) {
+                return  // externally serviceable: a Worker idle on an open serve port awaits a UI request
+            }
+            val blockedLeaves = nodes.values.count { runtime ->
+                runtime.status !is NodeStatus.Terminal &&
+                    runtime.children.all { nodes[it]?.status is NodeStatus.Terminal }
+            }
+            blockedLeaves >= 2
+        }
+        if (deadlocked) {
+            failDeadlock()
+        }
+    }
+
+
+    private fun failDeadlock() {
+        // Settle the root failed first (the verdict the caller awaits), then cancel the execution scope to unwind
+        // the Workers blocked on channels — they never reach a checkpoint to observe cancellation, so only a scope
+        // cancel frees them. Their cancellation would re-settle the root Cancelled, but settleNode's once-only
+        // guard keeps the Failed verdict.
+        settleNode(rootId, Outcome.Failed("Job deadlock: all spines blocked with no progress"))
+        val job = synchronized(lock) { scope.coroutineContext[Job] }
+        job?.cancel()
     }
 
 
@@ -535,6 +624,11 @@ class RunEngine(
         val proceed = synchronized(lock) {
             val runtime = nodes[nodeId]
                 ?: return
+            // A node settles exactly once: a deadlock-failed root is then scope-cancelled, whose unwinding would
+            // otherwise re-settle it Cancelled and clobber the Failed outcome — keep the first verdict.
+            if (runtime.status is NodeStatus.Terminal) {
+                return
+            }
             runtime.status = NodeStatus.Terminal(outcome)
             parked.remove(nodeId)
             // A node torn down by an in-progress [migrate] still disposes its (non-detached) resources, but is
