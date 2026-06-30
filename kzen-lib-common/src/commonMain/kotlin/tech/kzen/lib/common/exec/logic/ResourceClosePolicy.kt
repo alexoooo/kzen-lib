@@ -5,8 +5,8 @@ import tech.kzen.lib.common.exec.logic.ResourceClosePolicy.Companion.parse
 
 /**
  * What happens to a run-scoped resource (e.g. a spawned process or a browser) when its Logic run
- * reaches a terminal state. Declared per-resource on the opening step; consumed by
- * [LogicResourceScope.disposeAll].
+ * reaches a terminal state. A notation value declared per-resource on the opening step, consumed by the
+ * run's resource scope at teardown.
  */
 enum class ResourceClosePolicy(
     /** Canonical notation wire value; the inverse of [parse]. */
