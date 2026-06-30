@@ -74,4 +74,31 @@ interface Execution {
      * while this node runs (it typically reads an immutable snapshot the node publishes).
      */
     fun onRequest(handler: (ExecutionRequest) -> ExecutionResult)
+
+    //----------------------------------------------------------------------------------- live-edit migration (§5)
+    /**
+     * Register the durable run-scoped state this node carries across a **live edit** (pause → edit the
+     * definition → resume): an accumulator, a buffered batch, or a detached live resource (an open file, a
+     * spawned process). The provider is invoked **once, at the quiescent migration barrier, BEFORE the old
+     * execution is torn down** — so it may *detach* a live handle from the node (handing ownership to the
+     * returned state) rather than letting teardown close it. The returned value is opaque to the engine and
+     * is carried by [the element's stable identity][tech.kzen.lib.common.service.store.normal.ObjectStableId]
+     * to the matching node of the rebuilt definition, surfaced there as [restored].
+     *
+     * Null (the default — no provider registered, or a provider returning null) means nothing migrates: the
+     * rebuilt node restarts cleanly with the new definition (the safe best-effort default of spec §5). A
+     * returned state that holds a detached resource should be [AutoCloseable]: the engine closes any captured
+     * state whose stable id no node of the new definition claims (the **removed-element** case), so a detached
+     * handle can't leak.
+     */
+    fun onCapture(capture: () -> Any?)
+
+    /**
+     * The state the predecessor node with **this node's stable identity** captured via [onCapture] in the
+     * definition that was edited, or null when this node is **new** (added by the edit) or its predecessor
+     * captured nothing. Read once at the start of [Logic.run] to adopt carried-over state; ignoring it
+     * discards the predecessor's capture (which is then disposed as an orphan). On a fresh (non-migration)
+     * run this is always null.
+     */
+    val restored: Any?
 }

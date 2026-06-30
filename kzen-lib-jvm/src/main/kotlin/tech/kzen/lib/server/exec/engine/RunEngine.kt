@@ -3,8 +3,11 @@ package tech.kzen.lib.server.exec.engine
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import tech.kzen.lib.common.exec.ExecutionFailure
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
@@ -43,9 +46,9 @@ import tech.kzen.lib.common.util.ExceptionUtils
  * add no stepping code — a Logic only declares boundaries with [Execution.checkpoint].
  */
 class RunEngine(
-    private val rootLogic: Logic,
-    rootStableId: ObjectStableId,
-    rootInputs: TupleValue = TupleValue.empty,
+    rootLogic: Logic,
+    private val rootStableId: ObjectStableId,
+    private val rootInputs: TupleValue = TupleValue.empty,
     threads: Int = (Runtime.getRuntime().availableProcessors() - 1).coerceAtLeast(2)
 ): Run, AutoCloseable {
     //-----------------------------------------------------------------------------------------------------------------
@@ -81,13 +84,14 @@ class RunEngine(
         val children = ArrayList<NodeId>()
         val resources = LinkedHashMap<String, Registration>()
         var requestHandler: ((ExecutionRequest) -> ExecutionResult)? = null
+        var captureProvider: (() -> Any?)? = null
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     private val lock = Any()
     private val dispatcher = CountingDispatcher(threads)
-    private val scope = CoroutineScope(dispatcher + SupervisorJob())
+    private var scope = CoroutineScope(dispatcher + SupervisorJob())
 
     private val nodes = HashMap<NodeId, NodeRuntime>()
     private val parked = HashMap<NodeId, Parked>()
@@ -95,14 +99,22 @@ class RunEngine(
     private val observers = ArrayList<(RunState) -> Unit>()
     private val terminal = CompletableDeferred<Outcome>()
 
+    // Live-edit migration registers: the state captured from the torn-down definition keyed by stable id, and
+    // the subset a node of the rebuilt definition has adopted via [Execution.restored] — the unclaimed
+    // remainder are removed-element orphans, disposed by [sweepOrphans].
+    private val migrationCaptured = HashMap<ObjectStableId, Any>()
+    private val claimedCaptures = HashSet<ObjectStableId>()
+
     private var sequence = 0L
     private var nodeCounter = 0
     private var command: Command = Command.Paused
     private var started = false
     private var cancelling = false
+    private var migrating = false
     private var pauseOnError = false
 
     private val rootId = NodeId("n0")
+    private var liveRootLogic: Logic = rootLogic
 
     @Volatile
     private var published: RunState
@@ -251,6 +263,7 @@ class RunEngine(
 
 
     override fun close() {
+        sweepOrphans()
         dispatcher.close()
     }
 
@@ -258,6 +271,90 @@ class RunEngine(
     /** Block the calling (non-dispatcher) thread until the run is quiescent — all spines parked or terminal. */
     fun awaitQuiescent() {
         dispatcher.awaitQuiescent()
+    }
+
+
+    /**
+     * Re-point a **quiescent** (paused / fully parked) run at [newRoot] — the live-edit migration barrier of
+     * logic-spec §5. Captures every live node's durable state ([Execution.onCapture]) BEFORE teardown, cancels
+     * and joins the old execution tree, then rebuilds a fresh tree against [newRoot] on a new coroutine scope —
+     * carrying each captured state to the node of the new definition that shares its [stable id][ObjectStableId]
+     * (surfaced there as [Execution.restored]). A node the edit ADDED starts fresh (no matching capture); a
+     * captured state no rebuilt node claims (a REMOVED element) is closed if [AutoCloseable] by [sweepOrphans].
+     * The run's history, sequence, observers and terminal handle are preserved — the trace is continuous across
+     * the edit; only the execution tree is rebuilt.
+     *
+     * Must be called while the run is quiescent — every non-terminal node parked at a checkpoint and no
+     * dispatch in flight (the caller awaits [awaitQuiescent] first), and never from a dispatcher thread.
+     * [paused] starts the rebuilt run parked at its first wavefront (a step-after-edit); false resumes it.
+     */
+    fun migrate(newRoot: Logic, paused: Boolean = true) {
+        // Dispose orphans left unclaimed by a prior edit before this edit's captures overwrite the registers.
+        sweepOrphans()
+
+        // 1. Capture-before-teardown: snapshot each live node's durable state while it is still parked (so a
+        // live handle can be detached before teardown would close it). Providers are user closures, run
+        // off-lock; the run is quiescent, so a parked node is not mutating the state being read.
+        val providers = synchronized(lock) {
+            check(!cancelling) { "Cannot migrate a cancelling run" }
+            nodes.values.mapNotNull { runtime ->
+                runtime.captureProvider?.let { runtime.stableId to it }
+            }
+        }
+        val captured = HashMap<ObjectStableId, Any>()
+        for ((stableId, provider) in providers) {
+            provider()?.let { captured[stableId] = it }
+        }
+
+        // 2. Teardown: cancel + join the old tree. Each stale coroutine unwinds (running its finally / onClose
+        // for any resource the capture did NOT detach); `migrating` suppresses its settle so the run is neither
+        // published cancelled nor terminally completed. The join guarantees every stale settle has run before
+        // the rebuild clears the node map below.
+        val oldJob = synchronized(lock) {
+            migrating = true
+            scope.coroutineContext[Job]!!
+        }
+        runBlocking { oldJob.cancelAndJoin() }
+
+        // 3. Rebuild: a fresh tree on a fresh scope (same dispatcher / thread pool), carrying the captured state
+        // by stable id. Node ids keep advancing so a torn-down node id is never reused in the retained history.
+        synchronized(lock) {
+            nodes.clear()
+            parked.clear()
+            childLogic.clear()
+            migrationCaptured.clear()
+            migrationCaptured.putAll(captured)
+            claimedCaptures.clear()
+
+            liveRootLogic = newRoot
+            nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, inputs = rootInputs)
+            migrating = false
+            cancelling = false
+            started = true
+            command = if (paused) Command.Paused else Command.Running
+            scope = CoroutineScope(dispatcher + SupervisorJob())
+            launchRoot()
+        }
+        publish()
+    }
+
+
+    // Dispose any captured state no node of the rebuilt definition adopted (a removed element), and reset the
+    // migration registers. Run at the next [migrate] and at [close]: within a run's life an orphaned detached
+    // resource lingers at most one edit cycle (a deliberate simplification of the old eager per-flavour sweep).
+    private fun sweepOrphans() {
+        val orphans = synchronized(lock) {
+            val result = migrationCaptured
+                .filterKeys { it !in claimedCaptures }
+                .values
+                .toList()
+            migrationCaptured.clear()
+            claimedCaptures.clear()
+            result
+        }
+        orphans.forEach { state ->
+            (state as? AutoCloseable)?.let { runCatching { it.close() } }
+        }
     }
 
 
@@ -292,12 +389,12 @@ class RunEngine(
     }
 
 
-    // Each node's Logic: the root uses rootLogic; children carry their own Logic in a side map.
+    // Each node's Logic: the root uses the (possibly migrated) live root logic; children carry their own Logic
+    // in a side map.
     private fun rootOrChildLogic(nodeId: NodeId): Logic {
-        if (nodeId == rootId) {
-            return rootLogic
+        return synchronized(lock) {
+            if (nodeId == rootId) liveRootLogic else childLogic.getValue(nodeId)
         }
-        return synchronized(lock) { childLogic.getValue(nodeId) }
     }
 
     private val childLogic = HashMap<NodeId, Logic>()
@@ -409,11 +506,19 @@ class RunEngine(
 
 
     private fun settleNode(nodeId: NodeId, outcome: Outcome) {
-        synchronized(lock) {
-            nodes.getValue(nodeId).status = NodeStatus.Terminal(outcome)
+        val proceed = synchronized(lock) {
+            val runtime = nodes[nodeId]
+                ?: return
+            runtime.status = NodeStatus.Terminal(outcome)
             parked.remove(nodeId)
+            // A node torn down by an in-progress [migrate] still disposes its (non-detached) resources, but is
+            // not published as terminal nor completes the run — the rebuilt tree supersedes it.
+            !migrating
         }
         disposeResources(nodeId, error = outcome is Outcome.Failed)
+        if (!proceed) {
+            return
+        }
         publish()
         if (nodeId == rootId) {
             terminal.complete(outcome)
@@ -478,6 +583,27 @@ class RunEngine(
     private fun setRequestHandler(nodeId: NodeId, handler: (ExecutionRequest) -> ExecutionResult) {
         synchronized(lock) {
             nodes.getValue(nodeId).requestHandler = handler
+        }
+    }
+
+
+    private fun setCaptureProvider(nodeId: NodeId, capture: () -> Any?) {
+        synchronized(lock) {
+            nodes.getValue(nodeId).captureProvider = capture
+        }
+    }
+
+
+    // The state a predecessor node with this node's stable id captured across the live edit (null if none /
+    // this node is new). Reading it claims the capture, so the orphan sweep won't dispose what was adopted.
+    private fun restoredForNode(nodeId: NodeId): Any? {
+        return synchronized(lock) {
+            val stableId = nodes.getValue(nodeId).stableId
+            val state = migrationCaptured[stableId]
+            if (state != null) {
+                claimedCaptures.add(stableId)
+            }
+            state
         }
     }
 
@@ -552,5 +678,11 @@ class RunEngine(
 
         override fun onRequest(handler: (ExecutionRequest) -> ExecutionResult) =
             this@RunEngine.setRequestHandler(nodeId, handler)
+
+        override fun onCapture(capture: () -> Any?) =
+            this@RunEngine.setCaptureProvider(nodeId, capture)
+
+        override val restored: Any?
+            get() = this@RunEngine.restoredForNode(nodeId)
     }
 }
