@@ -17,10 +17,6 @@ import kotlin.coroutines.CoroutineContext
  * holding its lock*, and kotlinx dispatches the resumed continuations synchronously within `complete()`, so
  * `inFlight` has already been incremented for every released continuation before the engine calls
  * [awaitQuiescent]. There is therefore no "released work not yet counted" race.
- *
- * [onQuiescent] / [onActive] notify the engine of `inFlight` transitions to / from zero (invoked outside the
- * dispatcher lock, so a listener may take the engine lock safely): the engine's deadlock watchdog uses them to
- * detect a run that has gone quiescent while still running without completing (all spines blocked on channels).
  */
 class CountingDispatcher(
     threads: Int
@@ -33,39 +29,21 @@ class CountingDispatcher(
     private val idle = lock.newCondition()
     private var inFlight = 0
 
-    // Set by the engine to observe quiescence transitions (for deadlock detection). Invoked outside [lock].
-    @Volatile
-    var onQuiescent: (() -> Unit)? = null
-
-    @Volatile
-    var onActive: (() -> Unit)? = null
-
 
     override fun dispatch(context: CoroutineContext, block: Runnable) {
-        val becameActive = lock.withLock {
+        lock.withLock {
             inFlight += 1
-            inFlight == 1
-        }
-        if (becameActive) {
-            onActive?.invoke()
         }
         executor.execute {
             try {
                 block.run()
             }
             finally {
-                val becameQuiescent = lock.withLock {
+                lock.withLock {
                     inFlight -= 1
                     if (inFlight == 0) {
                         idle.signalAll()
-                        true
                     }
-                    else {
-                        false
-                    }
-                }
-                if (becameQuiescent) {
-                    onQuiescent?.invoke()
                 }
             }
         }

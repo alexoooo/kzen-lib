@@ -1,12 +1,9 @@
 package tech.kzen.lib.server.exec.engine
 
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withTimeoutOrNull
 import tech.kzen.lib.common.exec.ExecutionValue
 import tech.kzen.lib.common.exec.engine.Address
 import tech.kzen.lib.common.exec.engine.ClosePolicy
@@ -138,17 +135,6 @@ class RunEngineTest {
                 }
                 TupleValue.ofMain(attempt.toLong())
             }
-        }
-    }
-
-
-    /** Blocks forever off-dispatcher (never reaching a checkpoint or terminal) — a spine stuck on a channel. */
-    private class BlockForeverLogic: Logic {
-        override fun signature() = LogicSignature.empty
-
-        override suspend fun run(execution: Execution): TupleValue {
-            CompletableDeferred<Unit>().await()
-            return TupleValue.ofMain("never")
         }
     }
 
@@ -392,48 +378,6 @@ class RunEngineTest {
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    @Test
-    fun blockedConcurrentLeavesFailAsDeadlock() = runBlocking {
-        // Two concurrent children each block forever (never a checkpoint, never terminal): the run goes quiescent
-        // while still Running with >= 2 blocked leaves and nothing parked — the deadlock topology. The watchdog
-        // must fail the run rather than let await() hang. (withTimeout is a safety net: a working detector settles
-        // in ~deadlockGraceMillis; a broken one would hang here and fail the test loudly instead of forever.)
-        val engine = RunEngine(
-            HostingLogic(listOf(
-                "a" to BlockForeverLogic(),
-                "b" to BlockForeverLogic())),
-            rootId,
-            threads = 4)
-        try {
-            engine.resume()
-            val outcome = withTimeout(5000) { engine.await() }
-            assertTrue(
-                assertIs<Outcome.Failed>(outcome).message.contains("deadlock", ignoreCase = true),
-                "two blocked concurrent leaves should be detected as a deadlock")
-        }
-        finally {
-            engine.close()
-        }
-    }
-
-
-    @Test
-    fun singleBlockedLeafIsNotADeadlock() = runBlocking {
-        // A single blocked spine is merely waiting (a timer, external input), NOT a deadlock — the >= 2-leaf
-        // discriminator that spares a Script WaitStep / a Report awaiting a query. The run stays alive: await
-        // never completes within a window comfortably past the grace, proven by the null timeout result.
-        val engine = RunEngine(BlockForeverLogic(), rootId)
-        try {
-            engine.resume()
-            val outcome = withTimeoutOrNull(500) { engine.await() }
-            assertEquals(null, outcome, "a single blocked leaf must not be declared a deadlock")
-        }
-        finally {
-            engine.close()
-        }
-    }
-
-
     @Test
     fun migrateConcurrentChildrenCarriesRenamesAddsAndDisposesRemoved() = runBlocking {
         // Two concurrent children accumulate to a parked wavefront; the edit keeps "a", removes "b", and adds
