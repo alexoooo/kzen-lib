@@ -77,7 +77,10 @@ class RunEngine(
         val id: NodeId,
         val stableId: ObjectStableId,
         val depth: Int,
-        val inputs: TupleValue
+        val inputs: TupleValue,
+        // The element that hosted this node (a RunStep / Job worker), carried to [Node.callerStableId] for
+        // trace attribution; null for the root and for a host that named no distinct caller.
+        val callerStableId: ObjectStableId? = null
     ) {
         var status: NodeStatus = NodeStatus.Running
         val live = LinkedHashMap<Address, ExecutionValue>()
@@ -404,12 +407,13 @@ class RunEngine(
         parentNodeId: NodeId,
         stableId: ObjectStableId,
         child: Logic,
-        inputs: TupleValue
+        inputs: TupleValue,
+        callerStableId: ObjectStableId?
     ): TupleValue {
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
-            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, inputs)
+            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, inputs, callerStableId)
             childLogic[id] = child
             parent.children.add(id)
             id
@@ -669,7 +673,8 @@ class RunEngine(
             runtime.stableId,
             runtime.status,
             LinkedHashMap(runtime.live),
-            runtime.children.map { buildNode(it) }
+            runtime.children.map { buildNode(it) },
+            runtime.callerStableId
         )
     }
 
@@ -696,8 +701,13 @@ class RunEngine(
         override suspend fun <R> recoverable(onError: (Throwable) -> Unit, block: suspend () -> R): R =
             this@RunEngine.recoverable(nodeId, onError, block)
 
-        override suspend fun host(stableId: ObjectStableId, child: Logic, inputs: TupleValue): TupleValue =
-            this@RunEngine.host(nodeId, stableId, child, inputs)
+        override suspend fun host(
+            stableId: ObjectStableId,
+            child: Logic,
+            inputs: TupleValue,
+            callerStableId: ObjectStableId?
+        ): TupleValue =
+            this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId)
 
         override fun resource(key: String, policy: ClosePolicy, closer: () -> Unit) =
             this@RunEngine.registerResource(nodeId, key, policy, closer)

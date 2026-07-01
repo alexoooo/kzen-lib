@@ -64,11 +64,18 @@ interface Execution {
      * (step-over/out cross the boundary). A child failure surfaces here as [LogicFailure]; a child cancel
      * propagates as cancellation. To run children concurrently, wrap [host] calls in structured concurrency
      * (`coroutineScope { launch { host(...) } ... }`).
+     *
+     * [stableId] is the CHILD's own root identity (used for its frame / migration carry-over). [callerStableId]
+     * is the element on THIS side that hosts it — the call-site (a RunStep, a Job worker) — recorded on the
+     * child node ([Node.callerStableId]) purely for trace attribution, so a consumer can scope a hosting
+     * element's view to the executions it spawned even when several call-sites host the same child document.
+     * Null when there is no distinct call-site.
      */
     suspend fun host(
         stableId: ObjectStableId,
         child: Logic,
-        inputs: TupleValue = TupleValue.empty
+        inputs: TupleValue = TupleValue.empty,
+        callerStableId: ObjectStableId? = null
     ): TupleValue
 
     /**
