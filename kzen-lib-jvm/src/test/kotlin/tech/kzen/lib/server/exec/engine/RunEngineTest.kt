@@ -116,6 +116,43 @@ class RunEngineTest {
 
 
     /**
+     * A depth-1 "worker" that parks once at its own checkpoint, then hosts a multi-step child at depth 2 (a
+     * RunWorker-shaped nested Logic), then keeps parking — so after the child completes it stays in the tree at
+     * depth 1, the way a Job Worker awaits more input. Mirrors a `RunWorker` hosting its instructions Script.
+     */
+    private class RunHostLogic(private val childSteps: Int): Logic {
+        override fun signature() = LogicSignature.empty
+
+        override suspend fun run(execution: Execution): TupleValue {
+            execution.checkpoint()
+            execution.host(ObjectStableId("child"), StepsLogic(childSteps))
+            while (true) {
+                execution.checkpoint()
+            }
+        }
+    }
+
+
+    /**
+     * A Job-shaped concurrent tree: a "background" Worker looping at depth 1 alongside a "run" Worker that hosts
+     * a multi-step child at depth 2. Its purpose is to reproduce the concurrent-spine wavefront a single-spine
+     * Script never produces — the exact shape (a depth-1 sibling parked while a depth-2 hosted child is parked)
+     * that Step Over must run free instead of descending into.
+     */
+    private class JobShapedLogic(private val backgroundSteps: Int, private val childSteps: Int): Logic {
+        override fun signature() = LogicSignature.empty
+
+        override suspend fun run(execution: Execution): TupleValue {
+            coroutineScope {
+                async { execution.host(ObjectStableId("background"), StepsLogic(backgroundSteps)) }
+                async { execution.host(ObjectStableId("run"), RunHostLogic(childSteps)) }
+            }
+            return TupleValue.ofMain("done")
+        }
+    }
+
+
+    /**
      * Runs a single [Execution.recoverable] unit that throws on its first [failBefore] attempts, then succeeds —
      * the shape of a recoverable failure that a fix (or a transient condition clearing) eventually lets proceed.
      * Records every attempt + every rendered error so a test can assert retry behaviour under pause-on-error.
@@ -460,5 +497,56 @@ class RunEngineTest {
         finally {
             engine.close()
         }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun stepOverRunsAlreadyDescendedConcurrentChildFree() = runBlocking {
+        // The Job step-over bug: a concurrent tree where a depth-1 "run" Worker has been stepped INTO, so its
+        // hosted child is parked at depth 2 while a sibling "background" Worker is parked at depth 1. A Step Over
+        // here must run the depth-2 child FREE (it is nested below the outermost pending wavefront), NOT descend /
+        // stay in it. The single-spine Script tests never exercise this because a Script parks exactly one node at
+        // a time (min == max depth); only a concurrent Job parks siblings at different depths.
+        val engine = RunEngine(JobShapedLogic(backgroundSteps = 5, childSteps = 3), rootId, threads = 4)
+        try {
+            // Into: settle at the entry wavefront (background + run parked at depth 1, no child yet).
+            engine.step()
+            engine.awaitQuiescent()
+
+            // Into again: run passes its checkpoint and hosts the child, which parks at depth 2 (we have now
+            // descended into the child) while background re-parks at depth 1.
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(2, deepestSuspendedDepth(engine.snapshot().root), "precondition: descended into child")
+
+            // Step Over: the child (depth 2, below the shallowest parked frame at depth 1) must run free to
+            // completion, leaving no parked node deeper than the depth-1 worker wavefront.
+            engine.step(tech.kzen.lib.common.exec.engine.StepMode.Over)
+            engine.awaitQuiescent()
+
+            val root = engine.snapshot().root
+            assertEquals(
+                1, deepestSuspendedDepth(root),
+                "Step Over must not leave a spine parked inside the nested child")
+
+            val child = root.children.single { it.stableId == ObjectStableId("run") }
+                .children.single { it.stableId == ObjectStableId("child") }
+            assertIs<NodeStatus.Terminal>(child.status, "the nested child ran free to completion under Step Over")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    // Depth of the deepest node currently Suspended (parked at a checkpoint), or -1 if none is; the root is depth 0.
+    private fun deepestSuspendedDepth(node: tech.kzen.lib.common.exec.engine.Node, depth: Int = 0): Int {
+        val here = if (node.status is NodeStatus.Suspended) depth else -1
+        val below = node.children.maxOfOrNull { deepestSuspendedDepth(it, depth + 1) } ?: -1
+        return maxOf(here, below)
     }
 }

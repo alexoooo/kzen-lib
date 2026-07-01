@@ -201,7 +201,13 @@ class RunEngine(
                 if (parked.isEmpty()) {
                     return
                 }
-                val limit = parked.values.maxOf { it.depth }
+                // The step is relative to the SHALLOWEST parked frame — the outermost pending wavefront — not the
+                // deepest. For a single-spine Script/Flow exactly one node is parked, so min == max and this is a
+                // no-op; but a concurrent Job parks siblings at different depths (workers at depth 1 while a
+                // RunWorker's already-stepped-into child is parked at depth 2). Taking `maxOf` there would make
+                // Step Over / Out reference the descended child's depth and re-descend into it; `minOf` keeps the
+                // reference at the top-level worker wavefront so nested children stay below the limit (run free).
+                val limit = parked.values.minOf { it.depth }
                 command = when (mode) {
                     StepMode.Into -> Command.Paused
                     StepMode.Over -> Command.SteppingOver(limit)
@@ -447,12 +453,18 @@ class RunEngine(
                 Command.Paused ->
                     PauseReason.Boundary
 
+                // A stepping command STAYS active for the whole step (it does NOT collapse to Paused when a spine
+                // parks at its boundary). Each qualifying spine still parks at its first boundary — one step — but
+                // a spine BELOW the limit keeps running free for the entire step. Collapsing to Paused here would,
+                // in a concurrent Job, let the first shallow worker to hit its boundary catch an already-running
+                // deeper child at its next checkpoint and park it inside — re-descending under Step Over (the
+                // reported bug). Leaving the command as SteppingOver/SteppingOut makes the deep child's run-free
+                // race-free: its checkpoints are always > / >= the limit until it completes.
                 is Command.SteppingOver ->
                     if (depth > current.limit) {
                         null
                     }
                     else {
-                        command = Command.Paused
                         PauseReason.Boundary
                     }
 
@@ -461,7 +473,6 @@ class RunEngine(
                         null
                     }
                     else {
-                        command = Command.Paused
                         PauseReason.Boundary
                     }
             }
