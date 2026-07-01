@@ -70,12 +70,20 @@ interface Execution {
      * child node ([Node.callerStableId]) purely for trace attribution, so a consumer can scope a hosting
      * element's view to the executions it spawned even when several call-sites host the same child document.
      * Null when there is no distinct call-site.
+     *
+     * [retainTrace] governs the child frame's trace retention (§7 retention-vs-bounding), recorded on the child
+     * node ([Node.retainTrace]). True (the default) KEEPS the frame's trace buffer after it closes, so post-run
+     * review sees every finished invocation (a Script `RunStep`'s per-iteration screenshot strip depends on
+     * this). A long STREAMING host that opens one child per element passes false to opt into eviction of each
+     * per-element frame when it settles — bounding a streaming run to its live frames instead of leaking one
+     * buffer per element. The engine only records the flag; a trace consumer acts on it at frame close.
      */
     suspend fun host(
         stableId: ObjectStableId,
         child: Logic,
         inputs: TupleValue = TupleValue.empty,
-        callerStableId: ObjectStableId? = null
+        callerStableId: ObjectStableId? = null,
+        retainTrace: Boolean = true
     ): TupleValue
 
     /**

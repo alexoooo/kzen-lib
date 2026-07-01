@@ -231,6 +231,40 @@ class RunEngineTest {
 
 
     @Test
+    fun hostRetainTracePropagatesToChildNode() = runBlocking {
+        // A host may opt a child frame OUT of trace retention (§7 streaming bounding): the flag is recorded on
+        // the child node so a trace consumer can evict a streaming host's per-element frame when it closes. The
+        // default host retains; only the explicit false opts out. Proves the engine threads it to Node.retainTrace.
+        val hosting = object: Logic {
+            override fun signature() = LogicSignature.empty
+            override suspend fun run(execution: Execution): TupleValue {
+                coroutineScope {
+                    async { execution.host(ObjectStableId("kept"), StepsLogic(1)) }
+                    async { execution.host(ObjectStableId("streamed"), StepsLogic(1), retainTrace = false) }
+                }
+                return TupleValue.ofMain("done")
+            }
+        }
+
+        val engine = RunEngine(hosting, rootId, threads = 4)
+        try {
+            engine.resume()
+            assertTrue(engine.await() is Outcome.Success)
+
+            val root = engine.snapshot().root
+            assertTrue(root.retainTrace, "the root is always retained")
+            val kept = root.children.single { it.stableId == ObjectStableId("kept") }
+            val streamed = root.children.single { it.stableId == ObjectStableId("streamed") }
+            assertTrue(kept.retainTrace, "the default host retains its child's trace")
+            assertFalse(streamed.retainTrace, "an opted-out host's child frame is not retained")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
     fun cancelSettlesCancelledAndDisposesResources() = runBlocking {
         var disposed = false
         val logic = object: Logic {

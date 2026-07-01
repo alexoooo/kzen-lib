@@ -80,7 +80,11 @@ class RunEngine(
         val inputs: TupleValue,
         // The element that hosted this node (a RunStep / Job worker), carried to [Node.callerStableId] for
         // trace attribution; null for the root and for a host that named no distinct caller.
-        val callerStableId: ObjectStableId? = null
+        val callerStableId: ObjectStableId? = null,
+        // Whether this node's trace buffer is retained after the frame closes, carried to [Node.retainTrace]
+        // (§7 retention-vs-bounding); false lets a trace consumer evict a streaming host's per-element frame on
+        // settle. Always true for the root.
+        val retainTrace: Boolean = true
     ) {
         var status: NodeStatus = NodeStatus.Running
         val live = LinkedHashMap<Address, ExecutionValue>()
@@ -408,12 +412,13 @@ class RunEngine(
         stableId: ObjectStableId,
         child: Logic,
         inputs: TupleValue,
-        callerStableId: ObjectStableId?
+        callerStableId: ObjectStableId?,
+        retainTrace: Boolean
     ): TupleValue {
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
-            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, inputs, callerStableId)
+            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, inputs, callerStableId, retainTrace)
             childLogic[id] = child
             parent.children.add(id)
             id
@@ -674,7 +679,8 @@ class RunEngine(
             runtime.status,
             LinkedHashMap(runtime.live),
             runtime.children.map { buildNode(it) },
-            runtime.callerStableId
+            runtime.callerStableId,
+            runtime.retainTrace
         )
     }
 
@@ -705,9 +711,10 @@ class RunEngine(
             stableId: ObjectStableId,
             child: Logic,
             inputs: TupleValue,
-            callerStableId: ObjectStableId?
+            callerStableId: ObjectStableId?,
+            retainTrace: Boolean
         ): TupleValue =
-            this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId)
+            this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace)
 
         override fun resource(key: String, policy: ClosePolicy, closer: () -> Unit) =
             this@RunEngine.registerResource(nodeId, key, policy, closer)
