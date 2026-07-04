@@ -254,11 +254,17 @@ them; they must not be re-implemented per flavour.
 - A Logic may acquire **long-lived external resources** — a browser, a file handle, a spawned process —
   that must be **deterministically released** when execution settles to a terminal state.
 
-- **Per-resource close policy.** Each resource declares what happens at termination:
-  - **auto** — dispose on completion (success, failure, or cancel),
-  - **manual** — never auto-dispose; only an explicit closing action disposes it (survives a forgotten
-    close),
-  - **keep-on-failure** — dispose on success/cancel, but **retain on a failed run** for inspection.
+- **Per-resource close policy.** Each resource declares what happens at termination. The policy decomposes into
+  two orthogonal primitives: a **scope** (which document owns the resource) and a **disposal rule** (how that
+  document's outcome disposes it):
+  - **scope** — *self* (the document that opened it), *parent* (the calling document one level up, falling back
+    to self at the root), or *root* (the overall run);
+  - **disposal rule** — *auto* (dispose on completion: success, failure, or cancel), *manual* (never auto-dispose;
+    only an explicit closing action disposes it — survives a forgotten close), or *keep-on-failure* (dispose on
+    success/cancel, but **retain on a failed** owning document for inspection).
+
+  The notation surface (`ResourceClosePolicy`) exposes these as flat values: `auto` / `manual` / `keepOnFailure`
+  (self-scoped), `parent` / `parentKeepOnFailure` (parent-scoped), and `run` / `runKeepOnFailure` (root-scoped).
 
 - **Resource scopes are attached at a level in the execution tree — not only the whole run.** This is a
   first-class requirement: it must be possible to own a resource at the **top level** *and* own a
@@ -266,9 +272,12 @@ them; they must not be re-implemented per flavour.
   **plus** a distinct browser instance for each sub-script.) Disposing a frame disposes the resources scoped
   to it; the run-global scope is just the special case of the root frame.
 
-  > **Implemented.** Each resource is registered on the **node** that opened it and disposed when *that* node
-  > settles (per its close policy); the run-global scope is just the root node's. A resource an explicit
-  > closing step disposes itself is **deregistered** first, so the auto-disposer never double-fires.
+  > **Implemented.** Each resource is registered on the **node** its scope selects — the opening node (self), its
+  > parent, or the root — and disposed when *that* node settles (per its disposal rule); the run-global scope is
+  > just the root node's. An opening step can hand a resource up the tree (`parent` / `run`) so it outlives its
+  > own document — e.g. a sub-script opens the SUT but binds its lifetime to the enclosing test. A resource an
+  > explicit closing step disposes itself is **deregistered** first (searching the opener's ancestor chain, so an
+  > ancestor-scoped resource can be released from a descendant), so the auto-disposer never double-fires.
 
 - **Resource inheritance along the host chain.** A hosted child may **share a specific resource with its
   host** rather than opening its own — the same browser instance a parent Script opened is the one its
@@ -413,7 +422,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`); the impl drives the engine on a single thread, mirrors trace per-node, and detects live edits | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/` |
 | Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo`, `LogicRunFrameInfo` (live frame tree), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` / `LogicStatus` / `LogicRunResponse`, `ObjectStableId` + `ObjectStableMapper` | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
 | Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, orphan sweep) + `Execution.onCapture` / `restored`; edit-**detection** by notation-diff over the transitive closure in `ServerLogicController.pendingMigration` | engine kzen-lib-jvm; detection kzen-auto-jvm |
-| Resources (**now: tree-scoped**) | `Execution.resource` / `releaseResource` (per-node, disposed on node settle), `ClosePolicy` (Auto / Manual / KeepOnFailure) [engine], `ResourceClosePolicy` [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
+| Resources (**now: tree-scoped**) | `Execution.resource(key, policy, scope)` / `releaseResource` (owner node selected by `ResourceScope` = Self / Parent / Root, disposed on that node's settle; release searches the ancestor chain), `ClosePolicy` (Auto / Manual / KeepOnFailure) + `ResourceScope` (Self / Parent / Root) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure / parent / parentKeepOnFailure / run / runKeepOnFailure) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
 | Tracing | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register), `LogicTracePath` (+ `$stable` marker), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/` |
 | Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / List / Map) | kzen-lib-common `exec/` |
 | Trace store | `LogicTraceStore` — in-memory, `ObjectStableId`-keyed **per-execution** buffers (one per node), monotonic sequence, same-stable-id re-entry clearing + per-execution `evict` on frame close for opt-out (`retainTrace = false`) streaming frames — both wired; the engine event log is bridged into it **one buffer per node** by `ServerLogicController.mirrorTrace`, which also evicts closed opt-out frames (`evictClosedFrames`) | store kzen-lib-jvm `server/exec/logic/trace/`; bridge kzen-auto-jvm |

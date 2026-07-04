@@ -87,14 +87,16 @@ interface Execution {
     ): TupleValue
 
     /**
-     * Register a resource scoped to THIS node, disposed when the node settles per [policy]. Re-registering
-     * the same [key] replaces the prior closer.
+     * Register a resource owned by the node selected by [scope] (default THIS node), disposed when that node
+     * settles per [policy] — so an opening element can hand ownership up the tree ([ResourceScope.Parent] /
+     * [ResourceScope.Root]) to outlive its own document. Re-registering the same [key] replaces the prior closer.
      */
-    fun resource(key: String, policy: ClosePolicy, closer: () -> Unit)
+    fun resource(key: String, policy: ClosePolicy, scope: ResourceScope = ResourceScope.Self, closer: () -> Unit)
 
     /**
      * Deregister a previously-registered resource [key] (e.g. an explicit closing step disposed it itself),
-     * so the auto-disposer never double-fires.
+     * so the auto-disposer never double-fires. Searches this node's ancestor chain (self → parent → … → root),
+     * so a resource handed up the tree via [ResourceScope] can be released from a descendant.
      */
     fun releaseResource(key: String)
 

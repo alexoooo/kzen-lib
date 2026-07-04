@@ -22,6 +22,7 @@ import tech.kzen.lib.common.exec.engine.NodeId
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
+import tech.kzen.lib.common.exec.engine.ResourceScope
 import tech.kzen.lib.common.exec.engine.Run
 import tech.kzen.lib.common.exec.engine.RunState
 import tech.kzen.lib.common.exec.engine.StepMode
@@ -77,6 +78,9 @@ class RunEngine(
         val id: NodeId,
         val stableId: ObjectStableId,
         val depth: Int,
+        // The node that hosted this one (one level up); null for the root. Used to resolve
+        // [ResourceScope.Parent] ownership at resource registration.
+        val parentId: NodeId?,
         val inputs: TupleValue,
         // The element that hosted this node (a RunStep / Job worker), carried to [Node.callerStableId] for
         // trace attribution; null for the root and for a host that named no distinct caller.
@@ -129,7 +133,7 @@ class RunEngine(
 
     init {
         nodeCounter = 1
-        nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, inputs = rootInputs)
+        nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
         published = RunState(buildNode(rootId), sequence)
     }
 
@@ -340,7 +344,7 @@ class RunEngine(
             claimedCaptures.clear()
 
             liveRootLogic = newRoot
-            nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, inputs = rootInputs)
+            nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
             migrating = false
             cancelling = false
             started = true
@@ -424,7 +428,7 @@ class RunEngine(
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
-            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, inputs, callerStableId, retainTrace)
+            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace)
             childLogic[id] = child
             parent.children.add(id)
             id
@@ -612,16 +616,32 @@ class RunEngine(
     }
 
 
-    private fun registerResource(nodeId: NodeId, key: String, policy: ClosePolicy, closer: () -> Unit) {
+    private fun registerResource(nodeId: NodeId, key: String, policy: ClosePolicy, scope: ResourceScope, closer: () -> Unit) {
         synchronized(lock) {
-            nodes.getValue(nodeId).resources[key] = Registration(policy, closer)
+            // Resolve the owning node from [scope]: the resource is disposed on that node's settle. An actively
+            // running node's ancestors are always still live, so the resolved target exists.
+            val ownerId = when (scope) {
+                ResourceScope.Self -> nodeId
+                ResourceScope.Parent -> nodes.getValue(nodeId).parentId ?: nodeId
+                ResourceScope.Root -> rootId
+            }
+            nodes.getValue(ownerId).resources[key] = Registration(policy, closer)
         }
     }
 
 
     private fun releaseResource(nodeId: NodeId, key: String) {
         synchronized(lock) {
-            nodes.getValue(nodeId).resources.remove(key)
+            // Walk the ancestor chain (self → parent → … → root) and remove the first match, so a resource handed
+            // up the tree via [ResourceScope] can be deregistered by a descendant (e.g. a sibling closing step).
+            var current: NodeId? = nodeId
+            while (current != null) {
+                val runtime = nodes[current] ?: break
+                if (runtime.resources.remove(key) != null) {
+                    return
+                }
+                current = runtime.parentId
+            }
         }
     }
 
@@ -727,8 +747,8 @@ class RunEngine(
         ): TupleValue =
             this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace)
 
-        override fun resource(key: String, policy: ClosePolicy, closer: () -> Unit) =
-            this@RunEngine.registerResource(nodeId, key, policy, closer)
+        override fun resource(key: String, policy: ClosePolicy, scope: ResourceScope, closer: () -> Unit) =
+            this@RunEngine.registerResource(nodeId, key, policy, scope, closer)
 
         override fun releaseResource(key: String) =
             this@RunEngine.releaseResource(nodeId, key)

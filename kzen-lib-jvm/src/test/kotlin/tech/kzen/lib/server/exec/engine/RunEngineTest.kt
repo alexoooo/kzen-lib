@@ -13,6 +13,7 @@ import tech.kzen.lib.common.exec.engine.LogicSignature
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
+import tech.kzen.lib.common.exec.engine.ResourceScope
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import kotlin.test.Test
@@ -548,5 +549,184 @@ class RunEngineTest {
         val here = if (node.status is NodeStatus.Suspended) depth else -1
         val below = node.children.maxOfOrNull { deepestSuspendedDepth(it, depth + 1) } ?: -1
         return maxOf(here, below)
+    }
+
+
+    //----------------------------------------------------------------------------- tree-scoped resources (ResourceScope)
+    private fun logicOf(block: suspend (Execution) -> TupleValue): Logic =
+        object: Logic {
+            override fun signature() = LogicSignature.empty
+            override suspend fun run(execution: Execution) = block(execution)
+        }
+
+
+    @Test
+    fun parentScopedResourceOutlivesItsChildAndDisposesAtParentSettle() = runBlocking {
+        // A child opens a Parent-scoped resource: it must survive the child's own settle and dispose when the
+        // parent (here the root) settles — the "sub-script opens the SUT, the caller owns its lifetime" case.
+        var disposed = false
+        var disposedWhenChildReturned: Boolean? = null
+
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, ResourceScope.Parent) { disposed = true }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            disposedWhenChildReturned = disposed
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(false, disposedWhenChildReturned, "a Parent-scoped resource must outlive its child's settle")
+            assertTrue(disposed, "a Parent-scoped resource is disposed when the parent settles")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun rootScopedResourceFromDepthTwoDisposesOnlyAtRootSettle() = runBlocking {
+        // root → child → grandchild; the grandchild opens a Root-scoped resource. It must survive both the
+        // grandchild's and the intermediate child's settle, and dispose only when the root run settles.
+        var disposed = false
+        var disposedWhenGrandchildReturned: Boolean? = null
+        var disposedWhenChildReturned: Boolean? = null
+
+        val grandchild = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, ResourceScope.Root) { disposed = true }
+            TupleValue.ofMain("grandchild")
+        }
+        val child = logicOf { execution ->
+            execution.host(ObjectStableId("grandchild"), grandchild)
+            disposedWhenGrandchildReturned = disposed
+            TupleValue.ofMain("child")
+        }
+        val root = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            disposedWhenChildReturned = disposed
+            TupleValue.ofMain("root")
+        }
+
+        val engine = RunEngine(root, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(false, disposedWhenGrandchildReturned, "Root-scoped resource must outlive the grandchild")
+            assertEquals(false, disposedWhenChildReturned, "Root-scoped resource must outlive the intermediate child")
+            assertTrue(disposed, "Root-scoped resource is disposed when the overall run settles")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun parentKeepOnFailureRetainsWhenParentFails() = runBlocking {
+        // KeepOnFailure at Parent scope keys off the OWNING (parent) node's outcome: when the parent fails, the
+        // resource is retained for inspection.
+        var disposed = false
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.KeepOnFailure, ResourceScope.Parent) { disposed = true }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            execution.recoverable({}) { throw RuntimeException("boom") }
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Failed>(engine.await())
+            assertFalse(disposed, "keep-on-failure at Parent scope retains when the parent fails")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun parentKeepOnFailureDisposesWhenParentSucceeds() = runBlocking {
+        var disposed = false
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.KeepOnFailure, ResourceScope.Parent) { disposed = true }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertTrue(disposed, "keep-on-failure at Parent scope disposes on the parent's success")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun parentScopeAtRootFallsBackToSelf() = runBlocking {
+        // Parent scope opened by the root itself (no parent) falls back to the node itself — no crash, disposed at
+        // run end. Covers the "(if there is one)" clause.
+        var disposed = false
+        val root = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, ResourceScope.Parent) { disposed = true }
+            TupleValue.ofMain("root")
+        }
+
+        val engine = RunEngine(root, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertTrue(disposed, "Parent scope at the root falls back to self and disposes at run end")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun releaseResourceFromDescendantRemovesAncestorScopedRegistration() = runBlocking {
+        // A resource handed up to the parent by one child can be deregistered by a sibling child: releaseResource
+        // walks the caller's ancestor chain, finds it on the parent, and removes it — so the auto-disposer never
+        // fires it.
+        var disposed = false
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, ResourceScope.Parent) { disposed = true }
+            TupleValue.ofMain("opener")
+        }
+        val releaser = logicOf { execution ->
+            execution.releaseResource("r")
+            TupleValue.ofMain("releaser")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("opener"), opener)
+            execution.host(ObjectStableId("releaser"), releaser)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertFalse(disposed, "an ancestor-scoped registration released by a descendant is not auto-disposed")
+        }
+        finally {
+            engine.close()
+        }
     }
 }
