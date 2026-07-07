@@ -229,9 +229,9 @@ class RenameObjectRefactorTest {
 
         val autowiredPath = DocumentPath.parse("test/autowired.yaml")
 
-        // 'Second' is nested under NestedHolder.children, which is an auto-wired NestedList with no notation
-        // backing. Before the fix the refactor tried to rewrite that synthetic list reference and threw
-        // "Not found: NestedHolder - children"; now it is skipped (the list re-derives from object paths).
+        // 'Second' is nested under NestedHolder.children, an auto-wired NestedList with no notation backing.
+        // The refactor must skip that synthetic list reference — it re-derives from object paths; rewriting
+        // it throws "Not found: NestedHolder - children".
         val transition = reducer.applySemantic(
             graphDefinitionAttempt,
             RenameObjectRefactorCommand(

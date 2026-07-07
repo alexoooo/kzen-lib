@@ -358,7 +358,7 @@ class RunEngine(
 
     // Dispose any captured state no node of the rebuilt definition adopted (a removed element), and reset the
     // migration registers. Run at the next [migrate] and at [close]: within a run's life an orphaned detached
-    // resource lingers at most one edit cycle (a deliberate simplification of the old eager per-flavour sweep).
+    // resource lingers at most one edit cycle (deliberate: no eager sweep on every edit).
     private fun sweepOrphans() {
         val orphans = synchronized(lock) {
             val result = migrationCaptured
@@ -390,7 +390,7 @@ class RunEngine(
             try {
                 Outcome.Success(rootOrChildLogic(nodeId).run(execution))
             }
-            catch (e: CancellationException) {
+            catch (_: CancellationException) {
                 // Engine-driven cooperative cancel surfaced from a checkpoint.
                 settleNode(nodeId, Outcome.Cancelled)
                 return Outcome.Cancelled
