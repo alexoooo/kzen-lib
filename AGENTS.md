@@ -58,7 +58,7 @@ After bumping the Kotlin version (even patch versions), run `./gradlew kotlinUpg
 
 - **Variant-suffix coords route through mavenLocal.** Consumers' `jvmMain`/`jsMain` use `tech.kzen.lib:kzen-lib-common-jvm` / `-js`, which Gradle composite substitution does *not* match by project name. They resolve from mavenLocal at the version `Dependencies.kt` pins. **Bump the version → publish → consumer can compile.** Skip the publish step and any non-umbrella consumer build breaks.
 - **commonMain depends only on `platform/`.** Don't reach for `java.*` or browser globals from `commonMain`; the type lives in `platform/jvmMain` / `platform/jsMain` with a matching `expect` in `commonMain`.
-- **Composite-build umbrella context** — see [`../kzen/AGENTS.md`](../kzen/AGENTS.md) for toolchain pins (Kotlin 2.3.21, JVM 25, kotlin-wrappers ceiling), the IntelliJ run/debug Provided-scope bug, and the umbrella↔mavenLocal interplay.
+- **Composite-build umbrella context** — see [`../kzen/AGENTS.md`](../kzen/AGENTS.md) for toolchain pins (Kotlin 2.4.0, JVM 26, kotlin-wrappers ceiling), the IntelliJ run/debug Provided-scope bug, and the umbrella↔mavenLocal interplay.
 
 ## Pointers
 
