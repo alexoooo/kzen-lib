@@ -14,7 +14,7 @@ Three Gradle subprojects:
 - **`kzen-lib-jvm`** — JVM-only artifacts and integration points. Tests under `src/test`.
 - **`kzen-lib-js`** — JS-only artifacts. Tests under `src/jsTest`.
 
-All three publish to mavenLocal at `0.29.1-SNAPSHOT`; downstream siblings reference them as `tech.kzen.lib:kzen-lib-common`, `…-jvm`, `…-js` (the `-jvm` / `-js` variant-suffix coords are pinned via `Dependencies.kt` in each consumer).
+All three publish to mavenLocal at the current source version; downstream siblings reference them as `tech.kzen.lib:kzen-lib-common`, `…-jvm`, `…-js` (the `-jvm` / `-js` variant-suffix coords are pinned via `Dependencies.kt` in each consumer).
 
 ## Entry points
 
