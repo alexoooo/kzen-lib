@@ -1,9 +1,13 @@
 package tech.kzen.lib.common.reflect
 
 import tech.kzen.lib.platform.ClassName
+import tech.kzen.lib.platform.platformSynchronized
 
 
-// TODO: make threadsafe, see https://discuss.kotlinlang.org/t/replacement-for-synchronized/11240/3
+/**
+ * Registration happens at module-register time (boot) and reads happen afterward, but [global] is a
+ * process-wide singleton on the JVM, so access is synchronized (contention is nil).
+ */
 class ReflectionRegistry: ClassMirror {
     companion object {
         val simpleName = ReflectionRegistry::class.simpleName!!
@@ -20,7 +24,9 @@ class ReflectionRegistry: ClassMirror {
 
     //-----------------------------------------------------------------------------------------------------------------
     fun get(className: ClassName): ClassReflection? {
-        return registry[className]
+        return platformSynchronized(registry) {
+            registry[className]
+        }
     }
 
 
@@ -29,10 +35,12 @@ class ReflectionRegistry: ClassMirror {
             serviceArguments: Map<String, String> = mapOf(),
             constructorFunction: (List<Any?>) -> Any
     ) {
-        registry[ClassName(className)] = ClassReflection(
-            constructorArgumentNames,
-            serviceArguments.mapValues { ClassName(it.value) },
-            constructorFunction)
+        platformSynchronized(registry) {
+            registry[ClassName(className)] = ClassReflection(
+                constructorArgumentNames,
+                serviceArguments.mapValues { ClassName(it.value) },
+                constructorFunction)
+        }
     }
 
 

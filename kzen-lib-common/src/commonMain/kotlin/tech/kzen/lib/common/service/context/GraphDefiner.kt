@@ -29,6 +29,14 @@ import kotlin.reflect.KClass
 
 object GraphDefiner {
     //-----------------------------------------------------------------------------------------------------------------
+    /**
+     * Runaway-loop guard on the definition fixed point. Each level must close a definition or create a
+     * definer/creator instance to continue, so the level count is bounded by the meta-object tower depth
+     * (definers defining definers), not by object-to-object reference depth — 16 is far above any real tower.
+     */
+    private const val MAX_DEFINITION_LEVELS = 16
+
+
     val bootstrapObjects = GraphInstance(
         ObjectLocationMap(persistentMapOf(
             bootstrapEntry(DefaultConstructorObjectCreator),
@@ -92,18 +100,28 @@ object GraphDefiner {
         val levelClosed = mutableSetOf<ObjectLocation>()
         val levelCreated = mutableSetOf<ObjectLocation>()
         val missingCreatorInstances = mutableSetOf<ObjectLocation>()
-        val levelErrors = mutableMapOf<ObjectLocation, String>()
         val levelFailures = mutableMapOf<ObjectLocation, ObjectDefinitionFailure>()
 
         var levelCount = 0
         while (openDefinitions.isNotEmpty()) {
             levelCount += 1
-            check(levelCount < 16) { "too deep" }
+            check(levelCount < MAX_DEFINITION_LEVELS) {
+                val stillOpen = openDefinitions.joinToString("; ") { objectLocation ->
+                    val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
+                    val definerState =
+                        when {
+                            definerReference == null -> "definer missing"
+                            else -> "waiting on definer $definerReference"
+                        }
+                    "$objectLocation ($definerState)"
+                }
+                "Definition level count exceeded $MAX_DEFINITION_LEVELS (meta-object tower too deep " +
+                        "or non-converging definers); still open: $stillOpen"
+            }
 
             for (objectLocation in openDefinitions) {
                 val definerReference = definerReference(objectLocation, graphStructure.graphNotation)
                 if (definerReference == null) {
-                    levelErrors[objectLocation] = "Definer missing"
                     continue
                 }
 
@@ -129,7 +147,6 @@ object GraphDefiner {
                     }
 
                     is ObjectDefinitionFailure -> {
-                        levelErrors[objectLocation] = definition.errorMessage
                         missingInstances.addAll(definition.missingObjects.values)
 
                         levelFailures[objectLocation] = definition
@@ -182,10 +199,6 @@ object GraphDefiner {
             missingInstances.removeAll(levelCreated)
 
             if (levelClosed.isEmpty() && levelCreated.isEmpty()) {
-//                for ((objectLocation, partialDefinition) in levelPartial) {
-//                    closedDefinitions = closedDefinitions.put(objectLocation, partialDefinition)
-//                }
-
                 return GraphDefinitionAttempt(
                     closedDefinitions.objectDefinitions,
                     ObjectLocationMap(levelFailures.toPersistentMap()),
@@ -197,7 +210,6 @@ object GraphDefiner {
             levelCreated.clear()
             levelClosed.clear()
             missingCreatorInstances.clear()
-            levelErrors.clear()
             levelFailures.clear()
         }
 

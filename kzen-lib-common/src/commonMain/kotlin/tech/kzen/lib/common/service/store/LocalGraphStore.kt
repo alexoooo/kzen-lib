@@ -46,6 +46,10 @@ interface LocalGraphStore {
 
     suspend fun graphStructure(): GraphStructure
 
-    // TODO: rename graphDefinitionAttempt. Should this be cached?
+    /**
+     * // TODO: rename graphDefinitionAttempt
+     * Implementations may cache per notation version (keyed by content digest), so repeat calls
+     * against unchanged notation can return the same attempt instance — see [DirectGraphStore].
+     */
     suspend fun graphDefinition(): GraphDefinitionAttempt
 }

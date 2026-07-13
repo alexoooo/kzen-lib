@@ -34,12 +34,24 @@ data class GraphNotation(
     }
 
 
-    val coalesce: ObjectLocationMap<ObjectNotation> by lazy {
+    // Optimization slot only (data-class equality is on documents): the with*Document factories seed the
+    // successor's coalesce by patching an already-materialized one instead of re-flattening all documents.
+    private var coalesceSeed: ObjectLocationMap<ObjectNotation>? = null
+
+    private val coalesceLazy: Lazy<ObjectLocationMap<ObjectNotation>> = lazy {
+        coalesceSeed ?: flattenCoalesce()
+    }
+
+    val coalesce: ObjectLocationMap<ObjectNotation>
+        get() = coalesceLazy.value
+
+
+    private fun flattenCoalesce(): ObjectLocationMap<ObjectNotation> {
         val buffer = mutableMapOf<ObjectLocation, ObjectNotation>()
         documents.map.entries
             .flatMap { it.value.expand(it.key).map.entries }
             .forEach { buffer[it.key] = it.value }
-        ObjectLocationMap(buffer.toPersistentMap())
+        return ObjectLocationMap(buffer.toPersistentMap())
     }
 
 
@@ -303,8 +315,9 @@ data class GraphNotation(
             "Unexpected resources for path: $documentPath - ${documentNotation.resources}"
         }
 
-        return GraphNotation(
-            documents.put(documentPath, documentNotation))
+        return seedPatchedCoalesce(
+            GraphNotation(documents.put(documentPath, documentNotation)),
+            documentPath)
     }
 
 
@@ -315,8 +328,9 @@ data class GraphNotation(
         check(documentPath in documents) {
             "Not found: $documentPath"
         }
-        return GraphNotation(
-            documents.put(documentPath, documentNotation))
+        return seedPatchedCoalesce(
+            GraphNotation(documents.put(documentPath, documentNotation)),
+            documentPath)
     }
 
 
@@ -326,8 +340,49 @@ data class GraphNotation(
         check(documentPath in documents) {
             "Already absent: $documentPath"
         }
-        return GraphNotation(
-            documents.remove(documentPath))
+        return seedPatchedCoalesce(
+            GraphNotation(documents.remove(documentPath)),
+            documentPath)
+    }
+
+
+    /**
+     * When this instance's coalesce is already materialized, seed the successor's by patching (per-document
+     * remove/put, O(document size · log n)) instead of leaving it to re-flatten every document. Surviving keys
+     * keep their position (put on an existing key maintains order), but objects newly added to an existing
+     * document land at the end rather than grouped with their document as a cold flatten would — iteration
+     * stays deterministic, and nothing semantic keys off document grouping. The inheritance-chain cache is
+     * deliberately NOT carried over (chains cross documents through by-name resolution), nor is the digest.
+     */
+    private fun seedPatchedCoalesce(
+        successor: GraphNotation,
+        documentPath: DocumentPath
+    ): GraphNotation {
+        if (!coalesceLazy.isInitialized()) {
+            return successor
+        }
+
+        val oldDocument = documents.map[documentPath]
+        val newExpanded = successor.documents.map[documentPath]?.expand(documentPath)?.map
+
+        var patched = coalesce.map
+
+        if (oldDocument != null) {
+            for (objectLocation in oldDocument.expand(documentPath).map.keys) {
+                if (newExpanded == null || objectLocation !in newExpanded) {
+                    patched = patched.remove(objectLocation)
+                }
+            }
+        }
+
+        if (newExpanded != null) {
+            for (e in newExpanded) {
+                patched = patched.put(e.key, e.value)
+            }
+        }
+
+        successor.coalesceSeed = ObjectLocationMap(patched)
+        return successor
     }
 
 

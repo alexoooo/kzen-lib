@@ -34,6 +34,9 @@ class DirectGraphStore(
     private var graphNotationCache: GraphNotation? = null
     private val documentObjectCache = DigestCache<DocumentObjectNotation>(128)
 
+    private var graphDefinitionCacheDigest: Digest? = null
+    private var graphDefinitionCache: GraphDefinitionAttempt? = null
+
     private val observers = mutableSetOf<LocalGraphStore.Observer>()
 
 
@@ -150,23 +153,29 @@ class DirectGraphStore(
 
 
     override suspend fun graphDefinition(): GraphDefinitionAttempt {
-        val graphStructure = graphStructure()
-        return graphDefinition(graphStructure)
+        val graphNotation = graphNotation()
+        return cachedGraphDefinition(graphNotation)
     }
 
 
-    private fun graphDefinition(
+    /**
+     * One tryDefine per notation version: keyed by the notation's (memoized) content digest, so the
+     * old-notation define inside a semantic command, observe() and publishRefresh() are all cache hits.
+     * A hit also skips the metadata read, and reusing the attempt instance memoizes its lazy
+     * transitiveSuccessful pruning once per notation version.
+     */
+    private fun cachedGraphDefinition(
         graphNotation: GraphNotation
     ): GraphDefinitionAttempt {
-        val graphStructure = graphStructure(graphNotation)
-        return graphDefinition(graphStructure)
-    }
+        val digest = graphNotation.digest()
 
+        if (graphDefinitionCacheDigest != digest) {
+            val graphStructure = graphStructure(graphNotation)
+            graphDefinitionCacheDigest = digest
+            graphDefinitionCache = graphDefiner.tryDefine(graphStructure)
+        }
 
-    private fun graphDefinition(
-        graphStructure: GraphStructure
-    ): GraphDefinitionAttempt {
-        return graphDefiner.tryDefine(graphStructure)
+        return graphDefinitionCache!!
     }
 
 
@@ -198,7 +207,7 @@ class DirectGraphStore(
                     notationReducer.applyStructural(graphNotation, command)
 
                 is SemanticNotationCommand -> {
-                    val graphDefinitionAttempt = graphDefinition(graphNotation)
+                    val graphDefinitionAttempt = cachedGraphDefinition(graphNotation)
                     notationReducer.applySemantic(graphDefinitionAttempt, command)
                 }
             }
@@ -378,5 +387,7 @@ class DirectGraphStore(
         notationMedia.invalidate()
         graphNotationCacheDigest = null
         graphNotationCache = null
+        graphDefinitionCacheDigest = null
+        graphDefinitionCache = null
     }
 }

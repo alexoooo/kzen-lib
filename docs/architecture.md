@@ -49,6 +49,20 @@ Services involved (all under `service/`):
 - `service/context/GraphDefiner` — produces `GraphDefinition`.
 - `service/context/GraphCreator` — instantiates `GraphInstance`.
 
+Hot-path caching along this flow (beyond the per-document parse cache and the dependency-digest-keyed
+metadata cache):
+
+- **Definition per notation version** — `DirectGraphStore` caches the `GraphDefinitionAttempt` keyed by
+  the notation's content digest, so there is one `tryDefine` per notation version: repeat
+  `graphDefinition()` calls (observe, refresh, the old-notation define inside a semantic command)
+  return the same attempt instance, which also memoizes its lazy `transitiveSuccessful` pruning.
+- **Coalesce survives edits** — `GraphNotation.with{New,Modified,out}Document` seed the successor's
+  `coalesce` by patching the already-materialized one (per-document remove/put) instead of
+  re-flattening every document; the inheritance-chain cache is deliberately not carried over.
+- **Construction leveling is topological** — `GraphCreator.constructionLevels` resolves each declared
+  reference once and peels zero-indegree levels (Kahn's algorithm, O(V+E)); an ambiguous reference is
+  a clean `IllegalArgumentException` naming all candidates.
+
 **Gotcha — typed-attribute YAML keys need a `meta:` declaration.** Writing a key like `name: "World"` into an object's notation does *not* by itself make `name` a typed attribute the Definition layer can wire into the constructor. The object's notation (or an ancestor in its `is:` chain) must also declare the type in a sibling `meta:` block, e.g. `meta: { name: String }`. Without it, `ObjectDefinition.attributeDefinitions` is empty and `AttributeObjectCreator` fails at construction with `Attribute definition missing: <document>#<object> - <attr>`. `NotationMetadataReader.inferMetadata` infers types for object-reference values but not for plain scalars — the explicit `meta:` is what tells the Definer how to coerce them. Same rule applies when adding a new constructor parameter to a `@Reflect`'d class: bump the codegen *and* declare the attribute in `meta:` of the notation that constructs it.
 
 ## CQRS

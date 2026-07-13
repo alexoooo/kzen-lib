@@ -51,42 +51,6 @@ data class ObjectLocationMap<T>(
     }
 
 
-//    fun locateOptional(reference: ObjectReference): ObjectLocation? {
-//        val matches = locateAll(reference)
-//
-//        check(matches.values.size <= 1) {
-//            "Ambiguous: $reference - $matches"
-//        }
-//
-//        if (matches.values.isEmpty()) {
-//            return null
-//        }
-//        return matches.values.iterator().next()
-//    }
-//
-//
-//    fun locateOptional(
-//        reference: ObjectReference,
-//        host: ObjectReferenceHost
-//    ): ObjectLocation? {
-//        val matches = locateAll(reference, host)
-//
-//        check(matches.values.size <= 1) {
-//            "Ambiguous: $host - $reference - $matches"
-//        }
-//
-//        if (matches.values.isEmpty()) {
-//            return null
-//        }
-//        return matches.values.iterator().next()
-//    }
-//
-//
-//    fun locateAll(reference: ObjectReference): ObjectLocationSet {
-//        return locateAll(reference, ObjectReferenceHost.global)
-//    }
-
-
     override fun locateAll(
         reference: ObjectReference,
         host: ObjectReferenceHost
@@ -106,10 +70,6 @@ data class ObjectLocationMap<T>(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-//    fun containsKey(objectLocation: ObjectLocation): Boolean {
-//        return values.containsKey(objectLocation)
-//    }
-
     operator fun contains(objectLocation: ObjectLocation): Boolean {
         return objectLocation in map
     }
