@@ -10,12 +10,18 @@ import tech.kzen.lib.common.exec.engine.ClosePolicy
 import tech.kzen.lib.common.exec.engine.Execution
 import tech.kzen.lib.common.exec.engine.Logic
 import tech.kzen.lib.common.exec.engine.LogicSignature
+import tech.kzen.lib.common.exec.engine.Node
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
 import tech.kzen.lib.common.exec.engine.ResourceScope
+import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicLong
+import kotlin.system.measureTimeMillis
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -270,9 +276,10 @@ class RunEngineTest {
 
     @Test
     fun hostRetainTracePropagatesToChildNode() = runBlocking {
-        // A host may opt a child frame OUT of trace retention (§7 streaming bounding): the flag is recorded on
-        // the child node so a trace consumer can evict a streaming host's per-element frame when it closes. The
-        // default host retains; only the explicit false opts out. Proves the engine threads it to Node.retainTrace.
+        // A host may opt a child frame OUT of trace retention (§7 streaming bounding): the engine compacts the
+        // settled frame out of the snapshot tree, and its frame-close signal carries the flag so a trace
+        // consumer can evict its buffer. The default host retains: a retained child stays in the snapshot after
+        // settling (post-run review). Proves the engine threads retainTrace to Node.retainTrace and acts on it.
         val hosting = object: Logic {
             override fun signature() = LogicSignature.empty
             override suspend fun run(execution: Execution): TupleValue {
@@ -286,15 +293,23 @@ class RunEngineTest {
 
         val engine = RunEngine(hosting, rootId, threads = 4)
         try {
+            val closed = ConcurrentLinkedQueue<Node>()
+            engine.observeFrames { closed.add(it) }
+
             engine.resume()
             assertTrue(engine.await() is Outcome.Success)
 
             val root = engine.snapshot().root
             assertTrue(root.retainTrace, "the root is always retained")
-            val kept = root.children.single { it.stableId == ObjectStableId("kept") }
-            val streamed = root.children.single { it.stableId == ObjectStableId("streamed") }
+            val kept = root.children.single()
+            assertEquals(ObjectStableId("kept"), kept.stableId,
+                "the settled non-retained frame is compacted out; the retained one stays")
             assertTrue(kept.retainTrace, "the default host retains its child's trace")
-            assertFalse(streamed.retainTrace, "an opted-out host's child frame is not retained")
+            assertIs<NodeStatus.Terminal>(kept.status)
+
+            val streamedClose = closed.single { it.stableId == ObjectStableId("streamed") }
+            assertIs<NodeStatus.Terminal>(streamedClose.status)
+            assertFalse(streamedClose.retainTrace, "an opted-out host's child frame is not retained")
         }
         finally {
             engine.close()
@@ -544,6 +559,155 @@ class RunEngineTest {
     }
 
 
+    //------------------------------------------------------------------- engine hot path + frame compaction (phase 1)
+    /** Loops [total] boundaries; signals [reached] after the [signalAt]-th emit, then blocks on [gate]. */
+    private class GatedLoopLogic(
+        private val total: Int,
+        private val signalAt: Int,
+        private val reached: CountDownLatch,
+        private val gate: CountDownLatch
+    ): Logic {
+        override fun signature() = LogicSignature.empty
+
+        override suspend fun run(execution: Execution): TupleValue {
+            for (i in 1 .. total) {
+                execution.checkpoint()
+                execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
+                if (i == signalAt) {
+                    reached.countDown()
+                    gate.await()
+                }
+            }
+            return TupleValue.ofMain(total)
+        }
+    }
+
+
+    @Test
+    fun pauseOverridesInFlightStepOver() = runBlocking {
+        // A long Step Over (over a hosted child running many boundaries) must be pausable: Paused overrides the
+        // in-flight stepping command, so the run settles Suspended(Boundary) at the child's next checkpoint
+        // long before the step would have completed. (Previously pause only acted on a Running command — a
+        // step-over could only be cancelled.)
+        val reached = CountDownLatch(1)
+        val gate = CountDownLatch(1)
+        val hosting = logicOf { execution ->
+            execution.checkpoint()
+            execution.host(ObjectStableId("child"), GatedLoopLogic(10_000, 5, reached, gate))
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(hosting, rootId, threads = 4)
+        try {
+            // Park at the root's first checkpoint (depth 0).
+            engine.step()
+            engine.awaitQuiescent()
+
+            // Step Over: the hosted child (depth 1 > limit 0) runs free...
+            engine.step(StepMode.Over)
+            reached.await()
+            // ...until pause overrides the stepping command mid-step.
+            engine.pause()
+            gate.countDown()
+            engine.awaitQuiescent()
+
+            val child = engine.snapshot().root.children.single()
+            assertEquals(
+                NodeStatus.Suspended(PauseReason.Boundary), child.status,
+                "pause mid-step must park the child at its next boundary")
+            assertEquals(
+                ExecutionValue.of(5L), child.live[Address.of("i")],
+                "the child parked long before the step would have completed")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun frameCompactionBoundsStreamingHost() = runBlocking {
+        // §7 retention-vs-bounding: a streaming host (one retainTrace = false child per element) stays
+        // O(live frames) — each settled non-retained frame is compacted out of the runtime maps and the
+        // snapshot tree, its frame-close signal fires exactly once with its final status, and its events
+        // remain in history untouched.
+        val count = 1000
+        val streaming = logicOf { execution ->
+            for (i in 1 .. count) {
+                execution.host(ObjectStableId("el-$i"), StepsLogic(1), retainTrace = false)
+            }
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(streaming, rootId)
+        try {
+            val closed = ConcurrentLinkedQueue<Node>()
+            engine.observeFrames { closed.add(it) }
+
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+
+            assertTrue(
+                engine.snapshot().root.children.isEmpty(),
+                "settled non-retained frames are compacted out of the snapshot")
+            assertEquals(1, engine.nodeCount(), "only the (retained) root remains in the runtime maps")
+
+            val childCloses = closed.filter { it.stableId != rootId }
+            assertEquals(count, childCloses.size, "frame-close fires exactly once per frame")
+            assertEquals(count, childCloses.map { it.id }.toSet().size)
+            assertTrue(childCloses.all { it.status is NodeStatus.Terminal && !it.retainTrace })
+            assertIs<NodeStatus.Terminal>(
+                closed.single { it.stableId == rootId }.status,
+                "the root's own frame-close carries its terminal status")
+
+            assertEquals(2 * count, engine.history(0).size, "compaction leaves history untouched")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun perfGuardHotPathIsNotQuadratic() = runBlocking {
+        // Coarse guard for the emit/publish hot path: 100k history events on a ~10-node tree, with a
+        // bridge-shaped observer pulling history by watermark on every change signal. The bound is generous —
+        // it only catches an O(N²) regression (rebuilding the snapshot tree per emit, or scanning the full
+        // history list per pull), which overshoots it by an order of magnitude.
+        val children = 10
+        val stepsPerChild = 5_000
+        val hosting = logicOf { execution ->
+            for (i in 1 .. children) {
+                execution.host(ObjectStableId("c$i"), StepsLogic(stepsPerChild))
+            }
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(hosting, rootId)
+        try {
+            val watermark = AtomicLong(0)
+            engine.observe {
+                engine.history(watermark.get()).lastOrNull()?.let { watermark.set(it.sequence) }
+            }
+
+            val elapsed = measureTimeMillis {
+                engine.resume()
+                assertIs<Outcome.Success>(engine.await())
+            }
+
+            assertEquals((2L * children * stepsPerChild), engine.snapshot().sequence)
+            assertTrue(elapsed < 10_000, "hot path regressed: ${2 * children * stepsPerChild} events took ${elapsed}ms")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     // Depth of the deepest node currently Suspended (parked at a checkpoint), or -1 if none is; the root is depth 0.
     private fun deepestSuspendedDepth(node: tech.kzen.lib.common.exec.engine.Node, depth: Int = 0): Int {
         val here = if (node.status is NodeStatus.Suspended) depth else -1

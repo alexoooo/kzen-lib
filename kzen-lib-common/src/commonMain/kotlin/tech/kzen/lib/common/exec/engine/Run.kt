@@ -16,8 +16,12 @@ interface Run {
     /** The latest immutable run-state snapshot (lock-free read). */
     fun snapshot(): RunState
 
-    /** Subscribe to run-state changes (push). The returned handle unsubscribes. */
-    fun observe(listener: (RunState) -> Unit): AutoCloseable
+    /**
+     * Subscribe to a change signal (push). Notifications are coalescing-safe, may arrive concurrently, and
+     * carry no ordering guarantee — a listener pulls [snapshot] / [history] for state. The returned handle
+     * unsubscribes.
+     */
+    fun observe(listener: () -> Unit): AutoCloseable
 
     /** Run at full speed to the next halt (terminal, or a pause). Idempotent: the first call starts the run. */
     fun resume()

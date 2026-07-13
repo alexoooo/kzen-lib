@@ -38,10 +38,12 @@ import tech.kzen.lib.common.util.ExceptionUtils
  * One [RunEngine] instance owns one run and *all* of its state (no process-global singletons): the
  * execution-tree runtime, the event log, the run command, identity counter, and resource registrations.
  * Every mutation is serialized under a single [lock] (the "single writer"), which assigns the deterministic
- * fold [sequence] and rebuilds the immutable [RunState] snapshot published via the [published] volatile —
- * so concurrent readers (UI, tests) see a coherent whole-tree value with no locking, and parallel worker
- * coroutines (run on the [CountingDispatcher]) never touch shared state directly; they only emit through the
- * [Execution] handed to them, which routes back into this single writer.
+ * fold [sequence] and marks the run [dirty]; the immutable [RunState] snapshot is rebuilt lazily on the next
+ * [snapshot] read and cached in the [published] volatile — so the emit/log hot path never builds the tree,
+ * concurrent readers (UI, tests) see a coherent whole-tree value, and parallel worker coroutines (run on the
+ * [CountingDispatcher]) never touch shared state directly; they only emit through the [Execution] handed to
+ * them, which routes back into this single writer. Observers receive a payload-free change signal and pull
+ * [snapshot] / [history] for state.
  *
  * Stepping (into / over / out) is computed centrally from the tree's depth this engine owns, so flavours
  * add no stepping code — a Logic only declares boundaries with [Execution.checkpoint].
@@ -86,8 +88,9 @@ class RunEngine(
         // trace attribution; null for the root and for a host that named no distinct caller.
         val callerStableId: ObjectStableId? = null,
         // Whether this node's trace buffer is retained after the frame closes, carried to [Node.retainTrace]
-        // (§7 retention-vs-bounding); false lets a trace consumer evict a streaming host's per-element frame on
-        // settle. Always true for the root.
+        // (§7 retention-vs-bounding); false makes the engine compact the frame out of [nodes] / the snapshot
+        // tree on settle (see [settleNode]), and the frame-close signal ([observeFrames]) lets a trace
+        // consumer evict its buffer likewise. Always true for the root.
         val retainTrace: Boolean = true
     ) {
         var status: NodeStatus = NodeStatus.Running
@@ -107,7 +110,8 @@ class RunEngine(
     private val nodes = HashMap<NodeId, NodeRuntime>()
     private val parked = HashMap<NodeId, Parked>()
     private val history = ArrayList<TraceEvent>()
-    private val observers = ArrayList<(RunState) -> Unit>()
+    private val observers = ArrayList<() -> Unit>()
+    private val frameObservers = ArrayList<(Node) -> Unit>()
     private val terminal = CompletableDeferred<Outcome>()
 
     // Live-edit migration registers: the state captured from the torn-down definition keyed by stable id, and
@@ -127,6 +131,11 @@ class RunEngine(
     private val rootId = NodeId("n0")
     private var liveRootLogic: Logic = rootLogic
 
+    // Set under [lock] whenever tree-visible state changes; [snapshot] then rebuilds the cached [published]
+    // on the next read instead of on every mutation (the emit/log hot path).
+    @Volatile
+    private var dirty = false
+
     @Volatile
     private var published: RunState
 
@@ -140,17 +149,44 @@ class RunEngine(
 
     //----------------------------------------------------------------------------------- run-control surface (public)
     override fun snapshot(): RunState {
-        return published
+        if (!dirty) {
+            return published
+        }
+        return synchronized(lock) {
+            if (dirty) {
+                published = RunState(buildNode(rootId), sequence)
+                dirty = false
+            }
+            published
+        }
     }
 
 
-    override fun observe(listener: (RunState) -> Unit): AutoCloseable {
+    override fun observe(listener: () -> Unit): AutoCloseable {
         synchronized(lock) {
             observers.add(listener)
         }
         return AutoCloseable {
             synchronized(lock) {
                 observers.remove(listener)
+            }
+        }
+    }
+
+
+    /**
+     * Subscribe to frame-close signals: [listener] is invoked exactly once per settled node, after its final
+     * events are in [history], carrying the closed node (terminal status; children as of settle). Not invoked
+     * for frames torn down by [migrate] — migration supersedes frames rather than closing them. Fires on an
+     * engine dispatcher thread; keep listeners cheap. The returned handle unsubscribes.
+     */
+    fun observeFrames(listener: (Node) -> Unit): AutoCloseable {
+        synchronized(lock) {
+            frameObservers.add(listener)
+        }
+        return AutoCloseable {
+            synchronized(lock) {
+                frameObservers.remove(listener)
             }
         }
     }
@@ -182,9 +218,9 @@ class RunEngine(
             if (cancelling) {
                 return
             }
-            if (command == Command.Running) {
-                command = Command.Paused
-            }
+            // Overrides an in-flight stepping command too (a long step-over — e.g. over a sub-script — parks
+            // at its next boundary instead of running the whole step to completion).
+            command = Command.Paused
         }
         publish()
     }
@@ -269,7 +305,10 @@ class RunEngine(
 
     override fun history(sinceSequence: Long): List<TraceEvent> {
         return synchronized(lock) {
-            history.filter { it.sequence > sinceSequence }
+            // Sequence-ordered (single writer): binary-search the first event past the watermark.
+            val search = history.binarySearchBy(sinceSequence + 1) { it.sequence }
+            val start = if (search >= 0) search else -search - 1
+            ArrayList(history.subList(start, history.size))
         }
     }
 
@@ -288,6 +327,13 @@ class RunEngine(
     /** Block the calling (non-dispatcher) thread until the run is quiescent — all spines parked or terminal. */
     fun awaitQuiescent() {
         dispatcher.awaitQuiescent()
+    }
+
+
+    // Test visibility: the number of live NodeRuntime entries — bounded on a streaming run iff frame
+    // compaction works (see [settleNode]).
+    internal fun nodeCount(): Int {
+        return synchronized(lock) { nodes.size }
     }
 
 
@@ -562,17 +608,45 @@ class RunEngine(
             runtime.status = NodeStatus.Terminal(outcome)
             parked.remove(nodeId)
             // A node torn down by an in-progress [migrate] still disposes its (non-detached) resources, but is
-            // not published as terminal nor completes the run — the rebuilt tree supersedes it.
+            // not published as terminal, frame-closed, nor completes the run — the rebuilt tree supersedes it.
             !migrating
         }
         disposeResources(nodeId, error = outcome is Outcome.Failed)
         if (!proceed) {
             return
         }
+
+        // Frame close: capture the settled node (its final events are already in [history]), compact, and
+        // notify frame observers before the general change signal.
+        val (closedNode, frameObserversCopy) = synchronized(lock) {
+            val runtime = nodes.getValue(nodeId)
+            val closedNode = buildNode(nodeId)
+            // The compiled Logic is never used after [host] returns; [migrate] clears the map wholesale.
+            childLogic.remove(nodeId)
+            if (!runtime.retainTrace && nodeId != rootId) {
+                // Full compaction (§7 retention-vs-bounding): a settled non-retained frame — and its settled
+                // subtree — leaves [nodes] and the parent's children, so it disappears from subsequent
+                // snapshots and a streaming host stays O(live frames). Its events remain in [history].
+                removeSubtree(nodeId)
+                runtime.parentId?.let { nodes[it]?.children?.remove(nodeId) }
+            }
+            closedNode to frameObservers.toList()
+        }
+        frameObserversCopy.forEach { it(closedNode) }
         publish()
         if (nodeId == rootId) {
             terminal.complete(outcome)
         }
+    }
+
+
+    // Must hold lock. Removes a compacted frame and any settled descendants still in the runtime maps
+    // (retained descendants of a non-retained frame become unreachable from the tree, so they go too).
+    private fun removeSubtree(nodeId: NodeId) {
+        val runtime = nodes.remove(nodeId)
+            ?: return
+        childLogic.remove(nodeId)
+        runtime.children.forEach { removeSubtree(it) }
     }
 
 
@@ -692,12 +766,11 @@ class RunEngine(
 
 
     private fun publish() {
-        val (snapshot, observersCopy) = synchronized(lock) {
-            val snapshot = RunState(buildNode(rootId), sequence)
-            published = snapshot
-            snapshot to observers.toList()
+        val observersCopy = synchronized(lock) {
+            dirty = true
+            observers.toList()
         }
-        observersCopy.forEach { it(snapshot) }
+        observersCopy.forEach { it() }
     }
 
 
@@ -720,11 +793,13 @@ class RunEngine(
     private inner class ExecutionImpl(
         private val nodeId: NodeId
     ): Execution {
-        override val inputs: TupleValue
-            get() = nodeInputs(nodeId)
+        // Immutable per node — captured once so the checkpoint / inputs hot paths take no lock.
+        private val depth = depthOf(nodeId)
+
+        override val inputs: TupleValue = nodeInputs(nodeId)
 
         override suspend fun checkpoint() =
-            this@RunEngine.checkpoint(nodeId, depthOf(nodeId))
+            this@RunEngine.checkpoint(nodeId, depth)
 
         override fun emit(address: Address, value: ExecutionValue) =
             this@RunEngine.emit(nodeId, address, value)

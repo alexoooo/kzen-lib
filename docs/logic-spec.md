@@ -136,7 +136,9 @@ Run control is expressed against a **specific run** (identified per-run, never "
 below is addressed and concurrent runs are independently controllable.
 
 - **Run** — execute at full speed to the next halt (terminal, or a pause).
-- **Pause** — settle at the next boundary into a quiescent state.
+- **Pause** — settle at the next boundary into a quiescent state. Pause **overrides an in-flight stepping
+  command**: a long step (e.g. a step-over of a sub-computation) parks at its next boundary instead of
+  running the step to completion — pausing is never refused, and never has to wait for a step to finish.
 - **Cancel / terminate** — cooperatively stop the run; it settles to a terminal *cancelled* outcome,
   releasing resources.
 - **Step** — advance by exactly **one boundary**, in three modes:
@@ -341,8 +343,10 @@ it is doing**, and the recording is part of the Logic contract — not an option
   > coexist rather than trade off. A finished frame's buffer is kept by default, so post-run review works (a
   > Script `RunStep`'s screenshot strip shows *every* loop iteration's finished sub-script). A long *streaming*
   > host that opens one child per element passes `Execution.host(…, retainTrace = false)`, recorded as
-  > `Node.retainTrace`; the engine bridge then **evicts that frame's per-execution buffer the moment it settles
-  > terminal**, bounding the run to its live frames instead of leaking one buffer per element. Re-entry still
+  > `Node.retainTrace`; the engine then **compacts the settled frame out of the run snapshot and its runtime
+  > maps**, and signals the frame close (exactly once, after the frame's final events are in the history
+  > stream — `RunEngine.observeFrames`) so a trace consumer evicts its per-execution buffer likewise —
+  > bounding the run to its live frames instead of leaking one node + one buffer per element. Re-entry still
   > clears a prior invocation's live values (so a loop doesn't grow the latest-value view), and a new run clears
   > all prior traces. The bound is a per-host choice a third-party Logic sets — not a hard-coded engine policy —
   > so it can never silently drop a frame a consumer wanted to review.
@@ -379,8 +383,9 @@ recorded here so the rationale isn't lost and future changes don't regress it.
   single-writer `sequence`); the live latest-value view (`Node.live`) is a *projection* of it (last write
   per address). One stream, two views — no second parallel structure. Streaming *bounding* is layered on top
   without a second structure: a host opts a child frame out of retention (`Execution.host(retainTrace = false)`
-  → `Node.retainTrace`) and the engine bridge evicts that per-execution buffer on frame close, so retention
-  (default) and bounding (opt-in) coexist — see the §7 retention note.
+  → `Node.retainTrace`); the engine compacts that frame on settle, and its frame-close signal lets the trace
+  consumer evict the per-execution buffer likewise — so retention (default) and bounding (opt-in) coexist;
+  see the §7 retention note.
 
 - **Heterogeneous composition + confinement + step-across-boundaries.** *Question: can "host a child Logic"
   be one primitive that the run controller drives uniformly, so flavours add no stepping code?*
@@ -414,18 +419,18 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
 | Execution context (the whole surface a Logic touches) | `Execution` — `inputs`, `checkpoint`, `emit`, `log`, `pauseHere`, `recoverable`, `host`, `resource` / `releaseResource`, `onRequest`, `onCapture` / `restored` | kzen-lib-common `exec/engine/` |
-| Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`), `CountingDispatcher` (quiescence / busy-vs-idle) | kzen-lib-jvm `server/exec/engine/` |
-| Execution tree & state | `Node` (id + stableId + status + live + children + **callerStableId** + **retainTrace** — frame *and* execution tree; `retainTrace` governs frame-close trace eviction, §7), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
-| Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / request / history / await) | kzen-lib-common `exec/engine/` |
+| Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `observeFrames` frame-close signal; lazy dirty-flag snapshot, settled-frame compaction) | kzen-lib-jvm `server/exec/engine/` |
+| Execution tree & state | `Node` (id + stableId + status + live + children + **callerStableId** + **retainTrace** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
+| Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
 | Typed I/O | `TupleDefinition` / `TupleValue` / `TupleComponentDefinition` / `TupleComponentValue`, `TupleComponentName.main` / `.detail`, `LogicType` | kzen-lib-common `exec/tuple/`, `exec/logic/model/` |
 | Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / Failed / Cancelled) | kzen-lib-common `exec/engine/` |
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`); the impl drives the engine on a single thread, mirrors trace per-node, and detects live edits | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/` |
 | Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo`, `LogicRunFrameInfo` (live frame tree), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` / `LogicStatus` / `LogicRunResponse`, `ObjectStableId` + `ObjectStableMapper` | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
-| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, orphan sweep) + `Execution.onCapture` / `restored`; edit-**detection** by notation-diff over the transitive closure in `ServerLogicController.pendingMigration` | engine kzen-lib-jvm; detection kzen-auto-jvm |
+| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, orphan sweep) + `Execution.onCapture` / `restored`; edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (graph-store observer) gating a notation-diff over the transitive closure | engine kzen-lib-jvm; detection kzen-auto-jvm |
 | Resources (**now: tree-scoped**) | `Execution.resource(key, policy, scope)` / `releaseResource` (owner node selected by `ResourceScope` = Self / Parent / Root, disposed on that node's settle; release searches the ancestor chain), `ClosePolicy` (Auto / Manual / KeepOnFailure) + `ResourceScope` (Self / Parent / Root) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure / parent / parentKeepOnFailure / run / runKeepOnFailure) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
 | Tracing | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register), `LogicTracePath` (+ `$stable` marker), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/` |
 | Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / List / Map) | kzen-lib-common `exec/` |
-| Trace store | `LogicTraceStore` — in-memory, `ObjectStableId`-keyed **per-execution** buffers (one per node), monotonic sequence, same-stable-id re-entry clearing + per-execution `evict` on frame close for opt-out (`retainTrace = false`) streaming frames — both wired; the engine event log is bridged into it **one buffer per node** by `ServerLogicController.mirrorTrace`, which also evicts closed opt-out frames (`evictClosedFrames`) | store kzen-lib-jvm `server/exec/logic/trace/`; bridge kzen-auto-jvm |
+| Trace store | `LogicTraceStore` — in-memory, `ObjectStableId`-keyed **per-execution** buffers (one per node), monotonic sequence, same-stable-id re-entry clearing + per-execution `evict` on frame close for opt-out (`retainTrace = false`) streaming frames — both wired; the engine event log is bridged into it **one buffer per node** by `ServerLogicController.mirrorTrace`, and a closed opt-out frame is evicted on the engine's frame-close signal (`onFrameClosed`) | store kzen-lib-jvm `server/exec/logic/trace/`; bridge kzen-auto-jvm |
 | Interactive request/response | `ExecutionRequest` / `ExecutionResult` / `RequestParams`; `Run.request` / `LogicController.request`; `Execution.onRequest` | kzen-lib-common `exec/` |
 | Example consumers (illustrative only) | `ScriptLogic` / `ScriptRunContext`, `FlowLogic` / `FlowRun`, `JobLogic` / `JobRun` / `WorkerLogic` / `EngineJobControl`, `ReportLogic` / `ReportRun`; `LogicCompiler` (document → `Logic`); client driver `ClientLogicGlobal` (poll + auto-step) | kzen-auto-jvm `server/exec/**`, `server/objects/**`; kzen-auto-js `client/service/logic/` |
 
