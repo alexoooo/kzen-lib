@@ -7,7 +7,9 @@ import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectLocationMap
 import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
+import tech.kzen.lib.common.model.structure.notation.ObjectNotation
 import tech.kzen.lib.common.service.context.GraphDefiner
+import tech.kzen.lib.common.util.digest.Digest
 
 /**
  * objectDefinitions could be subset of graphStructure (e.g. successful),
@@ -52,7 +54,7 @@ data class GraphDefinition(
     }
 
 
-    fun filterTransitive(objectLocations: Collection<ObjectLocation>): GraphDefinition {
+    fun transitiveClosure(objectLocations: Collection<ObjectLocation>): Set<ObjectLocation> {
         for (objectLocation in objectLocations) {
             require(objectLocation in objectDefinitions) {
                 "Missing: $objectLocation"
@@ -94,8 +96,13 @@ data class GraphDefinition(
             nextOpen = openSwap
         }
 
+        return closed
+    }
+
+
+    fun filterTransitive(objectLocations: Collection<ObjectLocation>): GraphDefinition {
         return GraphDefinition(
-            objectDefinitions.filterObjectLocations(closed),
+            objectDefinitions.filterObjectLocations(transitiveClosure(objectLocations)),
             graphStructure)
     }
 
@@ -106,12 +113,42 @@ data class GraphDefinition(
 
 
     fun filterTransitive(documentPath: DocumentPath): GraphDefinition {
-        val documentObjectLocations = objectDefinitions
+        return filterTransitive(documentObjectLocations(documentPath))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    /**
+     * Content digest of the transitive closure's source notation: an ordered combine (sorted by
+     *  location string) over each closure member's location and [ObjectNotation] digest, pulled from
+     *  the coalesced graph notation. Covers the notation the definitions were derived from, NOT the
+     *  definitions themselves (definitions can embed definer-allocated runtime scaffolding with
+     *  identity equality) — same source notation implies same compiled behaviour, so digest equality
+     *  answers "would recompiling this closure change anything?"
+     */
+    fun transitiveDigest(objectLocations: Collection<ObjectLocation>): Digest {
+        val closure = transitiveClosure(objectLocations)
+        val coalesce = graphStructure.graphNotation.coalesce
+
+        return Digest.build {
+            for (location in closure.sortedBy { it.asString() }) {
+                addDigestible(location)
+                addDigestibleNullable(coalesce[location])
+            }
+        }
+    }
+
+
+    fun transitiveDigest(documentPath: DocumentPath): Digest {
+        return transitiveDigest(documentObjectLocations(documentPath))
+    }
+
+
+    private fun documentObjectLocations(documentPath: DocumentPath): List<ObjectLocation> {
+        return objectDefinitions
             .map
             .keys
             .filter { it.documentPath == documentPath }
-
-        return filterTransitive(documentObjectLocations)
     }
 
 

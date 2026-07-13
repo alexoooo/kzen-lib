@@ -62,6 +62,13 @@ metadata cache):
 - **Construction leveling is topological** — `GraphCreator.constructionLevels` resolves each declared
   reference once and peels zero-indegree levels (Kahn's algorithm, O(V+E)); an ambiguous reference is
   a clean `IllegalArgumentException` naming all candidates.
+- **Closure content digest** — `GraphDefinition.transitiveDigest(documentPath | locations)` answers
+  "did the transitive closure of X change?" as one `Digest`: an ordered combine (sorted by location
+  string) over each closure member's location and coalesced `ObjectNotation` digest (memoized). It
+  covers the notation the definitions were derived from, not the definitions themselves — definitions
+  can embed definer-allocated runtime scaffolding and are never value-comparable across builds.
+  Consumers (e.g. kzen-auto's live-edit migration baseline) compare digests instead of materializing
+  and deep-comparing notation maps.
 
 **Gotcha — typed-attribute YAML keys need a `meta:` declaration.** Writing a key like `name: "World"` into an object's notation does *not* by itself make `name` a typed attribute the Definition layer can wire into the constructor. The object's notation (or an ancestor in its `is:` chain) must also declare the type in a sibling `meta:` block, e.g. `meta: { name: String }`. Without it, `ObjectDefinition.attributeDefinitions` is empty and `AttributeObjectCreator` fails at construction with `Attribute definition missing: <document>#<object> - <attr>`. `NotationMetadataReader.inferMetadata` infers types for object-reference values but not for plain scalars — the explicit `meta:` is what tells the Definer how to coerce them. Same rule applies when adding a new constructor parameter to a `@Reflect`'d class: bump the codegen *and* declare the attribute in `meta:` of the notation that constructs it.
 
