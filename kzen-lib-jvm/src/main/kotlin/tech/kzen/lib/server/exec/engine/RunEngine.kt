@@ -94,6 +94,9 @@ class RunEngine(
         val retainTrace: Boolean = true
     ) {
         var status: NodeStatus = NodeStatus.Running
+        // Last named boundary reached, carried to [Node.position]; anonymous checkpoints leave it unchanged.
+        // Starts null on a migrate rebuild too — re-established when the rebuilt spine re-parks at its boundary.
+        var position: ObjectStableId? = null
         val live = LinkedHashMap<Address, ExecutionValue>()
         val children = ArrayList<NodeId>()
         val resources = LinkedHashMap<String, Registration>()
@@ -491,11 +494,17 @@ class RunEngine(
     }
 
 
-    private suspend fun checkpoint(nodeId: NodeId, depth: Int) {
+    private suspend fun checkpoint(nodeId: NodeId, depth: Int, at: ObjectStableId?) {
         val deferred = synchronized(lock) {
             if (cancelling) {
                 throw CancellationException("Run cancelled")
             }
+
+            // Position updates whether or not this boundary parks; a null (anonymous) boundary preserves it.
+            if (at != null) {
+                nodes.getValue(nodeId).position = at
+            }
+
             val reason: PauseReason? = when (val current = command) {
                 Command.Running ->
                     null
@@ -784,7 +793,8 @@ class RunEngine(
             LinkedHashMap(runtime.live),
             runtime.children.map { buildNode(it) },
             runtime.callerStableId,
-            runtime.retainTrace
+            runtime.retainTrace,
+            runtime.position
         )
     }
 
@@ -798,8 +808,8 @@ class RunEngine(
 
         override val inputs: TupleValue = nodeInputs(nodeId)
 
-        override suspend fun checkpoint() =
-            this@RunEngine.checkpoint(nodeId, depth)
+        override suspend fun checkpoint(at: ObjectStableId?) =
+            this@RunEngine.checkpoint(nodeId, depth, at)
 
         override fun emit(address: Address, value: ExecutionValue) =
             this@RunEngine.emit(nodeId, address, value)

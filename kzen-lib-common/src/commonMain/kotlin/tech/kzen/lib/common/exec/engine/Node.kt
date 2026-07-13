@@ -30,5 +30,10 @@ data class Node(
     // — the bound a long STREAMING host (one child per element) opts into so its finished per-element frames
     // don't accumulate. Carried from the hosting [Execution.host] call; the engine only records it (the trace
     // store is the consumer that acts on it — see ServerLogicController).
-    val retainTrace: Boolean = true
+    val retainTrace: Boolean = true,
+
+    // The last *named* boundary this node reached ([Execution.checkpoint]'s `at`), or null when no boundary
+    // has named itself yet — e.g. a Job worker, whose position is the node itself. Anonymous checkpoints
+    // don't clear it; it identifies "the element about to run" for consumers (the Script next-step highlight).
+    val position: ObjectStableId? = null
 )

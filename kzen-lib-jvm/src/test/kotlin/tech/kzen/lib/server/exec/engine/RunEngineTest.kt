@@ -243,6 +243,56 @@ class RunEngineTest {
 
 
     @Test
+    fun positionTracksNamedBoundariesAcrossParkAndRelease() = runBlocking {
+        // Named boundaries before each element, plus an anonymous mid-element checkpoint that must NOT
+        // blank the recorded position (a step's internal pausability checkpoint).
+        val logic = object: Logic {
+            override fun signature() = LogicSignature.empty
+            override suspend fun run(execution: Execution): TupleValue {
+                for (i in 1 .. 2) {
+                    execution.checkpoint(ObjectStableId("step-$i"))
+                    execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
+                    execution.checkpoint()
+                }
+                return TupleValue.ofMain(2)
+            }
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            // Park at the first named boundary: position recorded even though the element hasn't run yet.
+            engine.step()
+            engine.awaitQuiescent()
+            var snapshot = engine.snapshot()
+            assertTrue(snapshot.root.status is NodeStatus.Suspended)
+            assertEquals(ObjectStableId("step-1"), snapshot.root.position)
+
+            // Park at the anonymous checkpoint after element 1: position preserved, not cleared.
+            engine.step()
+            engine.awaitQuiescent()
+            snapshot = engine.snapshot()
+            assertEquals(ExecutionValue.of(1L), snapshot.root.live[Address.of("i")])
+            assertEquals(ObjectStableId("step-1"), snapshot.root.position)
+
+            // Park at the second named boundary: position advances.
+            engine.step()
+            engine.awaitQuiescent()
+            snapshot = engine.snapshot()
+            assertEquals(ObjectStableId("step-2"), snapshot.root.position)
+
+            // Run to completion: the last named position survives in the terminal snapshot.
+            engine.resume()
+            val outcome = engine.await()
+            assertTrue(outcome is Outcome.Success)
+            assertEquals(ObjectStableId("step-2"), engine.snapshot().root.position)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
     fun nestedHostRunsChildAsConfinedNode() = runBlocking {
         val hosting = object: Logic {
             override fun signature() = LogicSignature.empty

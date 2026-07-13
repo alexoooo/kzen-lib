@@ -164,6 +164,13 @@ below is addressed and concurrent runs are independently controllable.
   (a Script's step, a Flow's vertex, a Job's batch wavefront). Stepping advances one such boundary; the
   unit is the flavour's choice, and the model must not hard-code a single notion of "a step".
 
+  A boundary *may* **name the element it settles on** (`checkpoint(at:)` — a Script step's stable id, a
+  Flow vertex's): the engine records it, park or no park, as the node's current **position** (`Node.position`
+  — the last named boundary) and surfaces it in run snapshots, so "the element about to run" is engine
+  state rather than a per-flavour reserved trace marker. An anonymous boundary (`at = null`) leaves the
+  recorded position unchanged — a Logic's internal pausability checkpoints don't blank it; position clears
+  only when the node settles.
+
 - **Pause-on-error** — a per-run option, **live-togglable while paused**, taking effect at the next
   boundary: when on, a recoverable failure **pauses** the run for fix-and-resume instead of ending it.
 
@@ -418,9 +425,9 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`, `checkpoint`, `emit`, `log`, `pauseHere`, `recoverable`, `host`, `resource` / `releaseResource`, `onRequest`, `onCapture` / `restored` | kzen-lib-common `exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`, `checkpoint(at:)` (optionally names the boundary's element → `Node.position`), `emit`, `log`, `pauseHere`, `recoverable`, `host`, `resource` / `releaseResource`, `onRequest`, `onCapture` / `restored` | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `observeFrames` frame-close signal; lazy dirty-flag snapshot, settled-frame compaction) | kzen-lib-jvm `server/exec/engine/` |
-| Execution tree & state | `Node` (id + stableId + status + live + children + **callerStableId** + **retainTrace** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
+| Execution tree & state | `Node` (id + stableId + status + live + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
 | Typed I/O | `TupleDefinition` / `TupleValue` / `TupleComponentDefinition` / `TupleComponentValue`, `TupleComponentName.main` / `.detail`, `LogicType` | kzen-lib-common `exec/tuple/`, `exec/logic/model/` |
 | Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / Failed / Cancelled) | kzen-lib-common `exec/engine/` |

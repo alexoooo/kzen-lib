@@ -22,8 +22,14 @@ interface Execution {
      * stepping past this frame (per the engine's central decision); throws
      * [kotlin.coroutines.cancellation.CancellationException] when the run is cancelled. This is the *only*
      * control-flow primitive a Logic needs; step-into/over/out are engine policies over the tree.
+     *
+     * [at] optionally names the element this boundary settles on (a Script step, a Flow vertex). The engine
+     * records it — whether or not the boundary parks — as the node's current position ([Node.position]:
+     * the last *named* boundary reached), surfaced in run snapshots so consumers need no reserved trace
+     * markers for "next to run". An anonymous boundary (null, e.g. a step's internal pausability
+     * checkpoint) leaves the recorded position unchanged; position clears only when the node settles.
      */
-    suspend fun checkpoint()
+    suspend fun checkpoint(at: ObjectStableId? = null)
 
     /**
      * Record the current value at [address] (live latest-value-per-address; overwritten as it changes,
