@@ -177,15 +177,30 @@ below is addressed and concurrent runs are independently controllable.
 - **Distinct pause reasons.** A pause carries *why* it happened, and the reason **propagates upward
   unchanged** through nested logic (a pause deep inside a child surfaces with its real reason):
   - **boundary** — the ordinary step-settle (an auto-step loop keeps going),
-  - **explicit** — the computation paused *itself* (a breakpoint / pause-step — a deliberate halt),
+  - **explicit** — a deliberate halt at this element: the computation paused *itself* (a pause-step) or a
+    **breakpoint** on the boundary's element fired,
   - **error** — a failure paused under pause-on-error (a deliberate halt).
 
   The distinction is functional: interactive clients treat *boundary* (keep advancing) differently from
   *explicit* / *error* (stop and wait for the user).
 
 - **Internal (self-)pause.** A Logic can pause itself by resolving a boundary as *paused (explicit)* rather
-  than continuing — the mechanism by which a breakpoint / "pause step" works. (The mechanism is part of the
-  result protocol; a concrete pause-step archetype is a consumer feature, not part of the core model.)
+  than continuing — the mechanism by which a "pause step" works. (The mechanism is part of the result
+  protocol; a concrete pause-step archetype is a consumer feature, not part of the core model.)
+
+- **Breakpoints — engine policy over positions.** A run holds a **run-scoped, volatile** set of element
+  positions (stable ids), updated as a whole (**replace-set** — a control verb like pause, usable before
+  launch and mid-run). Reaching a **named** boundary whose element is in the set halts the run: the arriving
+  execution settles *paused (explicit)*, and the run's command drops to *paused* so every concurrent
+  execution settles at its own next boundary (**stop-the-world**, mirroring an external pause). The check
+  applies **regardless of the in-flight command** — running, paused, or stepping: a boundary settle that
+  lands on a breakpoint is *upgraded* to explicit, which is what makes the auto-run client loop (below) halt
+  on breakpoints for free. Breakpoints are never persisted with the definition and are cleared with the run
+  (an interactive client re-pushes them at run start); being stable-id keyed, they survive rename and
+  live-edit migration untouched. The check happens **on arrival** at the boundary: resuming from a
+  breakpoint park proceeds past it, and a persistent breakpoint re-triggers on the next arrival (e.g. a
+  loop's next iteration). "Run to an element" is a client composition, not a separate mechanism: add a
+  breakpoint at the target, run, remove it.
 
 - **Outcome taxonomy.** Every boundary resolves the execution to one of:
   - **success(value)** — terminal, carrying the typed output tuple,

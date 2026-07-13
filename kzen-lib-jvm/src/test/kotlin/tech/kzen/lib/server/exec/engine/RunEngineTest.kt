@@ -3,6 +3,7 @@ package tech.kzen.lib.server.exec.engine
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import tech.kzen.lib.common.exec.ExecutionValue
 import tech.kzen.lib.common.exec.engine.Address
@@ -750,6 +751,211 @@ class RunEngineTest {
 
             assertEquals((2L * children * stepsPerChild), engine.snapshot().sequence)
             assertTrue(elapsed < 10_000, "hot path regressed: ${2 * children * stepsPerChild} events took ${elapsed}ms")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //--------------------------------------------------------------------------------------- breakpoints (phase 3)
+    /** Named boundary before each element: checkpoint(step-i) then emit i, for i = 1..n. */
+    private fun namedStepsLogic(n: Int, idPrefix: String = "step"): Logic =
+        logicOf { execution ->
+            for (i in 1 .. n) {
+                execution.checkpoint(ObjectStableId("$idPrefix-$i"))
+                execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
+            }
+            TupleValue.ofMain(n)
+        }
+
+
+    @Test
+    fun breakpointParksFullSpeedRunExplicitAtPosition() = runBlocking {
+        val engine = RunEngine(namedStepsLogic(3), rootId)
+        try {
+            engine.setBreakpoints(setOf(ObjectStableId("step-2")))
+            engine.resume()
+            engine.awaitQuiescent()
+
+            val snapshot = engine.snapshot()
+            assertEquals(NodeStatus.Suspended(PauseReason.Explicit), snapshot.root.status)
+            assertEquals(ObjectStableId("step-2"), snapshot.root.position)
+            assertEquals(
+                ExecutionValue.of(1L), snapshot.root.live[Address.of("i")],
+                "parked before element 2 ran")
+
+            // The check happens on arrival: resuming proceeds past the parked boundary without re-triggering.
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(ExecutionValue.of(3L), engine.snapshot().root.live[Address.of("i")])
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun setBreakpointsReplaceSetClears() = runBlocking {
+        val engine = RunEngine(namedStepsLogic(4), rootId)
+        try {
+            engine.setBreakpoints(setOf(ObjectStableId("step-1")))
+            engine.resume()
+            engine.awaitQuiescent()
+            assertEquals(ObjectStableId("step-1"), engine.snapshot().root.position)
+
+            // Replace-set: the old breakpoint is gone, the new one parks.
+            engine.setBreakpoints(setOf(ObjectStableId("step-3")))
+            engine.resume()
+            engine.awaitQuiescent()
+            val snapshot = engine.snapshot()
+            assertEquals(NodeStatus.Suspended(PauseReason.Explicit), snapshot.root.status)
+            assertEquals(ObjectStableId("step-3"), snapshot.root.position)
+
+            // Clear: runs through to completion.
+            engine.setBreakpoints(emptySet())
+            engine.resume()
+            val outcome = engine.await()
+            assertTrue(outcome is Outcome.Success)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun breakpointInsideHostedChildParksDuringStepOver() = runBlocking {
+        // Under Step Over the hosted child (depth 1 > limit 0) runs free — but a breakpoint inside it must
+        // still park it, Explicit, mid-step.
+        val hosting = logicOf { execution ->
+            execution.checkpoint()
+            execution.host(ObjectStableId("child"), namedStepsLogic(10, "c"))
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(hosting, rootId, threads = 4)
+        try {
+            // Park at the root's first checkpoint (depth 0).
+            engine.step()
+            engine.awaitQuiescent()
+
+            engine.setBreakpoints(setOf(ObjectStableId("c-5")))
+            engine.step(StepMode.Over)
+            engine.awaitQuiescent()
+
+            val child = engine.snapshot().root.children.single()
+            assertEquals(NodeStatus.Suspended(PauseReason.Explicit), child.status)
+            assertEquals(ObjectStableId("c-5"), child.position)
+            assertEquals(
+                ExecutionValue.of(4L), child.live[Address.of("i")],
+                "parked before element 5 ran, long before the step would have completed")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun breakpointStopsTheWorldAcrossConcurrentSpines() = runBlocking {
+        // Stop-the-world: the spine that hits the breakpoint parks Explicit, and the command drops to Paused
+        // so a concurrent sibling parks (Boundary) at its own next checkpoint instead of running on. The
+        // sibling signals BEFORE its first boundary (a boundary could already read Paused and park it pre-
+        // signal, deadlocking the test) and is then held mid-element until the breakpoint has fired.
+        val reached = CountDownLatch(1)
+        val gate = CountDownLatch(1)
+        val gatedChild = logicOf { execution ->
+            reached.countDown()
+            gate.await()
+            for (i in 1 .. 10) {
+                execution.checkpoint()
+                execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
+            }
+            TupleValue.ofMain(10)
+        }
+        val concurrent = logicOf { execution ->
+            coroutineScope {
+                async { execution.host(ObjectStableId("named"), namedStepsLogic(5, "a")) }
+                async { execution.host(ObjectStableId("gated"), gatedChild) }
+            }
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(concurrent, rootId, threads = 4)
+        try {
+            engine.setBreakpoints(setOf(ObjectStableId("a-3")))
+            engine.resume()
+
+            // The gated sibling is pinned pre-loop (signalled, blocked — not parked); release it only once
+            // the named spine has parked at its breakpoint, so its first checkpoint deterministically reads
+            // the dropped-to-Paused command.
+            reached.await()
+            while (true) {
+                val named = engine.snapshot().root.children.singleOrNull { it.stableId == ObjectStableId("named") }
+                if (named?.status == NodeStatus.Suspended(PauseReason.Explicit)) {
+                    break
+                }
+                delay(1)
+            }
+            gate.countDown()
+            engine.awaitQuiescent()
+
+            val root = engine.snapshot().root
+            val named = root.children.single { it.stableId == ObjectStableId("named") }
+            val gated = root.children.single { it.stableId == ObjectStableId("gated") }
+            assertEquals(NodeStatus.Suspended(PauseReason.Explicit), named.status)
+            assertEquals(ObjectStableId("a-3"), named.position)
+            assertEquals(
+                NodeStatus.Suspended(PauseReason.Boundary), gated.status,
+                "the sibling parked at its first boundary instead of running on")
+            assertTrue(gated.live.isEmpty(), "parked before its first emit")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun persistentBreakpointReTriggersEachLoopIteration() = runBlocking {
+        // A loop re-arrives at the SAME named boundary each iteration: the breakpoint re-triggers per arrival
+        // (persistent, not one-shot), while each resume still makes exactly one iteration of progress.
+        val logic = logicOf { execution ->
+            for (i in 1 .. 3) {
+                execution.checkpoint(ObjectStableId("loop-step"))
+                execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
+            }
+            TupleValue.ofMain(3)
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.setBreakpoints(setOf(ObjectStableId("loop-step")))
+            engine.resume()
+            engine.awaitQuiescent()
+            assertEquals(NodeStatus.Suspended(PauseReason.Explicit), engine.snapshot().root.status)
+            assertEquals(0, engine.snapshot().root.live.size, "parked before the first iteration ran")
+
+            engine.resume()
+            engine.awaitQuiescent()
+            val snapshot = engine.snapshot()
+            assertEquals(NodeStatus.Suspended(PauseReason.Explicit), snapshot.root.status)
+            assertEquals(
+                ExecutionValue.of(1L), snapshot.root.live[Address.of("i")],
+                "exactly one iteration of progress per resume")
+
+            engine.setBreakpoints(emptySet())
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(ExecutionValue.of(3L), engine.snapshot().root.live[Address.of("i")])
         }
         finally {
             engine.close()

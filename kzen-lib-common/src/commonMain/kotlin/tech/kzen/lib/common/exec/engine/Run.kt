@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.engine
 
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
+import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
 
 /**
@@ -37,6 +38,15 @@ interface Run {
 
     /** Live-togglable: when on, a recoverable failure pauses the run for fix-and-resume instead of ending it. */
     fun pauseOnError(enabled: Boolean)
+
+    /**
+     * Replace the run's breakpoint set (run-scoped and volatile — never persisted; cleared with the run).
+     * Usable before launch and mid-run. A named boundary ([Execution.checkpoint] `at`) whose element is in
+     * the set settles *paused (explicit)* regardless of the in-flight command, and the run drops to paused
+     * so every concurrent execution parks at its own next boundary (stop-the-world, mirroring [pause]).
+     * Stable-id keyed, so breakpoints survive rename and live-edit migration.
+     */
+    fun setBreakpoints(ids: Set<ObjectStableId>)
 
     /** Send an on-demand request to a specific live node and get its response (the pull half of interactivity). */
     fun request(node: NodeId, request: ExecutionRequest): ExecutionResult

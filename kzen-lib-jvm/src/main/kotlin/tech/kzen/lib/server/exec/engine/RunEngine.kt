@@ -126,6 +126,7 @@ class RunEngine(
     private var sequence = 0L
     private var nodeCounter = 0
     private var command: Command = Command.Paused
+    private var breakpoints: Set<ObjectStableId> = emptySet()
     private var started = false
     private var cancelling = false
     private var migrating = false
@@ -297,6 +298,13 @@ class RunEngine(
     }
 
 
+    override fun setBreakpoints(ids: Set<ObjectStableId>) {
+        synchronized(lock) {
+            breakpoints = ids
+        }
+    }
+
+
     override fun request(node: NodeId, request: ExecutionRequest): ExecutionResult {
         val handler = synchronized(lock) {
             nodes[node]?.requestHandler
@@ -385,6 +393,7 @@ class RunEngine(
         // 3. Rebuild: a fresh tree on a fresh scope (same dispatcher / thread pool), carrying the captured state
         // by stable id. Node ids keep advancing so a torn-down node id is never reused in the retained history.
         synchronized(lock) {
+            // Deliberately NOT cleared: `breakpoints` — stable-id keyed, it stays valid across the rebuild.
             nodes.clear()
             parked.clear()
             childLogic.clear()
@@ -505,7 +514,15 @@ class RunEngine(
                 nodes.getValue(nodeId).position = at
             }
 
-            val reason: PauseReason? = when (val current = command) {
+            val reason: PauseReason? = if (at != null && at in breakpoints) {
+                // Breakpoint: Explicit regardless of the in-flight command — a stepping command's would-be
+                // Boundary settle here is upgraded so the client auto-step loop halts (spec §4) — and
+                // stop-the-world: drop to Paused so concurrent spines park at their next boundary too
+                // (mirroring pause()).
+                command = Command.Paused
+                PauseReason.Explicit
+            }
+            else when (val current = command) {
                 Command.Running ->
                     null
 

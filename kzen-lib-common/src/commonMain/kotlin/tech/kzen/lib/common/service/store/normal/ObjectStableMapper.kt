@@ -34,6 +34,12 @@ class ObjectStableMapper: LocalGraphStore.Observer {
     }
 
 
+    /** Null when the id's element no longer exists (removed object / deleted document drops the mapping). */
+    fun objectLocationOrNull(objectStableId: ObjectStableId): ObjectLocation? {
+        return idToLocation[objectStableId]
+    }
+
+
     fun snapshot(): Map<ObjectStableId, ObjectLocation> {
         return idToLocation.toMap()
     }
