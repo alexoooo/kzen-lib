@@ -72,6 +72,7 @@ class RunEngine(
 
     private class Registration(
         val policy: ClosePolicy,
+        val value: Any?,
         val closer: () -> Unit
     )
 
@@ -122,6 +123,13 @@ class RunEngine(
     // remainder are removed-element orphans, disposed by [sweepOrphans].
     private val migrationCaptured = HashMap<ObjectStableId, Any>()
     private val claimedCaptures = HashSet<ObjectStableId>()
+
+    // Resource registrations lifted off the torn-down tree at the [migrate] barrier, keyed by the owning
+    // node's stable id, and re-adopted by the rebuilt node that shares it ([adoptLiftedResources]) — so an
+    // open resource survives a live edit instead of being disposed by teardown (spec §5 "open resources").
+    // Unlike [migrationCaptured] (claimed lazily by a user-code [Execution.restored] read, hence the separate
+    // claimed-set), adoption here is eager and engine-driven at node spawn, so remove-on-adopt IS the claim.
+    private val migrationResources = HashMap<ObjectStableId, LinkedHashMap<String, Registration>>()
 
     private var sequence = 0L
     private var nodeCounter = 0
@@ -353,8 +361,11 @@ class RunEngine(
      * logic-spec §5. Captures every live node's durable state ([Execution.onCapture]) BEFORE teardown, cancels
      * and joins the old execution tree, then rebuilds a fresh tree against [newRoot] on a new coroutine scope —
      * carrying each captured state to the node of the new definition that shares its [stable id][ObjectStableId]
-     * (surfaced there as [Execution.restored]). A node the edit ADDED starts fresh (no matching capture); a
-     * captured state no rebuilt node claims (a REMOVED element) is closed if [AutoCloseable] by [sweepOrphans].
+     * (surfaced there as [Execution.restored]). Open resource registrations are likewise lifted off each node
+     * before teardown and re-adopted by the rebuilt node with the same stable id — an open resource survives
+     * the edit (spec §5) rather than being disposed. A node the edit ADDED starts fresh (no matching capture);
+     * a captured state no rebuilt node claims (a REMOVED element) is closed if [AutoCloseable] — and an
+     * unclaimed lifted resource is disposed — by [sweepOrphans].
      * The run's history, sequence, observers and terminal handle are preserved — the trace is continuous across
      * the edit; only the execution tree is rebuilt.
      *
@@ -380,12 +391,20 @@ class RunEngine(
             provider()?.let { captured[stableId] = it }
         }
 
-        // 2. Teardown: cancel + join the old tree. Each stale coroutine unwinds (running its finally / onClose
-        // for any resource the capture did NOT detach); `migrating` suppresses its settle so the run is neither
-        // published cancelled nor terminally completed. The join guarantees every stale settle has run before
-        // the rebuild clears the node map below.
+        // 2. Teardown: cancel + join the old tree. Resource registrations are lifted off every node first
+        // (after the capture providers ran, so they saw the intact world) — teardown's [disposeResources]
+        // then finds empty maps and open resources survive to be re-adopted by the rebuilt tree. Each stale
+        // coroutine unwinds (running its finally / onClose for anything not lifted or detached); `migrating`
+        // suppresses its settle so the run is neither published cancelled nor terminally completed. The join
+        // guarantees every stale settle has run before the rebuild clears the node map below.
         val oldJob = synchronized(lock) {
             migrating = true
+            for (runtime in nodes.values) {
+                if (runtime.resources.isNotEmpty()) {
+                    migrationResources[runtime.stableId] = LinkedHashMap(runtime.resources)
+                    runtime.resources.clear()
+                }
+            }
             scope.coroutineContext[Job]!!
         }
         runBlocking { oldJob.cancelAndJoin() }
@@ -402,7 +421,9 @@ class RunEngine(
             claimedCaptures.clear()
 
             liveRootLogic = newRoot
-            nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
+            val rootRuntime = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
+            nodes[rootId] = rootRuntime
+            adoptLiftedResources(rootRuntime)
             migrating = false
             cancelling = false
             started = true
@@ -416,7 +437,9 @@ class RunEngine(
 
     // Dispose any captured state no node of the rebuilt definition adopted (a removed element), and reset the
     // migration registers. Run at the next [migrate] and at [close]: within a run's life an orphaned detached
-    // resource lingers at most one edit cycle (deliberate: no eager sweep on every edit).
+    // resource lingers at most one edit cycle (deliberate: no eager sweep on every edit). Unadopted lifted
+    // resources are disposed regardless of [ClosePolicy] — the owner frame was removed by the edit, so no
+    // explicit close (Manual) or failure inspection (KeepOnFailure) can ever reach them.
     private fun sweepOrphans() {
         val orphans = synchronized(lock) {
             val result = migrationCaptured
@@ -429,6 +452,24 @@ class RunEngine(
         }
         orphans.forEach { state ->
             (state as? AutoCloseable)?.let { runCatching { it.close() } }
+        }
+
+        val orphanedResources = synchronized(lock) {
+            val result = migrationResources.values.map { it.values.toList().asReversed() }
+            migrationResources.clear()
+            result
+        }
+        orphanedResources.forEach { registrations ->
+            registrations.forEach { runCatching { it.closer() } }
+        }
+    }
+
+
+    // Must hold lock. Re-adopt any resource registrations lifted at the [migrate] barrier from the torn-down
+    // node that shared this node's stable id; removal is the claim (see [migrationResources]).
+    private fun adoptLiftedResources(runtime: NodeRuntime) {
+        migrationResources.remove(runtime.stableId)?.let {
+            runtime.resources.putAll(it)
         }
     }
 
@@ -486,7 +527,9 @@ class RunEngine(
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
-            nodes[id] = NodeRuntime(id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace)
+            val runtime = NodeRuntime(id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace)
+            nodes[id] = runtime
+            adoptLiftedResources(runtime)
             childLogic[id] = child
             parent.children.add(id)
             id
@@ -633,8 +676,9 @@ class RunEngine(
                 ?: return
             runtime.status = NodeStatus.Terminal(outcome)
             parked.remove(nodeId)
-            // A node torn down by an in-progress [migrate] still disposes its (non-detached) resources, but is
-            // not published as terminal, frame-closed, nor completes the run — the rebuilt tree supersedes it.
+            // A node torn down by an in-progress [migrate] had its resources lifted at the barrier (so the
+            // dispose below only sees late, unlifted registrations), and is not published as terminal,
+            // frame-closed, nor completes the run — the rebuilt tree supersedes it.
             !migrating
         }
         disposeResources(nodeId, error = outcome is Outcome.Failed)
@@ -679,15 +723,31 @@ class RunEngine(
     private fun disposeResources(nodeId: NodeId, error: Boolean) {
         val toDispose = synchronized(lock) {
             val runtime = nodes[nodeId] ?: return
-            val ordered = runtime.resources.values.toList().asReversed()
+            val entries = runtime.resources.entries.toList()
             runtime.resources.clear()
-            ordered.filter { registration ->
+
+            // A Manual registration survives its owner's settle (§6: only an explicit closing action disposes
+            // it) — hand it up to the parent so it stays on the ancestor chain, readable ([resourceValueFor])
+            // and releasable ([releaseResource]) by whatever runs after the owner. At the root there is no
+            // parent: it leaves the registry and stays alive past the run (the §6 "forgotten close"), as does
+            // a KeepOnFailure registration retained on its failed owner for inspection. A parent's own live
+            // registration under the same key wins over a hand-up (putIfAbsent) — Auto's disposal guarantee
+            // must not be displaced by an orphaned handle.
+            val parent = runtime.parentId?.let { nodes[it] }
+            val dispose = ArrayList<Registration>()
+            for ((key, registration) in entries) {
                 when (registration.policy) {
-                    ClosePolicy.Auto -> true
-                    ClosePolicy.Manual -> false
-                    ClosePolicy.KeepOnFailure -> !error
+                    ClosePolicy.Auto ->
+                        dispose.add(registration)
+                    ClosePolicy.Manual ->
+                        parent?.resources?.putIfAbsent(key, registration)
+                    ClosePolicy.KeepOnFailure ->
+                        if (!error) {
+                            dispose.add(registration)
+                        }
                 }
             }
+            dispose.asReversed()
         }
         toDispose.forEach { registration ->
             runCatching { registration.closer() }
@@ -716,7 +776,9 @@ class RunEngine(
     }
 
 
-    private fun registerResource(nodeId: NodeId, key: String, policy: ClosePolicy, scope: ResourceScope, closer: () -> Unit) {
+    private fun registerResource(
+        nodeId: NodeId, key: String, policy: ClosePolicy, scope: ResourceScope, value: Any?, closer: () -> Unit
+    ) {
         synchronized(lock) {
             // Resolve the owning node from [scope]: the resource is disposed on that node's settle. An actively
             // running node's ancestors are always still live, so the resolved target exists.
@@ -725,7 +787,22 @@ class RunEngine(
                 ResourceScope.Parent -> nodes.getValue(nodeId).parentId ?: nodeId
                 ResourceScope.Root -> rootId
             }
-            nodes.getValue(ownerId).resources[key] = Registration(policy, closer)
+            nodes.getValue(ownerId).resources[key] = Registration(policy, value, closer)
+        }
+    }
+
+
+    private fun resourceValueFor(nodeId: NodeId, key: String): Any? {
+        synchronized(lock) {
+            // Same ancestor-chain walk as [releaseResource]: a resource registered on this node or handed up
+            // the tree via [ResourceScope] is readable from any descendant of its owner.
+            var current: NodeId? = nodeId
+            while (current != null) {
+                val runtime = nodes[current] ?: break
+                runtime.resources[key]?.let { return it.value }
+                current = runtime.parentId
+            }
+            return null
         }
     }
 
@@ -849,8 +926,11 @@ class RunEngine(
         ): TupleValue =
             this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace)
 
-        override fun resource(key: String, policy: ClosePolicy, scope: ResourceScope, closer: () -> Unit) =
-            this@RunEngine.registerResource(nodeId, key, policy, scope, closer)
+        override fun resource(key: String, policy: ClosePolicy, scope: ResourceScope, value: Any?, closer: () -> Unit) =
+            this@RunEngine.registerResource(nodeId, key, policy, scope, value, closer)
+
+        override fun resourceValue(key: String): Any? =
+            this@RunEngine.resourceValueFor(nodeId, key)
 
         override fun releaseResource(key: String) =
             this@RunEngine.releaseResource(nodeId, key)

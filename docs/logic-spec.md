@@ -253,6 +253,11 @@ them; they must not be re-implemented per flavour.
   coherent**, and reset cleanly where it does not:
   - State that survives includes accumulators, open resources (file handles, processes), buffered in-flight
     data, and paused sub-executions.
+  - **Open resources migrate with their owning frame's stable identity** — a resource registration (§6) is
+    lifted off its node at the migration barrier and re-adopted by the rebuilt node that shares the stable
+    id, so surviving an edit requires no per-element opt-in; a **removed** frame's resources are disposed at
+    the next migration barrier or close (regardless of close policy — no explicit close can reach an owner
+    that no longer exists).
   - An element matches its predecessor **by stable identity** and adopts its captured state; an element the
     edit **added** starts fresh; one the edit **removed** is disposed.
   - **Capture must be able to run *before* teardown** of the old execution — so a live resource can be
@@ -302,6 +307,13 @@ them; they must not be re-implemented per flavour.
   > own document — e.g. a sub-script opens the SUT but binds its lifetime to the enclosing test. A resource an
   > explicit closing step disposes itself is **deregistered** first (searching the opener's ancestor chain, so an
   > ancestor-scoped resource can be released from a descendant), so the auto-disposer never double-fires.
+  > A registration may also store the **live handle** (its value), readable from any descendant of the owning
+  > node via the same ancestor-chain search — the read side of the inheritance below — and registrations
+  > survive live-edit migration keyed by their owning frame's stable identity (§5). A **manual** registration
+  > also outlives its owning frame's settle: it hands up to the parent node (cascading toward the root), so it
+  > stays on the ancestor chain — readable and explicitly closeable by whatever runs after its opener (the
+  > open → use → close split across sibling sub-documents); at the root it leaves the registry alive (the
+  > "forgotten close").
 
 - **Resource inheritance along the host chain.** A hosted child may **share a specific resource with its
   host** rather than opening its own — the same browser instance a parent Script opened is the one its

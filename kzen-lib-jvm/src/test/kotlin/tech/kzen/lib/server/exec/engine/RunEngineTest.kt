@@ -28,6 +28,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -980,6 +981,15 @@ class RunEngineTest {
         }
 
 
+    // Park at checkpoints indefinitely (until cancelled or migrated away) — a [logicOf] tail for fixtures
+    // that must stay live at a wavefront.
+    private suspend fun parkForever(execution: Execution): Nothing {
+        while (true) {
+            execution.checkpoint()
+        }
+    }
+
+
     @Test
     fun parentScopedResourceOutlivesItsChildAndDisposesAtParentSettle() = runBlocking {
         // A child opens a Parent-scoped resource: it must survive the child's own settle and dispose when the
@@ -1112,6 +1122,184 @@ class RunEngineTest {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
             assertTrue(disposed, "Parent scope at the root falls back to self and disposes at run end")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun resourceValueReadableFromHostedChildViaAncestorWalk() = runBlocking {
+        // The parent registers a resource with a live handle (value); a hosted child reads it back through the
+        // ancestor-chain walk — the §6 "resource inheritance along the host chain" read affordance. A key with
+        // no live registration reads null.
+        var childRead: Any? = null
+        var childMissing: Any? = "sentinel"
+        val child = logicOf { execution ->
+            childRead = execution.resourceValue("r")
+            childMissing = execution.resourceValue("absent")
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, value = "handle") {}
+            execution.host(ObjectStableId("child"), child)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals("handle", childRead, "a hosted child reads the handle its host registered")
+            assertNull(childMissing, "a key with no live registration reads null")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun manualResourceSurvivesOwnerSettleViaParentHandUp() = runBlocking {
+        // A child opens a Manual resource on its own frame and settles: the registration hands up to the
+        // parent (§6 — only an explicit closing action disposes Manual, so it must outlive its owner on the
+        // ancestor chain), where a LATER sibling still reads the handle and an explicit release deregisters
+        // it — the engine's disposer never fires the closer (the open → use → close split across sibling
+        // sub-documents pattern).
+        var disposed = false
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Manual, value = "handle") { disposed = true }
+            TupleValue.ofMain("opened")
+        }
+        var siblingRead: Any? = null
+        val releaser = logicOf { execution ->
+            siblingRead = execution.resourceValue("r")
+            execution.releaseResource("r")
+            TupleValue.ofMain("released")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("opener"), opener)
+            execution.host(ObjectStableId("releaser"), releaser)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals("handle", siblingRead,
+                "a Manual registration hands up to the parent at its owner's settle, readable by a later sibling")
+            assertFalse(disposed, "explicitly released — the engine's disposer never fires a Manual closer")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //------------------------------------------------------------------- resource survival across live edit (spec §5)
+    @Test
+    fun migrateLiftsOpenResourceAndRebuiltTreeReadsIt() = runBlocking {
+        // An open resource must survive the migration barrier (spec §5 "open resources"): the registration is
+        // lifted off the torn-down node and re-adopted by the rebuilt node with the same stable id — the closer
+        // is NOT called at teardown, the rebuilt tree reads the same handle, and the closer still fires when the
+        // adopting node eventually settles.
+        var disposed = false
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, value = "handle") { disposed = true }
+            parkForever(execution)
+        }
+        var readBack: Any? = null
+        val reader = logicOf { execution ->
+            readBack = execution.resourceValue("r")
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(opener, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertFalse(disposed)
+
+            engine.migrate(reader, paused = true)
+            engine.awaitQuiescent()
+
+            assertFalse(disposed, "an open resource must survive the migration barrier, not be disposed by teardown")
+            assertEquals("handle", readBack, "the rebuilt tree reads the lifted + adopted resource value")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+            assertTrue(disposed, "the adopted registration's closer still fires when the rebuilt node settles")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun migrateDisposesRemovedOwnersResourceAtNextSweep() = runBlocking {
+        // The edit removes the frame that owned the resource: no rebuilt node adopts it, so it lingers as an
+        // orphan (deferred, like captured state) and is disposed at the next sweep (here: close) — regardless of
+        // close policy (Manual), since no explicit close can reach an owner that no longer exists.
+        var disposed = false
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Manual, value = "handle") { disposed = true }
+            parkForever(execution)
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("a"), opener)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertFalse(disposed)
+
+            engine.migrate(logicOf { TupleValue.ofMain("edited") }, paused = false)
+            assertIs<Outcome.Success>(engine.await())
+
+            assertFalse(disposed, "a removed owner's resource lingers until the next sweep, not disposed eagerly")
+            engine.close()
+            assertTrue(disposed, "the orphaned resource is disposed at close, Manual policy notwithstanding")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun releaseResourceFromDescendantDeregistersAdoptedRegistration() = runBlocking {
+        // After a migrate, the adopted registration behaves like any live one: a descendant of the adopting node
+        // can release it (ancestor-chain walk), so the auto-disposer never fires it.
+        var disposed = false
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, value = "handle") { disposed = true }
+            parkForever(execution)
+        }
+        val releaser = logicOf { execution ->
+            execution.releaseResource("r")
+            TupleValue.ofMain("released")
+        }
+        val rebuilt = logicOf { execution ->
+            execution.host(ObjectStableId("releaser"), releaser)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(opener, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            engine.migrate(rebuilt, paused = false)
+            assertIs<Outcome.Success>(engine.await())
+
+            engine.close()
+            assertFalse(disposed, "a released adopted resource is neither auto-disposed nor swept")
         }
         finally {
             engine.close()

@@ -95,9 +95,26 @@ interface Execution {
     /**
      * Register a resource owned by the node selected by [scope] (default THIS node), disposed when that node
      * settles per [policy] — so an opening element can hand ownership up the tree ([ResourceScope.Parent] /
-     * [ResourceScope.Root]) to outlive its own document. Re-registering the same [key] replaces the prior closer.
+     * [ResourceScope.Root]) to outlive its own document. Re-registering the same [key] replaces the prior
+     * registration (value and closer). [value] optionally stores the live handle with the registration,
+     * readable via [resourceValue]; it travels with the registration across a live-edit migration (§5), so
+     * an open resource survives an edit with its owning frame's stable identity.
      */
-    fun resource(key: String, policy: ClosePolicy, scope: ResourceScope = ResourceScope.Self, closer: () -> Unit)
+    fun resource(
+        key: String,
+        policy: ClosePolicy,
+        scope: ResourceScope = ResourceScope.Self,
+        value: Any? = null,
+        closer: () -> Unit)
+
+    /**
+     * Read the live handle stored with a resource registration (the [resource] `value`), searching this
+     * node's ancestor chain (self → parent → … → root); null when no live registration holds the [key] (or
+     * it registered no value). This is the §6 "resource inheritance along the host chain" read affordance:
+     * a hosted child borrows the handle its host (or any ancestor) opened — ownership and disposal stay
+     * with the registering frame; the reader must not dispose what it borrows.
+     */
+    fun resourceValue(key: String): Any?
 
     /**
      * Deregister a previously-registered resource [key] (e.g. an explicit closing step disposed it itself),
