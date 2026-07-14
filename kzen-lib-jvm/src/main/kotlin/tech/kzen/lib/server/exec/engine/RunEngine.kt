@@ -118,10 +118,31 @@ class RunEngine(
     private val frameObservers = ArrayList<(Node) -> Unit>()
     private val terminal = CompletableDeferred<Outcome>()
 
+    // One node's captured migration state plus the invocation identity needed to deliver it correctly: the
+    // call-site that hosted the captured invocation (null for the root / an anonymous host) and the hosting
+    // node's stable id (linking descendants for [discardCaptured]'s transitive discard).
+    private class Captured(
+        val state: Any,
+        val callSite: ObjectStableId?,
+        val parentStableId: ObjectStableId?
+    )
+
+    // A node selected for capture at the [migrate] barrier: its identity snapshot (taken under lock) plus its
+    // provider closure, which runs off-lock.
+    private class CaptureSource(
+        val stableId: ObjectStableId,
+        val callSite: ObjectStableId?,
+        val parentStableId: ObjectStableId?,
+        val terminal: Boolean,
+        val provider: () -> Any?
+    )
+
     // Live-edit migration registers: the state captured from the torn-down definition keyed by stable id, and
     // the subset a node of the rebuilt definition has adopted via [Execution.restored] — the unclaimed
-    // remainder are removed-element orphans, disposed by [sweepOrphans].
-    private val migrationCaptured = HashMap<ObjectStableId, Any>()
+    // remainder are removed-element orphans, disposed by [sweepOrphans]. Only LIVE (non-terminal) nodes are
+    // captured, and adoption is call-site-gated ([restoredForNode]) — several invocations of the same hosted
+    // document share a stable id, so invocation identity is what keeps one's state out of another.
+    private val migrationCaptured = HashMap<ObjectStableId, Captured>()
     private val claimedCaptures = HashSet<ObjectStableId>()
 
     // Resource registrations lifted off the torn-down tree at the [migrate] barrier, keyed by the owning
@@ -377,18 +398,30 @@ class RunEngine(
         // Dispose orphans left unclaimed by a prior edit before this edit's captures overwrite the registers.
         sweepOrphans()
 
-        // 1. Capture-before-teardown: snapshot each live node's durable state while it is still parked (so a
+        // 1. Capture-before-teardown: snapshot each node's durable state while the run is still parked (so a
         // live handle can be detached before teardown would close it). Providers are user closures, run
         // off-lock; the run is quiescent, so a parked node is not mutating the state being read.
+        // Settled (terminal) frames are captured too — a flavour that relaunches every element (a Job worker)
+        // needs the completed element's "done" state on the rebuilt run so it doesn't redo its work. But
+        // several invocations of one hosted document can share a stable id (a loop's retained settled
+        // iterations plus the live in-flight one): ordering terminal sources first makes the LIVE frame's
+        // capture win that key collision deterministically, instead of map order picking the winner.
         val providers = synchronized(lock) {
             check(!cancelling) { "Cannot migrate a cancelling run" }
             nodes.values.mapNotNull { runtime ->
-                runtime.captureProvider?.let { runtime.stableId to it }
+                val provider = runtime.captureProvider
+                    ?: return@mapNotNull null
+                val parentStableId = runtime.parentId?.let { nodes.getValue(it).stableId }
+                CaptureSource(
+                    runtime.stableId, runtime.callerStableId, parentStableId,
+                    runtime.status is NodeStatus.Terminal, provider)
             }
         }
-        val captured = HashMap<ObjectStableId, Any>()
-        for ((stableId, provider) in providers) {
-            provider()?.let { captured[stableId] = it }
+        val captured = HashMap<ObjectStableId, Captured>()
+        for (source in providers.sortedByDescending { it.terminal }) {
+            source.provider()?.let {
+                captured[source.stableId] = Captured(it, source.callSite, source.parentStableId)
+            }
         }
 
         // 2. Teardown: cancel + join the old tree. Resource registrations are lifted off every node first
@@ -450,8 +483,8 @@ class RunEngine(
             claimedCaptures.clear()
             result
         }
-        orphans.forEach { state ->
-            (state as? AutoCloseable)?.let { runCatching { it.close() } }
+        orphans.forEach { captured ->
+            (captured.state as? AutoCloseable)?.let { runCatching { it.close() } }
         }
 
         val orphanedResources = synchronized(lock) {
@@ -839,14 +872,61 @@ class RunEngine(
 
     // The state a predecessor node with this node's stable id captured across the live edit (null if none /
     // this node is new). Reading it claims the capture, so the orphan sweep won't dispose what was adopted.
+    // Invocation identity: the capture is delivered only to a node hosted from the SAME call-site as the
+    // captured invocation (null == null covers the root and hosts that name no distinct caller) — another
+    // call-site re-hosting the same child document is a DIFFERENT invocation and starts fresh.
     private fun restoredForNode(nodeId: NodeId): Any? {
         return synchronized(lock) {
-            val stableId = nodes.getValue(nodeId).stableId
-            val state = migrationCaptured[stableId]
-            if (state != null) {
-                claimedCaptures.add(stableId)
+            val runtime = nodes.getValue(nodeId)
+            val captured = migrationCaptured[runtime.stableId]
+            if (captured == null || captured.callSite != runtime.callerStableId) {
+                return@synchronized null
             }
-            state
+            claimedCaptures.add(runtime.stableId)
+            captured.state
+        }
+    }
+
+
+    // See [Execution.discardCaptured]: remove the captures of invocations hosted from any of [callSites],
+    // plus transitively their descendants' captures (linked by the barrier-time parent stable id) — an
+    // abandoned invocation's nested hosts must not be adopted by the re-run's fresh invocations either.
+    // A removed state never claimed via [restoredForNode] is closed like an orphan; a claimed one is only
+    // dropped from the register (the claimant owns it).
+    private fun discardCaptured(callSites: Collection<ObjectStableId>) {
+        if (callSites.isEmpty()) {
+            return
+        }
+        val unclaimedRemoved = synchronized(lock) {
+            if (migrationCaptured.isEmpty()) {
+                return
+            }
+            // Nullable-element sets so the `in` checks below accept the nullable callSite / parentStableId
+            // (null is never a member — the root's null call-site can't be discarded).
+            val sites = HashSet<ObjectStableId?>(callSites)
+            val removedKeys = HashSet<ObjectStableId?>()
+            val unclaimed = ArrayList<Any>()
+            var progress = true
+            while (progress) {
+                progress = false
+                val iterator = migrationCaptured.entries.iterator()
+                while (iterator.hasNext()) {
+                    val (stableId, captured) = iterator.next()
+                    if (captured.callSite in sites || captured.parentStableId in removedKeys) {
+                        iterator.remove()
+                        removedKeys.add(stableId)
+                        if (stableId !in claimedCaptures) {
+                            unclaimed.add(captured.state)
+                        }
+                        claimedCaptures.remove(stableId)
+                        progress = true
+                    }
+                }
+            }
+            unclaimed
+        }
+        unclaimedRemoved.forEach { state ->
+            (state as? AutoCloseable)?.let { runCatching { it.close() } }
         }
     }
 
@@ -943,5 +1023,8 @@ class RunEngine(
 
         override val restored: Any?
             get() = this@RunEngine.restoredForNode(nodeId)
+
+        override fun discardCaptured(callSites: Collection<ObjectStableId>) =
+            this@RunEngine.discardCaptured(callSites)
     }
 }

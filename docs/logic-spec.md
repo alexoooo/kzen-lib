@@ -266,6 +266,17 @@ them; they must not be re-implemented per flavour.
     snapshotting many spines at a quiescent wavefront, then reconstructing them.
   - Migration is **best-effort by contract**: an element that does not opt into carrying specific state
     restarts cleanly with the new definition (the safe default).
+  - **Captured state carries invocation identity.** Several invocations of one hosted definition share a
+    stable identity (a loop re-hosting the same sub-document each iteration, two call-sites hosting one
+    document), so stable identity alone cannot say *which* invocation a capture belongs to. Three rules keep
+    one invocation's state out of another: where invocations **collide on a stable identity** at the
+    barrier, the **live (mid-flight) frame's capture wins** over settled ones (a settled frame's capture
+    still carries when it is the only one — a flavour that relaunches completed elements, like a Job worker,
+    adopts the "done" state instead of redoing the work); a capture is **adopted only by a node hosted from
+    the same call-site** as the captured invocation; and a host that re-runs its nested elements live (a
+    loop resetting for its next iteration, or restarting) **discards its dropped call-sites' captures** —
+    transitively including their descendants' — so a fresh invocation starts clean instead of adopting the
+    abandoned one's state (`Execution.discardCaptured`).
 
 - **Step-after-edit re-parks; run-after-edit resumes.** Applying an edit is bounded by the pending command:
   **stepping** after an edit rebuilds onto the new definition and re-parks at its **first** wavefront (a

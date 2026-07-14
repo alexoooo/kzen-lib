@@ -154,6 +154,26 @@ interface Execution {
      * captured nothing. Read once at the start of [Logic.run] to adopt carried-over state; ignoring it
      * discards the predecessor's capture (which is then disposed as an orphan). On a fresh (non-migration)
      * run this is always null.
+     *
+     * Adoption carries **invocation identity**: a hosted child's capture is delivered only to a node hosted
+     * from the **same call-site** (the [host] `callerStableId`) as the captured invocation — so when several
+     * call-sites host the same child document, one's mid-flight state can never leak into another's fresh
+     * invocation. When several invocations of one hosted document share a stable id at the barrier (a loop's
+     * retained settled iterations plus the live one), the **live frame's capture wins** — a settled frame's
+     * capture still carries when it is the only one, so a flavour that relaunches completed elements (a Job
+     * worker) adopts the "done" state instead of redoing the work. A host that re-runs call-sites live uses
+     * [discardCaptured] so their fresh invocations start clean.
      */
     val restored: Any?
+
+    /**
+     * Discard captured migration state belonging to child invocations hosted from any of [callSites] —
+     * transitively including THEIR hosted descendants' captures. This is the invocation-identity signal only
+     * the flavour has: an element that re-runs its nested elements live (a loop resetting for its next
+     * iteration, or restarting) calls this so a FRESH child invocation from the same call-site starts clean
+     * instead of adopting the pre-edit (abandoned) invocation's state. A discarded state that was never
+     * claimed via [restored] is closed if [AutoCloseable] (as an orphan would be); an already-claimed one is
+     * only dropped from the register — the claimant owns it. No-op outside a migration window.
+     */
+    fun discardCaptured(callSites: Collection<ObjectStableId>)
 }

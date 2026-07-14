@@ -568,6 +568,214 @@ class RunEngineTest {
     }
 
 
+    //------------------------------------------------------------------- capture invocation identity (spec §5)
+    @Test
+    fun settledInvocationCaptureCarriedOnRelaunch() = runBlocking {
+        // A hosted element that COMPLETED before the barrier still carries its capture: a flavour that
+        // relaunches every element on the rebuilt run (a Job worker) must let the completed one adopt its
+        // "done" state instead of redoing the work (a completed reader must not re-read its file).
+        val seen = mutableListOf<Any?>()
+        val site = ObjectStableId("call-site")
+        fun rootLogic() = logicOf { execution ->
+            execution.checkpoint()
+            execution.host(
+                ObjectStableId("w"),
+                logicOf { child ->
+                    seen.add(child.restored)
+                    child.onCapture { "done-state" }
+                    TupleValue.ofMain("ok")
+                },
+                callerStableId = site)
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(rootLogic(), rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(listOf<Any?>(null), seen, "first invocation runs fresh and completes")
+
+            engine.migrate(rootLogic(), paused = true)
+            engine.awaitQuiescent()
+            engine.step()
+            engine.awaitQuiescent()
+
+            assertEquals(
+                listOf<Any?>(null, "done-state"), seen,
+                "the settled element's capture carries to its relaunched successor (same call-site)")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun liveInvocationCaptureWinsStableIdCollisionOverSettled() = runBlocking {
+        // Two invocations of the same hosted document (same stable id, same call-site) are in the tree at the
+        // barrier: an earlier one settled (retained frame), the current one mid-flight. The mid-flight frame's
+        // capture must win the key collision deterministically — the resumed re-host is continuing THAT
+        // invocation, not the finished one.
+        val seen = mutableListOf<Any?>()
+        val site = ObjectStableId("call-site")
+
+        val original = logicOf { execution ->
+            execution.host(
+                ObjectStableId("c"),
+                logicOf { child ->
+                    child.onCapture { "settled-state" }
+                    TupleValue.ofMain("first")
+                },
+                callerStableId = site)
+            execution.host(
+                ObjectStableId("c"),
+                logicOf { child ->
+                    child.onCapture { "live-state" }
+                    parkForever(child)
+                },
+                callerStableId = site)
+        }
+
+        val engine = RunEngine(original, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            val edited = logicOf { execution ->
+                execution.host(
+                    ObjectStableId("c"),
+                    logicOf { child ->
+                        seen.add(child.restored)
+                        TupleValue.ofMain("resumed")
+                    },
+                    callerStableId = site)
+            }
+            engine.migrate(edited, paused = false)
+            engine.await()
+
+            assertEquals(
+                listOf<Any?>("live-state"), seen,
+                "the mid-flight invocation's capture wins the stable-id collision over the settled one's")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun discardCapturedDropsAbandonedInvocationAndDescendants() = runBlocking {
+        // A mid-flight child (and ITS mid-flight hosted grandchild) are captured at the barrier. The rebuilt
+        // host discards the child's call-site BEFORE re-hosting — the loop-iteration-reset signal — so the
+        // fresh invocation must read no restored state, and both discarded (unclaimed) states are closed.
+        val cState = CloseableCounter(1)
+        val gState = CloseableCounter(2)
+        val site = ObjectStableId("run-step")
+        val gSite = ObjectStableId("inner-step")
+        val seen = mutableListOf<Any?>()
+
+        val original = logicOf { execution ->
+            execution.host(
+                ObjectStableId("c"),
+                logicOf { c ->
+                    c.onCapture { cState }
+                    c.host(
+                        ObjectStableId("g"),
+                        logicOf { g ->
+                            g.onCapture { gState }
+                            parkForever(g)
+                        },
+                        callerStableId = gSite)
+                },
+                callerStableId = site)
+        }
+
+        val engine = RunEngine(original, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            val edited = logicOf { execution ->
+                execution.discardCaptured(listOf(site))
+                execution.host(
+                    ObjectStableId("c"),
+                    logicOf { c ->
+                        seen.add(c.restored)
+                        TupleValue.ofMain("fresh")
+                    },
+                    callerStableId = site)
+            }
+            engine.migrate(edited, paused = false)
+            engine.await()
+
+            assertEquals(listOf<Any?>(null), seen, "the fresh invocation must not adopt the discarded capture")
+            assertTrue(cState.closed, "the discarded unclaimed child state is closed like an orphan")
+            assertTrue(gState.closed, "the grandchild's capture is discarded transitively and closed")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun capturedStateDeliveredOnlyToSameCallSite() = runBlocking {
+        // Two call-sites host the same child document (same stable id). The capture taken from site A's
+        // mid-flight invocation must not be delivered to a rebuilt host from site B — only to site A's.
+        val state = CloseableCounter(7)
+        val siteA = ObjectStableId("site-a")
+        val siteB = ObjectStableId("site-b")
+        val seen = mutableListOf<Any?>()
+
+        val original = logicOf { execution ->
+            execution.host(
+                ObjectStableId("c"),
+                logicOf { c ->
+                    c.onCapture { state }
+                    parkForever(c)
+                },
+                callerStableId = siteA)
+        }
+
+        val engine = RunEngine(original, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            val edited = logicOf { execution ->
+                execution.host(
+                    ObjectStableId("c"),
+                    logicOf { c ->
+                        seen.add(c.restored)
+                        TupleValue.ofMain("b")
+                    },
+                    callerStableId = siteB)
+                execution.host(
+                    ObjectStableId("c"),
+                    logicOf { c ->
+                        seen.add(c.restored)
+                        TupleValue.ofMain("a")
+                    },
+                    callerStableId = siteA)
+            }
+            engine.migrate(edited, paused = false)
+            engine.await()
+
+            assertEquals(
+                listOf<Any?>(null, state), seen,
+                "site B's invocation starts fresh; site A's adopts its own capture")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun stepOverRunsAlreadyDescendedConcurrentChildFree() = runBlocking {
