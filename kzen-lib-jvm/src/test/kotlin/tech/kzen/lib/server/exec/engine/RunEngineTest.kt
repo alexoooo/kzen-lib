@@ -776,6 +776,159 @@ class RunEngineTest {
     }
 
 
+    //------------------------------------------------------------------------ live-trace iteration reset (spec §7)
+    @Test
+    fun resetEmittedClearsOwnLiveAndKeepsHistory() = runBlocking {
+        // The node's own live values at the given addresses are removed; other addresses and the whole
+        // append-only history (emits AND logs) survive — the resettable-live / retained-history split.
+        val engine = RunEngine(
+            logicOf { execution ->
+                execution.emit(Address.of("a"), ExecutionValue.of(1L))
+                execution.emit(Address.of("b"), ExecutionValue.of(2L))
+                execution.log(ExecutionValue.of("pass-1"))
+                execution.resetEmitted(listOf(Address.of("a")))
+                TupleValue.ofMain("ok")
+            },
+            rootId)
+        try {
+            engine.resume()
+            engine.await()
+
+            val root = engine.snapshot().root
+            assertNull(root.live[Address.of("a")], "reset address removed from the live view")
+            assertEquals(ExecutionValue.of(2L), root.live[Address.of("b")], "other addresses untouched")
+
+            val history = engine.history(0)
+            assertEquals(
+                listOf(Address.of("a"), Address.of("b"), null),
+                history.map { it.address },
+                "history retains every emit and log — resets never rewrite the film-strip")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun resetEmittedClearsRetainedSettledChildSubtree() = runBlocking {
+        // Settled (retained) child invocations hosted from the reset call-sites — and transitively their own
+        // hosted descendants — get their live maps cleared, while the nodes stay in the tree and a sibling
+        // hosted from a different call-site keeps its values.
+        val siteA = ObjectStableId("site-a")
+        val siteB = ObjectStableId("site-b")
+        val engine = RunEngine(
+            logicOf { execution ->
+                execution.host(
+                    ObjectStableId("c1"),
+                    logicOf { c ->
+                        c.emit(Address.of("x"), ExecutionValue.of(1L))
+                        c.host(
+                            ObjectStableId("g"),
+                            logicOf { g ->
+                                g.emit(Address.of("y"), ExecutionValue.of(2L))
+                                TupleValue.ofMain("g")
+                            })
+                        TupleValue.ofMain("c1")
+                    },
+                    callerStableId = siteA)
+                execution.host(
+                    ObjectStableId("c2"),
+                    logicOf { c ->
+                        c.emit(Address.of("z"), ExecutionValue.of(3L))
+                        TupleValue.ofMain("c2")
+                    },
+                    callerStableId = siteB)
+                execution.resetEmitted(emptyList(), listOf(siteA))
+                TupleValue.ofMain("ok")
+            },
+            rootId)
+        try {
+            engine.resume()
+            engine.await()
+
+            val root = engine.snapshot().root
+            val c1 = root.children.single { it.stableId == ObjectStableId("c1") }
+            val g = c1.children.single()
+            val c2 = root.children.single { it.stableId == ObjectStableId("c2") }
+
+            assertTrue(c1.live.isEmpty(), "superseded invocation's live values cleared")
+            assertTrue(g.live.isEmpty(), "cleared transitively through its hosted descendants")
+            assertEquals(
+                ExecutionValue.of(3L), c2.live[Address.of("z")],
+                "a child hosted from a different call-site is untouched")
+            assertEquals(3, engine.history(0).count { it.address != null }, "history retains all three emits")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun resetObserverOrderingAndPayload() = runBlocking {
+        // The reset signal fires synchronously BEFORE resetEmitted returns, with the superseded pass's emits
+        // already drainable from history — the ordering a drain-then-clear trace bridge needs. Unsubscribing
+        // stops delivery.
+        val resets = ConcurrentLinkedQueue<tech.kzen.lib.common.exec.engine.TraceReset>()
+        val historyAtFire = AtomicLong(-1)
+        var firedBeforeReturn = false
+        lateinit var subscription: AutoCloseable
+        val site = ObjectStableId("cs")
+
+        val engine = RunEngine(
+            logicOf { execution ->
+                execution.emit(Address.of("a"), ExecutionValue.of(1L))
+                execution.resetEmitted(listOf(Address.of("a")), listOf(site))
+                firedBeforeReturn = resets.isNotEmpty()
+                subscription.close()
+                execution.resetEmitted(listOf(Address.of("a")))
+                TupleValue.ofMain("ok")
+            },
+            rootId)
+        try {
+            subscription = engine.observeResets { reset ->
+                historyAtFire.set(engine.history(0).size.toLong())
+                resets.add(reset)
+            }
+            engine.resume()
+            engine.await()
+
+            assertTrue(firedBeforeReturn, "listener invoked synchronously, before resetEmitted returns")
+            assertEquals(1, resets.size, "unsubscribed listener receives no further resets")
+            val reset = resets.single()
+            assertEquals(rootId, reset.stableId)
+            assertEquals(listOf(Address.of("a")), reset.addresses)
+            assertEquals(listOf(site), reset.callSites)
+            assertEquals(1L, historyAtFire.get(), "the superseded pass's emit is drainable at fire time")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun resetEmittedEmptyIsNoOp() = runBlocking {
+        val resets = ConcurrentLinkedQueue<tech.kzen.lib.common.exec.engine.TraceReset>()
+        val engine = RunEngine(
+            logicOf { execution ->
+                execution.resetEmitted(emptyList())
+                TupleValue.ofMain("ok")
+            },
+            rootId)
+        try {
+            engine.observeResets { resets.add(it) }
+            engine.resume()
+            engine.await()
+            assertTrue(resets.isEmpty(), "empty reset neither fires observers nor mutates anything")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     @Test
     fun stepOverRunsAlreadyDescendedConcurrentChildFree() = runBlocking {

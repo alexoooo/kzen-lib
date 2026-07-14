@@ -33,7 +33,7 @@ interface Execution {
 
     /**
      * Record the current value at [address] (live latest-value-per-address; overwritten as it changes,
-     * cleared by a fresh loop iteration). The "push" half of observability.
+     * cleared by a fresh loop iteration via [resetEmitted]). The "push" half of observability.
      */
     fun emit(address: Address, value: ExecutionValue)
 
@@ -42,6 +42,19 @@ interface Execution {
      * value-agnostic "film-strip" (a screenshot is just a binary value here).
      */
     fun log(value: ExecutionValue)
+
+    /**
+     * Reset the live (latest-value-per-address) trace of a re-running scope — the "resettable" half of the
+     * §7 live view; the append-only history ([log]) is untouched, so the film-strip of every prior pass
+     * survives. Removes THIS node's live values at [addresses], and signals that hosted child invocations
+     * launched from any of [callSites] — transitively including their own hosted descendants — are
+     * superseded by the coming fresh pass, so a trace consumer clears their retained live values likewise
+     * (a fresh iteration presents a fresh trace instead of the previous iteration's finished one).
+     * An element that re-runs its nested elements (a loop at each iteration boundary) calls this alongside
+     * [discardCaptured] — same element set: addresses for the values the elements emitted, call-sites for
+     * the invocations they hosted. No-op with empty arguments.
+     */
+    fun resetEmitted(addresses: Collection<Address>, callSites: Collection<ObjectStableId> = emptyList())
 
     /**
      * Pause this node itself (a breakpoint / pause-step): settle as [NodeStatus.Suspended] with the given

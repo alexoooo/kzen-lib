@@ -27,6 +27,7 @@ import tech.kzen.lib.common.exec.engine.Run
 import tech.kzen.lib.common.exec.engine.RunState
 import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.engine.TraceEvent
+import tech.kzen.lib.common.exec.engine.TraceReset
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import tech.kzen.lib.common.util.ExceptionUtils
@@ -116,6 +117,7 @@ class RunEngine(
     private val history = ArrayList<TraceEvent>()
     private val observers = ArrayList<() -> Unit>()
     private val frameObservers = ArrayList<(Node) -> Unit>()
+    private val resetObservers = ArrayList<(TraceReset) -> Unit>()
     private val terminal = CompletableDeferred<Outcome>()
 
     // One node's captured migration state plus the invocation identity needed to deliver it correctly: the
@@ -220,6 +222,25 @@ class RunEngine(
         return AutoCloseable {
             synchronized(lock) {
                 frameObservers.remove(listener)
+            }
+        }
+    }
+
+
+    /**
+     * Subscribe to live-trace reset signals ([Execution.resetEmitted]): [listener] is invoked synchronously
+     * from the resetting spine, off the engine lock, BEFORE the reset call returns — so a consumer that
+     * drains pending history and then clears is ordered exactly between the superseded pass's last emit and
+     * the fresh pass's first. Fires on an engine dispatcher thread; keep listeners cheap. The returned
+     * handle unsubscribes.
+     */
+    fun observeResets(listener: (TraceReset) -> Unit): AutoCloseable {
+        synchronized(lock) {
+            resetObservers.add(listener)
+        }
+        return AutoCloseable {
+            synchronized(lock) {
+                resetObservers.remove(listener)
             }
         }
     }
@@ -809,6 +830,45 @@ class RunEngine(
     }
 
 
+    // See [Execution.resetEmitted]. The node's own live entries at [addresses] are removed; retained
+    // (settled) child nodes hosted from [callSites] — transitively their entire subtrees — get their live
+    // maps cleared for snapshot coherence with the trace consumer's cleared buffers (the nodes themselves
+    // stay in the tree for history / call-site attribution). Listeners fire off-lock, synchronously, before
+    // return (the [publish] copy-then-invoke pattern) — the ordering a drain-then-clear trace bridge needs.
+    private fun resetEmitted(nodeId: NodeId, addresses: Collection<Address>, callSites: Collection<ObjectStableId>) {
+        if (addresses.isEmpty() && callSites.isEmpty()) {
+            return
+        }
+        val (reset, listeners) = synchronized(lock) {
+            val runtime = nodes.getValue(nodeId)
+            addresses.forEach { runtime.live.remove(it) }
+            // Nullable-element set so `in` accepts the nullable callerStableId (null is never a member).
+            val sites = HashSet<ObjectStableId?>(callSites)
+            for (childId in runtime.children) {
+                val child = nodes[childId]
+                    ?: continue
+                if (child.callerStableId in sites) {
+                    clearLiveSubtree(childId)
+                }
+            }
+            dirty = true
+            val reset = TraceReset(nodeId, runtime.stableId, addresses.toList(), callSites.toList())
+            reset to resetObservers.toList()
+        }
+        listeners.forEach { it(reset) }
+        publish()
+    }
+
+
+    // Must hold lock.
+    private fun clearLiveSubtree(nodeId: NodeId) {
+        val runtime = nodes[nodeId]
+            ?: return
+        runtime.live.clear()
+        runtime.children.forEach { clearLiveSubtree(it) }
+    }
+
+
     private fun registerResource(
         nodeId: NodeId, key: String, policy: ClosePolicy, scope: ResourceScope, value: Any?, closer: () -> Unit
     ) {
@@ -990,6 +1050,9 @@ class RunEngine(
 
         override fun log(value: ExecutionValue) =
             this@RunEngine.log(nodeId, value)
+
+        override fun resetEmitted(addresses: Collection<Address>, callSites: Collection<ObjectStableId>) =
+            this@RunEngine.resetEmitted(nodeId, addresses, callSites)
 
         override suspend fun pauseHere(reason: PauseReason) =
             this@RunEngine.pauseHere(nodeId, reason)

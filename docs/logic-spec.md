@@ -374,6 +374,11 @@ it is doing**, and the recording is part of the Logic contract — not an option
   invocation being a distinct, individually-addressable execution is precisely what makes this scoping
   possible; the run-merge is a projection over all of them, not the primary live view. (This is why a shared
   run buffer keyed only by element identity is wrong: it flattens invocations and ghosts on re-entry.)
+  The reset applies at the **iteration boundary of the re-running host**, not lazily on the next
+  invocation's first write: when a scope re-runs its nested elements (a loop starting its next pass), the
+  engine's explicit reset signal clears the elements' own live values *and* the retained live values of the
+  invocations they previously hosted — transitively — so between the boundary and the fresh pass's first
+  write nothing reads as already-run, while every prior pass's history survives.
 
 - **Total ordering across parallel spines.** Because executions run in parallel, **wall-clock time is
   insufficient** to order events. The model requires a **global monotonic sequence** across the whole run so

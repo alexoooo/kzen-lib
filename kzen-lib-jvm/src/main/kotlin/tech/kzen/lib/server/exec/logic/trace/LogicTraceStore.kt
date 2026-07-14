@@ -42,7 +42,7 @@ class LogicTraceStore(
     ) {
         val values = ConcurrentHashMap<LogicTracePath, LogicTraceEntry>()
 
-        // Append-only history; NOT cleared by clearAll, so loop iterations accumulate.
+        // Append-only history; NOT cleared by clearAll / clearValues, so loop iterations accumulate.
         val events = CopyOnWriteArrayList<LogicTraceEvent>()
 
         val callbacks = CopyOnWriteArrayList<(LogicTraceQuery) -> Unit>()
@@ -306,6 +306,61 @@ class LogicTraceStore(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    /**
+     * Remove specific live per-path values from one execution's buffer — the per-iteration reset of a
+     * scope's OWN emitted values. Its append-only events (the film-strip) and its registration in the
+     * most-recent index are untouched; no-op for an unknown execution.
+     */
+    fun clearValues(runExecutionId: LogicRunExecutionId, paths: Collection<LogicTracePath>) {
+        val buffer = history[RunExecution(runExecutionId)]
+            ?: return
+        for (path in paths) {
+            buffer.values.remove(path)
+        }
+    }
+
+
+    /**
+     * Clear (values only) every buffer of [logicRunId] whose invocation was launched — directly or
+     * transitively, via the per-buffer [TraceBuffer.callerStableId] / [TraceBuffer.parentExecutionId]
+     * linkage — from one of [callSites]. Superseded loop-iteration invocations of a hosted sub-logic (and
+     * their hosted descendants) then read as not-run in [lookup] / [lookupRun], while their events (the
+     * film-strip) survive. The linkage is store-recorded per buffer, independent of the engine's node tree,
+     * so invocations from before a live-edit migration are covered too.
+     */
+    fun clearValues(logicRunId: LogicRunId, callSites: Collection<ObjectStableId>) {
+        if (callSites.isEmpty()) {
+            return
+        }
+        val runBuffers = history
+            .filterKeys { it.runExecutionId.logicRunId == logicRunId }
+
+        // Nullable-element sets so `in` accepts the nullable callerStableId / parentExecutionId
+        // (null is never a member — a run's root execution can't be cleared this way).
+        val sites = HashSet<ObjectStableId?>(callSites)
+        val affectedExecutionIds = HashSet<LogicExecutionId?>()
+        var progress = true
+        while (progress) {
+            progress = false
+            for ((runExecution, buffer) in runBuffers) {
+                val executionId = runExecution.runExecutionId.logicExecutionId
+                if (executionId in affectedExecutionIds) {
+                    continue
+                }
+                if (buffer.callerStableId in sites || buffer.parentExecutionId in affectedExecutionIds) {
+                    affectedExecutionIds.add(executionId)
+                    progress = true
+                }
+            }
+        }
+        for ((runExecution, buffer) in runBuffers) {
+            if (runExecution.runExecutionId.logicExecutionId in affectedExecutionIds) {
+                buffer.values.clear()
+            }
+        }
+    }
+
+
     fun evict(logicRunId: LogicRunId) {
         history.keys.removeAll { it.runExecutionId.logicRunId == logicRunId }
         stableIdHistory.entries.removeAll { it.value.logicRunId == logicRunId }
