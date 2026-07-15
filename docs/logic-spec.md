@@ -291,8 +291,10 @@ them; they must not be re-implemented per flavour.
   - **Repositioning (move-to) is a self-migration.** A driver-requested move-to (§4 "Repositioning") reuses
     this same barrier with the target carried as a one-shot `Execution.moveTarget`: the flavour performs the
     outcome/replay **state surgery at restore** (dropping the target-and-after outcomes so its position walk
-    re-parks at the target), so no new engine machinery is needed — a move-to *is* a migrate the flavour
-    steers.
+    re-parks at the target — additionally short-circuiting the value-less steps the walk skips over on a
+    forward jump, and re-running the target's ancestor containers with their `checkpoint` suppressed so the
+    rebuild parks at the target rather than an enclosing boundary), so no new engine machinery is needed — a
+    move-to *is* a migrate the flavour steers.
 
 - **Step-after-edit re-parks; run-after-edit resumes.** Applying an edit is bounded by the pending command:
   **stepping** after an edit rebuilds onto the new definition and re-parks at its **first** wavefront (a
