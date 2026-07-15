@@ -154,6 +154,13 @@ class RunEngine(
     // claimed-set), adoption here is eager and engine-driven at node spawn, so remove-on-adopt IS the claim.
     private val migrationResources = HashMap<ObjectStableId, LinkedHashMap<String, Registration>>()
 
+    // A one-shot repositioning target carried across the [migrate] barrier, surfaced to every node of the
+    // rebuilt tree as [Execution.moveTarget] (spec §4 "Repositioning"). Tree-wide (not keyed by node) and read
+    // WITHOUT claiming — root and hosted children may all read it during one barrier's rebuild. Every migrate
+    // overwrites it (an ordinary edit passes null, clearing it), so it is one-shot by construction; also
+    // cleared by [sweepOrphans] so [close] leaves nothing behind.
+    private var migrationMoveTarget: ObjectStableId? = null
+
     private var sequence = 0L
     private var nodeCounter = 0
     private var command: Command = Command.Paused
@@ -414,8 +421,11 @@ class RunEngine(
      * Must be called while the run is quiescent — every non-terminal node parked at a checkpoint and no
      * dispatch in flight (the caller awaits [awaitQuiescent] first), and never from a dispatcher thread.
      * [paused] starts the rebuilt run parked at its first wavefront (a step-after-edit); false resumes it.
+     * [moveTarget] is an advisory one-shot repositioning hint surfaced to the rebuilt tree as
+     * [Execution.moveTarget] — a self-migration that repositions the run; a flavour that doesn't support
+     * repositioning (or in whose structure the id doesn't resolve) ignores it, leaving an ordinary migrate.
      */
-    fun migrate(newRoot: Logic, paused: Boolean = true) {
+    fun migrate(newRoot: Logic, paused: Boolean = true, moveTarget: ObjectStableId? = null) {
         // Dispose orphans left unclaimed by a prior edit before this edit's captures overwrite the registers.
         sweepOrphans()
 
@@ -473,6 +483,7 @@ class RunEngine(
             migrationCaptured.clear()
             migrationCaptured.putAll(captured)
             claimedCaptures.clear()
+            migrationMoveTarget = moveTarget
 
             liveRootLogic = newRoot
             val rootRuntime = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
@@ -502,6 +513,7 @@ class RunEngine(
                 .toList()
             migrationCaptured.clear()
             claimedCaptures.clear()
+            migrationMoveTarget = null
             result
         }
         orphans.forEach { captured ->
@@ -1086,6 +1098,9 @@ class RunEngine(
 
         override val restored: Any?
             get() = this@RunEngine.restoredForNode(nodeId)
+
+        override val moveTarget: ObjectStableId?
+            get() = synchronized(lock) { migrationMoveTarget }
 
         override fun discardCaptured(callSites: Collection<ObjectStableId>) =
             this@RunEngine.discardCaptured(callSites)

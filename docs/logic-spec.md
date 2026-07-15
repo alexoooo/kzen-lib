@@ -202,6 +202,17 @@ below is addressed and concurrent runs are independently controllable.
   loop's next iteration). "Run to an element" is a client composition, not a separate mechanism: add a
   breakpoint at the target, run, remove it.
 
+- **Repositioning (move-to) — a flavour-owned self-migration.** A driver may **reposition** a paused run to
+  a named element (a debugger's "set next statement"): move the run's position to a target *without*
+  executing the intervening elements. The engine's whole role is to carry that target — an opaque element
+  position (stable id) — as a **one-shot hint across the §5 migration barrier** (`migrate(moveTarget = …)`,
+  surfaced to the rebuilt tree as `Execution.moveTarget`); the actual reposition is **flavour-owned state
+  surgery performed at restore** (§5), because only the flavour knows its own outcome/replay model. A Logic
+  that supports it advertises so **structurally** (`Repositionable.canMoveTo`, checked before the barrier is
+  torn down, so an illegal target is rejected without disrupting the run); a Logic that does not — or one in
+  whose structure the target does not resolve — **ignores** the hint, leaving an ordinary migrate parked at
+  its existing frontier. Like breakpoints, the target is stable-id keyed, so it is rename / live-edit safe.
+
 - **Outcome taxonomy.** Every boundary resolves the execution to one of:
   - **success(value)** — terminal, carrying the typed output tuple,
   - **failed(message)** — terminal,
@@ -277,6 +288,11 @@ them; they must not be re-implemented per flavour.
     loop resetting for its next iteration, or restarting) **discards its dropped call-sites' captures** —
     transitively including their descendants' — so a fresh invocation starts clean instead of adopting the
     abandoned one's state (`Execution.discardCaptured`).
+  - **Repositioning (move-to) is a self-migration.** A driver-requested move-to (§4 "Repositioning") reuses
+    this same barrier with the target carried as a one-shot `Execution.moveTarget`: the flavour performs the
+    outcome/replay **state surgery at restore** (dropping the target-and-after outcomes so its position walk
+    re-parks at the target), so no new engine machinery is needed — a move-to *is* a migrate the flavour
+    steers.
 
 - **Step-after-edit re-parks; run-after-edit resumes.** Applying an edit is bounded by the pending command:
   **stepping** after an edit rebuilds onto the new definition and re-parks at its **first** wavefront (a
@@ -468,7 +484,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`, `checkpoint(at:)` (optionally names the boundary's element → `Node.position`), `emit`, `log`, `pauseHere`, `recoverable`, `host`, `resource` / `releaseResource`, `onRequest`, `onCapture` / `restored` | kzen-lib-common `exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`, `checkpoint(at:)` (optionally names the boundary's element → `Node.position`), `emit`, `log`, `pauseHere`, `recoverable`, `host`, `resource` / `releaseResource`, `onRequest`, `onCapture` / `restored`, `moveTarget` (one-shot repositioning hint, §4) | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `observeFrames` frame-close signal; lazy dirty-flag snapshot, settled-frame compaction) | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
@@ -476,7 +492,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / Failed / Cancelled) | kzen-lib-common `exec/engine/` |
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`); the impl drives the engine on a single thread, mirrors trace per-node, and detects live edits | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/` |
 | Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo`, `LogicRunFrameInfo` (live frame tree), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` / `LogicStatus` / `LogicRunResponse`, `ObjectStableId` + `ObjectStableMapper` | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
-| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, orphan sweep) + `Execution.onCapture` / `restored`; edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (graph-store observer) gating a notation-diff over the transitive closure | engine kzen-lib-jvm; detection kzen-auto-jvm |
+| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, orphan sweep) + `Execution.onCapture` / `restored`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` → `Execution.moveTarget`, flavour capability `Repositionable.canMoveTo`; edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (graph-store observer) gating a notation-diff over the transitive closure | engine kzen-lib-jvm; detection kzen-auto-jvm |
 | Resources (**now: tree-scoped**) | `Execution.resource(key, policy, scope)` / `releaseResource` (owner node selected by `ResourceScope` = Self / Parent / Root, disposed on that node's settle; release searches the ancestor chain), `ClosePolicy` (Auto / Manual / KeepOnFailure) + `ResourceScope` (Self / Parent / Root) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure / parent / parentKeepOnFailure / run / runKeepOnFailure) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
 | Tracing | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register), `LogicTracePath` (+ `$stable` marker), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/` |
 | Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / List / Map) | kzen-lib-common `exec/` |

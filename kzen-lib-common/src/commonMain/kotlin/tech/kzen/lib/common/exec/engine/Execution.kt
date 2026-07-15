@@ -180,6 +180,16 @@ interface Execution {
     val restored: Any?
 
     /**
+     * Advisory one-shot repositioning hint set by the driver at the migration barrier (§5). A [Logic]
+     * whose structure resolves this id MAY interpret it when adopting [restored] — repositioning the
+     * rebuilt walk. Any Logic that does not support repositioning, or a hosted child in whose structure
+     * the id does not resolve, MUST ignore it, in which case the rebuild is an ordinary migrate parked at
+     * the existing frontier. Unlike [restored], reading is not a claim: the root and hosted children may
+     * all read it during one barrier's rebuild. Non-null only on a rebuilt tree; null on a fresh run.
+     */
+    val moveTarget: ObjectStableId?
+
+    /**
      * Discard captured migration state belonging to child invocations hosted from any of [callSites] —
      * transitively including THEIR hosted descendants' captures. This is the invocation-identity signal only
      * the flavour has: an element that re-runs its nested elements live (a loop resetting for its next

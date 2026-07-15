@@ -464,6 +464,112 @@ class RunEngineTest {
     }
 
 
+    //---------------------------------------------------------------- repositioning move-target carry (spec §4/§5)
+    @Test
+    fun migrateCarriesMoveTargetAndNextMigrateClearsIt() = runBlocking {
+        // The engine carries a one-shot move target across the migration barrier, surfaced to the rebuilt tree
+        // as Execution.moveTarget: null on a fresh run, the passed id on a move-migrate, and back to null on the
+        // next ordinary migrate (overwrite-clears — one-shot by construction).
+        val seen = mutableListOf<Any?>()
+        fun parkingRoot() = logicOf { execution ->
+            seen.add(execution.moveTarget)
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(parkingRoot(), rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(listOf<Any?>(null), seen, "a fresh run has no move target")
+
+            engine.migrate(parkingRoot(), paused = true, moveTarget = ObjectStableId("target"))
+            engine.awaitQuiescent()
+            assertEquals(
+                listOf<Any?>(null, ObjectStableId("target")), seen,
+                "a move-migrate surfaces the target to the rebuilt tree")
+
+            engine.migrate(parkingRoot(), paused = true)
+            engine.awaitQuiescent()
+            assertEquals(
+                listOf<Any?>(null, ObjectStableId("target"), null), seen,
+                "the next ordinary migrate overwrites the one-shot target back to null")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun migrateIgnoringMoveTargetParksLikeOrdinaryMigrate() = runBlocking {
+        // The no-op contract for a non-repositionable flavour: a Logic that never reads Execution.moveTarget is
+        // unaffected by a non-null target — the rebuild is an ordinary migrate. Same outcome as
+        // migrateContinuesAccumulatorFromCapturedState, which passes no target.
+        val engine = RunEngine(CountUpLogic(100), rootId)
+        try {
+            repeat(4) {
+                engine.step()
+                engine.awaitQuiescent()
+            }
+            assertEquals(ExecutionValue.of(3L), engine.snapshot().root.live[Address.of("count")])
+
+            engine.migrate(CountUpLogic(5), paused = false, moveTarget = ObjectStableId("ignored"))
+            val outcome = engine.await()
+
+            assertEquals(
+                5L, assertIs<Outcome.Success>(outcome).value.mainComponentValue(),
+                "a non-repositionable Logic ignores the move target — the rebuild continues from the captured count")
+            assertEquals(ExecutionValue.of(5L), engine.snapshot().root.live[Address.of("count")])
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun moveTargetReadableFromHostedChildExecution() = runBlocking {
+        // The move target is tree-wide: a child hosted on the rebuilt tree reads the same Execution.moveTarget
+        // the root sees (documented — a real flavour ignores an id its own structure can't resolve, but the
+        // value IS visible to every node of the barrier's rebuild, since a read is not a claim).
+        val target = ObjectStableId("target")
+        var rootSeen: Any? = "unset"
+        var childSeen: Any? = "unset"
+        val engine = RunEngine(logicOf { parkForever(it) }, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            engine.migrate(
+                logicOf { execution ->
+                    rootSeen = execution.moveTarget
+                    execution.host(
+                        ObjectStableId("child"),
+                        logicOf { child ->
+                            childSeen = child.moveTarget
+                            TupleValue.ofMain("ok")
+                        })
+                    parkForever(execution)
+                },
+                paused = true,
+                moveTarget = target)
+            engine.awaitQuiescent()
+
+            assertEquals(target, rootSeen, "the rebuilt root reads the move target")
+            assertEquals(target, childSeen, "a hosted child reads the same tree-wide move target")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
     @Test
     fun recoverableFailurePropagatesWhenPauseOnErrorDisabled() = runBlocking {
         // Default (pause-on-error off): a recoverable unit's failure settles the node failed, rendered once.
