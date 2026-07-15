@@ -34,8 +34,15 @@ interface Execution {
     /**
      * Record the current value at [address] (live latest-value-per-address; overwritten as it changes,
      * cleared by a fresh loop iteration via [resetEmitted]). The "push" half of observability.
+     *
+     * [retain] = true (the default) also appends the write to the run's append-only history — the
+     * durable event log the live view is normally a projection of. [retain] = false makes the write
+     * **transient**: it updates the live latest-value view (and notifies observers) but is NOT appended
+     * to history, so a high-churn progress signal (a throttled row count, a "running" marker) drives the
+     * live display without unbounded history growth. A transient emit is still visible in the live and
+     * whole-run-merged views; only the append-only history / film-strip omits it.
      */
-    fun emit(address: Address, value: ExecutionValue)
+    fun emit(address: Address, value: ExecutionValue, retain: Boolean = true)
 
     /**
      * Append an immutable event to the run's history timeline (survives loop / iteration resets) — the

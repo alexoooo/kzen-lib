@@ -971,6 +971,61 @@ class RunEngineTest {
     }
 
 
+    //------------------------------------------------------------------ transient (non-retained) emit (spec §7)
+    @Test
+    fun transientEmitUpdatesLiveButNotHistory() = runBlocking {
+        // A non-retained emit updates the live latest-value view (with a live sequence) but is NOT appended
+        // to history — a high-churn progress signal drives the live display without growing the film-strip.
+        val engine = RunEngine(
+            logicOf { execution ->
+                execution.emit(Address.of("p"), ExecutionValue.of(1L), retain = false)
+                execution.emit(Address.of("q"), ExecutionValue.of(2L))
+                TupleValue.ofMain("ok")
+            },
+            rootId)
+        try {
+            engine.resume()
+            engine.await()
+
+            val root = engine.snapshot().root
+            assertEquals(
+                ExecutionValue.of(1L), root.live[Address.of("p")], "transient emit visible in the live view")
+            assertEquals(
+                ExecutionValue.of(2L), root.live[Address.of("q")], "retained emit visible in the live view")
+            assertTrue(
+                root.liveSequence.containsKey(Address.of("p")), "transient emit carries a live sequence")
+
+            assertEquals(
+                listOf(Address.of("q")),
+                engine.history(0).map { it.address },
+                "only the retained emit is appended to history; the transient one is absent")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //---------------------------------------------------------- settled engine stays readable after shutdown
+    @Test
+    fun shutdownKeepsSnapshotAndHistoryReadableAfterTerminal() = runBlocking {
+        // A terminated engine can be retained for post-run review: shutdown() stops the pools, but snapshot()
+        // and history() stay readable (lock + in-memory only, no dispatcher). dispose() then fully tears down.
+        val engine = RunEngine(StepsLogic(2), rootId)
+        engine.resume()
+        engine.await()
+
+        engine.shutdown()
+
+        val root = engine.snapshot().root
+        assertIs<NodeStatus.Terminal>(root.status, "run settled terminal")
+        assertEquals(ExecutionValue.of(2L), root.live[Address.of("i")], "live view readable after shutdown")
+        assertEquals(2, engine.history(0).count { it.address != null }, "history readable after shutdown")
+
+        engine.dispose()
+    }
+
+
     @Test
     fun resetObserverOrderingAndPayload() = runBlocking {
         // The reset signal fires synchronously BEFORE resetEmitted returns, with the superseded pass's emits

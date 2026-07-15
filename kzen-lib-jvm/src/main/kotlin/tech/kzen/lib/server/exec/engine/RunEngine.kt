@@ -100,6 +100,8 @@ class RunEngine(
         // Starts null on a migrate rebuild too — re-established when the rebuilt spine re-parks at its boundary.
         var position: ObjectStableId? = null
         val live = LinkedHashMap<Address, ExecutionValue>()
+        // Parallel to [live], carried to [Node.liveSequence]: the write sequence of each live entry.
+        val liveSequence = LinkedHashMap<Address, Long>()
         val children = ArrayList<NodeId>()
         val resources = LinkedHashMap<String, Registration>()
         var requestHandler: ((ExecutionRequest) -> ExecutionResult)? = null
@@ -386,9 +388,32 @@ class RunEngine(
     }
 
 
-    override fun close() {
+    /**
+     * Stop the engine's thread pools while leaving the run's node tree and history fully readable — a
+     * settled run's [snapshot] / [history] touch only [lock] + in-memory state, no dispatcher, so a
+     * terminated run can be retained (post-run trace review) without holding threads. Called when the run
+     * settles terminal. Migration-orphan disposal is deferred to [dispose] (bounded to one retention cycle,
+     * matching the existing "orphan lingers at most one edit" invariant); node resources are already disposed
+     * at [settleNode].
+     */
+    fun shutdown() {
+        dispatcher.close()
+    }
+
+
+    /**
+     * Full teardown: dispose any migration orphans, then stop the pools. Called when a retained run is
+     * replaced by a new one or the controller closes. Idempotent after [shutdown] ([dispatcher.close] is
+     * [java.util.concurrent.ExecutorService.shutdownNow], which is idempotent).
+     */
+    fun dispose() {
         sweepOrphans()
         dispatcher.close()
+    }
+
+
+    override fun close() {
+        dispose()
     }
 
 
@@ -821,12 +846,17 @@ class RunEngine(
     }
 
 
-    private fun emit(nodeId: NodeId, address: Address, value: ExecutionValue) {
+    private fun emit(nodeId: NodeId, address: Address, value: ExecutionValue, retain: Boolean) {
         synchronized(lock) {
             sequence += 1
             val runtime = nodes.getValue(nodeId)
             runtime.live[address] = value
-            history.add(TraceEvent(sequence, nodeId, runtime.stableId, address, value))
+            runtime.liveSequence[address] = sequence
+            // Transient (retain = false): update the live view only, so a high-churn progress signal
+            // doesn't grow history unboundedly (spec §7 retention-vs-bounding, per-emit).
+            if (retain) {
+                history.add(TraceEvent(sequence, nodeId, runtime.stableId, address, value))
+            }
         }
         publish()
     }
@@ -853,7 +883,7 @@ class RunEngine(
         }
         val (reset, listeners) = synchronized(lock) {
             val runtime = nodes.getValue(nodeId)
-            addresses.forEach { runtime.live.remove(it) }
+            addresses.forEach { runtime.live.remove(it); runtime.liveSequence.remove(it) }
             // Nullable-element set so `in` accepts the nullable callerStableId (null is never a member).
             val sites = HashSet<ObjectStableId?>(callSites)
             for (childId in runtime.children) {
@@ -877,6 +907,7 @@ class RunEngine(
         val runtime = nodes[nodeId]
             ?: return
         runtime.live.clear()
+        runtime.liveSequence.clear()
         runtime.children.forEach { clearLiveSubtree(it) }
     }
 
@@ -1040,7 +1071,8 @@ class RunEngine(
             runtime.children.map { buildNode(it) },
             runtime.callerStableId,
             runtime.retainTrace,
-            runtime.position
+            runtime.position,
+            LinkedHashMap(runtime.liveSequence)
         )
     }
 
@@ -1057,8 +1089,8 @@ class RunEngine(
         override suspend fun checkpoint(at: ObjectStableId?) =
             this@RunEngine.checkpoint(nodeId, depth, at)
 
-        override fun emit(address: Address, value: ExecutionValue) =
-            this@RunEngine.emit(nodeId, address, value)
+        override fun emit(address: Address, value: ExecutionValue, retain: Boolean) =
+            this@RunEngine.emit(nodeId, address, value, retain)
 
         override fun log(value: ExecutionValue) =
             this@RunEngine.log(nodeId, value)

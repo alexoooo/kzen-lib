@@ -35,5 +35,11 @@ data class Node(
     // The last *named* boundary this node reached ([Execution.checkpoint]'s `at`), or null when no boundary
     // has named itself yet — e.g. a Job worker, whose position is the node itself. Anonymous checkpoints
     // don't clear it; it identifies "the element about to run" for consumers (the Script next-step highlight).
-    val position: ObjectStableId? = null
+    val position: ObjectStableId? = null,
+
+    // Per-address fold index parallel to [live]: the [TraceEvent.sequence] of each live entry's latest write.
+    // A trace consumer projecting the live view to the wire needs each value's sequence (for a whole-run
+    // merge's latest-wins tiebreak, and the client's screenshot ordering). Kept beside [live] rather than in
+    // it so [live]'s existing value-typed readers are unaffected. Empty for nodes with no live values.
+    val liveSequence: Map<Address, Long> = emptyMap()
 )
