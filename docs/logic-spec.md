@@ -119,7 +119,9 @@ re-inventing it.
   > (The former shared `LogicTraceStore` with a run-global `clearAll` was **retired 2026-07-15** by engine
   > plan E4 — trace is now served straight off the retained engine.) Making these per-run is engine plan
   > **E6 (multiple concurrent runs), which is deferred** — not yet needed for the product; the groundwork
-  > is verified in place (see `kzen/plans/2026-07-05_logic-engine-improvements.md` Phase 6 deferral note).
+  > is verified in place (see `kzen/plans/2026-07-16_master-plan.md` § "Deferred & resolved" for the
+  > condensed readiness verdict + friction list; historical detail in
+  > `kzen/plans/sprint-1/2026-07-05_logic-engine-improvements.md` Phase 6).
 
 ---
 
@@ -537,6 +539,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Example consumers (illustrative only) | `ScriptLogic` / `ScriptRunContext`, `FlowLogic` / `FlowRun`, `JobLogic` / `JobRun` / `WorkerLogic` / `EngineJobControl`, `ReportLogic` / `ReportRun`; `LogicCompiler` (document → `Logic`); client driver `ClientLogicGlobal` (poll + auto-step) | kzen-auto-jvm `server/exec/**`, `server/objects/**`; kzen-auto-js `client/service/logic/` |
 
 Related reading: [`architecture.md`](architecture.md) § "Execution model (Logic / Task / Trace)" and
-§ "Stable identity"; the Job paradigm plan `kzen/plans/2026-06-23_job-paradigm.md` (the most worked-out
-concurrent + migrating consumer); `kzen-auto/docs/architecture.md` §1/§3 (Script as the reference Logic and
+§ "Stable identity"; the Job plan `kzen/plans/2026-07-16_job-improvements.md` (the most worked-out
+concurrent + migrating consumer; its appendix consolidates the retired 2026-06-23 build plan);
+`kzen-auto/docs/architecture.md` §1/§3 (Script as the reference Logic and
 the REST run-control surface).
