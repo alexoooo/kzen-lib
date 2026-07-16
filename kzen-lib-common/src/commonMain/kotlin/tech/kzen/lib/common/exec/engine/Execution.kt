@@ -85,6 +85,22 @@ interface Execution {
     suspend fun <R> recoverable(onError: (Throwable) -> Unit, block: suspend () -> R): R
 
     /**
+     * Run a BLOCKING [block] off the engine's fixed dispatcher pool on a per-engine elastic pool — freeing the
+     * engine thread while it blocks, yet still counted as in-flight, so a spine parked inside [blocking] reads
+     * as BUSY to the quiescence barrier (never falsely quiescent), exactly as a pending
+     * [delay][kotlinx.coroutines.delay] does. Adopt it for blocking third-party calls (Selenium round-trips,
+     * JDBC, large file reads) that would otherwise hold one of the fixed engine threads and, in enough
+     * concurrent spines, starve the pool and stall pause / step / migrate. This is the mechanism behind
+     * logic-spec §2's "blocking work must remain visible to the runtime so it can tell 'busy' from 'idle'".
+     *
+     * [block] MUST be interrupt-responsive: engine cancel (and the migrate barrier) converge a
+     * parked-in-[blocking] spine by INTERRUPTING its worker thread, surfaced back as a
+     * [kotlin.coroutines.cancellation.CancellationException] — an uninterruptible block cannot be cancelled and
+     * holds a pooled thread until it returns on its own.
+     */
+    suspend fun <R> blocking(block: () -> R): R
+
+    /**
      * Run [child] as a confined sub-execution and return its output. The child runs as a new node under
      * this one — its own trace scope and resource scope — and the engine drives its stepping uniformly
      * (step-over/out cross the boundary). A child failure surfaces here as [LogicFailure]; a child cancel
@@ -160,6 +176,11 @@ interface Execution {
      * is carried by [the element's stable identity][tech.kzen.lib.common.service.store.normal.ObjectStableId]
      * to the matching node of the rebuilt definition, surfaced there as [restored].
      *
+     * The captured value should be a **self-contained value type** — a plain data holder that owns the state
+     * it carries (copy mutable collections, don't hand out a live view onto engine internals) — since it
+     * outlives the node that produced it and is adopted later on the rebuilt tree (read back via [restored] /
+     * [restoredAs]).
+     *
      * Null (the default — no provider registered, or a provider returning null) means nothing migrates: the
      * rebuilt node restarts cleanly with the new definition (the safe best-effort default of spec §5). A
      * returned state that holds a detached resource should be [AutoCloseable]: the engine closes any captured
@@ -207,3 +228,13 @@ interface Execution {
      */
     fun discardCaptured(callSites: Collection<ObjectStableId>)
 }
+
+
+/**
+ * Type-safe [Execution.restored]: the predecessor's captured migration state as [T], or null when there is
+ * none or it captured a different type — instead of a `ClassCastException` from an unchecked
+ * `restored as? T` at each seam. Reading claims the capture exactly as [Execution.restored] does, so call it
+ * once. For a generic [T] (e.g. a `Map<..>`) the runtime check is by erased class, like any reified `as?`.
+ */
+inline fun <reified T> Execution.restoredAs(): T? =
+    restored as? T

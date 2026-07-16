@@ -5,9 +5,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.runInterruptible
+import java.util.concurrent.Executors
 import tech.kzen.lib.common.exec.ExecutionFailure
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
@@ -112,6 +115,12 @@ class RunEngine(
     //-----------------------------------------------------------------------------------------------------------------
     private val lock = Any()
     private val dispatcher = CountingDispatcher(threads)
+    // Elastic pool for [Execution.blocking]: blocking third-party calls run here (via runInterruptible) rather
+    // than holding one of the fixed [dispatcher] threads, while the [CountingDispatcher] in-flight hold keeps
+    // the run non-quiescent. Owned by this engine; closed in [shutdown] / [dispose].
+    private val elasticDispatcher = Executors.newCachedThreadPool { runnable ->
+        Thread(runnable, "kzen-engine-blocking").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
     private var scope = CoroutineScope(dispatcher + SupervisorJob())
 
     private val nodes = HashMap<NodeId, NodeRuntime>()
@@ -327,6 +336,7 @@ class RunEngine(
     override fun cancel() {
         val toRelease = ArrayList<CompletableDeferred<Unit>>()
         var settleRootCancelled = false
+        var jobToCancel: Job? = null
         synchronized(lock) {
             if (cancelling) {
                 return
@@ -338,9 +348,17 @@ class RunEngine(
             }
             else {
                 drainParked(toRelease)
+                // Cancel the run scope's Job too: a spine parked at a checkpoint is released by the drain (and
+                // re-checks `cancelling`), but a spine suspended inside [Execution.blocking] awaits no latch —
+                // only cancelling its coroutine reaches it, which runInterruptible converts to a thread
+                // interrupt → CancellationException, settling it Cancelled like any other. Must run OUTSIDE the
+                // lock: cancellation synchronously resumes cancelled continuations that re-enter [settleNode]'s
+                // `synchronized(lock)` (same reason [toRelease] is completed off-lock).
+                jobToCancel = scope.coroutineContext[Job]
             }
         }
         toRelease.forEach { it.complete(Unit) }
+        jobToCancel?.cancel(CancellationException("Run cancelled"))
         if (settleRootCancelled) {
             settleNode(rootId, Outcome.Cancelled)
         }
@@ -398,6 +416,7 @@ class RunEngine(
      */
     fun shutdown() {
         dispatcher.close()
+        elasticDispatcher.close()
     }
 
 
@@ -409,6 +428,7 @@ class RunEngine(
     fun dispose() {
         sweepOrphans()
         dispatcher.close()
+        elasticDispatcher.close()
     }
 
 
@@ -576,6 +596,8 @@ class RunEngine(
 
     private suspend fun runNode(nodeId: NodeId): Outcome {
         val execution = ExecutionImpl(nodeId)
+        // Immutable per node; captured once so a failure catch can stamp [Outcome.Failed.at] with this node's id.
+        val stableId = synchronized(lock) { nodes.getValue(nodeId).stableId }
         val outcome =
             try {
                 Outcome.Success(rootOrChildLogic(nodeId).run(execution))
@@ -586,10 +608,12 @@ class RunEngine(
                 return Outcome.Cancelled
             }
             catch (e: LogicFailure) {
-                Outcome.Failed(e.message ?: "failure")
+                // A FRESH failure gets this node's id; a child failure re-thrown through [host] already carries
+                // the originating child's id, which we preserve unchanged (spec §4 pause-reason propagation).
+                Outcome.Failed(e.message ?: "failure", e.at ?: stableId)
             }
             catch (e: Throwable) {
-                Outcome.Failed(ExceptionUtils.message(e))
+                Outcome.Failed(ExceptionUtils.message(e), stableId)
             }
         settleNode(nodeId, outcome)
         return outcome
@@ -631,7 +655,7 @@ class RunEngine(
 
         return when (outcome) {
             is Outcome.Success -> outcome.value
-            is Outcome.Failed -> throw LogicFailure(outcome.message)
+            is Outcome.Failed -> throw LogicFailure(outcome.message, outcome.at)
             Outcome.Cancelled -> throw CancellationException("Child cancelled")
         }
     }
@@ -732,6 +756,22 @@ class RunEngine(
                 // error-parked surfaces from pauseHere and propagates out (not re-caught — we are past block()).
                 pauseHere(nodeId, PauseReason.Error)
             }
+        }
+    }
+
+
+    // See [Execution.blocking]. Runs [block] on the elastic pool via runInterruptible so the fixed engine
+    // thread is freed for the region's duration; the [CountingDispatcher] hold keeps the spine counted as busy
+    // (so quiescence / migrate never read it as idle), and engine [cancel] — which cancels the run scope's Job
+    // — interrupts the elastic worker thread, surfaced back as CancellationException so the node settles
+    // Cancelled like any other.
+    private suspend fun <R> blocking(block: () -> R): R {
+        val hold = dispatcher.enterBlocking()
+        try {
+            return runInterruptible(elasticDispatcher) { block() }
+        }
+        finally {
+            dispatcher.exitBlocking(hold)
         }
     }
 
@@ -1103,6 +1143,9 @@ class RunEngine(
 
         override suspend fun <R> recoverable(onError: (Throwable) -> Unit, block: suspend () -> R): R =
             this@RunEngine.recoverable(nodeId, onError, block)
+
+        override suspend fun <R> blocking(block: () -> R): R =
+            this@RunEngine.blocking(block)
 
         override suspend fun host(
             stableId: ObjectStableId,

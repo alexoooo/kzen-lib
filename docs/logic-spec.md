@@ -74,7 +74,11 @@ re-inventing it.
     genuinely in parallel. The model must support this, but must not *require* every Logic to be concurrent.
   - All parallel work cooperates through **safe-points (checkpoints)**: the points at which a worker is
     willing to be paused, stepped, or cancelled. Blocking work must remain visible to the runtime so it can
-    tell "busy" from "idle".
+    tell "busy" from "idle". *As built:* a spine wraps a blocking third-party call (Selenium, JDBC, large
+    file I/O) in **`Execution.blocking { }`**, which offloads it to a per-engine elastic pool (freeing the
+    fixed dispatcher thread) while keeping it counted as in-flight — so a spine parked inside a blocking call
+    reads as *busy* to the quiescence barrier, never falsely idle (the same accounting a pending `delay`
+    gets). The block is run interruptibly, so cooperative cancel reaches it too.
 
 - **Quiescence (the real requirement behind "pause/step must work across the whole parallel execution").**
   The runtime must be able to bring all parallel work to a **consistent, settled state** at a boundary — a

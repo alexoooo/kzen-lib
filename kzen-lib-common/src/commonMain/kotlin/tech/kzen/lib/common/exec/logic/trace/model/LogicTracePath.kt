@@ -18,6 +18,13 @@ data class LogicTracePath(
         const val stableIdMarker = "\$stable"
 
 
+        // Marker prefix for a node's terminal-outcome path — a read-time projection of the retained engine's
+        // NodeStatus.Terminal, keyed by the node's stable id (like [stableIdMarker], but a DEDICATED path so it
+        // never collides with the node's own emitted live values). Flavour-neutral: any consumer (the Job UI's
+        // per-Worker outcome chip) reads it by stable id. See [nodeOutcome] and RunEngineLogicTrace.
+        const val outcomeMarker = "\$outcome"
+
+
         val root = LogicTracePath(listOf())
 
 
@@ -36,6 +43,14 @@ data class LogicTracePath(
             // segment separator (document nesting, object nesting). Split so each piece
             // satisfies LogicTracePath's no-separator-in-segment invariant.
             return LogicTracePath(listOf(stableIdMarker) + objectStableId.value.split(segmentSeparator))
+        }
+
+
+        // A node's terminal-outcome path (see [outcomeMarker]). The [outcomeMarker] prefix means
+        // [objectStableId] returns null for it, so it passes through the rename-resolution filter unresolved —
+        // exactly like the Job worker-progress path — while staying keyed by the (rename-stable) stable id.
+        fun nodeOutcome(objectStableId: ObjectStableId): LogicTracePath {
+            return LogicTracePath(listOf(outcomeMarker) + objectStableId.value.split(segmentSeparator))
         }
 
 
@@ -75,6 +90,17 @@ data class LogicTracePath(
     //-----------------------------------------------------------------------------------------------------------------
     fun objectStableId(): ObjectStableId? {
         if (segments.size < 2 || segments[0] != stableIdMarker) {
+            return null
+        }
+        return ObjectStableId(segments.drop(1).joinToString(segmentSeparator))
+    }
+
+
+    // The stable id embedded in a [nodeOutcome] path (leading [outcomeMarker]), else null. Lets the trace
+    // filter drop a settled node's outcome when its object is deleted, exactly as the [objectStableId] emit
+    // path drops — a deleted element's trace, outcome included, is unaddressable.
+    fun outcomeStableId(): ObjectStableId? {
+        if (segments.size < 2 || segments[0] != outcomeMarker) {
             return null
         }
         return ObjectStableId(segments.drop(1).joinToString(segmentSeparator))

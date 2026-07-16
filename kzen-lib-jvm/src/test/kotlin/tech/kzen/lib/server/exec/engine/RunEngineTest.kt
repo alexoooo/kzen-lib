@@ -5,6 +5,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import tech.kzen.lib.common.exec.ExecutionValue
 import tech.kzen.lib.common.exec.engine.Address
 import tech.kzen.lib.common.exec.engine.ClosePolicy
@@ -21,6 +22,8 @@ import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.system.measureTimeMillis
 import kotlin.test.Test
@@ -1854,6 +1857,152 @@ class RunEngineTest {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
             assertFalse(disposed, "an ancestor-scoped registration released by a descendant is not auto-disposed")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //--------------------------------------------------------------------------------------- Execution.blocking (E7 7a)
+    @Test
+    fun blockingCountsAsBusyForQuiescence() = runBlocking {
+        // A spine parked inside Execution.blocking must read as BUSY (inFlight > 0), never falsely quiescent —
+        // otherwise awaitQuiescent / migrate would proceed while blocking work is still running.
+        val entered = CountDownLatch(1)
+        val gate = CountDownLatch(1)
+        val logic = logicOf { execution ->
+            execution.blocking {
+                entered.countDown()
+                gate.await()
+            }
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertTrue(entered.await(2, TimeUnit.SECONDS), "the blocking region should start")
+
+            // A background awaitQuiescent must NOT return while the blocking region is held.
+            val quiescent = AtomicBoolean(false)
+            val waiter = Thread {
+                engine.awaitQuiescent()
+                quiescent.set(true)
+            }
+            waiter.start()
+            Thread.sleep(200)
+            assertFalse(quiescent.get(), "a spine inside blocking { } must read as busy, not quiescent")
+
+            gate.countDown()
+            assertIs<Outcome.Success>(engine.await())
+            waiter.join(2000)
+            assertTrue(quiescent.get(), "quiescence is reached once the blocking region ends")
+        }
+        finally {
+            gate.countDown()
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun cancelInterruptsBlockingSpine() = runBlocking {
+        // Cancel must reach a spine parked inside blocking { }: it interrupts the elastic worker thread, which
+        // surfaces as CancellationException, so the node settles Cancelled (NOT Failed) — promptly, without
+        // waiting for the long blocking call to return on its own.
+        val entered = CountDownLatch(1)
+        val interrupted = AtomicBoolean(false)
+        val logic = logicOf { execution ->
+            execution.blocking {
+                entered.countDown()
+                try {
+                    Thread.sleep(30_000)
+                }
+                catch (e: InterruptedException) {
+                    interrupted.set(true)
+                    throw e
+                }
+            }
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertTrue(entered.await(2, TimeUnit.SECONDS), "the blocking region should start")
+
+            engine.cancel()
+            val outcome = withTimeout(5000) { engine.await() }
+            assertEquals(Outcome.Cancelled, outcome, "cancel interrupts a parked-in-blocking spine → Cancelled")
+            assertTrue(interrupted.get(), "the elastic blocking thread was interrupted by cancel")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun cancelDuringDelayConvergesCancelled() = runBlocking {
+        // Cancelling the run scope's Job now also reaches a spine in a plain cancellable suspension (delay) —
+        // it converges promptly to Cancelled instead of running the suspension to completion first.
+        val entered = CountDownLatch(1)
+        val logic = logicOf { execution ->
+            entered.countDown()
+            delay(30_000)
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertTrue(entered.await(2, TimeUnit.SECONDS))
+            engine.cancel()
+            assertEquals(Outcome.Cancelled, withTimeout(5000) { engine.await() })
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //------------------------------------------------------------------------------------ Outcome.Failed.at (E7 7c-core)
+    @Test
+    fun freshFailureIsStampedWithFailingNodeId() = runBlocking {
+        // A fresh throwable escaping a Logic stamps Outcome.Failed.at with THAT node's own stable id.
+        val engine = RunEngine(
+            FlakyLogic(failBefore = 1, java.util.concurrent.atomic.AtomicInteger(), mutableListOf()), rootId)
+        try {
+            engine.resume()
+            val failed = assertIs<Outcome.Failed>(engine.await())
+            assertEquals(rootId, failed.at, "a fresh failure is stamped with the failing node's own stable id")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun failedAtPropagatesThroughHostUnchanged() = runBlocking {
+        // A hosted child fails; the root's Outcome.Failed.at names the CHILD (the true origin), carried up
+        // through host()'s flatten unchanged — it is NOT overwritten with the parent's own id.
+        val childStableId = ObjectStableId("child")
+        val child = logicOf { execution ->
+            execution.recoverable({}) { throw RuntimeException("boom") }
+        }
+        val parent = logicOf { execution ->
+            execution.host(childStableId, child)
+            TupleValue.ofMain("unreached")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            val failed = assertIs<Outcome.Failed>(engine.await())
+            assertEquals(childStableId, failed.at, "the failure origin propagates through host unchanged")
+            assertTrue(failed.message.contains("boom"), "the failure message survives the flatten")
         }
         finally {
             engine.close()

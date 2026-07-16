@@ -106,6 +106,25 @@ class CountingDispatcher(
     }
 
 
+    /**
+     * Count an off-dispatcher blocking region ([tech.kzen.lib.common.exec.engine.Execution.blocking]) as
+     * in-flight while the calling coroutine is suspended and its dispatch task has returned to the pool — the
+     * blocking-work analogue of a pending [delay][kotlinx.coroutines.delay]. Increment BEFORE the block is
+     * handed off to the elastic pool (mirroring [scheduleResumeAfterDelay]) so the count never transiently
+     * hits 0 across the hand-off; balance with [exitBlocking] on the returned token (exactly-once via the same
+     * CAS the delay path uses).
+     */
+    fun enterBlocking(): AtomicBoolean {
+        lock.withLock {
+            inFlight += 1
+        }
+        return AtomicBoolean(false)
+    }
+
+    fun exitBlocking(token: AtomicBoolean) =
+        release(token)
+
+
     /** Block the calling (non-dispatcher) thread until no dispatch task is in flight. */
     fun awaitQuiescent() {
         lock.withLock {
