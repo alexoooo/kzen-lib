@@ -373,6 +373,22 @@ it is doing**, and the recording is part of the Logic contract — not an option
   updating view). Large/long histories must be retrievable **incrementally** — a client polls only events
   **newer than a watermark**, so binary blobs already delivered are never re-sent.
 
+  > **Wired.** The engine seam is `Run.observe(listener)` — **payload-free** (§2): a notification says
+  > *something changed*, never *what*, so it is coalescing-safe and costs the hot path a flag plus a
+  > callback. A listener runs on an engine thread and must do nothing but hand off; state comes from
+  > pulling `snapshot()` / `history(since)`. Push **out of the process** is the driver's business, not the
+  > engine's: exactly one subscription per run is held by the controller, which re-broadcasts to its own
+  > observers (an engine-scoped subscription per remote consumer could not survive the run being replaced
+  > or disposed, and would keep the engine's observer list growing after `shutdown`).
+  >
+  > **A run snapshot is versioned, and the version is not a clock.** `RunState.sequence` — the same global
+  > monotonic ordering the merge and the timeline require (below) — doubles as the run's cache version: a
+  > consumer holding sequence N has, by construction, nothing newer to fetch. Wall-clock time cannot serve
+  > this role (it is not monotonic across parallel spines, and a status timestamp stamped per call reads as
+  > "changed" on every poll, defeating any cache built on it). Transitions the sequence cannot express — a
+  > run starting, settling terminal, or a retained trace being cleared — are carried by a separate
+  > controller **epoch**, so a consumer can still notice a change while no run is active.
+
 - **One definition, many traces — merged and attributed.** The same definition can execute **many times** in
   one run (loop iterations, repeated sub-computations, concurrent workers), and **each execution is a
   distinct trace**. Therefore:
