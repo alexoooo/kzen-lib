@@ -7,8 +7,9 @@
 > design. **That design has since been built:** a single-writer **`RunEngine`** in `kzen-lib` (the
 > use-case-agnostic core) now drives all flavours, and most of the "deliberate targets" below are met —
 > tree-scoped resources, engine-owned state migration, per-execution trace attribution, and a per-run
-> (no-singleton) engine are all implemented. The residual gaps (multiple concurrent *server* runs; a
-> non-singleton trace store) are called out inline. Requirements are stated in §1–§7; §8 records how the
+> (no-singleton) engine are all implemented. The one residual gap — multiple concurrent *server* runs
+> (the server controller still tracks a single active run; engine plan E6, **deferred**) — is called out
+> inline. Requirements are stated in §1–§7; §8 records how the
 > interacting tensions were resolved; the appendix maps each requirement to the **current** (post-rewrite)
 > build. Where §1–§7 and the current code disagree, **the requirement still wins** — the spec leads the
 > implementation, not the other way round.
@@ -108,9 +109,13 @@ re-inventing it.
   > **The core `RunEngine` meets this:** a run is a plain object owning all its own state (engine loop, run
   > state, event log, identity counter, resources), so multiple engines can execute concurrently with no
   > shared mutable state, and a background run is just an engine no one is observing. The residual limitation
-  > is *above* the core — the server's `ServerLogicController` still tracks a single active run, and the
-  > `LogicTraceStore` is still a shared service with a run-global `clearAll`. Those are the last two places
-  > to make per-run; the engine no longer forces the singleton.
+  > is *above* the core — the server's `ServerLogicController` still tracks a **single active run**
+  > (`stateOrNull`), and its trace surface (`RunEngineLogicTrace`) projects a **single retained run** via
+  > `activeRun()`. Those are the last places to make per-run; the engine no longer forces the singleton.
+  > (The former shared `LogicTraceStore` with a run-global `clearAll` was **retired 2026-07-15** by engine
+  > plan E4 — trace is now served straight off the retained engine.) Making these per-run is engine plan
+  > **E6 (multiple concurrent runs), which is deferred** — not yet needed for the product; the groundwork
+  > is verified in place (see `kzen/plans/2026-07-05_logic-engine-improvements.md` Phase 6 deferral note).
 
 ---
 
@@ -454,7 +459,9 @@ recorded here so the rationale isn't lost and future changes don't regress it.
   control + trace + identity + resources, so nothing is global?*
   **Resolved:** the per-run context *is* the `RunEngine` instance — it owns the node tree, run command,
   event log, identity counter and resource registrations under a single lock (the single writer). Nothing in
-  the core is global; the only residual singletons are the server controller and the trace store (§2 note).
+  the core is global; the only residual singleton is the server controller's single-active-run tracking
+  (`ServerLogicController` + its `RunEngineLogicTrace` projection — the former shared trace store was
+  retired 2026-07-15; §2 note). Making it per-run is engine plan E6, **deferred**.
 
 - **Live-edit × parallelism × stepping × stable-identity × retention, all at once.** *Question: which of
   these can be made orthogonal, so a simple sequential Logic doesn't pay for the concurrent/streaming case?*
