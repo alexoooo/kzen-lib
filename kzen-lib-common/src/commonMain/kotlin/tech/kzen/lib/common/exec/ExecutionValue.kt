@@ -28,9 +28,16 @@ sealed class ExecutionValue
         private const val numberType = "number"
         private const val longType = "long"
         private const val binaryType = "binary"
+        private const val binaryHandleType = "binary-handle"
         private const val listType = "list"
         private const val mapType = "map"
         private const val jsonPrimitiveType = "json"
+
+        // Content-addressed binary handle (trace wire only; see BinaryHandleExecutionValue)
+        private const val runKey = "run"
+        private const val hashKey = "hash"
+        private const val sizeKey = "size"
+        private const val mimeKey = "mime"
 
 
         fun of(value: Any?): ExecutionValue {
@@ -120,6 +127,13 @@ sealed class ExecutionValue
                     BinaryExecutionValue(
                         IoUtils.base64Decode(asCollection[valueKey] as String))
 
+                binaryHandleType ->
+                    BinaryHandleExecutionValue(
+                        asCollection[runKey] as String,
+                        asCollection[hashKey] as String,
+                        (asCollection[sizeKey] as Number).toInt(),
+                        asCollection[mimeKey] as String)
+
                 listType ->
                     ListExecutionValue(
                         (asCollection[valueKey] as List<*>).map {
@@ -191,6 +205,10 @@ sealed class ExecutionValue
             is BinaryExecutionValue ->
                 value
 
+            is BinaryHandleExecutionValue ->
+                // no inline payload — the bytes live behind the trace-binary blob endpoint
+                null
+
             is ListExecutionValue ->
                 values.map { it.get() }
 
@@ -232,6 +250,14 @@ sealed class ExecutionValue
 
             is BinaryExecutionValue ->
                 typedValue(binaryType, IoUtils.base64Encode(value))
+
+            is BinaryHandleExecutionValue ->
+                mapOf(
+                    typeKey to binaryHandleType,
+                    runKey to run,
+                    hashKey to hash,
+                    sizeKey to size,
+                    mimeKey to mime)
 
             is ListExecutionValue ->
                 typedValue(listType, values.map { it.toJsonCollection() })
@@ -316,6 +342,12 @@ sealed class ExecutionValue
                 sink.addBytes(value)
             }
 
+            is BinaryHandleExecutionValue -> {
+                sink.addInt(8)
+                sink.addUtf8(run)
+                sink.addUtf8(hash)
+            }
+
             is ListExecutionValue -> {
                 sink.addInt(6)
                 sink.addDigestibleList(values)
@@ -394,9 +426,12 @@ data class LongExecutionValue(
 }
 
 
+sealed class BinaryValue: ScalarExecutionValue()
+
+
 data class BinaryExecutionValue(
     val value: ByteArray
-): ScalarExecutionValue() {
+): BinaryValue() {
     private val cache: MutableMap<String, Any> = mutableMapOf()
 
     @Suppress("UNCHECKED_CAST")
@@ -435,6 +470,21 @@ data class BinaryExecutionValue(
 
     override fun hashCode(): Int {
         return value.contentHashCode()
+    }
+}
+
+
+// A content-addressed reference to binary bytes served out-of-band by the trace-binary blob endpoint,
+// used in place of inline base64 when the LogicTrace projection serializes a large binary trace value
+// (e.g. a screenshot). Carries no bytes; the client fetches them once from /logic/trace-binary?run&hash.
+data class BinaryHandleExecutionValue(
+    val run: String,
+    val hash: String,
+    val size: Int,
+    val mime: String
+): BinaryValue() {
+    override fun toString(): String {
+        return "binary-handle($hash, $size, $mime)"
     }
 }
 

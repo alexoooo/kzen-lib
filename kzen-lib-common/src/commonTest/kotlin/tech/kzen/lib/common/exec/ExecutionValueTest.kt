@@ -101,6 +101,18 @@ class ExecutionValueTest {
     }
 
 
+    @Test
+    fun binaryHandle() {
+        asCollectionEquals(mapOf(
+            "type" to "binary-handle",
+            "run" to "run-1",
+            "hash" to "1a2b_-3c4d_5e6f_-7g8h",
+            "size" to 42,
+            "mime" to "image/png"
+        ), BinaryHandleExecutionValue("run-1", "1a2b_-3c4d_5e6f_-7g8h", 42, "image/png"))
+    }
+
+
     private fun asCollectionEquals(asCollection: Map<String, Any>, executionValue: ExecutionValue) {
 //        if (asCollection is ByteArray) {
 //            assertTrue(asCollection contentEquals ExecutionValue.fromCollection(asCollection) as ByteArray)
