@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     kotlin("multiplatform")
+    kotlin("plugin.serialization")
     id("com.google.devtools.ksp")
     `maven-publish`
 }
@@ -35,6 +36,10 @@ kotlin {
         commonMain {
             dependencies {
                 api("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+
+                // api (not implementation) so JS consumers — which decode the DTOs — get the
+                // serialization runtime transitively.
+                api("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinxSerializationVersion")
             }
         }
 

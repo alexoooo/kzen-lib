@@ -1,5 +1,12 @@
 package tech.kzen.lib.common.model.location
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.util.digest.Digest
@@ -7,6 +14,7 @@ import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.ClassName
 
 
+@Serializable(with = ObjectLocationSerializer::class)
 data class ObjectLocation(
     val documentPath: DocumentPath,
     val objectPath: ObjectPath
@@ -75,5 +83,21 @@ data class ObjectLocation(
 
     override fun toString(): String {
         return asString()
+    }
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// SER2: value-object string round-trip (asString()/parse()); bound via @Serializable(with).
+object ObjectLocationSerializer: KSerializer<ObjectLocation> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("tech.kzen.lib.common.model.location.ObjectLocation", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: ObjectLocation) {
+        encoder.encodeString(value.asString())
+    }
+
+    override fun deserialize(decoder: Decoder): ObjectLocation {
+        return ObjectLocation.parse(decoder.decodeString())
     }
 }

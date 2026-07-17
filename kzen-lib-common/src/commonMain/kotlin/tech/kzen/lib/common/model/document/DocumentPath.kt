@@ -1,5 +1,12 @@
 package tech.kzen.lib.common.model.document
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.service.notation.NotationConventions
@@ -7,6 +14,7 @@ import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 
 
+@Serializable(with = DocumentPathSerializer::class)
 data class DocumentPath(
     val name: DocumentName,
     val nesting: DocumentNesting,
@@ -168,5 +176,22 @@ data class DocumentPath(
 
     override fun toString(): String {
         return asString()
+    }
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// SER2: delegates to the existing asString()/parse() round-trip so the wire form is the value object's
+// canonical string. Bound via @Serializable(with) so DTOs referencing DocumentPath need no per-field annotation.
+object DocumentPathSerializer: KSerializer<DocumentPath> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("tech.kzen.lib.common.model.document.DocumentPath", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: DocumentPath) {
+        encoder.encodeString(value.asString())
+    }
+
+    override fun deserialize(decoder: Decoder): DocumentPath {
+        return DocumentPath.parse(decoder.decodeString())
     }
 }

@@ -1,11 +1,13 @@
 package tech.kzen.lib.common.exec
 
+import kotlinx.serialization.Serializable
 import tech.kzen.lib.common.util.ExceptionUtils
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 
 
 @Suppress("ConstPropertyName")
+@Serializable(with = ExecutionResultSerializer::class)
 sealed class ExecutionResult
     : Digestible
 {

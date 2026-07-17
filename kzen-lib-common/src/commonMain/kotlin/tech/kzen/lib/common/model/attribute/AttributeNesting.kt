@@ -1,11 +1,19 @@
 package tech.kzen.lib.common.model.attribute
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.platform.collect.toPersistentList
 
 
+@Serializable(with = AttributeNestingSerializer::class)
 data class AttributeNesting(
     val segments: PersistentList<AttributeSegment>
 ):
@@ -69,5 +77,21 @@ data class AttributeNesting(
 
     override fun toString(): String {
         return asString()
+    }
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// SER2: value-object string round-trip (asString()/parse()); bound via @Serializable(with).
+object AttributeNestingSerializer: KSerializer<AttributeNesting> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("tech.kzen.lib.common.model.attribute.AttributeNesting", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: AttributeNesting) {
+        encoder.encodeString(value.asString())
+    }
+
+    override fun deserialize(decoder: Decoder): AttributeNesting {
+        return AttributeNesting.parse(decoder.decodeString())
     }
 }

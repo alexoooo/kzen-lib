@@ -1,5 +1,12 @@
 package tech.kzen.lib.common.model.obj
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
@@ -8,6 +15,7 @@ import tech.kzen.lib.common.util.digest.Digestible
 /**
  * Path to an object within a document
  */
+@Serializable(with = ObjectPathSerializer::class)
 data class ObjectPath(
     val name: ObjectName,
     val nesting: ObjectNesting
@@ -78,5 +86,21 @@ data class ObjectPath(
 
     override fun toString(): String {
         return asString()
+    }
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// SER2: value-object string round-trip (asString()/parse()); bound via @Serializable(with).
+object ObjectPathSerializer: KSerializer<ObjectPath> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("tech.kzen.lib.common.model.obj.ObjectPath", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: ObjectPath) {
+        encoder.encodeString(value.asString())
+    }
+
+    override fun deserialize(decoder: Decoder): ObjectPath {
+        return ObjectPath.parse(decoder.decodeString())
     }
 }

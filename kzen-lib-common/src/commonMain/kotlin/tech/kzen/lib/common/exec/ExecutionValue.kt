@@ -1,5 +1,6 @@
 package tech.kzen.lib.common.exec
 
+import kotlinx.serialization.Serializable
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
@@ -8,8 +9,12 @@ import tech.kzen.lib.platform.IoUtils
 
 
 //---------------------------------------------------------------------------------------------------------------------
-// TODO: use JsonElement from kotlinx.serialization?
+// SER2 (was a TODO to "use JsonElement natively"): DECLINED. The kotlinx wire codec `ExecutionValueSerializer`
+// (ExecutionValueSerialization.kt) wraps the toJsonCollection()/fromJsonCollection() lowering below, keeping the
+// `{type, value}` envelope byte-for-byte and this class a plain Digestible runtime tree — that lowering stays the
+// single source of truth rather than being re-expressed as JsonElement.
 @Suppress("ConstPropertyName")
+@Serializable(with = ExecutionValueSerializer::class)
 sealed class ExecutionValue
     : Digestible
 {

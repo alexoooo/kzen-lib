@@ -1,10 +1,12 @@
 package tech.kzen.lib.common.exec
 
+import kotlinx.serialization.Serializable
 import tech.kzen.lib.common.util.ImmutableByteArray
 import tech.kzen.lib.platform.IoUtils
 
 
 @Suppress("unused")
+@Serializable(with = ExecutionRequestSerializer::class)
 data class ExecutionRequest(
     val parameters: RequestParams,
     val body: ImmutableByteArray?

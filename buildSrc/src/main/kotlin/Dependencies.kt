@@ -8,6 +8,7 @@ const val javaVersion = 26
 const val jvmToolchainVersion = 26
 
 const val coroutinesVersion = "1.11.0"
+const val kotlinxSerializationVersion = "1.9.0"
 
 const val guavaVersion = "33.6.0-jre"
 const val dexxVersion = "0.7"

@@ -1,5 +1,12 @@
 package tech.kzen.lib.common.util.digest
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import tech.kzen.lib.platform.IoUtils
 
 
@@ -10,6 +17,7 @@ import tech.kzen.lib.platform.IoUtils
 // See: https://stackoverflow.com/questions/1835976/what-is-a-sensible-prime-for-hashcode-calculation
 // Consider: https://github.com/skeeto/hash-prospector
 @Suppress("unused", "MemberVisibilityCanBePrivate")
+@Serializable(with = DigestSerializer::class)
 data class Digest(
     val a: Int,
     val b: Int,
@@ -771,5 +779,21 @@ data class Digest(
         if (d != other.d) return false
 
         return true
+    }
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// SER2: the 4-part radix-32 "a_b_c_d" round-trip (asString()/parse()); bound via @Serializable(with).
+object DigestSerializer: KSerializer<Digest> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("tech.kzen.lib.common.util.digest.Digest", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: Digest) {
+        encoder.encodeString(value.asString())
+    }
+
+    override fun deserialize(decoder: Decoder): Digest {
+        return Digest.parse(decoder.decodeString())
     }
 }

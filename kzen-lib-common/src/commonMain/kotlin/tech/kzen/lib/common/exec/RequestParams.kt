@@ -1,6 +1,15 @@
 package tech.kzen.lib.common.exec
 
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 
+
+@Serializable(with = RequestParamsSerializer::class)
 data class RequestParams(
     val values: Map<String, List<String>>
 ) {
@@ -91,5 +100,21 @@ data class RequestParams(
             }
         }
         return entries.joinToString("&")
+    }
+}
+
+
+//---------------------------------------------------------------------------------------------------------------------
+// SER2: value-object string round-trip (asString()/parse()); bound via @Serializable(with).
+object RequestParamsSerializer: KSerializer<RequestParams> {
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("tech.kzen.lib.common.exec.RequestParams", PrimitiveKind.STRING)
+
+    override fun serialize(encoder: Encoder, value: RequestParams) {
+        encoder.encodeString(value.asString())
+    }
+
+    override fun deserialize(decoder: Decoder): RequestParams {
+        return RequestParams.parse(decoder.decodeString())
     }
 }
