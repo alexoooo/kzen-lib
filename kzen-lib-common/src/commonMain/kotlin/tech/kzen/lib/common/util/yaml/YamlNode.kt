@@ -13,16 +13,13 @@ sealed class YamlNode {
                 is String ->
                     YamlString(value)
 
-                is Int ->
-                    YamlString(value.toString())
-
-                is Long ->
-                    YamlString(value.toString())
-
-                is Float ->
-                    YamlString(value.toString())
-
-                is Double ->
+                // One `is Number` branch, deliberately — not Int/Long/Float/Double listed separately. On
+                // Kotlin/JS every number but Long IS a JS `number`, so `is Int` also matches a Float/Double
+                // and makes any numeric branch below it dead code there. Identical bodies kept that harmless
+                // here, but the same shape was a live JS-only bug in ExecutionValueSerialization
+                // .anyToJsonElement. `is Number` has no ordering hazard, and it also lets Byte/Short render
+                // on the JVM the way they already did on JS instead of throwing.
+                is Number ->
                     YamlString(value.toString())
 
                 is Boolean ->
@@ -35,7 +32,8 @@ sealed class YamlNode {
                     YamlMap(value.map { it.key as String to ofObject(it.value) }.toMap())
 
                 else ->
-                    throw UnsupportedOperationException()
+                    throw UnsupportedOperationException(
+                        "Unsupported YAML value: $value (${value::class.simpleName})")
             }
         }
 

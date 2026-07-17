@@ -34,17 +34,27 @@ private fun anyToJsonElement(value: Any?): JsonElement =
         null -> JsonNull
         is String -> JsonPrimitive(value)
         is Boolean -> JsonPrimitive(value)
-        is Int -> JsonPrimitive(value)
+
+        // NB: `is Long` must stay ABOVE `is Number` (Long is a Number), and is the one numeric type check that
+        // means the same thing on both platforms — Long is a real class on JS, not a JS `number`.
         is Long -> JsonPrimitive(value)
-        is Double ->
-            if (value.isFinite()) {
+
+        // Dispatch on the VALUE, never on the static number type: on Kotlin/JS every Double IS a JS `number`, so
+        // `is Int` matches 3.14, NaN and Infinity alike, and an `is Int` branch placed above `is Double` makes the
+        // Double branch unreachable there. That is exactly how NaN used to escape the non-finite check below and
+        // reach JsonPrimitive(Int) -> a bare `NaN` token -> JsonEncodingException, on JS only. `is Number` +
+        // toDouble() is platform-independent, and mirrors ExecutionValue.ofArbitrary's long-standing shape.
+        is Number -> {
+            val asDouble = value.toDouble()
+            if (asDouble.isFinite()) {
                 JsonPrimitive(value)
             }
             else {
                 // Non-finite (Infinity/NaN) can't be a JSON number; fromJsonCollection's number branch already
                 // accepts a String ("// NB: handle Infinity"). Emitting a string keeps the wire valid JSON.
-                JsonPrimitive(value.toString())
+                JsonPrimitive(asDouble.toString())
             }
+        }
         is Map<*, *> ->
             JsonObject(value.entries.associate { (k, v) -> (k as String) to anyToJsonElement(v) })
         is List<*> ->
