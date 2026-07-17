@@ -139,6 +139,29 @@ object ExecutionResultSerializer: KSerializer<ExecutionResult> {
 }
 
 
+// SER4: TaskModel.partialResult is the CONCRETE subtype ExecutionSuccess (not the sealed ExecutionResult
+// base), so it needs its own serializer — the base's ExecutionResultSerializer is bound to ExecutionResult and
+// kotlinx picks serializers by static property type. Wraps the same toJsonCollection lowering.
+object ExecutionSuccessSerializer: KSerializer<ExecutionSuccess> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("tech.kzen.lib.common.exec.ExecutionSuccess")
+
+    override fun serialize(encoder: Encoder, value: ExecutionSuccess) {
+        val jsonEncoder = encoder as? JsonEncoder
+            ?: error("ExecutionSuccess requires a JSON encoder")
+        jsonEncoder.encodeJsonElement(anyToJsonElement(value.toJsonCollection()))
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun deserialize(decoder: Decoder): ExecutionSuccess {
+        val jsonDecoder = decoder as? JsonDecoder
+            ?: error("ExecutionSuccess requires a JSON decoder")
+        val element = jsonDecoder.decodeJsonElement()
+        return ExecutionSuccess.fromJsonCollection(jsonElementToAny(element) as Map<String, Any?>)
+    }
+}
+
+
 object ExecutionRequestSerializer: KSerializer<ExecutionRequest> {
     override val descriptor: SerialDescriptor =
         buildClassSerialDescriptor("tech.kzen.lib.common.exec.ExecutionRequest")

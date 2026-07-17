@@ -10,6 +10,10 @@ import kotlin.time.Instant
 // came from (which execution / root object / producing object) and when (global monotonic sequence +
 // wall clock). The timeline is value-agnostic — a screenshot is just a BinaryExecutionValue here;
 // nothing in this model knows about screenshots, steps, or scripts.
+//
+// SER4: VALUE-TREE only (not @Serializable). This rides the ExecutionValue plane — LogicTraceEndpoint wraps
+// `events.map { it.toCollection() }` in an ExecutionValue, serialized by SER2's ExecutionValueSerializer, and
+// the client re-decodes via ofCollection. Keep the codec; it is NOT dead like a direct-wire DTO's would be.
 data class LogicTraceEvent(
     val executionId: LogicExecutionId,
     val rootStableId: ObjectStableId,

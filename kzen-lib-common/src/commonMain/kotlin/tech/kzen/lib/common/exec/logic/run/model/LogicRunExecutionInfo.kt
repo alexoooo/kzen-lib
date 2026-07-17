@@ -10,6 +10,9 @@ import tech.kzen.lib.common.service.store.normal.ObjectStableId
 // spawned it, so two Run steps invoking the same sub-script document don't share each other's events.
 // Every execution that opens gets a row (even event-less wrapper sub-scripts), so the execution tree
 // can be rebuilt in full.
+//
+// SER4: VALUE-TREE only (not @Serializable). LogicTraceEndpoint wraps `executions.map { it.toCollection() }`
+// in an ExecutionValue (SER2 serializer); keep the codec — it is live, not dead like a direct-wire DTO's.
 data class LogicRunExecutionInfo(
     val executionId: LogicExecutionId,
     val parentExecutionId: LogicExecutionId?,

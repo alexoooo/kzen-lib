@@ -95,6 +95,7 @@ data class ExecutionFailure(
 }
 
 
+@Serializable(with = ExecutionSuccessSerializer::class)
 data class ExecutionSuccess(
     val value: ExecutionValue,
     val detail: ExecutionValue

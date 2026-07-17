@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.exec.task.model
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import tech.kzen.lib.common.exec.ExecutionFailure
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
@@ -7,51 +9,24 @@ import tech.kzen.lib.common.exec.ExecutionSuccess
 import tech.kzen.lib.common.model.location.ObjectLocation
 
 
+// SER4: kotlinx wire codec. @SerialName preserves the short wire keys. `request` / `partialResult` /
+// `finalResult` encode via their SER2 serializers — the concrete-subtype ExecutionSuccessSerializer for
+// `partialResult` (see ExecutionValueSerialization), the sealed-base ExecutionResultSerializer for
+// `finalResult`. Both nullable results carry NO default, so a null encodes as explicit JSON null (like the
+// old codec's null map value, which the JSON transport dropped either way).
+@Serializable
 data class TaskModel(
+    @SerialName("id")
     val taskId: TaskId,
+    @SerialName("location")
     val taskLocation: ObjectLocation,
     val request: ExecutionRequest,
     val state: TaskState,
+    @SerialName("partial")
     val partialResult: ExecutionSuccess?,
+    @SerialName("result")
     val finalResult: ExecutionResult?
 ) {
-    //-----------------------------------------------------------------------------------------------------------------
-    companion object {
-        private const val idKey = "id"
-        private const val locationKey = "location"
-        private const val requestKey = "request"
-        private const val stateKey = "state"
-        private const val partialResultKey = "partial"
-        private const val finalResultKey = "result"
-
-
-        @Suppress("UNCHECKED_CAST")
-        fun fromJsonCollection(collection: Map<String, Any?>): TaskModel {
-            return TaskModel(
-                TaskId(collection[idKey] as String),
-                ObjectLocation.parse(collection[locationKey] as String),
-                ExecutionRequest.fromJsonCollection(collection[requestKey] as Map<String, String?>),
-                TaskState.valueOf(collection[stateKey] as String),
-                collection[partialResultKey]?.let { ExecutionSuccess.fromJsonCollection(it as Map<String, Any?>) },
-                collection[finalResultKey]?.let { ExecutionResult.fromJsonCollection(it as Map<String, Any?>) }
-            )
-        }
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
-    fun toJsonCollection(): Map<String, Any?> {
-        return mapOf(
-            idKey to taskId.identifier,
-            locationKey to taskLocation.asString(),
-            requestKey to request.toJsonCollection(),
-            stateKey to state.name,
-            partialResultKey to partialResult?.toJsonCollection(),
-            finalResultKey to finalResult?.toJsonCollection()
-        )
-    }
-
-
     //-----------------------------------------------------------------------------------------------------------------
     fun finalOrPartialResult(): ExecutionResult {
         return finalResult ?: partialResult!!

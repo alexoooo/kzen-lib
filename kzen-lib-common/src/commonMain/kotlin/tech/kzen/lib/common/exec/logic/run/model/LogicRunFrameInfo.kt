@@ -1,10 +1,20 @@
 package tech.kzen.lib.common.exec.logic.run.model
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import tech.kzen.lib.common.model.location.ObjectLocation
 
 
+// SER4: kotlinx wire codec — a recursive tree (`dependencies` holds more of this type; the KMP-commonMain
+// recursive @Serializable was de-risked by Ser4SpikeTest). @SerialName preserves the short wire keys, and
+// `position`'s `= null` default keeps a null position OMITTED (stock Json, encodeDefaults=false), matching
+// the old buildMap that only put the key when non-null. `location`/`execution` encode via ObjectLocation /
+// LogicExecutionId's SER2 STRING serializers, byte-identical to the old asString()/value form.
+@Serializable
 data class LogicRunFrameInfo(
+    @SerialName("location")
     val objectLocation: ObjectLocation,
+    @SerialName("execution")
     val executionId: LogicExecutionId,
 //    var state: LogicRunFrameState,
     val dependencies: List<LogicRunFrameInfo>,
@@ -13,36 +23,4 @@ data class LogicRunFrameInfo(
     // e.g. the Script next-step highlight), resolved server-side from the node's stable id to the current
     // ObjectLocation; null before the first named boundary (or for a node whose position is itself).
     val position: ObjectLocation? = null,
-) {
-    companion object {
-        private const val locationKey = "location"
-        private const val executionKey = "execution"
-//        private const val stateKey = "state"
-        private const val dependenciesKey = "dependencies"
-        private const val positionKey = "position"
-
-        fun ofCollection(collection: Map<String, Any>): LogicRunFrameInfo {
-            @Suppress("UNCHECKED_CAST")
-            val dependenciesValue = collection[dependenciesKey] as List<Map<String, Any>>
-
-            return LogicRunFrameInfo(
-                ObjectLocation.parse(collection[locationKey] as String),
-                LogicExecutionId(collection[executionKey] as String),
-//                LogicRunFrameState.valueOf(collection[stateKey] as String),
-                dependenciesValue.map { ofCollection(it) },
-                (collection[positionKey] as String?)?.let { ObjectLocation.parse(it) }
-            )
-        }
-    }
-
-
-    fun toCollection(): Map<String, Any> {
-        return buildMap {
-            put(locationKey, objectLocation.asString())
-            put(executionKey, executionId.value)
-//            put(stateKey, state.name)
-            put(dependenciesKey, dependencies.map { it.toCollection() })
-            position?.let { put(positionKey, it.asString()) }
-        }
-    }
-}
+)

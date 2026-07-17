@@ -1,6 +1,10 @@
 package tech.kzen.lib.common.exec.logic.run.model
 
+import kotlinx.serialization.Serializable
 
+
+// SER4: @Serializable so LogicRunInfo can embed it; kotlinx encodes an enum by name = the old `state.name`.
+@Serializable
 enum class LogicRunState {
     Running,
     Stepping,
