@@ -85,7 +85,7 @@ Key types in `model/structure/notation/cqrs/`:
 
 - `NotationCommand` (sealed) — `StructuralNotationCommand` (create/rename/delete documents, objects, attributes) and `SemanticNotationCommand` (attribute value changes).
 - `NotationEvent` — immutable record of what changed; downstream consumers rebuild derived state from this stream.
-- `NotationReducer` (`service/notation/NotationReducer.kt`) — the only place commands are applied; produces the event. A class (not a singleton `object`): it is constructed with a list of `CodeReferenceRewriter`s, so a refactor such as a rename can also emit downstream adjustments — e.g. kzen-auto rewriting the Kotlin expressions that reference a renamed step — bundled into the same event.
+- `NotationReducer` (`service/notation/NotationReducer.kt`) — the only place commands are applied; produces the event. A class (not a singleton `object`): it is constructed with a list of `CodeReferenceRewriter`s, so a refactor such as a rename can also emit downstream adjustments — e.g. kzen-auto rewriting the Kotlin expressions that reference a renamed step — bundled into the same event. The class is a thin dispatch facade holding only the `applyStructural`/`applySemantic` dispatchers; every command handler is a pure top-level function in a sibling file — the stateless per-command handlers split by target into `NotationReducer{Documents,Objects,Attributes,Resources}.kt`, the composite-attribute handlers (which compose lower-level commands through the top-level `StructuralBuffer`) in `NotationReducerComposite.kt`, and the semantic refactor + reference-analysis cluster in `NotationReducerRefactor.kt` (only the four dispatched entry points there are `internal`; the reference-analysis helpers stay file-private). Only `applySemantic` needs the instance — to thread `codeReferenceRewriters` into `renameObjectRefactor`; the structural dispatch and `StructuralBuffer` are instance-independent top-level symbols, which is what lets the composite/refactor handlers build a compound event from primitives without a reducer reference. The re-merge-inherited-value-before-local-edit invariant shared by the nested-attribute edits lives once in `remergeAttributeThenEdit`.
 
 Why this matters:
 
@@ -94,6 +94,8 @@ Why this matters:
 - **Observation** — `LocalGraphStore.Observer` lets UI layers (kzen-auto-js, kzen-project-js) react to specific structural changes.
 
 The reference implementation of the store is `service/store/DirectGraphStore` (in-process); `RemoteGraphStore` is the client-side proxy.
+
+**Format-preserving deparse.** When a command persists a document, `YamlNotationParser.unparseDocument(notation, previousDocument)` honours the previous on-disk text as a template: it splits the previous document into per-top-level-object text segments and re-emits byte-identical the segment of every object whose parsed notation is unchanged, re-serializing only changed/added objects (and preserving leading document comments). So editing one object no longer strips comments/hand-formatting from the *other* objects in the same document (a resource-only change rewrites nothing). Accepted first-cut losses: comments *inside* a changed object are dropped, and inter-object blank-line runs normalize to a single blank line. A blank or unparseable `previousDocument` falls back to full serialization.
 
 ## Location-based identity
 

@@ -15,6 +15,7 @@ import tech.kzen.lib.common.util.yaml.YamlParser
 import tech.kzen.lib.platform.collect.persistentListOf
 
 
+@Suppress("ConstPropertyName")
 object NotationConventions {
     const val mainKey = "main"
 
@@ -56,11 +57,6 @@ object NotationConventions {
 
     const val nullableKey = "nullable"
     val nullableAttributeSegment = AttributeSegment.ofKey(nullableKey)
-
-//    const val initializerKey = "init"
-//    val initializerAttributeSegment = AttributeSegment.ofKey(initializerKey)
-//    val initializerAttributeName = AttributeName(initializerKey)
-//    val initializerAttributePath = AttributePath.ofName(initializerAttributeName)
 
     const val abstractKey = "abstract"
     val abstractAttributeSegment = AttributeSegment.ofKey(abstractKey)

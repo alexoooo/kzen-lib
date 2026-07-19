@@ -293,10 +293,10 @@ class DirectGraphStore(
         val sourceDocument = oldGraphNotation.documents[sourceDocumentPath]!!
         val destinationDocument = newGraphNotation.documents[destinationDocumentPath]!!
 
-        // A folder relocation that rewrote intra-subtree references changes the copied body; persist the
-        // rewritten notation in that case (using the source body as the unparse template for a minimal diff).
-        // A pure copy/move keeps the byte-for-byte source so formatting/comments that parse→unparse would
-        // lose are preserved.
+        // A folder relocation that rewrote intra-subtree references changes the copied body; re-serialize in
+        // that case, passing the source body as the unparse template so every object whose notation is
+        // unchanged keeps its exact text (comments/formatting) and only the reference-bearing objects are
+        // rewritten. A pure copy/move keeps the byte-for-byte source, which parse→unparse would otherwise lose.
         val destinationContents =
             if (destinationDocument.objects == sourceDocument.objects) {
                 sourceDocumentContents

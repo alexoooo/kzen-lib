@@ -108,25 +108,159 @@ class YamlNotationParser: NotationParser {
 
     //-----------------------------------------------------------------------------------------------------------------
     override fun unparseDocument(notation: DocumentObjectNotation, previousDocument: String): String {
-        val buffer = StringBuilder()
-
-        var first = true
-        for ((objectPath, objectNotation) in notation.notations.map) {
-            if (!first) {
-                buffer.append("\n\n")
-            }
-            first = false
-
-            val node = objectToYaml(objectNotation)
-            val nodeLines = YamlParser.unparse(node).split("\n")
-
-            val keyPrefix = YamlParser.unparseKey(objectPath.asString())
-            buffer.append("$keyPrefix:")
-
-            nodeLines.forEach { buffer.append(if (it.isEmpty()) "\n" else "\n  $it") }
+        if (previousDocument.isBlank()) {
+            return fullUnparseDocument(notation)
         }
 
-        return buffer.toString()
+        return try {
+            formatPreservingUnparseDocument(notation, previousDocument)
+        }
+        catch (e: Exception) {
+            fullUnparseDocument(notation)
+        }
+    }
+
+
+    private fun fullUnparseDocument(notation: DocumentObjectNotation): String {
+        return notation.notations.map.entries.joinToString("\n\n") {
+            houseSerializeObject(it.key, it.value)
+        }
+    }
+
+
+    // Serialize one object in the canonical house format: `key:` followed by its 2-space-indented attribute body.
+    private fun houseSerializeObject(objectPath: ObjectPath, objectNotation: ObjectNotation): String {
+        val node = objectToYaml(objectNotation)
+        val nodeLines = YamlParser.unparse(node).split("\n")
+        val keyPrefix = YamlParser.unparseKey(objectPath.asString())
+        val body = nodeLines.joinToString("") { if (it.isEmpty()) "\n" else "\n  $it" }
+        return "$keyPrefix:$body"
+    }
+
+
+    // Rewrite the document while preserving the verbatim text (comments, blank lines, formatting) of every object
+    // whose parsed notation is unchanged from previousDocument. Only changed/added objects are re-serialized in the
+    // house format; leading document comments are preserved; objects are re-emitted in the NEW notation's order.
+    // Comments INSIDE a changed object are lost (accepted), and inter-object blank spacing normalizes to one line.
+    private fun formatPreservingUnparseDocument(
+        notation: DocumentObjectNotation,
+        previousDocument: String
+    ): String {
+        val template = splitPreviousDocument(previousDocument)
+
+        val blocks = mutableListOf<String>()
+
+        val prefix = trimBlankEdges(template.prefix)
+        if (prefix.isNotEmpty()) {
+            blocks.add(prefix)
+        }
+
+        for ((objectPath, objectNotation) in notation.notations.map) {
+            val previous = template.byPath[objectPath]
+            if (previous != null && previous.objectNotation == objectNotation) {
+                blocks.add(trimBlankEdges(previous.text))
+            }
+            else {
+                blocks.add(houseSerializeObject(objectPath, objectNotation))
+            }
+        }
+
+        return blocks.filter { it.isNotEmpty() }.joinToString("\n\n")
+    }
+
+
+    private class PreviousDocumentTemplate(
+        val prefix: String,
+        val byPath: Map<ObjectPath, PreviousObjectSegment>
+    )
+
+
+    private class PreviousObjectSegment(
+        val text: String,
+        val objectNotation: ObjectNotation
+    )
+
+
+    // Split previousDocument into per-top-level-object text segments. A boundary is a column-0, non-blank,
+    // non-comment line (an object key). Each object's segment carries its own leading blank/comment run (comments
+    // attach to the following object, matching the YAML parser); everything before the first object is the prefix.
+    // Each segment is parsed on its own so path <-> text <-> notation come from a single source; a segment that
+    // does not parse to exactly one object (empty body, malformed) is simply not preserved.
+    private fun splitPreviousDocument(previousDocument: String): PreviousDocumentTemplate {
+        val lines = previousDocument.split("\n").map { it.removeSuffix("\r") }
+
+        val boundaryIndices = lines.indices.filter { isObjectBoundaryLine(lines[it]) }
+        if (boundaryIndices.isEmpty()) {
+            return PreviousDocumentTemplate(previousDocument, mapOf())
+        }
+
+        fun leadingRunStart(boundaryIndex: Int): Int {
+            var i = boundaryIndex
+            while (i > 0 && (lines[i - 1].isBlank() || isCommentLine(lines[i - 1]))) {
+                i--
+            }
+            return i
+        }
+
+        val firstBoundary = boundaryIndices.first()
+        val prefix = lines.subList(0, firstBoundary).joinToString("\n")
+
+        val byPath = LinkedHashMap<ObjectPath, PreviousObjectSegment>()
+        for ((position, boundaryIndex) in boundaryIndices.withIndex()) {
+            val segmentStart =
+                if (position == 0) {
+                    boundaryIndex
+                }
+                else {
+                    leadingRunStart(boundaryIndex)
+                }
+            val segmentEnd =
+                if (position + 1 < boundaryIndices.size) {
+                    leadingRunStart(boundaryIndices[position + 1])
+                }
+                else {
+                    lines.size
+                }
+
+            val segmentText = lines.subList(segmentStart, segmentEnd).joinToString("\n")
+
+            val parsed =
+                try {
+                    parseDocumentObjects(segmentText).notations.map.entries.singleOrNull()
+                }
+                catch (e: Exception) {
+                    null
+                }
+                ?: continue
+
+            byPath[parsed.key] = PreviousObjectSegment(segmentText, parsed.value)
+        }
+
+        return PreviousDocumentTemplate(prefix, byPath)
+    }
+
+
+    private fun isObjectBoundaryLine(line: String): Boolean {
+        return line.isNotEmpty() && !line[0].isWhitespace() && !line.startsWith("#")
+    }
+
+
+    private fun isCommentLine(line: String): Boolean {
+        return line.trimStart().startsWith("#")
+    }
+
+
+    private fun trimBlankEdges(text: String): String {
+        val lines = text.split("\n")
+        var start = 0
+        var end = lines.size
+        while (start < end && lines[start].isBlank()) {
+            start++
+        }
+        while (end > start && lines[end - 1].isBlank()) {
+            end--
+        }
+        return lines.subList(start, end).joinToString("\n")
     }
 
 

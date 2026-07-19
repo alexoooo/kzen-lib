@@ -11,8 +11,10 @@ import tech.kzen.lib.common.model.obj.ObjectName
 import tech.kzen.lib.common.model.obj.ObjectNesting
 import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.PositionRelation
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
 import tech.kzen.lib.common.model.structure.notation.cqrs.RenameObjectCommand
 import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.UpsertAttributeCommand
 import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.media.MapNotationMedia
 import tech.kzen.lib.common.service.metadata.NotationMetadataReader
@@ -123,6 +125,29 @@ A:
                             ObjectPath(newName, ObjectNesting.root)
                     ),
                     repo.graphNotation().coalesce.locate(ObjectReference.ofRootName(newName)))
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Editing one object preserves another object's comment`() {
+        val media = MapNotationMedia()
+
+        val repo = DirectGraphStore(
+                media, yamlParser, metadataReader, GraphDefiner, NotationReducer())
+
+        runBlocking {
+            media.writeDocument(mainPath, "A:\n  hello: a\n\n# comment on B\nB:\n  hello: b")
+
+            repo.apply(UpsertAttributeCommand(
+                    location("A"), AttributeName("hello"), ScalarAttributeNotation("changed")))
+
+            val modified = media.readDocument(mainPath)
+
+            assertEquals(
+                    "A:\n  hello: changed\n\n# comment on B\nB:\n  hello: b",
+                    modified)
         }
     }
 

@@ -110,6 +110,61 @@ Foo:
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun unparsePreservesUnchangedObjectComment() {
+        // Edit object A; B is unchanged, so its own-line comment survives byte-identical.
+        val previous = "A:\n  x: 1\n\n# comment on B\nB:\n  y: 2"
+        val newDocument = "A:\n  x: 9\n\nB:\n  y: 2"
+        val expected = "A:\n  x: 9\n\n# comment on B\nB:\n  y: 2"
+
+        assertEquals(expected, unparse(previous, newDocument))
+    }
+
+
+    @Test
+    fun unparsePreservesLeadingDocumentComment() {
+        // A leading document comment (before the first object) is preserved even when that object changes.
+        val previous = "# header comment\n\nA:\n  x: 1"
+        val newDocument = "A:\n  x: 9"
+        val expected = "# header comment\n\nA:\n  x: 9"
+
+        assertEquals(expected, unparse(previous, newDocument))
+    }
+
+
+    @Test
+    fun unparseNormalizesInterObjectBlankLines() {
+        // Inter-object blank-line count normalizes to a single blank line (accepted first-cut behaviour).
+        val previous = "A:\n  x: 1\n\n\n\nB:\n  y: 2"
+        val newDocument = "A:\n  x: 9\n\nB:\n  y: 2"
+        val expected = "A:\n  x: 9\n\nB:\n  y: 2"
+
+        assertEquals(expected, unparse(previous, newDocument))
+    }
+
+
+    @Test
+    fun unparseDropsCommentInsideChangedObject() {
+        // A comment INSIDE a changed object is lost when it is re-serialized (accepted first-cut behaviour).
+        val previous = "A:\n  # inner comment\n  x: 1\n\nB:\n  y: 2"
+        val newDocument = "A:\n  x: 9\n\nB:\n  y: 2"
+        val expected = "A:\n  x: 9\n\nB:\n  y: 2"
+
+        assertEquals(expected, unparse(previous, newDocument))
+    }
+
+
+    @Test
+    fun unparseFallsBackWhenTemplateUnmatched() {
+        // A template whose segments don't parse degrades gracefully to the plain house serialization.
+        val garbageTemplate = "%%% not valid notation %%%"
+        val newDocument = "A:\n  x: 1"
+
+        assertEquals(unparse("", newDocument), unparse(garbageTemplate, newDocument))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private fun parseDocumentObjects(doc: String): DocumentObjectNotation {
         return yamlParser.parseDocumentObjects(doc)
     }
