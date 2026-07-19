@@ -70,6 +70,17 @@ metadata cache):
   Consumers (e.g. kzen-auto's live-edit migration baseline) compare digests instead of materializing
   and deep-comparing notation maps.
 
+**Runtime services (`@Service` injection).** A `@Reflect`'d class can declare constructor parameters
+annotated `@Service` for values that can't be expressed in notation (stores, compilers, web-driver
+holders); `GraphCreator` fills them from a host-supplied `GraphEnvironment` keyed by the parameter's
+declared `ClassName`, so definitions stay environment-free and cacheable while only the create chain
+carries the environment. Hosts assemble one with `GraphEnvironment.builder()`, registering services
+either eagerly (`put(className, service)`) or — for composition-root cycles, where a registered
+service is constructed after the environment itself — as a provider (`put(className) { service }`)
+that resolves at most once, on first `resolve` at create time. A parameter declared as
+`GraphEnvironment` resolves to the environment itself, so a graph object can re-enter the create
+chain with the same services.
+
 **Gotcha — typed-attribute YAML keys need a `meta:` declaration.** Writing a key like `name: "World"` into an object's notation does *not* by itself make `name` a typed attribute the Definition layer can wire into the constructor. The object's notation (or an ancestor in its `is:` chain) must also declare the type in a sibling `meta:` block, e.g. `meta: { name: String }`. Without it, `ObjectDefinition.attributeDefinitions` is empty and `AttributeObjectCreator` fails at construction with `Attribute definition missing: <document>#<object> - <attr>`. `NotationMetadataReader.inferMetadata` infers types for object-reference values but not for plain scalars — the explicit `meta:` is what tells the Definer how to coerce them. Same rule applies when adding a new constructor parameter to a `@Reflect`'d class: bump the codegen *and* declare the attribute in `meta:` of the notation that constructs it.
 
 ## CQRS

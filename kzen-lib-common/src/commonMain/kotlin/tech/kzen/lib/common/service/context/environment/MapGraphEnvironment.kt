@@ -6,6 +6,11 @@ import tech.kzen.lib.platform.ClassName
 class MapGraphEnvironment(
     private val services: Map<ClassName, Any?>
 ): GraphEnvironment {
+    internal class ServiceProvider(provide: () -> Any) {
+        val service: Any by lazy(provide)
+    }
+
+
     override fun resolve(serviceClassName: ClassName): Any? {
         // A GraphEnvironment-typed @Service parameter resolves to the environment itself, so a
         // graph object (e.g. a document that hand-builds a downstream execution) can re-enter the
@@ -17,7 +22,12 @@ class MapGraphEnvironment(
         if (serviceClassName !in services) {
             throw IllegalArgumentException("Missing service: $serviceClassName - have $serviceClassNames")
         }
-        return services[serviceClassName]
+
+        val service = services[serviceClassName]
+        if (service is ServiceProvider) {
+            return service.service
+        }
+        return service
     }
 
 

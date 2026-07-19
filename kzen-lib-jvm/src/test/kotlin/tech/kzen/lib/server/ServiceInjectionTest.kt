@@ -39,4 +39,38 @@ class ServiceInjectionTest {
         assertEquals("hello", instance.label)
         assertSame(sampleService, instance.service)
     }
+
+
+    @Test
+    fun `provider-registered service is lazy and memoized across createGraph calls`() {
+        val graphNotation = JvmGraphTestUtils.readNotation()
+        val graphMetadata = JvmGraphTestUtils.graphMetadata(graphNotation)
+        val graphStructure = GraphStructure(graphNotation, graphMetadata)
+        val graphDefinition = GraphDefiner.tryDefine(graphStructure).transitiveSuccessful
+
+        var invocations = 0
+        val environment = GraphEnvironment.builder()
+            .put(ClassName(SampleService::class.qualifiedName!!)) {
+                invocations++
+                SampleService("provided-token")
+            }
+            .build()
+
+        assertEquals(0, invocations)
+
+        val first = GraphCreator.createGraph(graphDefinition, environment)
+        val second = GraphCreator.createGraph(graphDefinition, environment)
+
+        assertEquals(1, invocations)
+
+        val location = ObjectLocation(
+            DocumentPath.parse("test/service-test.yaml"),
+            ObjectPath.parse("ServiceHolder"))
+
+        val firstService = (first[location]?.reference as ServiceHolder).service
+        val secondService = (second[location]?.reference as ServiceHolder).service
+
+        assertEquals("provided-token", firstService.token)
+        assertSame(firstService, secondService)
+    }
 }
