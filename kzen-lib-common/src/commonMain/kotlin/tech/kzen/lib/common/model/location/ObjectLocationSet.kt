@@ -72,8 +72,7 @@ data class ObjectLocationSet(
 
         override fun locate(reference: ObjectReference): ObjectLocation {
             return locateOptional(reference)
-                ?: throw IllegalArgumentException(
-                    "Missing: $reference | ${byName.flatMap { it.value }.map { it.documentPath }.toSet()}")
+                ?: throw IllegalArgumentException(missingMessage(reference, null))
         }
 
 
@@ -82,9 +81,14 @@ data class ObjectLocationSet(
             host: ObjectReferenceHost
         ): ObjectLocation {
             return locateOptional(reference, host)
-                ?: throw IllegalArgumentException(
-                    "Missing: $host - $reference | ${byName.flatMap { it.value }.map { it.documentPath }.toSet()}")
+                ?: throw IllegalArgumentException(missingMessage(reference, host))
         }
 
+
+        internal fun missingMessage(reference: ObjectReference, host: ObjectReferenceHost?): String {
+            val sameName = reference.name.objectName?.let { byName[it] }.orEmpty()
+            return LocateErrors.missingMessage(
+                reference, host, sameName, byName.values.sumOf { it.size })
+        }
     }
 }

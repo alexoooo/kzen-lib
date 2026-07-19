@@ -47,7 +47,21 @@ Services involved (all under `service/`):
 - `service/parse/NotationParser` — text → notation tree.
 - `service/metadata/NotationMetadataReader` — reflection-driven type extraction.
 - `service/context/GraphDefiner` — produces `GraphDefinition`.
-- `service/context/GraphCreator` — instantiates `GraphInstance`.
+- `service/context/GraphCreator` — instantiates `GraphInstance`. `tryCreateGraph` returns a
+  `GraphInstanceAttempt` (creation-side mirror of `GraphDefinitionAttempt`: instances plus a per-object
+  `ObjectCreationFailure`); `createGraph` delegates to it and throws an aggregate when anything failed.
+
+**Failures name their origin.** Broken notation degrades gracefully rather than aborting, so a failed
+object is absent instead of loud — these are the two places that say why:
+
+- `GraphDefinitionAttempt.failures` holds objects that failed to *define*;
+  `GraphDefinitionAttempt.transitiveFailures` additionally covers objects that defined fine but were
+  *pruned* from `transitiveSuccessful` (a dangling or required-but-empty reference, or a reference into
+  another failed object — follow `missingObjects` for the root cause). It is a separate lazy;
+  `transitiveSuccessful` stays the untouched hot path.
+- `ObjectDefinitionFailure.attributeFailures` / `AttributeDefinitionFailure.unresolvedReference` carry
+  the machine-readable cause (which attribute path, which reference, resolved against which host)
+  alongside the display-oriented `attributeErrors`.
 
 Hot-path caching along this flow (beyond the per-document parse cache and the dependency-digest-keyed
 metadata cache):
@@ -61,7 +75,9 @@ metadata cache):
   re-flattening every document; the inheritance-chain cache is deliberately not carried over.
 - **Construction leveling is topological** — `GraphCreator.constructionLevels` resolves each declared
   reference once and peels zero-indegree levels (Kahn's algorithm, O(V+E)); an ambiguous reference is
-  a clean `IllegalArgumentException` naming all candidates.
+  a clean `IllegalArgumentException` naming all candidates, and leftovers become per-object
+  `ObjectCreationFailure`s rather than one aggregate throw. A failed lookup (`ObjectLocator.locate`)
+  names same-name near misses — other documents, other nestings — instead of dumping every document path.
 - **Closure content digest** — `GraphDefinition.transitiveDigest(documentPath | locations)` answers
   "did the transitive closure of X change?" as one `Digest`: an ordered combine (sorted by location
   string) over each closure member's location and coalesced `ObjectNotation` digest (memoized). It

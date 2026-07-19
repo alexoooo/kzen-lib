@@ -36,8 +36,7 @@ data class ObjectLocationMap<T>(
 
     override fun locate(reference: ObjectReference): ObjectLocation {
         return locateOptional(reference)
-            ?: throw IllegalArgumentException(
-                "Missing: $reference | ${map.keys.map { it.documentPath }.toSet()}")
+            ?: throw IllegalArgumentException(locator().missingMessage(reference, null))
     }
 
 
@@ -46,8 +45,7 @@ data class ObjectLocationMap<T>(
         host: ObjectReferenceHost
     ): ObjectLocation {
         return locateOptional(reference, host)
-            ?: throw IllegalArgumentException(
-                "Missing: $host - $reference | ${map.keys.map { it.documentPath }.toSet()}")
+            ?: throw IllegalArgumentException(locator().missingMessage(reference, host))
     }
 
 
@@ -60,7 +58,7 @@ data class ObjectLocationMap<T>(
     }
 
 
-    private fun locator(): ObjectLocator {
+    private fun locator(): ObjectLocationSet.Locator {
         if (locatorCache == null) {
             locatorCache = ObjectLocationSet.Locator()
             locatorCache!!.addAll(map.keys)

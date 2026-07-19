@@ -4,11 +4,13 @@ import tech.kzen.lib.common.api.AttributeDefiner
 import tech.kzen.lib.common.api.ObjectDefiner
 import tech.kzen.lib.common.model.attribute.AttributeName
 import tech.kzen.lib.common.model.attribute.AttributeNameMap
+import tech.kzen.lib.common.model.attribute.AttributePath
 import tech.kzen.lib.common.model.definition.*
 import tech.kzen.lib.common.model.instance.GraphInstance
 import tech.kzen.lib.common.model.location.ObjectLocation
 import tech.kzen.lib.common.model.location.ObjectLocationSet
 import tech.kzen.lib.common.model.location.ObjectReference
+import tech.kzen.lib.common.model.location.ObjectReferenceHost
 import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.reflect.GlobalMirror
 import tech.kzen.lib.common.reflect.Reflect
@@ -62,29 +64,45 @@ object AttributeObjectDefiner: ObjectDefiner
             creatorRequired)
 
         val attributeErrors = mutableMapOf<AttributeName, String>()
+        val attributeFailures = mutableMapOf<AttributePath, AttributeDefinitionFailure>()
         val missingObjects = mutableSetOf<ObjectLocation>()
+
+        fun fail(attributeName: AttributeName, failure: AttributeDefinitionFailure) {
+            attributeErrors[attributeName] = failure.errorMessage
+            attributeFailures[AttributePath.ofName(attributeName)] = failure
+        }
 
         for ((attributeName, attributeMetadata) in objectMetadata.attributes.map) {
             val attributeCreatorReference = attributeMetadata.creatorReference ?: defaultAttributeCreator
             creatorRequired.add(attributeCreatorReference)
 
+            // definer references resolve against the global coalesce
             val attributeDefinerRef = attributeMetadata.definerReference ?: defaultAttributeDefiner
             val attributeDefinerLocation = graphStructure.graphNotation.coalesce.locateOptional(attributeDefinerRef)
             if (attributeDefinerLocation == null) {
-                attributeErrors[attributeName] = "Unknown attribute definer: $attributeDefinerRef"
+                fail(attributeName, AttributeDefinitionFailure(
+                    "Unknown attribute definer: $attributeDefinerRef",
+                    attributeDefinerRef,
+                    ObjectReferenceHost.global))
                 continue
             }
 
             val definerInstance = partialGraphInstance[attributeDefinerLocation]
             if (definerInstance == null) {
                 missingObjects.add(attributeDefinerLocation)
-                attributeErrors[attributeName] = "Definer missing: ${attributeDefinerLocation.objectPath.name}"
+                fail(attributeName, AttributeDefinitionFailure(
+                    "Definer missing: ${attributeDefinerLocation.objectPath.name}",
+                    attributeDefinerRef,
+                    ObjectReferenceHost.global))
                 continue
             }
 
             val attributeDefiner = definerInstance.reference as? AttributeDefiner
             if (attributeDefiner == null) {
-                attributeErrors[attributeName] = "Attribute definer expected: $attributeDefinerRef"
+                fail(attributeName, AttributeDefinitionFailure(
+                    "Attribute definer expected: $attributeDefinerRef",
+                    attributeDefinerRef,
+                    ObjectReferenceHost.global))
                 continue
             }
 
@@ -101,7 +119,8 @@ object AttributeObjectDefiner: ObjectDefiner
                 }
 
                 is AttributeDefinitionFailure -> {
-                    attributeErrors[attributeName] = attributeDefinitionAttempt.errorMessage
+                    // pass the delegated failure through unchanged - it may carry its own structured fields
+                    fail(attributeName, attributeDefinitionAttempt)
                 }
             }
         }
@@ -123,17 +142,19 @@ object AttributeObjectDefiner: ObjectDefiner
         return when {
             missingObjects.isNotEmpty() -> {
                 ObjectDefinitionAttempt.missingObjectsFailure(
-                    "Unfulfilled dependency : $attributeErrors",
+                    "Unfulfilled dependency for: ${attributeErrors.keys.joinToString { it.value }}",
                     attributeErrors,
                     ObjectLocationSet(missingObjects),
-                    objectDefinition)
+                    objectDefinition,
+                    attributeFailures)
             }
 
             attributeErrors.isNotEmpty() -> {
                 ObjectDefinitionAttempt.failure(
-                    "Failed: ${attributeErrors.keys}",
+                    "Failed attribute(s): ${attributeErrors.keys.joinToString { it.value }}",
                     attributeErrors,
-                    objectDefinition)
+                    objectDefinition,
+                    attributeFailures)
             }
 
             else -> {
