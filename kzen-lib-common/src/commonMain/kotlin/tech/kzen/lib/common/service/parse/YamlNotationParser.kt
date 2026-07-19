@@ -120,10 +120,10 @@ class YamlNotationParser: NotationParser {
             val node = objectToYaml(objectNotation)
             val nodeLines = YamlParser.unparse(node).split("\n")
 
-            val keyPrefix = YamlParser.unparse(YamlString(objectPath.asString()))
+            val keyPrefix = YamlParser.unparseKey(objectPath.asString())
             buffer.append("$keyPrefix:")
 
-            nodeLines.forEach { buffer.append("\n  $it") }
+            nodeLines.forEach { buffer.append(if (it.isEmpty()) "\n" else "\n  $it") }
         }
 
         return buffer.toString()

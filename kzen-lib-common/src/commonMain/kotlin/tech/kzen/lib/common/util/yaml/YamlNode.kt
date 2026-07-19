@@ -2,7 +2,6 @@ package tech.kzen.lib.common.util.yaml
 
 
 //----------------------------------------------------------------------------------------------------------------
-// TODO: add comment support
 sealed class YamlNode {
     companion object {
         fun ofObject(value: Any?): YamlNode {
@@ -49,14 +48,22 @@ sealed class YamlNode {
     }
 
 
+    // Own-line `# ...` comments preceding this node in the source, stored without the leading `#` and one
+    // following space. Invariant: no element contains `\n`/`\r`. Participates in data-class equality.
+    abstract val comments: List<String>
+
+
     abstract fun toObject(): Any
+
+
+    abstract fun withComments(comments: List<String>): YamlNode
 }
 
 
 //-----------------------------------------------------------------------------------------------------------------
-// TODO: add |- multi-line support
 data class YamlString(
-        val value: String
+        val value: String,
+        override val comments: List<String> = listOf()
 ): YamlNode() {
     companion object {
         val empty = YamlString("")
@@ -64,6 +71,10 @@ data class YamlString(
 
     override fun toObject(): String {
         return value
+    }
+
+    override fun withComments(comments: List<String>): YamlString {
+        return copy(comments = comments)
     }
 }
 
@@ -79,7 +90,8 @@ sealed class YamlStructure: YamlNode() {
 
 
 data class YamlList(
-        val values: List<YamlNode>
+        val values: List<YamlNode>,
+        override val comments: List<String> = listOf()
 ): YamlStructure() {
     override fun size(): Int {
         return values.size
@@ -88,11 +100,16 @@ data class YamlList(
     override fun toObject(): List<Any> {
         return values.map { it.toObject() }
     }
+
+    override fun withComments(comments: List<String>): YamlList {
+        return copy(comments = comments)
+    }
 }
 
 
 data class YamlMap(
-        val values: Map<String, YamlNode>
+        val values: Map<String, YamlNode>,
+        override val comments: List<String> = listOf()
 ): YamlStructure() {
     override fun size(): Int {
         return values.size
@@ -101,5 +118,8 @@ data class YamlMap(
     override fun toObject(): Map<String, Any> {
         return values.mapValues { it.value.toObject() }
     }
-}
 
+    override fun withComments(comments: List<String>): YamlMap {
+        return copy(comments = comments)
+    }
+}

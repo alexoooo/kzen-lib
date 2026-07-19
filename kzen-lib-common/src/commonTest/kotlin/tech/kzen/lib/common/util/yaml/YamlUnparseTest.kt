@@ -22,22 +22,23 @@ class YamlUnparseTest {
 
     @Test
     fun stringWithDoubleQuote() {
+        // Both quote kinds are valid inside a plain scalar, so these now emit bare.
         val node = YamlString("foo\"bar\"")
-        assertEquals("'foo\"bar\"'", YamlParser.unparse(node))
+        assertEquals("foo\"bar\"", YamlParser.unparse(node))
     }
 
 
     @Test
     fun stringWithSingleQuote() {
         val node = YamlString("foo'bar'")
-        assertEquals("\"foo'bar'\"", YamlParser.unparse(node))
+        assertEquals("foo'bar'", YamlParser.unparse(node))
     }
 
 
     @Test
     fun stringWithSingleAndDouble() {
         val node = YamlString("foo'bar\"")
-        assertEquals("\"foo'bar\\\"\"", YamlParser.unparse(node))
+        assertEquals("foo'bar\"", YamlParser.unparse(node))
     }
 
 
@@ -94,5 +95,59 @@ class YamlUnparseTest {
                 "  - foo/bar\n" +
                 "  - hello world",
             YamlParser.unparse(node))
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private val bs = 92.toChar()
+    private val dq = 34.toChar()
+
+
+    @Test
+    fun dashNumberStaysBare() {
+        assertEquals("-5", YamlParser.unparse(YamlString("-5")))
+    }
+
+
+    @Test
+    fun windowsPathValueStaysBare() {
+        assertEquals("C:${bs}foo", YamlParser.unparse(YamlString("C:${bs}foo")))
+    }
+
+
+    @Test
+    fun colonSpaceForcesSingleQuote() {
+        assertEquals("'a: b'", YamlParser.unparse(YamlString("a: b")))
+    }
+
+
+    @Test
+    fun trailingColonForcesSingleQuote() {
+        assertEquals("'foo:'", YamlParser.unparse(YamlString("foo:")))
+    }
+
+
+    @Test
+    fun dashSpaceForcesSingleQuote() {
+        assertEquals("'- item'", YamlParser.unparse(YamlString("- item")))
+    }
+
+
+    @Test
+    fun spaceHashForcesSingleQuote() {
+        assertEquals("'a #b'", YamlParser.unparse(YamlString("a #b")))
+    }
+
+
+    @Test
+    fun keyWithBackslashIsQuoted() {
+        // Keys keep the restricted bare charset, so a backslash key must be double-quoted.
+        assertEquals("${dq}C:${bs}${bs}foo${dq}", YamlParser.unparseKey("C:${bs}foo"))
+    }
+
+
+    @Test
+    fun keyWithColonIsQuoted() {
+        assertEquals("'a: b'", YamlParser.unparseKey("a: b"))
     }
 }
