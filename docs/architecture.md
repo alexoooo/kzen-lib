@@ -182,6 +182,10 @@ Bootstrap implementations live in `objects/` — `DefaultConstructorObjectDefine
 
 **Definer vs Creator — the phase split governs when you can resolve an instance.** Definition and creation are two separate passes (see [Document load flow](#document-load-flow)), and the `partialGraphInstance` handed to each SPI differs accordingly. An `AttributeDefiner` (and `ObjectDefiner`) runs in the *definition* pass, where that partial graph holds **only** the bootstrap definer/creator objects — never user objects, which haven't been constructed yet. So a definer can read notation + metadata and emit an `AttributeDefinition`, but it **cannot resolve another object's instance**. To inject a sibling object's instance — or a view derived from it — into a constructor parameter, do it in an `AttributeCreator`, which runs in the *creation* pass where `partialGraphInstance` holds every already-constructed object. Select a custom creator per attribute with the **`creator:`** notation key — the creation-pass parallel to **`by:`**, which selects a custom definer. Construction order is dependency-driven: a *strong* `ReferenceAttributeDefinition` (what the default `StructuralAttributeDefiner` emits for a non-primitive scalar value) forces the referenced object to be built first, so a creator can resolve it; *weak* references (`WeakAttributeDefiner`, `NestedListAttributeDefiner`) materialize as `ObjectLocation`s and impose no ordering. (Concretely in kzen-auto: Flow allocates fresh per-vertex channel holders in a *definer* because nothing shared is resolved, whereas Job wires each worker to a *shared* channel instance in a *creator* — for exactly this reason.)
 
+**Class instantiation — `GlobalMirror` and the JVM reflective fallback.** A notation `class:` FQN (nested classes `$`-joined, i.e. the JVM binary name) is resolved through `GlobalMirror`, a delegate chain consulted in registration order. `ReflectionRegistry.global` — which the KSP-generated `*Module.register()` calls populate — is seeded first and always wins; hosts append further delegates with `GlobalMirror.register(...)`, so a fallback only ever sees classes codegen missed.
+
+On the JVM that fallback is `ReflectiveClassMirror` (kzen-lib-jvm `server/reflect/`), which serves classes annotated `@Reflect` that have no generated registration: kotlin-reflect primary-constructor introspection, `@Service` parameters detected at runtime, Kotlin `object`s served as their singleton, and Java classes supported when compiled with `-parameters` (KSP registers Kotlin sources only). It logs every class it serves, because JS has no runtime net — codegen is mandatory there, so a log line marks a class the JS client could not instantiate. `KzenAutoContext` and the test bootstraps register it; per-classloader instances are the seam for plugin loaders.
+
 ## Execution model (Logic / Task / Trace)
 
 `exec/` holds general execution abstractions — not kzen-auto domain concepts. They relocated here from kzen-auto on 2026-05-28: the `Logic`/`Task` types were always platform-agnostic, and `Logic` is the abstraction that consumes `ObjectStableMapper`, so the two belong in the same module.
@@ -233,7 +237,7 @@ model/
     metadata/ — GraphMetadata, ObjectMetadata, TypeMetadata
     resource/ — ResourcePath, ResourceListing
 objects/     — Bootstrap object definitions (Default*)
-reflect/     — ClassMirror, ReflectionRegistry
+reflect/     — @Reflect/@Service, ClassMirror, GlobalMirror, ReflectionRegistry
 service/
   context/   — GraphDefiner, GraphCreator
   media/     — NotationMedia (I/O)

@@ -13,5 +13,8 @@ const val kotlinxSerializationVersion = "1.9.0"
 const val guavaVersion = "33.6.0-jre"
 const val dexxVersion = "0.7"
 
+// Matches the slf4j-api that kzen-auto's logback 1.5.37 pulls transitively
+const val slf4jVersion = "2.0.17"
+
 const val coreJsVersion = "3.49.0"
 const val immutableJsVersion = "5.1.9"

@@ -23,6 +23,11 @@ class ReflectSymbolProcessor(
                 logger.warn("@Reflect on non-class declaration is ignored", symbol)
                 continue
             }
+            if (symbol.origin == Origin.JAVA || symbol.origin == Origin.JAVA_LIB) {
+                // Java classes have no primary constructor here, so they are served by the JVM
+                // reflective fallback instead; KSP registration is Kotlin-only
+                continue
+            }
             val captured = capture(symbol) ?: continue
             collected.add(captured)
             symbol.containingFile?.let { sourceFiles.add(it) }

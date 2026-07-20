@@ -10,6 +10,8 @@ import tech.kzen.lib.common.model.structure.GraphStructure
 import tech.kzen.lib.common.model.structure.metadata.GraphMetadata
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
+import tech.kzen.lib.common.reflect.GlobalMirror
+import tech.kzen.lib.common.reflect.ReflectionRegistry
 import tech.kzen.lib.common.service.context.GraphCreator
 import tech.kzen.lib.common.service.context.GraphDefiner
 import tech.kzen.lib.common.service.context.environment.GraphEnvironment
@@ -22,13 +24,23 @@ import tech.kzen.lib.server.codegen.KzenLibJvmTestModule
 import tech.kzen.lib.server.notation.FileNotationMedia
 import tech.kzen.lib.server.notation.locate.GradleLocator
 import tech.kzen.lib.server.objects.service.SampleService
+import tech.kzen.lib.server.reflect.ReflectiveClassMirror
 
 
 object JvmGraphTestUtils {
     init {
         KzenLibCommonModule.register()
         KzenLibJvmTestModule.register()
+
+        // The whole suite runs fallback-active, so a precedence or behaviour leak shows up as a
+        // baseline failure rather than only in the fallback's own tests
+        GlobalMirror.register(ReflectiveClassMirror.global)
     }
+
+
+    // Reading it initializes this object, so tests that inspect the registry directly (rather than
+    // through a graph) get it with the modules above registered
+    val reflectionRegistry: ReflectionRegistry = ReflectionRegistry.global
 
 
     // Default environment so the full test graph (which includes @Service-consuming fixtures like
