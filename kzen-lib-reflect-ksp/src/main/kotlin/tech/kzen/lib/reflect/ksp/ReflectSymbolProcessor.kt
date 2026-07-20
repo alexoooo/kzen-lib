@@ -60,6 +60,14 @@ class ReflectSymbolProcessor(
 
 
     private fun capture(decl: KSClassDeclaration): ReflectClass? {
+        if (Modifier.INNER in decl.modifiers) {
+            logger.error(
+                "@Reflect is not supported on inner classes (the generated constructor call would " +
+                        "require an outer receiver): " + decl.qualifiedName?.asString(),
+                decl)
+            return null
+        }
+
         val pkg = decl.packageName.asString()
         val nestedSimpleNames = nestedSimpleNames(decl)
         if (nestedSimpleNames.isEmpty()) {
@@ -71,13 +79,7 @@ class ReflectSymbolProcessor(
             if (pkg.isEmpty()) nestedSimpleNames.joinToString("\$")
             else "$pkg.${nestedSimpleNames.joinToString("\$")}"
 
-        val kotlinRef = nestedSimpleNames.joinToString(".")
-
-        val imports = sortedSetOf<String>()
-        val outerTopLevelImport =
-            if (pkg.isEmpty()) nestedSimpleNames.first()
-            else "$pkg.${nestedSimpleNames.first()}"
-        imports.add(outerTopLevelImport)
+        val kotlinRef = qualifiedReference(pkg, nestedSimpleNames)
 
         val isObject = decl.classKind == ClassKind.OBJECT
 
@@ -95,7 +97,7 @@ class ReflectSymbolProcessor(
                         return null
                     }
                     val resolvedType = param.type.resolve()
-                    val typeExpr = renderType(resolvedType, imports)
+                    val typeExpr = renderType(resolvedType)
 
                     val isService = param.annotations.any { annotation ->
                         annotation.annotationType.resolve().declaration.qualifiedName?.asString() ==
@@ -118,7 +120,13 @@ class ReflectSymbolProcessor(
             }
         }
 
-        return ReflectClass(registryName, kotlinRef, isObject, args, imports)
+        return ReflectClass(registryName, kotlinRef, isObject, args)
+    }
+
+
+    private fun qualifiedReference(pkg: String, nestedSimpleNames: List<String>): String {
+        val nestedReference = nestedSimpleNames.joinToString(".")
+        return if (pkg.isEmpty()) nestedReference else "$pkg.$nestedReference"
     }
 
 
@@ -133,28 +141,28 @@ class ReflectSymbolProcessor(
     }
 
 
-    private fun renderType(type: KSType, importsOut: MutableSet<String>): String {
-        val decl = type.declaration
+    /**
+     * Every type is rendered fully qualified, so the generated file needs no imports at all and two
+     * constructor parameters whose types share a simple name can't collide.
+     */
+    private fun renderType(type: KSType): String {
+        val nullableSuffix = if (type.nullability == Nullability.NULLABLE) "?" else ""
+        val erasedReference = "kotlin.Any$nullableSuffix"
 
+        val decl = type.declaration
         if (decl is KSTypeParameter) {
-            return "Any" + if (type.nullability == Nullability.NULLABLE) "?" else ""
+            return erasedReference
         }
 
         val classDecl = decl as? KSClassDeclaration
-            ?: return "Any" + if (type.nullability == Nullability.NULLABLE) "?" else ""
+            ?: return erasedReference
 
-        val pkg = classDecl.packageName.asString()
         val nested = nestedSimpleNames(classDecl)
         if (nested.isEmpty()) {
-            return "Any" + if (type.nullability == Nullability.NULLABLE) "?" else ""
+            return erasedReference
         }
 
-        val outerSimple = nested.first()
-        if (pkg.isNotEmpty() && !isAutoImportedPackage(pkg)) {
-            importsOut.add("$pkg.$outerSimple")
-        }
-
-        val ref = nested.joinToString(".")
+        val ref = qualifiedReference(classDecl.packageName.asString(), nested)
 
         val typeArgs = type.arguments
         val argsStr = if (typeArgs.isEmpty()) {
@@ -165,7 +173,7 @@ class ReflectSymbolProcessor(
                     "*"
                 } else {
                     val resolved = ksArg.type!!.resolve()
-                    val rendered = renderType(resolved, importsOut)
+                    val rendered = renderType(resolved)
                     when (ksArg.variance) {
                         Variance.COVARIANT -> "out $rendered"
                         Variance.CONTRAVARIANT -> "in $rendered"
@@ -175,39 +183,13 @@ class ReflectSymbolProcessor(
             }
         }
 
-        val nullableSuffix = if (type.nullability == Nullability.NULLABLE) "?" else ""
         return "$ref$argsStr$nullableSuffix"
-    }
-
-
-    private fun isAutoImportedPackage(pkg: String): Boolean {
-        return pkg == "kotlin" ||
-            pkg == "kotlin.collections" ||
-            pkg == "kotlin.ranges" ||
-            pkg == "kotlin.sequences" ||
-            pkg == "kotlin.text" ||
-            pkg == "kotlin.io" ||
-            pkg == "kotlin.annotation" ||
-            pkg == "kotlin.comparisons" ||
-            pkg == "kotlin.jvm"
     }
 
 
     private fun render(moduleFqn: String, classes: List<ReflectClass>): String {
         val outputPkg = moduleFqn.substringBeforeLast('.', missingDelimiterValue = "")
         val outputSimple = moduleFqn.substringAfterLast('.')
-
-        val imports = sortedSetOf<String>()
-        imports.add("tech.kzen.lib.common.reflect.ReflectionRegistry")
-        imports.add("tech.kzen.lib.common.reflect.ModuleReflection")
-        for (c in classes) {
-            for (imp in c.imports) {
-                if (imp.substringBeforeLast('.', missingDelimiterValue = "") != outputPkg) {
-                    imports.add(imp)
-                }
-            }
-        }
-        val importsBlock = imports.joinToString("\n") { "import $it" }
 
         val registrations = classes.joinToString("\n\n") { c -> renderRegistration(c) }
 
@@ -216,13 +198,12 @@ class ReflectSymbolProcessor(
         return buildString {
             append("// **DO NOT EDIT, CHANGES WILL BE LOST** - automatically generated by ReflectSymbolProcessor (KSP)\n")
             if (outputPkg.isNotEmpty()) {
-                append("package $outputPkg\n\n")
+                append("package $outputPkg\n")
             }
-            append(importsBlock)
-            append("\n\n\n")
+            append("\n\n")
             append("@Suppress(\"UNCHECKED_CAST\", \"KotlinRedundantDiagnosticSuppress\")\n")
-            append("object $outputSimple: ModuleReflection {\n")
-            append("    override fun register(reflectionRegistry: ReflectionRegistry) {")
+            append("object $outputSimple: $MODULE_REFLECTION_FQN {\n")
+            append("    override fun register(reflectionRegistry: $REFLECTION_REGISTRY_FQN) {")
             append(body)
             append("    }\n")
             append("}\n")
@@ -288,8 +269,7 @@ class ReflectSymbolProcessor(
         val registryName: String,
         val kotlinReference: String,
         val isObject: Boolean,
-        val arguments: List<ReflectArg>,
-        val imports: Set<String>
+        val arguments: List<ReflectArg>
     )
 
 
@@ -303,5 +283,7 @@ class ReflectSymbolProcessor(
     companion object {
         private const val REFLECT_ANNOTATION_FQN = "tech.kzen.lib.common.reflect.Reflect"
         private const val SERVICE_ANNOTATION_FQN = "tech.kzen.lib.common.reflect.Service"
+        private const val MODULE_REFLECTION_FQN = "tech.kzen.lib.common.reflect.ModuleReflection"
+        private const val REFLECTION_REGISTRY_FQN = "tech.kzen.lib.common.reflect.ReflectionRegistry"
     }
 }
