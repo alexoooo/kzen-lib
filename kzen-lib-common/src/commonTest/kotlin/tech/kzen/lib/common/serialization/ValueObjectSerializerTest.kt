@@ -94,8 +94,9 @@ class ValueObjectSerializerTest {
 
     @Test
     fun requestParams() {
-        // NB: empty RequestParams is deliberately not exercised — RequestParams.parse("") throws (pre-existing),
-        // and asString() of empty is "", so empty can't round-trip. Non-empty is the wire reality.
+        // Empty IS the wire reality, not an edge case: every parameterless task submit sends
+        // ExecutionRequest(RequestParams.empty, null), and the server echoes `"params":""` back in each TaskModel.
+        roundTrip(RequestParams.empty)
         roundTrip(RequestParams.of("a" to "1"))
         roundTrip(RequestParams(mapOf("k" to listOf("v1", "v2"))))
     }

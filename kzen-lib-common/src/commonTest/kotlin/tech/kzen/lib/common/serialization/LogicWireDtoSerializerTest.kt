@@ -114,6 +114,7 @@ class LogicWireDtoSerializerTest {
 
     //-----------------------------------------------------------------------------------------------------------------
     private val request = ExecutionRequest(RequestParams.of("a" to "1"), null)
+    private val emptyRequest = ExecutionRequest(RequestParams.empty, null)
     private val success = ExecutionSuccess.ofValue(ExecutionValue.of("hello"))
     private val failure = ExecutionFailure("boom")
 
@@ -122,6 +123,10 @@ class LogicWireDtoSerializerTest {
     fun taskModelRoundTrip() {
         // Running with a partial success, no final result.
         roundTrip(TaskModel(TaskId("task-1"), rootLocation, request, TaskState.Running, success, null))
+        // The parameterless-submit shape, which is what every Custom task card actually sends and polls back.
+        // `request` above carries params, and that non-empty fixture was the reason RequestParams.parse("")
+        // stayed broken behind a green round-trip test.
+        roundTrip(TaskModel(TaskId("task-1"), rootLocation, emptyRequest, TaskState.Running, success, null))
         // Finished with a failure, no partial.
         roundTrip(TaskModel(TaskId("task-1"), rootLocation, request, TaskState.FinishedOrFailed, null, failure))
         // Finished with a success final result.

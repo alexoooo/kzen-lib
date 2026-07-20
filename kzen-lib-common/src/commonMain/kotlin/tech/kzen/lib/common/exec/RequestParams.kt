@@ -24,15 +24,25 @@ data class RequestParams(
         }
 
 
+        /** Inverse of [asString], total for any input — see the two guards below. */
         fun parse(paramsLine: String): RequestParams {
-            val params = paramsLine.split('&')
-
             val buffer = mutableMapOf<String, MutableList<String>>()
 
-            for (param in params) {
+            for (param in paramsLine.split('&')) {
+                // Splitting "" yields one blank segment, so the empty params line must produce an empty map.
+                // This is [empty]'s own round trip (its asString() is ""), not an exotic input: reading a key off
+                // that blank segment ran past the end of the string — throwing on JVM, and on JS silently
+                // yielding a bogus "" -> [""] entry, since JS substring clamps instead of failing.
+                if (param.isEmpty()) {
+                    continue
+                }
+
                 val equalsIndex = param.indexOf('=')
-                val key = param.substring(0, equalsIndex)
-                val value = param.substring(equalsIndex + 1)
+
+                // No '=' is a bare key with no value. asString() never writes that shape, but a parser fed a
+                // hand-written line must not run past the end of the string either.
+                val key = if (equalsIndex == -1) param else param.substring(0, equalsIndex)
+                val value = if (equalsIndex == -1) "" else param.substring(equalsIndex + 1)
 
                 val values = buffer.getOrPut(key) { mutableListOf() }
 
