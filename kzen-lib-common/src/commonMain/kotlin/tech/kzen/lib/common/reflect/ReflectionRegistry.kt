@@ -44,6 +44,26 @@ class ReflectionRegistry: ClassMirror {
     }
 
 
+    /**
+     * Every distinct [Service] parameter type across all registrations, mapped to the registered class(es)
+     * declaring it. Supports host boot-time validation that a
+     * [tech.kzen.lib.common.service.context.environment.GraphEnvironment] covers every service type a
+     * registered class can demand, failing at startup with names instead of at graph-creation time.
+     * Snapshot taken under the registry lock.
+     */
+    fun serviceArgumentDeclarations(): Map<ClassName, Set<ClassName>> {
+        return platformSynchronized(registry) {
+            val declarations = mutableMapOf<ClassName, MutableSet<ClassName>>()
+            for ((className, classReflection) in registry) {
+                for (serviceClassName in classReflection.serviceArguments.values) {
+                    declarations.getOrPut(serviceClassName) { mutableSetOf() }.add(className)
+                }
+            }
+            declarations
+        }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override fun contains(className: ClassName): Boolean {
         return get(className) != null
