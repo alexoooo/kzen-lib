@@ -127,20 +127,48 @@ data class GraphDefinition(
      *  answers "would recompiling this closure change anything?"
      */
     fun transitiveDigest(objectLocations: Collection<ObjectLocation>): Digest {
-        val closure = transitiveClosure(objectLocations)
-        val coalesce = graphStructure.graphNotation.coalesce
+        return notationDigest(transitiveClosure(objectLocations))
+    }
+
+
+    /**
+     * Document-scoped digest, covering everything document-level semantics can depend on:
+     *  the document's notated members IN DOCUMENT ORDER (order is semantic — Job channel derivation
+     *  and Script steps are position-driven, while the content combine below is deliberately
+     *  order-independent), then the content combine ([notationDigest]) over the defined members'
+     *  closure WIDENED by every notated member, defined or not. On a pruned (undefined-by-design)
+     *  member — e.g. a Job Worker, whose blank channel ports drop it from a transitive-successful
+     *  definition — the closure alone is blind to edits, which is exactly what a validation cache or
+     *  live-edit signal keyed on this digest must see. A pruned member contributes only its own
+     *  notation (its references cannot be walked without a definition); its archetype chain is
+     *  classpath notation, static per process.
+     */
+    fun transitiveDigest(documentPath: DocumentPath): Digest {
+        val notatedMembers = graphStructure.graphNotation.documents[documentPath]
+            ?.objects?.notations?.map?.keys
+            ?.map { ObjectLocation(documentPath, it) }
+            ?: listOf()
+        val definedMembers = notatedMembers.filter { it in objectDefinitions }
+        val widened = transitiveClosure(definedMembers) + notatedMembers
 
         return Digest.build {
-            for (location in closure.sortedBy { it.asString() }) {
+            for (location in notatedMembers) {
                 addDigestible(location)
-                addDigestibleNullable(coalesce[location])
             }
+            addDigestible(notationDigest(widened))
         }
     }
 
 
-    fun transitiveDigest(documentPath: DocumentPath): Digest {
-        return transitiveDigest(documentObjectLocations(documentPath))
+    private fun notationDigest(objectLocations: Set<ObjectLocation>): Digest {
+        val coalesce = graphStructure.graphNotation.coalesce
+
+        return Digest.build {
+            for (location in objectLocations.sortedBy { it.asString() }) {
+                addDigestible(location)
+                addDigestibleNullable(coalesce[location])
+            }
+        }
     }
 
 

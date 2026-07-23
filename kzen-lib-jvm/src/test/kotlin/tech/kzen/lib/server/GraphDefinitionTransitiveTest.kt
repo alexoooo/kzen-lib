@@ -3,11 +3,14 @@ package tech.kzen.lib.server
 import org.junit.Test
 import tech.kzen.lib.common.model.definition.GraphDefinition
 import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectPath
 import tech.kzen.lib.common.model.structure.notation.DocumentNotation
 import tech.kzen.lib.common.model.structure.notation.GraphNotation
 import tech.kzen.lib.common.service.parse.YamlNotationParser
 import tech.kzen.lib.server.util.JvmGraphTestUtils
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 
 
@@ -42,6 +45,25 @@ class GraphDefinitionTransitiveTest {
             Other:
               is: DoubleValue
               value: $value
+        """.trimIndent())
+    }
+
+
+    private fun mainDocumentWithPruned(prunedTarget: String = "Missing"): DocumentNotation {
+        return document("""
+            Root:
+              is: PlusOperation
+              addends:
+                - Dependency
+
+            Dependency:
+              is: DoubleValue
+              value: 1.0
+
+            Pruned:
+              is: PlusOperation
+              addends:
+                - $prunedTarget
         """.trimIndent())
     }
 
@@ -95,5 +117,61 @@ class GraphDefinitionTransitiveTest {
         assertEquals(
             graphDefinition.transitiveClosure(documentObjectLocations),
             graphDefinition.filterTransitive(mainPath).objectDefinitions.map.keys)
+    }
+
+
+    @Test
+    fun `Editing a pruned member changes the digest`() {
+        val baseline = definition(main = mainDocumentWithPruned())
+
+        // Precondition: the fixture member really is pruned from the transitive-successful definition.
+        val prunedLocation = ObjectLocation(mainPath, ObjectPath.parse("Pruned"))
+        assertFalse(prunedLocation in baseline.objectDefinitions)
+
+        assertNotEquals(
+            baseline.transitiveDigest(mainPath),
+            definition(main = mainDocumentWithPruned(prunedTarget = "AlsoMissing"))
+                .transitiveDigest(mainPath))
+    }
+
+
+    @Test
+    fun `Pruned member in another document preserves the digest`() {
+        // The widening is document-scoped: an unrelated document's pruned member is not in this key.
+        val withPrunedOther = document("""
+            Other:
+              is: DoubleValue
+              value: 2.0
+
+            Pruned:
+              is: PlusOperation
+              addends:
+                - Missing
+        """.trimIndent())
+
+        assertEquals(
+            definition().transitiveDigest(mainPath),
+            definition(other = withPrunedOther).transitiveDigest(mainPath))
+    }
+
+
+    @Test
+    fun `Reordering document members changes the digest`() {
+        // Order is semantic (position-driven steps / order-driven Job channels), and the content
+        // combine is deliberately order-independent — the ordered-members component must catch it.
+        val reordered = document("""
+            Dependency:
+              is: DoubleValue
+              value: 1.0
+
+            Root:
+              is: PlusOperation
+              addends:
+                - Dependency
+        """.trimIndent())
+
+        assertNotEquals(
+            definition().transitiveDigest(mainPath),
+            definition(main = reordered).transitiveDigest(mainPath))
     }
 }

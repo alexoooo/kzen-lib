@@ -84,7 +84,10 @@ metadata cache):
   covers the notation the definitions were derived from, not the definitions themselves — definitions
   can embed definer-allocated runtime scaffolding and are never value-comparable across builds.
   Consumers (e.g. kzen-auto's live-edit migration baseline) compare digests instead of materializing
-  and deep-comparing notation maps.
+  and deep-comparing notation maps. The document-path form additionally digests the document's member
+  list *in document order* and every object *notated* in the document, defined or not — a reorder, or
+  an edit to a pruned-by-design member (a Job Worker with blank channel ports), must still invalidate
+  validation caches and the live-edit migration signal.
 
 **Runtime services (`@Service` injection).** A `@Reflect`'d class can declare constructor parameters
 annotated `@Service` for values that can't be expressed in notation (stores, compilers, web-driver

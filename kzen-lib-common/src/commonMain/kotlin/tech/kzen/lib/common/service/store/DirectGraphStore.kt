@@ -1,5 +1,7 @@
 package tech.kzen.lib.common.service.store
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import tech.kzen.lib.common.model.definition.GraphDefinitionAttempt
 import tech.kzen.lib.common.model.document.DocumentPath
 import tech.kzen.lib.common.model.document.DocumentPathMap
@@ -39,30 +41,24 @@ class DirectGraphStore(
 
     private val observers = mutableSetOf<LocalGraphStore.Observer>()
 
+    // Serializes apply() against the notation/definition read paths (one store instance is shared across
+    // concurrent server request threads) and establishes happens-before for the cache fields above.
+    // Non-reentrant: public entry points lock, the *Locked helpers assume the lock is held, and observer
+    // callbacks run OUTSIDE it so an observer reading back through graphDefinition() cannot deadlock.
+    private val mutex = Mutex()
+
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun observe(observer: LocalGraphStore.Observer) {
         observers.add(observer)
 
-        val graphDefinition = graphDefinition()
+        val graphDefinition = mutex.withLock { graphDefinitionLocked() }
         observer.onStoreRefresh(graphDefinition)
     }
 
 
     override fun unobserve(observer: LocalGraphStore.Observer) {
         observers.remove(observer)
-    }
-
-
-    private suspend fun publishSuccess(
-        event: NotationEvent,
-        attachment: LocalGraphStore.Attachment
-    ) {
-        val graphDefinition = graphDefinition()
-
-        for (observer in observers) {
-            observer.onCommandSuccess(event, graphDefinition, attachment)
-        }
     }
 
 
@@ -88,20 +84,24 @@ class DirectGraphStore(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun graphNotation(): GraphNotation {
-        val notationScan = notationMedia.scan()
-        return graphNotation(notationScan)
+        return mutex.withLock { graphNotationLocked(notationMedia.scan()) }
     }
 
 
-    private suspend fun graphNotation(notationScan: NotationScan): GraphNotation {
+    private suspend fun graphNotationLocked(notationScan: NotationScan): GraphNotation {
         val digest = notationScan.digest()
 
-        if (graphNotationCacheDigest != digest) {
-            graphNotationCacheDigest = digest
-            graphNotationCache = graphNotationImpl(notationScan)
+        val cached = graphNotationCache
+        if (cached != null && graphNotationCacheDigest == digest) {
+            return cached
         }
 
-        return graphNotationCache!!
+        // Compute BEFORE assigning: graphNotationImpl suspends (media reads), and a digest assigned ahead of
+        // its value lets an interleaving caller pair the new digest with the stale value.
+        val computed = graphNotationImpl(notationScan)
+        graphNotationCacheDigest = digest
+        graphNotationCache = computed
+        return computed
     }
 
 
@@ -153,8 +153,12 @@ class DirectGraphStore(
 
 
     override suspend fun graphDefinition(): GraphDefinitionAttempt {
-        val graphNotation = graphNotation()
-        return cachedGraphDefinition(graphNotation)
+        return mutex.withLock { graphDefinitionLocked() }
+    }
+
+
+    private suspend fun graphDefinitionLocked(): GraphDefinitionAttempt {
+        return cachedGraphDefinition(graphNotationLocked(notationMedia.scan()))
     }
 
 
@@ -169,18 +173,21 @@ class DirectGraphStore(
     ): GraphDefinitionAttempt {
         val digest = graphNotation.digest()
 
-        if (graphDefinitionCacheDigest != digest) {
-            val graphStructure = graphStructure(graphNotation)
-            graphDefinitionCacheDigest = digest
-            graphDefinitionCache = graphDefiner.tryDefine(graphStructure)
+        val cached = graphDefinitionCache
+        if (cached != null && graphDefinitionCacheDigest == digest) {
+            return cached
         }
 
-        return graphDefinitionCache!!
+        val graphStructure = graphStructure(graphNotation)
+        val computed = graphDefiner.tryDefine(graphStructure)
+        graphDefinitionCacheDigest = digest
+        graphDefinitionCache = computed
+        return computed
     }
 
 
     suspend fun digest(): Digest {
-        return notationMedia.scan().digest()
+        return mutex.withLock { notationMedia.scan().digest() }
     }
 
 
@@ -189,8 +196,15 @@ class DirectGraphStore(
         command: NotationCommand,
         attachment: LocalGraphStore.Attachment = LocalGraphStore.Attachment.empty
     ): NotationEvent {
-        val notationEvent = applyInPlace(command)
-        publishSuccess(notationEvent, attachment)
+        val (notationEvent, graphDefinition) = mutex.withLock {
+            val event = applyInPlace(command)
+            event to graphDefinitionLocked()
+        }
+
+        for (observer in observers) {
+            observer.onCommandSuccess(notationEvent, graphDefinition, attachment)
+        }
+
         return notationEvent
     }
 
@@ -199,7 +213,7 @@ class DirectGraphStore(
         command: NotationCommand
     ): NotationEvent {
         val notationScan = notationMedia.scan()
-        val graphNotation = graphNotation(notationScan)
+        val graphNotation = graphNotationLocked(notationScan)
 
         val transition =
             when (command) {
@@ -383,11 +397,13 @@ class DirectGraphStore(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun refresh() {
-        notationMedia.invalidate()
-        graphNotationCacheDigest = null
-        graphNotationCache = null
-        graphDefinitionCacheDigest = null
-        graphDefinitionCache = null
+    suspend fun refresh() {
+        mutex.withLock {
+            notationMedia.invalidate()
+            graphNotationCacheDigest = null
+            graphNotationCache = null
+            graphDefinitionCacheDigest = null
+            graphDefinitionCache = null
+        }
     }
 }
