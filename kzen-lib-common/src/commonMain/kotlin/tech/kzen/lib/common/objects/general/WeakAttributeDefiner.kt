@@ -64,7 +64,7 @@ object WeakAttributeDefiner: AttributeDefiner {
     ): AttributeDefinitionAttempt {
         return when (attributeNotation) {
             is ScalarAttributeNotation ->
-                defineScalar(attributeLocation, attributeNotation, typeMetadata)
+                defineScalar(attributeNotation, typeMetadata)
 
             is ListAttributeNotation ->
                 defineList(attributeLocation, attributeNotation, typeMetadata)
@@ -77,7 +77,6 @@ object WeakAttributeDefiner: AttributeDefiner {
 
     //-----------------------------------------------------------------------------------------------------------------
     private fun defineScalar(
-        attributeLocation: AttributeLocation,
         scalarAttributeNotation: ScalarAttributeNotation,
         typeMetadata: TypeMetadata
     ): AttributeDefinitionAttempt {
@@ -94,7 +93,7 @@ object WeakAttributeDefiner: AttributeDefiner {
                         nullable = true))
             }
 
-            return AttributeDefinitionAttempt.failure("Empty object reference - $attributeLocation")
+            return AttributeDefinitionAttempt.failure("Empty object reference")
         }
 
         return AttributeDefinitionAttempt.success(
