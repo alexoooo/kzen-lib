@@ -113,7 +113,7 @@ NotationCommand   →   notationReducer.applyStructural()   →   NotationEvent 
 
 Key types in `model/structure/notation/cqrs/`:
 
-- `NotationCommand` (sealed) — `StructuralNotationCommand` (create/rename/delete documents, objects, attributes) and `SemanticNotationCommand` (attribute value changes).
+- `NotationCommand` (sealed) — `StructuralNotationCommand` (create/rename/move/delete documents, folders, objects and attributes, plus the `*RefactorCommand`s that compose several of those into one event), `SemanticNotationCommand` (attribute value changes), and `ResourceNotationCommand` (add/remove a resource blob; itself a structural command).
 - `NotationEvent` — immutable record of what changed; downstream consumers rebuild derived state from this stream.
 - `NotationReducer` (`service/notation/NotationReducer.kt`) — the only place commands are applied; produces the event. A class (not a singleton `object`): it is constructed with a list of `CodeReferenceRewriter`s, so a refactor such as a rename can also emit downstream adjustments — e.g. kzen-auto rewriting the Kotlin expressions that reference a renamed step — bundled into the same event. The class is a thin dispatch facade holding only the `applyStructural`/`applySemantic` dispatchers; every command handler is a pure top-level function in a sibling file — the stateless per-command handlers split by target into `NotationReducer{Documents,Objects,Attributes,Resources}.kt`, the composite-attribute handlers (which compose lower-level commands through the top-level `StructuralBuffer`) in `NotationReducerComposite.kt`, and the semantic refactor + reference-analysis cluster in `NotationReducerRefactor.kt` (only the four dispatched entry points there are `internal`; the reference-analysis helpers stay file-private). Only `applySemantic` needs the instance — to thread `codeReferenceRewriters` into `renameObjectRefactor`; the structural dispatch and `StructuralBuffer` are instance-independent top-level symbols, which is what lets the composite/refactor handlers build a compound event from primitives without a reducer reference. The re-merge-inherited-value-before-local-edit invariant shared by the nested-attribute edits lives once in `remergeAttributeThenEdit`.
 
@@ -123,7 +123,7 @@ Why this matters:
 - **Auditing / undo** — the event log is a natural history.
 - **Observation** — `LocalGraphStore.Observer` lets UI layers (kzen-auto-js, kzen-project-js) react to specific structural changes.
 
-The reference implementation of the store is `service/store/DirectGraphStore` (in-process); `RemoteGraphStore` is the client-side proxy.
+The reference implementation of the store is `service/store/DirectGraphStore` (in-process); `RemoteGraphStore` is the client-side proxy, and `MirroredGraphStore` composes the two so a browser applies each command locally for instant feedback *and* ships it to the server (see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md#2-client-server-graph-synchronization)).
 
 **Format-preserving deparse.** When a command persists a document, `YamlNotationParser.unparseDocument(notation, previousDocument)` honours the previous on-disk text as a template: it splits the previous document into per-top-level-object text segments and re-emits byte-identical the segment of every object whose parsed notation is unchanged, re-serializing only changed/added objects (and preserving leading document comments). So editing one object no longer strips comments/hand-formatting from the *other* objects in the same document (a resource-only change rewrites nothing). Accepted first-cut losses: comments *inside* a changed object are dropped, and inter-object blank-line runs normalize to a single blank line. A blank or unparseable `previousDocument` falls back to full serialization.
 
@@ -138,6 +138,28 @@ Every layer is indexed by **`ObjectLocation`** = `DocumentPath` + `ObjectPath`.
 Cross-document references use `ObjectReference` + `ObjectReferenceHost`. The host scopes resolution so a partial reference can resolve to the most-local matching object — this is how documents pull in shared objects without fully-qualified addresses everywhere.
 
 Reasoning about the codebase: when you see a function take an `ObjectLocation`, it works at *every* layer transparently because the three layers are aligned on that key.
+
+### Document form — folders are first-class, and markerless
+
+A `DocumentPath` denotes one of three on-disk shapes, made explicit as `DocumentForm` rather than a `directory: Boolean`, because a pure folder and a directory-document are distinct cases with distinct path encodings:
+
+| Form | On disk | What it is |
+|------|---------|-----------|
+| `Document` | `<nesting>/<name>.yaml` | A regular notation file |
+| `Directory` | `<nesting>/<name>/~main.yaml` | A directory document that owns a resource subtree |
+| `Folder` | `<nesting>/<name>/` | A **pure directory** with no marker file, containing nested documents |
+
+A `Folder` carries no notation of its own — it exists purely to organize. That makes it markerless, so the scanner must recurse into it and emit it even when empty. `NotationScan` (`model/structure/scan/`) is the on-disk tree, keyed by `DocumentPath`, so folder entries appear as keys with **`DocumentPath.folder == true`** — any consumer iterating a scan expecting real documents must filter on that. Folders are manipulated through their own commands: `CreateFolderCommand` / `DeleteFolderCommand`, and the refactors `RenameFolderRefactorCommand` / `MoveFolderRefactorCommand`, which do re-nest the contained documents (`RenameFolderRefactorTest`).
+
+> **Gotcha — the *document* refactor does not cascade to a directory's children.** `RenameDocumentRefactorCommand` copies only the marker document, so pointing it at a non-empty folder orphans the contents. Use the folder refactors above.
+
+### Position — document order is itself addressable
+
+Object order within a document is meaningful, not incidental, so it is part of the notation model rather than an explicit ordering list. `PositionIndex` is an absolute slot; `PositionRelation` (`relativeIndex` + `At` / `After`, with `first` / `last` / `afterLast` helpers) expresses a target position relative to the current contents, which is what an insert or a drag needs. `PositionedObjectLocation` / `PositionedObjectPath` / `PositionedAttributeNesting` pair a location with its slot.
+
+`ShiftObjectCommand` / `ShiftObjectTreeCommand` reorder within a document (the tree variant carries an object's nested children with it); `RelocateObjectTreeRefactorCommand` moves a subtree across documents as a refactor.
+
+The consumer-facing half is **`NestedListAttributeDefiner`** (`objects/general/`): it auto-wires the objects nested directly under a given attribute *in document order* into a `List<ObjectLocation>` constructor parameter. So a parent references its children by structure rather than by an explicit list of references — which is how kzen-auto's Script steps derive their execution order from their position in the document. The emitted references are **weak**, so they materialize as locations and impose no construction ordering.
 
 ## Stable identity (`ObjectStableMapper`)
 
@@ -193,25 +215,40 @@ On the JVM that fallback is `ReflectiveClassMirror` (kzen-lib-jvm `server/reflec
 
 `exec/` holds general execution abstractions — not kzen-auto domain concepts. They relocated here from kzen-auto on 2026-05-28: the `Logic`/`Task` types were always platform-agnostic, and `Logic` is the abstraction that consumes `ObjectStableMapper`, so the two belong in the same module.
 
-> For the **implementation-agnostic functional requirements** of the Logic framework (the basis for
-> re-architecting it), see [`logic-spec.md`](logic-spec.md). The section below describes the *current*
-> wiring; the spec describes *what must hold* — and deliberately diverges where today's design relies on
-> global singletons or run-global resources.
+> For the **implementation-agnostic functional requirements** of the Logic framework, see
+> [`logic-spec.md`](logic-spec.md) — a *living* specification. It was written when the implementation had
+> grown sprawling, to state precisely what must hold as the basis for a simpler design; **that design has
+> since been built**, and the spec now leads the implementation rather than describing a target. The
+> section below is the vocabulary and the package layout only — every mechanism named here (quiescence,
+> stepping, migration, resources, the trace contract) is specified in full there, and that is the one
+> place to change when behaviour changes.
 
 | Concept | What it is | Key types |
 |---------|-----------|-----------|
-| **Logic** | A long-running, stateful execution that can be paused, stepped, and resumed, emitting a trace as it goes. | `Logic`, `LogicHandle`, `LogicControl`, `LogicExecution`, `LogicDefinition` (tuple in/out), `LogicResult` |
-| **Trace** | The timestamped values a Logic run records — per-path snapshots plus an append-only event history. | `LogicTrace`, `LogicTraceHandle`, `LogicTracePath`, `LogicTraceQuery`, `LogicTraceSnapshot`, `LogicTraceEntry`, `LogicTraceEvent` |
-| **Task** | A one-shot async unit of work tracked to completion. | `ManagedTask`, `TaskHandle`, `TaskRepository`, `TaskModel`, `TaskState` |
+| **Logic** | The unit of interactive computation: a suspendable `run(execution): TupleValue`. Position lives on the coroutine stack — a sequence is statements, a loop is a `for` — so there is no re-entrant "continue-or-start" and no manual position persistence. Outcomes are return / throw / cooperative cancel; *paused* is not a return value but a suspension. | `Logic`, `LogicSignature`, `LogicFailure`, `Repositionable` |
+| **Execution** | The entire surface a Logic touches, handed to it by the engine. Boundaries (`checkpoint`), tracing (`emit` / `log` / `resetEmitted`), composition (`host`), resources (`resource` / `resourceValue` / `releaseResource`), interaction (`onRequest`), and live-edit state (`onCapture` / `restored` / `moveTarget`). | `Execution`, `Address`, `PauseReason`, `ResourceScope`, `ClosePolicy` |
+| **Engine** | The single-writer core that owns everything mutable for one run: the node tree, the append-only event log, each node's live per-address value map, identity, resources, and the live-edit migration barrier. One per run — no singleton. Quiescence (the coherent wavefront that pause / step / edit act on) is counted, not guessed. | `RunEngine`, `CountingDispatcher`, `Run`, `RunState`, `Node`, `NodeStatus`, `Outcome`, `StepMode`, `TraceEvent` |
+| **Trace** | The values a run records — latest-per-address plus an append-only history. A **projection of the retained engine**, not a store. | `LogicTrace`, `LogicTracePath`, `LogicTraceQuery`, `LogicTraceSnapshot`, `LogicTraceEntry`, `LogicTraceEvent`; run models `LogicRunId` / `LogicExecutionId` / `LogicStatus` / `LogicRunState` |
+| **Task** | A one-shot async unit of work tracked to completion. Unrelated to Logic — no pause, step, or trace. | `ManagedTask`, `TaskHandle`, `TaskRepository`, `TaskModel`, `TaskState` |
 | **Tuple** | The named-component value/definition model for Logic inputs and outputs. | `TupleDefinition`, `TupleValue`, `TupleComponent*` |
 
-Interfaces and pure-data models live in `kzen-lib-common/commonMain`. Server-side execution lives in `kzen-lib-jvm` `server/exec/engine/` — the single-writer **`RunEngine`** (see [Execution model](#execution-model-logic--task--trace)), which owns the node tree, the append-only event log, and each node's live latest-value map. **There is no separate trace store** — the former `LogicTraceStore` was retired in E4 (2026-07-15); the `LogicTrace` wire contract (`kzen-lib-common .../exec/logic/trace/`) is served by projecting the engine at query time (kzen-auto's `RunEngineLogicTrace`, see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md) §3).
+Interfaces and pure-data models live in `kzen-lib-common/commonMain` (`exec/engine/` for the core, `exec/logic/` for the run-control and trace *wire* models). Server-side execution is `kzen-lib-jvm` `server/exec/engine/` — `RunEngine` + `CountingDispatcher`, the only two JVM-side files. **There is no separate trace store** — the former `LogicTraceStore` was retired in E4 (2026-07-15); the `LogicTrace` wire contract is served by projecting the retained engine at query time (kzen-auto's `RunEngineLogicTrace`, see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md) §3).
 
-**Run vs execution — nested traces live in separate nodes, merged per run.** A `LogicRunId` identifies one top-level run (at most one active at a time; a settled run is retained for post-run review); a `LogicExecutionId` identifies one execution of a logic *within* that run — 1:1 with an engine node id. When a logic *hosts another logic* — kzen-auto's `RunStep` running a linked sub-script via `Execution.host` — the sub-logic is a **new node under the same run**, so its live values land in a **separate node**: a single `lookup(parentRunExecutionId, …)` does *not* include them (it reads exactly one node's live map, translated to wire paths). To read a whole run at once, `lookupRun(logicRunId, …)` merges **every node of the run** into one snapshot, keeping only the latest node per stable id and resolving residual duplicate paths by the highest sequence (each live entry carries its `TraceEvent.sequence` via `Node.liveSequence`) — reproducing the former store's re-entry clearing. kzen-auto's client `ScriptProgressStore` does exactly this — one `mostRecent(scriptRoot)` to discover the run, then one `lookupRun` — and derives each `RunStep`'s execution-ordered screenshots from the run's history (log events, via `lookupRunHistory`). Individual executions stay separately addressable via `lookup`; `lookupRun` is the run-wide read.
+**Run vs execution — nested traces live in separate nodes, merged per run.** A `LogicRunId` identifies one top-level run; a `LogicExecutionId` identifies one execution of a logic *within* that run — 1:1 with an engine node id. When a logic *hosts another logic* — kzen-auto's `RunStep` running a linked sub-script via `Execution.host` — the sub-logic is a **new node under the same run**, so its live values land in a **separate node**: a single `lookup(parentRunExecutionId, …)` does *not* include them (it reads exactly one node's live map, translated to wire paths). To read a whole run at once, `lookupRun(logicRunId, …)` merges **every node of the run** into one snapshot, keeping only the latest node per stable id and resolving residual duplicate paths by the highest sequence (each live entry carries its `TraceEvent.sequence` via `Node.liveSequence`) — reproducing the former store's re-entry clearing. kzen-auto's client `ScriptProgressStore` does exactly this — one `mostRecent(scriptRoot)` to discover the run, then one `lookupRun` — and derives each `RunStep`'s execution-ordered screenshots from the run's history (log events, via `lookupRunHistory`). Individual executions stay separately addressable via `lookup`; `lookupRun` is the run-wide read.
 
-**Two write modes — latest-per-path vs append-only history.** `LogicTraceHandle.set(path, value)` keeps the *current* value per path (live state); it is wiped by `clearAll` — which is how a loop (`MappingStep`) resets its body between iterations, so only the last iteration's per-path values survive. `LogicTraceHandle.append(objectStableId, value)` instead records an immutable `LogicTraceEvent` on the run's history timeline, which `clearAll` never touches — so every iteration's and every nested execution's events are retained. The timeline is **value-agnostic**: any Logic can append any `ExecutionValue` (kzen-auto appends browser screenshots as `BinaryExecutionValue`; a `CustomLogic` could append its own). Read it with `lookupRunHistory(runId, sinceSequence)` — run-wide, ordered by sequence, returning only events past the watermark so a client polls incrementally without re-sending bytes. kzen-auto's RunStep detail film strip is built from the binary-valued events of a RunStep's whole subtree.
+Nothing in the engine limits a process to one run — an engine is created per run and owns only that run's state. The **server** currently tracks a single active run (kzen-auto's `ServerLogicController`), retaining it after it settles so its trace stays readable for post-run review; lifting that is a known deferred item (`logic-spec.md` §2).
 
-**Concrete wiring stays in the consumer (kzen-auto):** `ServerLogicController` (the run state machine), `ModelTaskRepository`, and `LogicConventions` (the REST wire surface) are HTTP / thread-pool concerns that don't belong in lib. kzen-auto's `ScriptDocument` is the reference `Logic` implementation — see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md) § 1.
+**Two write modes — resettable live view vs append-only history.** A Logic writes only through its `Execution`, and the choice is one flag.
+
+- `emit(address, value)` records the **current** value at an address (live latest-value-per-address). It is what a step / vertex / worker display reads, and `resetEmitted(addresses, callSites)` clears it — that is how a loop (`ForEachStep`, `DoWhileStep`) presents a fresh trace each iteration instead of the previous iteration's finished one. By default the write is **also** appended to the run's history.
+- `emit(address, value, retain = false)` makes the write **transient**: live view and observers only, no history entry. This is the bound on a high-churn progress signal (a throttled row count, a "running" marker) that would otherwise grow history without limit. Script's step traces use it.
+- `log(value)` appends an immutable event to the run's history timeline and nothing else. History survives every reset, so it is the **film strip** of a whole run — and it is **value-agnostic**: kzen-auto logs browser screenshots as `BinaryExecutionValue`, but any Logic can log any `ExecutionValue`.
+
+Read history with `lookupRunHistory(runId, sinceSequence)` — run-wide, ordered by sequence, returning only events past the watermark so a client polls incrementally without re-sending bytes. kzen-auto's RunStep detail film strip is built from the binary-valued events of a RunStep's whole subtree.
+
+`LogicTraceHandle` (`set` / `append` / `clearAll` / `register`) is **not** this mechanism — it is the legacy write-side interface kept for one adapter, kzen-auto's `ExecutionLogicTraceHandle`, which maps the Report pipeline's literal trace paths onto `Execution.emit`. Its `register` and `clearAll` are no-ops there. New code writes through `Execution`.
+
+**Concrete wiring stays in the consumer (kzen-auto):** `ServerLogicController` (the run state machine, live-edit detection, and the REST-facing verbs the engine deliberately doesn't know about), `ModelTaskRepository`, and `LogicConventions` (the REST wire surface) are HTTP / thread-pool concerns that don't belong in lib. So is the *flavour* seam: a runnable document's `main` archetype implements kzen-auto's `LogicDocument` and compiles itself to a `Logic` — `ScriptDocument` → `ScriptLogic` is the reference case — see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md) § 1.
 
 ## Package map
 
@@ -219,39 +256,51 @@ Top-level `tech.kzen.lib.common`:
 
 ```
 api/         — SPI: ObjectDefiner, ObjectCreator, AttributeDefiner/Creator
-codegen/     — code generation helpers
 exec/        — execution-layer abstractions (Logic/Task/Trace; relocated from kzen-auto 2026-05-28)
-  logic/     — Logic, LogicHandle/Control/Execution (+ *Facade), StatefulLogicElement;
-               run/model/ (LogicRunId/ExecutionId/RunExecutionId, LogicStatus, LogicRun*);
+  engine/    — the Logic core: Logic, Execution, Run, RunState, Node, NodeId, NodeStatus, Outcome,
+               OutcomeTrace, PauseReason, Address, TraceEvent, TraceReset, LogicSignature,
+               LogicFailure, Repositionable, ResourceScope, ClosePolicy, StepMode
+  logic/     — the run-control + trace WIRE models (not the core):
+               run/ (LogicController; model/ LogicRunId/ExecutionId/RunExecutionId, LogicStatus,
+                     LogicRunState/Info/Response, LogicRunExecutionInfo, LogicRunFrameInfo);
                trace/ (LogicTrace, LogicTraceHandle, model/LogicTracePath/Query/Snapshot/Entry/Event);
-               model/ (LogicCommand/Definition/Result/Type)
+               model/ (LogicDefinition, LogicType); ResourceClosePolicy
   task/      — ManagedTask, TaskHandle, TaskRepository, TaskRun; model/ (TaskId/Model/Progress/State)
   tuple/     — TupleDefinition/Value, TupleComponentDefinition/Name/Value
   (root)     — ExecutionRequest, ExecutionResult, ExecutionValue, RequestParams
 model/
-  attribute/ — AttributeName, AttributePath, AttributeNesting
-  definition/ — ObjectDefinition, GraphDefinition, *Attempt
-  document/  — DocumentPath, DocumentName, DocumentNesting
-  instance/  — ObjectInstance, GraphInstance
-  location/  — ObjectLocation, AttributeLocation, ObjectReference
-  obj/       — ObjectPath, ObjectName, ObjectNesting
+  attribute/ — AttributeName, AttributePath, AttributeNesting, AttributeSegment, AttributeNameMap
+  definition/ — ObjectDefinition, GraphDefinition, ObjectDefinitionReference, *Attempt/*Failure
+  document/  — DocumentPath, DocumentName, DocumentNesting, DocumentSegment, DocumentForm
+  instance/  — ObjectInstance, GraphInstance, GraphInstanceAttempt, ObjectCreationFailure
+  location/  — ObjectLocation, AttributeLocation, ResourceLocation, ObjectReference(+Host/Name),
+               ObjectLocator, LocateErrors, ObjectLocation{Map,Set}
+  obj/       — ObjectPath, ObjectName, ObjectNesting, ObjectNestingSegment, ObjectPathMap
   structure/
-    notation/ — DocumentNotation, GraphNotation, ObjectNotation, AttributeNotation + cqrs/
-    metadata/ — GraphMetadata, ObjectMetadata, TypeMetadata
-    resource/ — ResourcePath, ResourceListing
-objects/     — Bootstrap object definitions (Default*)
-reflect/     — @Reflect/@Service, ClassMirror, GlobalMirror, ReflectionRegistry
+    notation/ — DocumentNotation, DocumentObjectNotation, GraphNotation, ObjectNotation,
+                AttributeNotation, PositionIndex/Relation, Positioned* + cqrs/ + codec/
+    metadata/ — GraphMetadata, ObjectMetadata, TypeMetadata, AttributeMetadata + tag/
+    resource/ — ResourcePath, ResourceListing, ResourceContent/Directory/Info/Name/Nesting
+    scan/     — NotationScan, DocumentScan (the on-disk document tree, folders included)
+objects/     — bootstrap + built-in SPI implementations
+  base/      — AttributeObjectDefiner/Creator, StructuralAttributeDefiner, ServiceAttributeCreator
+  bootstrap/ — DefaultConstructorObjectDefiner/Creator, BootstrapConventions
+  general/   — Autowired/Weak/Self/Codec/ParentChild/NestedList AttributeDefiner
+reflect/     — @Reflect/@Service, ClassMirror, GlobalMirror, ReflectionRegistry, ModuleReflection
 service/
-  context/   — GraphDefiner, GraphCreator
-  media/     — NotationMedia (I/O)
-  metadata/  — NotationMetadataReader
-  notation/  — NotationReducer, NotationConventions, CodeReferenceRewriter (refactor hook)
-  parse/     — NotationParser
-  store/     — LocalGraphStore, DirectGraphStore, RemoteGraphStore; normal/ObjectStableMapper
-util/        — collections, digests, misc
+  context/   — GraphDefiner, GraphCreator; environment/ (GraphEnvironment + builder — @Service DI)
+  media/     — NotationMedia (I/O) + ReadWrite/Literal/Map/Seeded impls
+  metadata/  — NotationMetadataReader, MirrorMetadataReader
+  notation/  — NotationReducer (+ per-target handler files), NotationConventions, CodeReferenceRewriter
+  parse/     — NotationParser, YamlNotationParser
+  store/     — LocalGraphStore, DirectGraphStore, RemoteGraphStore, MirroredGraphStore;
+               normal/ (ObjectStableMapper, ObjectStableId)
+util/        — digest/ (Digest, DigestCache, Digestible), naming/, yaml/, ImmutableByteArray
 ```
 
-Platform code lives under `tech.kzen.lib.platform` (in jvmMain / jsMain): `ClassName`, persistent collections, datetime utilities. `commonMain` types depend only on `platform/`, not on the inverse.
+Platform code lives under `tech.kzen.lib.platform` — declared in `commonMain` and implemented per target in jvmMain / jsMain: `ClassName`, `collect/` (persistent collections), `DateTimeUtils`, `IoUtils`, `PlatformSynchronized`. `commonMain` types depend only on `platform/`, not on the inverse.
+
+Beyond `kzen-lib-common` the repo holds `kzen-lib-jvm` (JVM-only server code: `server/exec/engine/` for `RunEngine` + `CountingDispatcher`, `server/notation/` for file-backed media, `server/reflect/` for the reflective mirror, `server/codegen/`), `kzen-lib-js`, and `kzen-lib-reflect-ksp` (the KSP processor that generates each module's `ModuleReflection`).
 
 ## Critical files to read first
 

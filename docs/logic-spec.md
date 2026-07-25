@@ -7,12 +7,21 @@
 > design. **That design has since been built:** a single-writer **`RunEngine`** in `kzen-lib` (the
 > use-case-agnostic core) now drives all flavours, and most of the "deliberate targets" below are met —
 > tree-scoped resources, engine-owned state migration, per-execution trace attribution, and a per-run
-> (no-singleton) engine are all implemented. The one residual gap — multiple concurrent *server* runs
-> (the server controller still tracks a single active run; engine plan E6, **deferred**) — is called out
-> inline. Requirements are stated in §1–§7; §8 records how the
+> (no-singleton) engine are all implemented. Requirements are stated in §1–§7; §8 records how the
 > interacting tensions were resolved; the appendix maps each requirement to the **current** (post-rewrite)
 > build. Where §1–§7 and the current code disagree, **the requirement still wins** — the spec leads the
 > implementation, not the other way round.
+>
+> **Known gaps, each called out inline where it belongs** (last reconciled against the build 2026-07-25):
+> - **Multiple concurrent *server* runs** — the engine imposes no singleton, but the server controller
+>   still tracks a single active run (engine plan E6, **deferred**; §2).
+> - **Run-level pause-reason reduction** — the required Error > Explicit > Boundary rule is not what the
+>   current projection computes, which matters only for concurrent flavours (§4).
+> - **Streaming trace bounding is implemented but unadopted** at the per-frame grain, and Flow / Job
+>   progress emits still grow history without bound (§7).
+>
+> Two model affordances are likewise **reserved but unconsumed**: the tuple-level `detail` output
+> component (§3) and the engine's frame-close / reset observer signals (appendix).
 
 ## What a Logic is
 
@@ -21,11 +30,12 @@ computation that can be **run, paused, stepped, resumed, and cancelled**; that i
 trace as an intrinsic part of running); that can be **edited while paused and resumed against the new
 definition**; and that **composes** — a Logic can host other Logics as confined children.
 
-The model is **agnostic to any particular flavour of logic.** kzen-auto's three paradigms — **Script**
-(sequential steps), **Flow** (synchronous vertex DAG), and **Job** (concurrent workers over channels) — are
-**example consumers**, not part of the model. The requirements below are the *generalization* of what those
-three need; the design must support all of them **without constraining future implementations** of
-interactive computation (a debugger, a notebook, a state machine, a long-running daemon, …).
+The model is **agnostic to any particular flavour of logic.** kzen-auto's four flavours — **Script**
+(sequential steps), **Flow** (synchronous vertex DAG), **Job** (concurrent workers over channels), and
+**Report** (a lock-free record pipeline) — are **example consumers**, not part of the model. The
+requirements below are the *generalization* of what those four need; the design must support all of them
+**without constraining future implementations** of interactive computation (a debugger, a notebook, a
+state machine, a long-running daemon, …).
 
 **Observability and live-edit/migration are part of the core model, not consumer concerns.** Tracing is not
 a logging facility bolted onto a finished computation — it is the mechanism by which interactive computation
@@ -101,7 +111,24 @@ re-inventing it.
   run-status display) shows only executions still *in progress* — a child that ran to completion (a
   stepped-over / stepped-out sub-computation) is pruned from the paused stack depth. The **execution tree**
   (trace attribution, §7) instead retains *every* execution that ran, completed or not, so its trace stays
-  addressable after it settles. Same nodes, two projections.
+  addressable after it settles — **except** one whose host explicitly opted out of retention (the §7
+  streaming bound), which is compacted out of the tree when it settles. Same nodes, two projections.
+
+- **Quiescence is not liveness — deadlock detection is deliberately *not* core.** A run whose every spine
+  is parked and a run whose every spine is permanently blocked look identical to the core: both are
+  quiescent. The model therefore makes **no liveness guarantee** and provides no watchdog; detecting that
+  a computation can provably make no further progress requires knowing *what* the spines are waiting on,
+  which is flavour knowledge. A flavour that can be stuck (a dataflow paradigm whose workers block on
+  channels) owns its own detector, reads its own wait state rather than raw quiescence, and must run it
+  **off** the engine's dispatcher — a polling coroutine *on* it would keep the run perpetually non-quiescent
+  and break pause / step / migrate outright.
+
+  > *As built:* a core engine watchdog was tried and retired — its topology heuristic sat in the
+  > use-case-agnostic core and still missed a lone sink on an orphan channel. Its replacement,
+  > `JobDeadlockMonitor`, is Job-scoped, polls the run's channels' blocked-endpoint counts against the live
+  > non-terminal Worker count on its own daemon thread, requires the verdict to hold across a grace window,
+  > and is suppressed entirely while an external duplex channel is open (a Worker idling on a serve port
+  > awaits a UI request, not a peer).
 
 - **No global singletons (explicit anti-goal).** The model must **not** depend on process-global state.
   Concretely: there must be no requirement that *at most one run is active*, no single shared run
@@ -133,8 +160,32 @@ re-inventing it.
   - **void** (zero output components),
   - a single **`main`** output component (the common case), or
   - **several named** output components.
-- A conventional **`detail`** component carries auxiliary/observational output (e.g. a rich value for the
-  UI) distinct from the primary `main` result.
+- Auxiliary/observational output (a rich value for the UI) must be expressible **distinctly from the
+  primary `main` result**, so a consumer can show it without mistaking it for the computation's value.
+  A conventional **`detail`** component name is reserved in the tuple model for this.
+
+  > *As built:* the tuple-level `detail` component is **reserved but unadopted** — `TupleComponentName.detail`
+  > and its `ofDetail` / `ofVoidWithDetail` / `detailComponentValue` helpers exist in `kzen-lib` with no
+  > consumer. The requirement is met today at the **trace** level instead: a Script step attaches a rich
+  > value (a screenshot) to its own element's live trace value (`StepExecution.traceDetail` → the
+  > `StepTrace.detail` field), which is where the UI reads it. Either surface satisfies the requirement;
+  > only one is currently wired.
+
+- **Declared inputs are addressable, defaulted elements of the definition — not just a signature.** An
+  input is declared as a first-class, renameable element carrying its name, its type and an optional
+  **default**; an invocation that binds no argument for it resolves to that default. The declaration is
+  **flavour-neutral** — every flavour that accepts inputs reads the same notation contract — and the
+  **resolved** value of each declared input is surfaced to the trace once per (re)launch, so an editor can
+  show what a run actually ran with beside what was declared.
+
+  > *As built:* the shared notation contract is a `parameters` branch of typed declarations plus a
+  > `results` map (`LogicConventions.parametersAttributePath` / `resultsAttributePath`, parsed by
+  > `ParameterDefaultDefiner` / `ResultSignatureDefiner`), compiled to a flavour-neutral `LogicParameter`
+  > (stable id + name + typed default) and surfaced by `LogicParameterTrace` as a bounded display string at
+  > the parameter's own stable-id address, written **transiently** (§7) since only the live view reads it.
+  > Script and Job both consume it; a Flow binds its host vertex's wired inputs positionally against the
+  > callee's declared parameter order.
+
 - Types are **first-class** (carried as type metadata) and used to **validate wiring before running** where
   the flavour allows it (definition-time errors surfaced to the user), rather than failing as a runtime
   cast. The model must permit **user-defined and dynamically-discovered** component types.
@@ -170,6 +221,21 @@ below is addressed and concurrent runs are independently controllable.
   two would race on the "already running" guard). A never-launched run is idle and cancellable; cancelling
   one settles it *cancelled* without ever running a boundary.
 
+- **Observable run state, and the retained-but-inactive settled run.** A driver projects the run as a small
+  state enum a client can act on directly: *running* / *stepping* (work released and in flight),
+  *pausing* / *cancelling* (a signal accepted but not yet settled), and the three settled states that
+  mirror the pause reasons above — *paused* (an auto-step loop keeps going) versus *explicit-paused* /
+  *error-paused* (stop and wait). The in-flight states are **driver** state: the engine cannot see that a
+  release is a step rather than a run, nor that a pause has been requested, so the driver must announce
+  every settle itself — the engine's own change signal fires *before* the driver reflects the settle, so
+  without that announcement the *stepping → paused* transition (exactly what an interactive client waits
+  on) would never be pushed.
+
+  A run that reaches a terminal outcome is **retained for post-run trace review but reported as
+  no-active-run**: the client stops driving it, resource eviction that gates on "no run active" proceeds,
+  and the "clear trace" control becomes available — while §7's queries still project it. Only the next
+  launch, or an explicit clear, disposes it.
+
 - **What a "boundary" is.** Each Logic **defines its own unit of progress** — its step/checkpoint
   granularity. A boundary is a point where the computation is in a coherent, observable, pausable state
   (a Script's step, a Flow's vertex, a Job's batch wavefront). Stepping advances one such boundary; the
@@ -194,6 +260,17 @@ below is addressed and concurrent runs are independently controllable.
 
   The distinction is functional: interactive clients treat *boundary* (keep advancing) differently from
   *explicit* / *error* (stop and wait for the user).
+
+  **Reducing many reasons to one.** Because concurrent spines park independently, a settled run can hold
+  several reasons at once (a Job with one Worker error-parked and the rest at their ordinary boundaries).
+  The run-level reason a client acts on must be the **most demanding** of them — *error* over *explicit*
+  over *boundary* — so that a single failure anywhere halts an auto-step loop rather than being masked by
+  siblings that merely settled.
+
+  > **Gap.** The current projection (`ServerLogicController.deepestPauseReason`) instead takes the first
+  > reason found by a depth-first walk over reversed children — deterministic, but it picks by tree
+  > position rather than by severity, so an error-parked spine can be masked by a later sibling parked at
+  > an ordinary boundary. Single-spine flavours (Script, Flow) are unaffected; a concurrent Job is.
 
 - **Internal (self-)pause.** A Logic can pause itself by resolving a boundary as *paused (explicit)* rather
   than continuing — the mechanism by which a "pause step" works. (The mechanism is part of the result
@@ -224,9 +301,22 @@ below is addressed and concurrent runs are independently controllable.
   whose structure the target does not resolve — **ignores** the hint, leaving an ordinary migrate parked at
   its existing frontier. Like breakpoints, the target is stable-id keyed, so it is rename / live-edit safe.
 
+  Repositioning is the one control verb that is **refusable**: unlike run / pause / step, which are always
+  accepted, a reposition whose target the current definition cannot honour must be **rejected with the run
+  left untouched** — nothing torn down, no state lost — which is why the capability check happens before
+  the barrier. It is also the one verb that **always re-reads the definition** (a reposition *is* a
+  migrate, so it shares its barrier with any pending edit and the two land in a single rebuild; a failure
+  to rebuild is likewise a refusal, not a run-ending error). It is permitted while paused **or**
+  error-parked — jumping past a failing element is a headline use — and refused while running. Asking to
+  move to where the run is already parked is a no-op, not a rebuild.
+
 - **Outcome taxonomy.** Every boundary resolves the execution to one of:
   - **success(value)** — terminal, carrying the typed output tuple,
-  - **failed(message)** — terminal,
+  - **failed(message, at)** — terminal; **`at` names the element the failure originated at**, and — exactly
+    like a pause reason — **propagates upward unchanged** as the failure flattens up the host chain, so a
+    whole-run failure still says where it really came from rather than naming the outermost frame. The
+    engine stamps a fresh throwable with the failing node's own identity; a re-thrown child failure keeps
+    the child's. Null when the origin is unknown.
   - **cancelled** — terminal,
   - **paused(reason)** — **non-terminal**, resumable from where it left off.
 
@@ -242,6 +332,18 @@ below is addressed and concurrent runs are independently controllable.
   requests** without leaving its boundary discipline. This is the *pull* half of interactivity; tracing
   (§7) is the *push* half.
 
+  Answering is **not** a boundary: the handler runs on the caller's thread while the execution keeps
+  running, so it must be safe to call concurrently and should read a snapshot the execution publishes
+  rather than the execution's live state. A response must therefore be **bounded in time** — a handler
+  that waits on a paused or slow execution would otherwise hold the caller (and, if the driver serializes
+  control, the run's whole control surface) indefinitely; a timeout that surfaces as a failed response is
+  the required behaviour, not a stalled one.
+
+  > *As built:* a Job registers one router on its **root** node (the frame a remote client addresses) and
+  > dispatches inbound requests **by channel name** to the Worker serving that `external` duplex channel,
+  > with a 1-second cap on the round trip — a deliberate bounded seam, since the controller call is
+  > synchronized and blocking. Report registers its preview handler on its own node directly.
+
 ---
 
 ## 5. Live edit and state migration
@@ -250,12 +352,26 @@ Both halves of this section are **core, use-case-agnostic requirements** — any
 them; they must not be re-implemented per flavour.
 
 - **Edit while paused.** When a run is paused, the user may edit the **logic definition** and resume against
-  the **new** definition. The live (possibly-edited) definition is **re-read at every boundary**, not only
-  in response to an explicit "reload" — so resuming naturally picks up edits. Edits arrive through the
-  definition's normal mutation channel (CQRS); the model only requires that the current definition is
-  consulted afresh each tick.
+  the **new** definition. The live (possibly-edited) definition is **re-read on every release of work**
+  (resume, step, reposition), not only in response to an explicit "reload" — so resuming naturally picks up
+  edits and no separate reload verb exists. Edits arrive through the definition's normal mutation channel
+  (CQRS); the model only requires that the current definition is consulted afresh each time the run is let
+  go, while it is quiescent and *before* work is released.
 
-- **A no-edit boundary must be a stable no-op.** Because the definition is re-read at *every* boundary, the
+  **What "the definition" spans.** The compared unit is not the root document alone but its **transitive
+  closure of linked Logic documents** — everything the root reaches, recursively, including the callees a
+  host element points at. Those links are typically *weak* (a call-site names a document without
+  structurally depending on it), so a closure derived from strong references alone would miss them and
+  editing a paused caller's **callee** would silently fail to migrate the caller. Detection cheats safely:
+  a coarse "some notation changed" signal from the mutation channel gates the precise comparison, so a
+  clean release — the overwhelming majority, and every tick of a slow-motion run — pays nothing.
+
+  Only a **launched** run migrates: a created-but-unlaunched run has no live state to re-point, so its
+  first release simply runs the current definition. And a definition that **fails to rebuild** (a mid-edit
+  incomplete state) must **not** end the run — the prior definition keeps running and the reconcile is
+  retried on the next release.
+
+- **A no-edit release must be a stable no-op.** Because the definition is re-read on *every* release, the
   overwhelmingly common case — re-reading an **unchanged** definition — must **not** trigger a migration.
   The change signal must therefore be **deterministic**: derived from the durable, editable *description*
   (the notation), not from a freshly-rebuilt runtime object whose fresh mutable scaffolding never compares
@@ -376,9 +492,25 @@ it is doing**, and the recording is part of the Logic contract — not an option
   - **Append-only history.** An immutable, ordered timeline of events that **survives resets** — the
     "film-strip" of everything that happened, including each loop iteration and each nested execution.
 
+  > *As built:* one call writes each — `Execution.emit(address, value)` (live, and by default also
+  > appended) and `Execution.log(value)` (history only) — and one call resets the live view:
+  > `Execution.resetEmitted(addresses, callSites)`, the explicit signal a re-running scope raises (below).
+
 - **Typed trace values, including large binary.** Trace values are typed (text, number, boolean, list, map,
   **binary**, …) — binary because real consumers record screenshots and other blobs. Arbitrary values must
   be recordable.
+
+  **Large binary must not ride the value wire.** A trace snapshot is re-fetched constantly, so inlining a
+  megabyte-scale blob in it would re-send that blob on every poll. The wire form of a binary value is
+  therefore a **content-addressed handle** — its content hash plus size and media type — and the bytes are
+  served **once, out of band**, by their hash. Content addressing (rather than a per-write id) is what
+  makes the fetch cacheable and makes an unchanged screenshot free on every subsequent poll, and it keeps
+  the substitution **at the wire seam only**: a binary value handed back to a caller in-process keeps its
+  bytes.
+
+  > *As built:* `RunEngineLogicTrace.toWireValue` maps a `BinaryExecutionValue` to a
+  > `BinaryHandleExecutionValue`; the bytes are resolved by `lookupBinary` (scanning live maps ∪ history)
+  > and served by the `/logic/trace-binary` blob endpoint.
 
 - **Push and incremental pull.** Live observers can be **notified** as values change (push, for a live
   updating view). Large/long histories must be retrievable **incrementally** — a client polls only events
@@ -391,14 +523,52 @@ it is doing**, and the recording is part of the Logic contract — not an option
   > engine's: exactly one subscription per run is held by the controller, which re-broadcasts to its own
   > observers (an engine-scoped subscription per remote consumer could not survive the run being replaced
   > or disposed, and would keep the engine's observer list growing after `shutdown`).
-  >
-  > **A run snapshot is versioned, and the version is not a clock.** `RunState.sequence` — the same global
-  > monotonic ordering the merge and the timeline require (below) — doubles as the run's cache version: a
-  > consumer holding sequence N has, by construction, nothing newer to fetch. Wall-clock time cannot serve
-  > this role (it is not monotonic across parallel spines, and a status timestamp stamped per call reads as
-  > "changed" on every poll, defeating any cache built on it). Transitions the sequence cannot express — a
-  > run starting, settling terminal, or a retained trace being cleared — are carried by a separate
-  > controller **epoch**, so a consumer can still notice a change while no run is active.
+
+  **Push must survive leaving the process, and must degrade rather than fail.** The observer above is
+  in-process; a real client is remote, so the change signal has to reach it over a transport that can fail
+  in ways an in-process callback cannot — dropping, or (worse) *opening successfully and then silently
+  delivering nothing* through a buffering intermediary. Two requirements follow. A remote push channel must
+  be **proven by delivery, never by connection**, and it must carry a **periodic heartbeat** so an idle-but-
+  live channel is distinguishable from a dead-but-open one. And it must be a **strict accelerator over
+  polling**: a poll loop stays armed underneath at the cadence that would apply with no push at all, is
+  merely relaxed while push is proven, and snaps back the instant push stops being trusted — so every
+  failure mode degrades to the pre-push behaviour instead of freezing the view.
+
+  > *As built:* a Server-Sent Events stream (`/logic/events`) carrying the byte-identical status payload the
+  > poll fetches, so pushed and polled statuses parse through one client path; a named `ping` event feeds a
+  > staleness watchdog; an opened-but-mute stream latches push off for the page (a buffering proxy is a
+  > property of the deployment, not a transient fault); only the visible tab holds a stream, to stay under
+  > the browser's per-origin connection cap. A client-side throttle then caps how often an arriving status
+  > fans out to views — a structure change publishes immediately, a values-only change at a human cadence.
+
+  **Versioned, at more than one granularity — and never by a clock.** Every observable a consumer caches
+  against must carry a **monotonic version that moves only when that observable actually moved**, so
+  "nothing changed" is decidable without diffing. Wall-clock time cannot serve this role at all: it is not
+  monotonic across parallel spines, and a timestamp stamped per call reads as "changed" on every poll,
+  which defeats every cache built on it. One version is not enough either, because consumers change at
+  different rates: a view of *values* changes on every write, whereas a view of *shape* (which executions
+  exist, what state the run is in, which documents hold a trace) changes only occasionally. Collapsing
+  both onto the value-rate version forces the shape-keyed consumers to re-fetch full snapshots per write.
+  So the status a driver publishes carries **three independent axes**:
+
+  - **value version** — the run's global monotonic trace high-water (the same total order the merge and
+    the timeline require, below): a consumer holding version N has, by construction, nothing newer to
+    fetch;
+  - **structure version** — moves only on a genuine execution-tree change (an execution created or
+    destroyed, a run-state transition, a run lifecycle or clear event) and explicitly **not** on a frame
+    advancing within a stable set of executions;
+  - **epoch** — the transitions neither of the above can express because they happen when there is no
+    run to have a version: a run starting, a run settling terminal, a retained trace being cleared. This
+    is what lets a consumer notice a post-run "clear" at all — status reports no-active-run both before
+    and after it, so without the epoch the response is byte-identical across the clear and no view would
+    ever repaint to empty.
+
+  > *As built:* `RunState.sequence` → `LogicRunInfo.sequence` is the value axis; `LogicStatus.epoch` and
+  > `LogicStatus.structureVersion` are controller-scoped and present even while `active` is null. The
+  > structure version folds the epoch in (so every epoch bump is also a structure bump) and is computed
+  > lazily by comparing a cheap signature — epoch, run id, run state, and the *unfiltered* node-id set —
+  > off the engine's hot path. It replaced a wall-clock `time` field that conveyed change by being fresh
+  > on every call, and therefore made every consumer re-fetch forever.
 
 - **One definition, many traces — merged and attributed.** The same definition can execute **many times** in
   one run (loop iterations, repeated sub-computations, concurrent workers), and **each execution is a
@@ -425,29 +595,82 @@ it is doing**, and the recording is part of the Logic contract — not an option
   invocations they previously hosted — transitively — so between the boundary and the fresh pass's first
   write nothing reads as already-run, while every prior pass's history survives.
 
+  > *As built:* `Execution.resetEmitted(addresses, callSites)` — the addresses the host clears on itself,
+  > and the call-sites whose hosted invocations (and their descendants) it supersedes. A re-running host
+  > raises it alongside `discardCaptured` (§5) over the same element set: the same event has an
+  > observability half (clear their traces) and a migration half (abandon their captured state).
+
 - **Total ordering across parallel spines.** Because executions run in parallel, **wall-clock time is
   insufficient** to order events. The model requires a **global monotonic sequence** across the whole run so
   the merge and the timeline are deterministically ordered.
+
+- **An execution's own outcome is observable as trace, not only as run state.** How each element *ended*
+  — succeeded, failed (and with what message, and at which element, §4), or was cancelled — is exactly the
+  kind of per-element fact a consumer wants beside that element's recorded values, and it must **survive
+  the run** so a post-run review still shows it. Because it is derived from the execution's settled state
+  rather than written by the Logic, it is **synthesized when read**, on a **dedicated address** that can
+  never collide with a value the element itself recorded, and it is **flavour-neutral** — any consumer
+  reads any element's outcome the same way, and a flavour that ignores outcomes costs nothing.
+
+  > *As built:* `RunEngineLogicTrace` projects each terminal node's outcome as `OutcomeTrace.toMap` at
+  > `LogicTracePath.nodeOutcome(stableId)` — a reserved `$outcome` marker prefix over the same stable id,
+  > so it is rename-safe and is dropped when the element is deleted, exactly like an emitted value. The
+  > Job UI's per-Worker outcome chip is its consumer.
+
+- **Address translation is a contributed extension, applied at read time.** Within an execution, a Logic
+  records values at its own **internal addresses**; the addressing a consumer reads (per-element paths) is
+  a different space. Most values map by the obvious rule — the address *is* the element — but a flavour
+  may need to record something that is not per-element (whole-pipeline progress, a worker's aggregate
+  status). Rather than teach the generic reader about each flavour, a flavour **contributes a routing** for
+  a reserved marker it emits; the generic reader dispatches by marker and falls back to the element rule.
+  Doing this at **read** time rather than write time is what keeps the write path flavour-free and lets the
+  translation change without rewriting anything already recorded.
+
+  > *As built:* `LogicTraceAddressRouting` (`marker` → `tracePath(address, stableId)`), autowired at the
+  > composition root and indexed by marker. Job contributes `$job-progress` → the Worker's progress path;
+  > Report contributes `$trace-path` → the literal path carried in the remaining address segments (its
+  > paths are by-convention, not per-element). A flavour that emits only element addresses contributes
+  > none.
 
 - **Retention vs. bounding (a real tension).** A finished run's trace must be **kept** so the user can
   review what happened. **But** a streaming / long-running execution cannot retain **unbounded**
   per-iteration / per-element buffers — retention must be **bounded** (e.g. finished frames are evicted;
   history is retained selectively). "Keep the trace" and "don't grow without bound" must both hold.
 
-  > **Wired.** Retention is the **default**, and bounding is **opt-in** — so the two requirements
-  > coexist rather than trade off. A finished frame is kept by default, so post-run review works (a
-  > Script `RunStep`'s screenshot strip shows *every* loop iteration's finished sub-script). A long *streaming*
-  > host that opens one child per element passes `Execution.host(…, retainTrace = false)`, recorded as
-  > `Node.retainTrace`; the engine then **compacts the settled frame out of the run snapshot and its runtime
-  > maps** — bounding the run's live-value / merged views to its live frames instead of leaking one node per
-  > element (the frame's `log` events stay in the history stream; history bounding is a separate later phase).
-  > At a finer grain, a high-churn per-emit progress signal passes `emit(retain = false)` to stay out of history
-  > entirely. Re-entry still clears a prior invocation's live values (so a loop doesn't grow the latest-value
-  > view), and a new run disposes the prior retained run's engine (clearing its trace). The bound is a choice
-  > the Logic sets — not a hard-coded engine policy — so it can never silently drop a frame a consumer wanted to
-  > review. Trace queries read this directly off the retained engine; there is no separate trace store to keep
-  > in step (`RunEngine.observeFrames` remains for a consumer that wants a frame-close signal, e.g. push
-  > transport).
+  The resolution is asymmetric on purpose: **retention is the default and bounding is opt-in**, chosen by
+  the Logic rather than imposed by engine policy — so the engine can never silently drop a frame a consumer
+  wanted to review, and a run only pays for bounding when its author knows it streams.
+
+  **Retaining a settled run must cost no resources beyond memory.** A terminated run is kept only to be
+  *read*, so keeping it must not hold threads or pools — which makes stopping the machinery and tearing the
+  run down two distinct operations: **stop** (release the pools; tree and history stay fully readable) and
+  **dispose** (also release anything the run still owns, e.g. state orphaned by an edit). Orphan disposal is
+  deliberately deferred by one retention cycle rather than swept eagerly, bounding an orphan's lifetime to a
+  single edit without paying a sweep per edit.
+
+  > **Implemented — and how much of it is adopted.** Three bounds exist, at three grains:
+  >
+  > - **Per-frame (implemented, not yet adopted).** A streaming host that opens one child per element passes
+  >   `Execution.host(…, retainTrace = false)`, recorded as `Node.retainTrace`; the engine then **compacts the
+  >   settled frame and its subtree out of the run snapshot and its runtime maps**, bounding the live-value /
+  >   merged views to live frames instead of leaking one node per element (the frame's `log` events stay in
+  >   the history stream). The engine implements and tests this, but **no flavour passes `false` today** — it
+  >   is the sanctioned bound waiting for its first streaming consumer.
+  > - **Per-emit (adopted).** `emit(retain = false)` updates the live view without appending to history — used
+  >   by Script's per-step `StepTrace` (the step's *current* state; only the live view ever reads it) and by
+  >   the resolved-parameter display (§3).
+  > - **Per-invocation (adopted, and automatic).** Re-entry clears a prior invocation's live values (below),
+  >   so a loop does not grow the latest-value view; and a new run disposes the prior retained run.
+  >
+  > **Open gap:** Flow's per-vertex visual-model emits and Job's per-Worker progress emits are still
+  > *retained*, so a long run's history grows without bound — mitigated only by throttling the emit *rate*
+  > (wall-clock, per element) and by bounding each payload. Adopting `retain = false` for them is tracked as
+  > Job plan Phase 7 (`kzen/plans/2026-07-25_job-improvements.md`); history bounding proper is a later phase.
+  >
+  > Trace queries read all of this directly off the retained engine — there is no separate trace store to keep
+  > in step. `RunEngine.shutdown` / `dispose` are the stop-vs-tear-down split above.
+  > (`RunEngine.observeFrames` remains available for a consumer that wants a frame-close signal; it has no
+  > production consumer since the trace store was retired.)
 
 - **Rename-survival.** Trace addressing must use the **stable identity** of §5, so a trace recorded before a
   rename still resolves to the element's current address when viewed afterward.
@@ -508,6 +731,31 @@ recorded here so the rationale isn't lost and future changes don't regress it.
   Job and Report are `Logic` implementations in kzen-auto with no duplicated run/step/migration
   orchestration; the run state machine, migration and identity are now core.
 
+- **Adding a flavour without editing the framework.** *Question: if flavours add no stepping, migration or
+  trace-store code, what is left that a new flavour must touch — and can that be reduced to zero?*
+  **Resolved:** yes, to zero framework edits. A runnable document's `main` archetype implements
+  `LogicDocument.toLogic`, and `LogicCompiler` resolves that archetype **polymorphically** from the graph —
+  there is no flavour `when` anywhere in the run path, so a paradigm is added purely as a notation
+  archetype (the flavour-level analogue of the rule that a new Script step is just an object implementing
+  `ScriptStep`). Two details are load-bearing rather than incidental: the archetype is instantiated from a
+  graph **narrowed to that document's own transitive closure**, so its nested children (a Job's Workers, a
+  Script's steps) are never constructed during compilation — which is what lets a Job compile at all, since
+  its saved Worker ports are blank until channel synthesis fills them; and the same entry point is what a
+  nested host (a Script's run-step, a Flow's run-vertex, a Job's run-worker) compiles its child through, so
+  heterogeneous nesting (§2) needs no per-pair knowledge. A document whose `main` is not a `LogicDocument`
+  fails to start cleanly rather than escaping as an internal error. The same one-marker-one-contribution
+  shape recurs for read-time trace routing (§7).
+
+- **Quiescence looked like it should also answer "is it stuck?".** *Question: the engine already knows when
+  every spine is parked — can it not also declare a deadlock?*
+  **Resolved: no, and the attempt was retired.** Quiescence is indistinguishable from deadlock without
+  knowing what the spines wait on, and a topology heuristic in the core (the original watchdog's
+  `>= 2-leaf` rule) both encoded a dataflow assumption in a use-case-agnostic layer and still missed real
+  cases. Liveness is now flavour-owned (§2): the detector reads the flavour's own wait state, runs off the
+  engine dispatcher, and is suppressed when the run is legitimately idle awaiting an external request. The
+  core keeps exactly one liveness-adjacent job — making blocking work *visible* as busy
+  (`Execution.blocking`, §2), so quiescence itself is never a lie.
+
 ---
 
 ## Appendix — as-built type map
@@ -522,21 +770,24 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`, `checkpoint(at:)` (optionally names the boundary's element → `Node.position`), `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `pauseHere`, `recoverable`, `host`, `resource` / `releaseResource`, `onRequest`, `onCapture` / `restored`, `moveTarget` (one-shot repositioning hint, §4) | kzen-lib-common `exec/engine/` |
-| Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `observeFrames` frame-close signal; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) | kzen-lib-jvm `server/exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `resource` / `resourceValue` (ancestor-chain read) / `releaseResource`; `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` (one-shot repositioning hint, §4) | kzen-lib-common `exec/engine/` |
+| Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `setBreakpoints`; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) + `CountingDispatcher` (the quiescence primitive: counts dispatch tasks, and counts a pending `delay` / an `Execution.blocking` region as in-flight so neither reads as idle). Available but unconsumed: `observeFrames` (frame-close signal), `observeResets` / `TraceReset` (synchronous pre-return reset signal) — both left from the retired trace-store bridge | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live (+ `liveSequence`) + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
-| Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
-| Typed I/O | `TupleDefinition` / `TupleValue` / `TupleComponentDefinition` / `TupleComponentValue`, `TupleComponentName.main` / `.detail`, `LogicType` | kzen-lib-common `exec/tuple/`, `exec/logic/model/` |
-| Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / Failed / Cancelled) | kzen-lib-common `exec/engine/` |
-| Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`, `setBreakpoints`, `moveTo`); the impl drives the engine on a single thread, **retains the settled run** for post-run trace queries (disposed on the next `start` / a global clear), and detects live edits | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/` |
-| Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo`, `LogicRunFrameInfo` (live frame tree), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` / `LogicStatus` / `LogicRunResponse`, `ObjectStableId` + `ObjectStableMapper` | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
-| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, orphan sweep) + `Execution.onCapture` / `restored`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` → `Execution.moveTarget`, flavour capability `Repositionable.canMoveTo`; edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (graph-store observer) gating a notation-diff over the transitive closure | engine kzen-lib-jvm; detection kzen-auto-jvm |
+| Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / setBreakpoints / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
+| Typed I/O | `TupleDefinition` / `TupleValue` / `TupleComponentDefinition` / `TupleComponentValue`, `TupleComponentName.main` (`.detail` is reserved but unconsumed — §3), `LogicType` | kzen-lib-common `exec/tuple/`, `exec/logic/model/` |
+| Declared inputs / outputs (flavour-neutral, §3) | notation contract `LogicConventions.parametersAttributePath` / `resultsAttributePath`, parsed by `ParameterDefaultDefiner` / `ResultSignatureDefiner`; compiled to `LogicParameter` (stableId + name + typed default, `resolve(inputs)`), surfaced by `LogicParameterTrace` as a transient per-parameter display emit at run (re)start. Consumed by `ScriptLogicCompiler` / `ScriptLogic` and `JobLogicCompiler` / `JobParameters` / `EngineJobControl.parameter` | kzen-auto-jvm `server/exec/`; kzen-auto-common `paradigm/logic/`, `objects/document/logic/` |
+| Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / `Failed(message, at)` — `at` = origin stable id, propagated unchanged through `host` / Cancelled); `OutcomeTrace` (the `{kind, message, at}` wire shape shared by the server projection and the client) | kzen-lib-common `exec/engine/` |
+| Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`, `setBreakpoints`, `moveTo` — refusable, returning `LogicRunResponse.Rejected`; `observeStatus`, `retainedTraceAccess`, `clearRetainedTrace`); the impl drives the engine on **one single-thread executor** (each release blocks in `RunEngine.awaitQuiescent` until the run settles, then reflects that back into the status flags; signal-only verbs — pause / cancel / setPauseOnError — call the engine directly so they reach an in-flight run instead of queueing behind it. E6 would need one executor **per run**, since a shared one would serialize unrelated runs), **retains the settled run** for post-run trace queries (disposed on the next `start` / a global clear) while reporting it as no-active-run, and detects live edits. REST surface: `LogicHandler` (+ the `/logic/events` SSE stream and the `/logic/trace-binary` blob route) | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/`, `server/api/handler/` |
+| Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo` (frame + state + value `sequence`), `LogicRunFrameInfo` (live frame tree + resolved `position`), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` (Running / Stepping / Pausing / Paused / ExplicitPaused / ErrorPaused / Cancelling), `LogicStatus` (the three version axes of §7: `epoch`, `structureVersion`, `active.sequence`), `LogicRunResponse` (incl. `Rejected`), `ObjectStableId` + `ObjectStableMapper`. (`LogicRunFrameState` is vestigial — its field on `LogicRunFrameInfo` is commented out.) | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
+| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, resource lift/re-adopt, orphan sweep) + `Execution.onCapture` / `restored` / `discardCaptured`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` → `Execution.moveTarget`, flavour capability `Repositionable.canMoveTo`; edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (the controller is a `LocalGraphStore.Observer`) gating a content-digest diff over the closure `LinkedLogicDocuments.transitiveDigest` builds from `LogicCallGraph.transitiveCallees` (root document ∪ weakly-linked callees, §5). Per-flavour carried state: `ScriptMigrationState` (completed outcomes + per-step carry + result), `FlowMigrationState` (per-vertex progress + harvested output), Job's channel drain/preload + per-Worker `WorkerBase.captureMigrationState`; Report registers no capture (clean restart — the §5 default) | engine kzen-lib-jvm; detection + flavours kzen-auto-jvm |
 | Resources (**now: tree-scoped**) | `Execution.resource(key, policy, scope)` / `releaseResource` (owner node selected by `ResourceScope` = Self / Parent / Root, disposed on that node's settle; release searches the ancestor chain), `ClosePolicy` (Auto / Manual / KeepOnFailure) + `ResourceScope` (Self / Parent / Root) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure / parent / parentKeepOnFailure / run / runKeepOnFailure) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
-| Tracing (wire contract) | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register — the Report write adapter, `ExecutionLogicTraceHandle`, still uses it over `Execution.emit`/`log`), `LogicTracePath` (+ `$stable` marker), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/` |
-| Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / List / Map) | kzen-lib-common `exec/` |
-| Trace store (**now: the engine itself**) | No separate store. The `LogicTrace` REST surface is served by projecting the **retained `RunEngine`** at query time (`RunEngineLogicTrace`): the node tree yields the execution tree / `mostRecent` / `tracedLocations`; per-node `live` (+ `liveSequence`) yields `lookup` / `lookupRun` (whole-run merge keeps the latest node per stable id + latest sequence, reproducing the former re-entry clearing); `history` (log events) yields `lookupRunHistory`. Each flavour's within-node `Address` → wire `LogicTracePath` translation (marker routings `$job-progress` / `$trace-path`, else the stable-id default) is applied at query time, not write time. Rename survival: paths stay `ObjectStableId`-keyed, resolved to the current location via `ObjectStableMapper`, dropped when the object is deleted. (Retired: the bridged in-memory `LogicTraceStore` + `ServerLogicController.mirrorTrace` / `onFrameClosed` / `onTraceReset`.) | view kzen-auto-jvm `server/exec/`; engine kzen-lib-jvm |
-| Interactive request/response | `ExecutionRequest` / `ExecutionResult` / `RequestParams`; `Run.request` / `LogicController.request`; `Execution.onRequest` | kzen-lib-common `exec/` |
-| Example consumers (illustrative only) | `ScriptLogic` / `ScriptRunContext`, `FlowLogic` / `FlowRun`, `JobLogic` / `JobRun` / `WorkerLogic` / `EngineJobControl`, `ReportLogic` / `ReportRun`; `LogicCompiler` (document → `Logic`); client driver `ClientLogicGlobal` (poll + auto-step) | kzen-auto-jvm `server/exec/**`, `server/objects/**`; kzen-auto-js `client/service/logic/` |
+| Tracing (wire contract) | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / tracedLocations / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register — the Report write adapter, `ExecutionLogicTraceHandle`, still uses it over `Execution.emit`/`log`; its `register` / `clearAll` are no-ops there), `LogicTracePath` (+ the `$stable` and `$outcome` markers, the latter via `nodeOutcome(stableId)` — §7), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; REST entry point `LogicTraceEndpoint` + `LogicConventions` actions; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/`; endpoint kzen-auto-jvm `server/objects/logic/` |
+| Trace address routing (§7 SPI) | `LogicTraceAddressRouting` (`marker` → `tracePath(address, stableId)`), autowired and indexed by marker in `RunEngineLogicTrace`; contributed by `JobTraceAddressRouting` (`$job-progress`) and `ReportTraceAddressRouting` (`$trace-path`). Flavours emitting only element addresses (Script, Flow) contribute none | kzen-auto-jvm `server/exec/`, `server/exec/{job,report}/` |
+| Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / **BinaryHandle** / List / Map). `BinaryHandleExecutionValue` (run + content hash + size + mime) is the **wire-only** substitution for a `BinaryExecutionValue` (§7), applied at `RunEngineLogicTrace.toWireValue` and resolved by `lookupBinary` behind the `/logic/trace-binary` blob route | kzen-lib-common `exec/`; substitution kzen-auto-jvm `server/exec/` |
+| Trace store (**now: the engine itself**) | No separate store. The `LogicTrace` REST surface is served by projecting the **retained `RunEngine`** at query time (`RunEngineLogicTrace`, reached via `ServerLogicController.retainedTraceAccess`): the node tree yields the execution tree / `mostRecent` / `tracedLocations`; per-node `live` (+ `liveSequence`) yields `lookup` / `lookupRun` (whole-run merge keeps the latest node per stable id + latest sequence, reproducing the former re-entry clearing); each terminal node also yields a synthesized `nodeOutcome` entry (§7); `history` (log events) yields `lookupRunHistory`. Each flavour's within-node `Address` → wire `LogicTracePath` translation is applied at query time, not write time (the routing SPI row above). Rename survival: paths stay `ObjectStableId`-keyed, resolved to the current location via `ObjectStableMapper`, dropped when the object is deleted. `clear(objectLocation)` is degenerate — it acts as the global clear only when the location is the retained run's root, and the client uses `clearAll`. (Retired: the bridged in-memory `LogicTraceStore` + `ServerLogicController.mirrorTrace` / `onFrameClosed` / `onTraceReset`.) | view kzen-auto-jvm `server/exec/`; engine kzen-lib-jvm |
+| Interactive request/response | `ExecutionRequest` / `ExecutionResult` / `RequestParams`; `Run.request` / `LogicController.request`; `Execution.onRequest`. Job's external duplex bridge (root-node router → serving Worker by channel name, timeout-capped) is in `JobRun.route`; Report registers its preview handler directly | kzen-lib-common `exec/`; bridge kzen-auto-jvm `server/exec/{job,report}/` |
+| Flavour extensibility (§8) | `LogicDocument.toLogic` — implemented by a runnable document's `main` archetype; `LogicCompiler.compile` resolves it polymorphically from a `filterTransitive`-narrowed graph (no flavour `when`), and is the same entry point a nested host compiles its child through; `LogicCompilerServices` is the bundle every compiler threads | kzen-auto-jvm `server/exec/` |
+| Example consumers (illustrative only) | `ScriptLogic` / `ScriptRunContext` / `ScriptLogicCompiler`, `FlowLogic` / `FlowRun`, `JobLogic` / `JobRun` / `WorkerLogic` / `EngineJobControl` / `JobDeadlockMonitor` (the flavour-owned liveness detector, §2), `ReportLogic` / `ReportRun`; client driver `ClientLogicGlobal` (SSE push + adaptive poll + client-paced auto-step) | kzen-auto-jvm `server/exec/**`, `server/objects/**`; kzen-auto-js `client/service/logic/` |
 
 Related reading: [`architecture.md`](architecture.md) § "Execution model (Logic / Task / Trace)" and
 § "Stable identity"; the Job plan `kzen/plans/2026-07-25_job-improvements.md` (the most worked-out
