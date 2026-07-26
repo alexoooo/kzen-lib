@@ -8,13 +8,14 @@ kzen-lib is the **context-management core** of the kzen stack. It defines declar
 
 ## Module layout
 
-Three Gradle subprojects:
+Four Gradle subprojects:
 
 - **`kzen-lib-common`** — Kotlin Multiplatform. `commonMain` holds the bulk of the code (model + service + api); `jvmMain` and `jsMain` provide platform-specific bits (notably `tech.kzen.lib.platform.ClassName`, persistent collections, datetime).
 - **`kzen-lib-jvm`** — JVM-only artifacts and integration points. Tests under `src/test`.
 - **`kzen-lib-js`** — JS-only artifacts. Tests under `src/jsTest`.
+- **`kzen-lib-reflect-ksp`** — the KSP processor behind `@Reflect` codegen. Pure JVM; consumed as `ksp("tech.kzen.lib:kzen-lib-reflect-ksp:…")` by downstream builds (e.g. kzen-project).
 
-All three publish to mavenLocal at the current source version; downstream siblings reference them as `tech.kzen.lib:kzen-lib-common`, `…-jvm`, `…-js` (the `-jvm` / `-js` variant-suffix coords are pinned via `Dependencies.kt` in each consumer).
+All four publish to mavenLocal at the current source version; downstream siblings reference the KMP modules as `tech.kzen.lib:kzen-lib-common`, `…-jvm`, `…-js` (the `-jvm` / `-js` variant-suffix coords are pinned via `Dependencies.kt` in each consumer).
 
 ## Entry points
 
@@ -52,11 +53,12 @@ kzen-lib is a library — no `main`. The most-touched API surfaces:
 ./gradlew :kzen-lib-js:jsTest
 ```
 
-After bumping the Kotlin version (even patch versions), run `./gradlew kotlinUpgradeYarnLock` and commit the regenerated `kotlin-js-store/yarn.lock`.
+After bumping the Kotlin version, follow the toolchain-bump checklist in [`../kzen/AGENTS.md`](../kzen/AGENTS.md) (`kotlinUpgradeYarnLock`, publish order, `FormulaStepTest` canary).
 
 ## Gotchas
 
-- **Variant-suffix coords route through mavenLocal.** Consumers' `jvmMain`/`jsMain` use `tech.kzen.lib:kzen-lib-common-jvm` / `-js`, which Gradle composite substitution does *not* match by project name. They resolve from mavenLocal at the version `Dependencies.kt` pins. **Bump the version → publish → consumer can compile.** Skip the publish step and any non-umbrella consumer build breaks.
+- **Variant-suffix coords route through mavenLocal.** Bump the version → `publishToMavenLocal` (all four subprojects) → consumer can compile; skip the publish and any non-umbrella consumer build breaks. Mechanics: [`../kzen/AGENTS.md`](../kzen/AGENTS.md) KMP variant-suffix gotcha.
+- **`kzen-lib-reflect-ksp` build wiring — don't undo without understanding why.** The processor module pins `jvmTarget = 17` (`kspProcessorJavaVersion` in its build.gradle.kts) because KSP's analysis-API worker JVM rejects newer class-file versions (symptom if regressed: `class file version NN.0 … only recognizes … up to 65.0`). The processor returns early when it collected zero `@Reflect` classes — without that, an empty `Kzen*Module` lands in a test source set and shadows the main one on the test classpath. KSP commonMain output needs explicit `dependsOn("kspCommonMainKotlinMetadata")` on every `KotlinCompilationTask` *and* on `sourcesJar`/`*SourcesJar` tasks (KSP2 does not auto-wire KMP per-target tasks or sources-jar packaging). And KSP tasks need `--no-configuration-cache` under Gradle 9 (`error writing value of type '[Ljava.lang.Object;'`). Standalone consumer builds (kzen-auto, kzen-project) resolve the processor as `ksp("tech.kzen.lib:kzen-lib-reflect-ksp:$kzenLibVersion")` from mavenLocal — publish it with the rest.
 - **commonMain depends only on `platform/`.** Don't reach for `java.*` or browser globals from `commonMain`; the type lives in `platform/jvmMain` / `platform/jsMain` with a matching `expect` in `commonMain`.
 - **Composite-build umbrella context** — see [`../kzen/AGENTS.md`](../kzen/AGENTS.md) for toolchain pins (Kotlin 2.4.0, JVM 26, kotlin-wrappers ceiling), the IntelliJ run/debug Provided-scope bug, and the umbrella↔mavenLocal interplay.
 
