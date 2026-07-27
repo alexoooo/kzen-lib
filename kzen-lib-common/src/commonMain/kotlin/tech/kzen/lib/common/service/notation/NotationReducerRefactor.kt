@@ -101,7 +101,7 @@ internal fun relocateObjectTreeRefactor(
 
     // Reject re-parenting an object into its own subtree (e.g. an If into its own Then branch);
     // startsWith catches any descendant destination, the equality check the no-op case.
-    require(newRootPath != oldRootPath && ! newRootPath.startsWith(oldRootPath)) {
+    require(newRootPath != oldRootPath && !newRootPath.startsWith(oldRootPath)) {
         "Cannot relocate an object into its own subtree: $oldRootPath -> $newRootPath"
     }
 

@@ -104,7 +104,7 @@ class ReflectSymbolProcessor(
                                 SERVICE_ANNOTATION_FQN
                     }
                     val serviceTypeQualifiedName =
-                        if (! isService) {
+                        if (!isService) {
                             null
                         }
                         else {

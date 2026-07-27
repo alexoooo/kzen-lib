@@ -183,7 +183,7 @@ object YamlParser {
             source[starts[idx]] == '#'
 
         private fun currentIsComment(): Boolean =
-            ! isSynthetic() && lineIdx < lineCount && isCommentAt(lineIdx)
+            !isSynthetic() && lineIdx < lineCount && isCommentAt(lineIdx)
 
         private fun lineRawStart(idx: Int): Int =
             starts[idx] - indents[idx]
@@ -294,7 +294,7 @@ object YamlParser {
                         break
                     }
                 }
-                if (peekIndent() != baseline || ! startsWithListMarker()) {
+                if (peekIndent() != baseline || !startsWithListMarker()) {
                     break
                 }
 
@@ -337,7 +337,7 @@ object YamlParser {
                         break
                     }
                 }
-                if (peekIndent() != baseline || ! matchMapEntryShape()) {
+                if (peekIndent() != baseline || !matchMapEntryShape()) {
                     break
                 }
 
@@ -528,7 +528,7 @@ object YamlParser {
                 endTrim--
             }
             result = result.substring(0, endTrim)
-            if (! strip) {
+            if (!strip) {
                 result += "\n"  // clip: keep a single trailing newline
             }
             return result
@@ -601,7 +601,7 @@ object YamlParser {
 
 
         private fun matchBareEntry(s: Int, e: Int): Boolean {
-            if (! isBareStartChar(source[s])) {
+            if (!isBareStartChar(source[s])) {
                 return false
             }
             var lastNonSpace = s
@@ -611,7 +611,7 @@ object YamlParser {
                 if (c == ':') {
                     break
                 }
-                if (! isBareMidChar(c)) {
+                if (!isBareMidChar(c)) {
                     return false
                 }
                 if (c != ' ') {
@@ -813,7 +813,7 @@ object YamlParser {
                     'b' -> builder.append('\b')
                     'f' -> builder.append('')
                     'u' -> {
-                        require(i + 4 <= to) { "Not enough unicode digits! " }
+                        require(i + 4 <= to) { "Not enough unicode digits!" }
                         builder.append(parseHex4(source, i).toChar())
                         i += 4
                     }
@@ -865,7 +865,7 @@ object YamlParser {
                     'b' -> builder.append('\b')
                     'f' -> builder.append('')
                     'u' -> {
-                        require(i + 4 <= to) { "Not enough unicode digits! " }
+                        require(i + 4 <= to) { "Not enough unicode digits!" }
                         builder.append(parseHex4(source, i).toChar())
                         i += 4
                     }
@@ -1050,7 +1050,7 @@ object YamlParser {
         for (i in key.indices) {
             val c = key[i]
             val ok = isBareStartChar(c) || (c == ' ' && i != 0 && i != key.length - 1)
-            if (! ok) {
+            if (!ok) {
                 return false
             }
         }

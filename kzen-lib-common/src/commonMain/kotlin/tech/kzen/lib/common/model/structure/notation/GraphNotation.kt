@@ -87,7 +87,7 @@ data class GraphNotation(
             return cached
         }
 
-        if (! visiting.add(objectLocation)) {
+        if (!visiting.add(objectLocation)) {
             // NB: cycle detected — contribute just this location and stop descending (not cached)
             return listOf(objectLocation)
         }

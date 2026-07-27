@@ -67,7 +67,7 @@ class AutowiredAttributeDefiner(
                         .locate(ObjectReference.parse(isReference), objectReferenceHost)
                 findIsLocation == isLocation
             }
-            if (! matchesFindIs) {
+            if (!matchesFindIs) {
                 continue
             }
 
