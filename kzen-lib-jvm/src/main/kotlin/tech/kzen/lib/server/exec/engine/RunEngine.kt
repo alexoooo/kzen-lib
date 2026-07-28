@@ -86,8 +86,11 @@ class RunEngine(
         val stableId: ObjectStableId,
         val depth: Int,
         // The node that hosted this one (one level up); null for the root. Used to resolve
-        // [ResourceScope.Parent] ownership at resource registration.
-        val parentId: NodeId?,
+        // [ResourceScope.Parent] ownership at resource registration. Mutable only for a settled frame
+        // carried across the [migrate] barrier, which is re-attached to the rebuilt node that shares its
+        // host's stable id (see [adoptRetiredFrames]) — a stale id here would break the next barrier's
+        // parent-stable-id lookup.
+        var parentId: NodeId?,
         val inputs: TupleValue,
         // The element that hosted this node (a RunStep / Job worker), carried to [Node.callerStableId] for
         // trace attribution; null for the root and for a host that named no distinct caller.
@@ -165,12 +168,39 @@ class RunEngine(
     // claimed-set), adoption here is eager and engine-driven at node spawn, so remove-on-adopt IS the claim.
     private val migrationResources = HashMap<ObjectStableId, LinkedHashMap<String, Registration>>()
 
+    // A settled frame lifted off the torn-down tree at the [migrate] barrier: the frame itself plus every
+    // runtime under it, so [buildNode] can still recurse once the frame is re-attached.
+    private class RetiredFrame(
+        val top: NodeRuntime,
+        val subtree: List<NodeRuntime>
+    )
+
+    // Settled frames whose trace outlives the rebuild, keyed by the stable id of the node that HOSTED them,
+    // and re-attached to the rebuilt node sharing that id ([adoptRetiredFrames]) — the third thing lifted
+    // across the barrier, alongside [migrationCaptured] and [migrationResources]. Without it the rebuild
+    // destroys the frame of anything that finished before the edit and is replay-adopted rather than re-run
+    // (a completed RunStep's sub-Script), silently breaking the §5 promise that the trace is continuous
+    // across the edit. Adoption is eager and engine-driven at node spawn, so remove-on-adopt IS the claim;
+    // an unadopted frame (its host was removed) is dropped by [sweepOrphans].
+    private val migrationRetiredFrames = HashMap<ObjectStableId, MutableList<RetiredFrame>>()
+
+    // [nodeCounter] as of the last [migrate] barrier: a node whose ordinal is below it was minted by a
+    // superseded generation, which is how [host] tells a carried frame from one this generation settled.
+    private var migrationNodeWatermark = 0
+
     // A one-shot repositioning target carried across the [migrate] barrier, surfaced to every node of the
     // rebuilt tree as [Execution.moveTarget] (spec §4 "Repositioning"). Tree-wide (not keyed by node) and read
     // WITHOUT claiming — root and hosted children may all read it during one barrier's rebuild. Every migrate
     // overwrites it (an ordinary edit passes null, clearing it), so it is one-shot by construction; also
     // cleared by [sweepOrphans] so [close] leaves nothing behind.
     private var migrationMoveTarget: ObjectStableId? = null
+
+    // The stable identities the edit removed, reported by the driver at the [migrate] barrier and surfaced as
+    // [Execution.removedStableIds]. An id is the element's address, and an address freed by a removal is
+    // immediately reusable, so without this the engine would hand a removed element's capture and lifted
+    // resources to whatever NEW element the edit created at the same address. Carried on the same one-shot
+    // lifecycle as [migrationMoveTarget].
+    private var migrationRemovedStableIds: Set<ObjectStableId> = emptySet()
 
     private var sequence = 0L
     private var nodeCounter = 0
@@ -461,7 +491,11 @@ class RunEngine(
      * a captured state no rebuilt node claims (a REMOVED element) is closed if [AutoCloseable] — and an
      * unclaimed lifted resource is disposed — by [sweepOrphans].
      * The run's history, sequence, observers and terminal handle are preserved — the trace is continuous across
-     * the edit; only the execution tree is rebuilt.
+     * the edit; only the LIVE execution tree is rebuilt. A frame that had already SETTLED with its trace
+     * retained ([Execution.host]'s `retainTrace`) is likewise lifted and re-attached to the rebuilt node that
+     * shares its host's stable id ([adoptRetiredFrames]), because nothing in the rebuild would re-create it:
+     * a flavour that replay-adopts its completed elements never re-hosts them (see [Execution.restored]), so
+     * the finished sub-execution would otherwise become unaddressable the moment the caller is edited.
      *
      * Must be called while the run is quiescent — every non-terminal node parked at a checkpoint and no
      * dispatch in flight (the caller awaits [awaitQuiescent] first), and never from a dispatcher thread.
@@ -469,8 +503,17 @@ class RunEngine(
      * [moveTarget] is an advisory one-shot repositioning hint surfaced to the rebuilt tree as
      * [Execution.moveTarget] — a self-migration that repositions the run; a flavour that doesn't support
      * repositioning (or in whose structure the id doesn't resolve) ignores it, leaving an ordinary migrate.
+     * [removedStableIds] names the elements the edit REMOVED: their captures and lifted resources are held
+     * back from adoption (and swept as orphans) and their breakpoints dropped, so an element the edit created
+     * at a removed one's address starts clean instead of inheriting it. Also surfaced to the rebuilt tree as
+     * [Execution.removedStableIds], for state a flavour keys the same way inside its own capture.
      */
-    fun migrate(newRoot: Logic, paused: Boolean = true, moveTarget: ObjectStableId? = null) {
+    fun migrate(
+        newRoot: Logic,
+        paused: Boolean = true,
+        moveTarget: ObjectStableId? = null,
+        removedStableIds: Set<ObjectStableId> = emptySet()
+    ) {
         // Dispose orphans left unclaimed by a prior edit before this edit's captures overwrite the registers.
         sweepOrphans()
 
@@ -521,6 +564,10 @@ class RunEngine(
         // 3. Rebuild: a fresh tree on a fresh scope (same dispatcher / thread pool), carrying the captured state
         // by stable id. Node ids keep advancing so a torn-down node id is never reused in the retained history.
         synchronized(lock) {
+            // Lift the settled retained frames BEFORE the map is cleared — they are the run's finished
+            // sub-executions, and the rebuild re-creates only what it re-runs.
+            liftRetiredFrames()
+
             // Deliberately NOT cleared: `breakpoints` — stable-id keyed, it stays valid across the rebuild.
             nodes.clear()
             parked.clear()
@@ -529,11 +576,18 @@ class RunEngine(
             migrationCaptured.putAll(captured)
             claimedCaptures.clear()
             migrationMoveTarget = moveTarget
+            migrationRemovedStableIds = removedStableIds
+            migrationNodeWatermark = nodeCounter
+
+            // A breakpoint is stable-id keyed and otherwise survives the rebuild untouched, so a removed
+            // element's breakpoint would land on whatever the edit created at its address.
+            breakpoints = breakpoints - removedStableIds
 
             liveRootLogic = newRoot
             val rootRuntime = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
             nodes[rootId] = rootRuntime
             adoptLiftedResources(rootRuntime)
+            adoptRetiredFrames(rootRuntime)
             migrating = false
             cancelling = false
             started = true
@@ -559,6 +613,11 @@ class RunEngine(
             migrationCaptured.clear()
             claimedCaptures.clear()
             migrationMoveTarget = null
+            migrationRemovedStableIds = emptySet()
+            // A settled frame no rebuilt node hosted — its host was removed by the edit — is simply dropped:
+            // it holds no registration to close (resources were lifted separately at the barrier), and its
+            // events stay in [history] like any other superseded frame's.
+            migrationRetiredFrames.clear()
             result
         }
         orphans.forEach { captured ->
@@ -579,9 +638,115 @@ class RunEngine(
     // Must hold lock. Re-adopt any resource registrations lifted at the [migrate] barrier from the torn-down
     // node that shared this node's stable id; removal is the claim (see [migrationResources]).
     private fun adoptLiftedResources(runtime: NodeRuntime) {
+        if (runtime.stableId in migrationRemovedStableIds) {
+            return
+        }
         migrationResources.remove(runtime.stableId)?.let {
             runtime.resources.putAll(it)
         }
+    }
+
+
+    // Must hold lock, and must run BEFORE [nodes] is cleared. Lift every settled frame whose trace is
+    // retained onto [migrationRetiredFrames], keyed by its HOST's stable id — the identity the rebuilt tree
+    // will re-mint, exactly as for a lifted resource. Only the topmost such frame of a settled chain is
+    // keyed: a settled retained parent carries its descendants in [RetiredFrame.subtree], and a settled
+    // NON-retained parent already took its whole subtree out of [nodes] when it closed ([settleNode] ->
+    // [removeSubtree]), so it cannot be seen here. The root is never lifted — it is re-created by the rebuild.
+    private fun liftRetiredFrames() {
+        fun retired(runtime: NodeRuntime): Boolean {
+            return runtime.id != rootId &&
+                    runtime.retainTrace &&
+                    runtime.status is NodeStatus.Terminal
+        }
+
+        fun subtreeOf(runtime: NodeRuntime): List<NodeRuntime> {
+            val result = mutableListOf(runtime)
+            var index = 0
+            while (index < result.size) {
+                // Strict: a child id [nodes] no longer holds would leave the re-attached frame unbuildable
+                // ([buildNode] resolves every child), and compaction removes the id from its parent's list in
+                // the same breath as the node ([settleNode]) — so a miss here is a broken engine invariant.
+                result[index].children.mapTo(result) { nodes.getValue(it) }
+                index += 1
+            }
+            return result
+        }
+
+        for (runtime in nodes.values) {
+            if (!retired(runtime)) {
+                continue
+            }
+            val parentId = runtime.parentId
+                ?: error("Non-root node without a parent: ${runtime.id}")
+            val parent = nodes.getValue(parentId)
+            if (retired(parent)) {
+                // Carried by its own ancestor's [RetiredFrame.subtree].
+                continue
+            }
+            migrationRetiredFrames
+                .getOrPut(parent.stableId) { mutableListOf() }
+                .add(RetiredFrame(runtime, subtreeOf(runtime)))
+        }
+    }
+
+
+    // Must hold lock. Re-attach the settled frames lifted at the [migrate] barrier from the torn-down node
+    // that shared this node's stable id; removal is the claim (see [migrationRetiredFrames]). A frame whose
+    // CALL-SITE the edit removed is dropped rather than re-attached — deleting the element that hosted a
+    // sub-execution takes that sub-execution's trace with it.
+    private fun adoptRetiredFrames(parent: NodeRuntime) {
+        if (parent.stableId in migrationRemovedStableIds) {
+            return
+        }
+        val frames = migrationRetiredFrames.remove(parent.stableId)
+            ?: return
+
+        for (frame in frames) {
+            if (frame.top.callerStableId in migrationRemovedStableIds) {
+                continue
+            }
+            frame.subtree.forEach { nodes[it.id] = it }
+            frame.top.parentId = parent.id
+            parent.children.add(frame.top.id)
+        }
+    }
+
+
+    // Must hold lock. A carried settled frame is superseded the moment its host re-invokes the same
+    // definition from the same call-site: a flavour that relaunches every element on the rebuilt run (a Job
+    // worker) would otherwise leave one stale duplicate per element per edit. Node ids are monotone and never
+    // reused, so an ordinal below [migrationNodeWatermark] is precisely "minted by a superseded generation" —
+    // no per-node flag needed. The superseded frame's events remain in [history].
+    //
+    // A re-invocation and a relaunch are indistinguishable at this seam, so a loop that re-hosts the same
+    // sub-document after an edit also drops the carried frames of its PRE-edit iterations. That is the
+    // deliberate trade: bounding memory (a relaunching flavour would otherwise keep one dead copy of every
+    // element per edit, live values and all) beats retaining an iteration whose live values the loop's own
+    // reset ([Execution.resetEmitted]) has already blanked.
+    private fun supersedeRetiredFrames(parent: NodeRuntime, child: NodeRuntime) {
+        if (migrationNodeWatermark == 0) {
+            // No barrier has happened, so no child can be carried — skip the scan on the un-edited hot path.
+            return
+        }
+        val superseded = parent.children.filter { childId ->
+            val existing = nodes.getValue(childId)
+            existing.id != child.id &&
+                    nodeOrdinal(existing.id) < migrationNodeWatermark &&
+                    existing.stableId == child.stableId &&
+                    existing.callerStableId == child.callerStableId &&
+                    existing.status is NodeStatus.Terminal
+        }
+        for (childId in superseded) {
+            removeSubtree(childId)
+            parent.children.remove(childId)
+        }
+    }
+
+
+    // The ordinal of an engine-minted node id ("n0", "n1", ...); -1 for anything else (unreachable).
+    private fun nodeOrdinal(nodeId: NodeId): Int {
+        return nodeId.value.removePrefix("n").toIntOrNull() ?: -1
     }
 
 
@@ -645,8 +810,10 @@ class RunEngine(
             val runtime = NodeRuntime(id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace)
             nodes[id] = runtime
             adoptLiftedResources(runtime)
+            adoptRetiredFrames(runtime)
             childLogic[id] = child
             parent.children.add(id)
+            supersedeRetiredFrames(parent, runtime)
             id
         }
         publish()
@@ -1018,9 +1185,14 @@ class RunEngine(
     // Invocation identity: the capture is delivered only to a node hosted from the SAME call-site as the
     // captured invocation (null == null covers the root and hosts that name no distinct caller) — another
     // call-site re-hosting the same child document is a DIFFERENT invocation and starts fresh.
+    // An id the edit REMOVED is likewise not adopted: this node is a different element the edit created at the
+    // removed one's address. The capture stays unclaimed, so [sweepOrphans] disposes it.
     private fun restoredForNode(nodeId: NodeId): Any? {
         return synchronized(lock) {
             val runtime = nodes.getValue(nodeId)
+            if (runtime.stableId in migrationRemovedStableIds) {
+                return@synchronized null
+            }
             val captured = migrationCaptured[runtime.stableId]
             if (captured == null || captured.callSite != runtime.callerStableId) {
                 return@synchronized null
@@ -1176,6 +1348,9 @@ class RunEngine(
 
         override val moveTarget: ObjectStableId?
             get() = synchronized(lock) { migrationMoveTarget }
+
+        override val removedStableIds: Set<ObjectStableId>
+            get() = synchronized(lock) { migrationRemovedStableIds }
 
         override fun discardCaptured(callSites: Collection<ObjectStableId>) =
             this@RunEngine.discardCaptured(callSites)

@@ -289,6 +289,52 @@ class ObjectStableMapperTest {
     }
 
 
+    @Test
+    fun `removed ids are reported once, and a rename is not a removal`() {
+        val mapper = ObjectStableMapper()
+        val removed = objectLocation("a.yaml", "Doomed")
+        val renamed = objectLocation("a.yaml", "Renamed")
+        val removedId = mapper.objectStableId(removed)
+        mapper.objectStableId(renamed)
+
+        mapper.apply(RemovedObjectEvent(removed))
+        mapper.apply(RenamedObjectEvent(renamed, ObjectName("Renamed2")))
+
+        assertEquals(setOf(removedId), mapper.drainRemovedIds())
+        assertEquals(setOf(), mapper.drainRemovedIds())
+    }
+
+
+    @Test
+    fun `an object created where a removed one stood receives the removed id`() {
+        val mapper = ObjectStableMapper()
+        val location = objectLocation("a.yaml", "Step")
+        val removedId = mapper.objectStableId(location)
+
+        mapper.apply(RemovedObjectEvent(location))
+
+        // The id is the address, so the replacement is indistinguishable from its predecessor without the
+        // removal report — which is the whole reason drainRemovedIds exists.
+        assertEquals(removedId, mapper.objectStableId(location))
+        assertEquals(setOf(removedId), mapper.drainRemovedIds())
+    }
+
+
+    @Test
+    fun `DeletedDocumentEvent reports every dropped id as removed`() {
+        val mapper = ObjectStableMapper()
+        val a1 = objectLocation("doomed.yaml", "X")
+        val a2 = objectLocation("doomed.yaml", "Y")
+        val idA1 = mapper.objectStableId(a1)
+        val idA2 = mapper.objectStableId(a2)
+        mapper.objectStableId(objectLocation("other.yaml", "Z"))
+
+        mapper.apply(DeletedDocumentEvent(DocumentPath.parse("doomed.yaml")))
+
+        assertEquals(setOf(idA1, idA2), mapper.drainRemovedIds())
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     private fun objectLocation(documentPath: String, objectName: String): ObjectLocation {
         return ObjectLocation(

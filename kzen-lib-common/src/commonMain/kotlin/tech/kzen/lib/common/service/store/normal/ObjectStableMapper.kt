@@ -13,6 +13,13 @@ class ObjectStableMapper: LocalGraphStore.Observer {
     private val locationToId = mutableMapOf<ObjectLocation, ObjectStableId>()
     private val idToLocation = mutableMapOf<ObjectStableId, ObjectLocation>()
 
+    // Ids whose object was removed since the last [drainRemovedIds]. An id is minted from the object's
+    // location and a freed name is immediately reusable, so an object created at a removed one's path mints
+    // the removed one's id — which makes "the same element" and "a different element at the same address"
+    // indistinguishable to anything that keys state by stable id across an edit. Draining is the reader's
+    // claim, and is also what bounds this: it holds one entry per removal since the last drain.
+    private val removedIds = mutableSetOf<ObjectStableId>()
+
 
     //-----------------------------------------------------------------------------------------------------------------
     fun objectStableId(objectLocation: ObjectLocation): ObjectStableId {
@@ -37,6 +44,21 @@ class ObjectStableMapper: LocalGraphStore.Observer {
     /** Null when the id's element no longer exists (removed object / deleted document drops the mapping). */
     fun objectLocationOrNull(objectStableId: ObjectStableId): ObjectLocation? {
         return idToLocation[objectStableId]
+    }
+
+
+    /**
+     * Take the ids removed since the previous call, clearing them. A holder of stable-id-keyed state that
+     * outlives an edit — a paused run's carried outcomes, its migration captures, its breakpoints — discards
+     * these, so state a removed element produced cannot transfer to a NEW element minted at its address.
+     */
+    fun drainRemovedIds(): Set<ObjectStableId> {
+        if (removedIds.isEmpty()) {
+            return emptySet()
+        }
+        val drained = removedIds.toSet()
+        removedIds.clear()
+        return drained
     }
 
 
@@ -195,6 +217,7 @@ class ObjectStableMapper: LocalGraphStore.Observer {
         val id = locationToId.remove(location)
         if (id != null) {
             idToLocation.remove(id)
+            removedIds.add(id)
         }
     }
 }

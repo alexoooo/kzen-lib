@@ -218,6 +218,19 @@ interface Execution {
     val moveTarget: ObjectStableId?
 
     /**
+     * The stable identities the edit REMOVED, as reported by the driver at the migration barrier (§5
+     * "an element the edit removed is disposed"). Empty on a fresh run and on a barrier that removed nothing.
+     *
+     * The engine applies this to what IT keys by stable id — captures, lifted resources, breakpoints — so a
+     * [Logic] only needs it for state of its own that it keys the same way INSIDE one capture (a Script's
+     * per-step outcomes all ride the root's [onCapture]). Without it, "the same element" and "a different
+     * element created at the removed one's address" are indistinguishable, and the new element would silently
+     * inherit the removed one's state. Like [moveTarget], reading is not a claim: every node of the rebuilt
+     * tree may read it during one barrier's rebuild.
+     */
+    val removedStableIds: Set<ObjectStableId>
+
+    /**
      * Discard captured migration state belonging to child invocations hosted from any of [callSites] —
      * transitively including THEIR hosted descendants' captures. This is the invocation-identity signal only
      * the flavour has: an element that re-runs its nested elements live (a loop resetting for its next

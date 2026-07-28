@@ -20,6 +20,7 @@ import tech.kzen.lib.common.exec.engine.ResourceScope
 import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -30,10 +31,12 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 
 class RunEngineTest {
@@ -631,7 +634,9 @@ class RunEngineTest {
         // Two concurrent children accumulate to a parked wavefront; the edit keeps "a", removes "b", and adds
         // "c". On resume: "a" carries its accumulator object across (continued, not restarted), "c" starts fresh,
         // and "b" — claimed by no node of the rebuilt definition — is disposed as a removed-element orphan.
-        val registry = HashMap<String, CloseableCounter>()
+        // Concurrent by construction: the two children publish into this from their own dispatcher threads, so
+        // a plain HashMap loses an entry under an unlucky interleaving (an intermittent "Key b is missing").
+        val registry = ConcurrentHashMap<String, CloseableCounter>()
         val engine = RunEngine(
             HostingLogic(listOf(
                 "a" to CountingChildLogic("a", 100, registry),
@@ -878,6 +883,198 @@ class RunEngineTest {
             assertEquals(
                 listOf<Any?>(null, state), seen,
                 "site B's invocation starts fresh; site A's adopts its own capture")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun removedStableIdIsNotAdoptedByTheElementCreatedAtItsAddress() = runBlocking {
+        // The edit deleted the element at "c" and created a DIFFERENT one at the same address, so the rebuilt
+        // node carries the same stable id. Only the driver's removal report distinguishes the two.
+        val state = CloseableCounter(1)
+        val seen = mutableListOf<Any?>()
+
+        val original = logicOf { execution ->
+            execution.host(
+                ObjectStableId("c"),
+                logicOf { c ->
+                    c.onCapture { state }
+                    parkForever(c)
+                })
+        }
+
+        val engine = RunEngine(original, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            val edited = logicOf { execution ->
+                execution.host(
+                    ObjectStableId("c"),
+                    logicOf { c ->
+                        seen.add(c.restored)
+                        seen.add(c.removedStableIds)
+                        TupleValue.ofMain("fresh")
+                    })
+            }
+            engine.migrate(edited, paused = false, removedStableIds = setOf(ObjectStableId("c")))
+            engine.await()
+
+            assertEquals(
+                listOf<Any?>(null, setOf(ObjectStableId("c"))), seen,
+                "the replacement starts fresh, and reads the removal report for state of its own")
+        }
+        finally {
+            engine.close()
+        }
+        assertTrue(state.closed, "the unadopted capture is disposed as an orphan")
+    }
+
+
+    @Test
+    fun migrateDropsARemovedElementsBreakpoint() = runBlocking {
+        // Breakpoints deliberately survive a rebuild (stable-id keyed), so a removal has to clear them
+        // explicitly — else the breakpoint lands on whatever the edit created at the removed step's address.
+        val engine = RunEngine(namedStepsLogic(3), rootId)
+        try {
+            engine.setBreakpoints(setOf(ObjectStableId("step-2")))
+            engine.resume()
+            engine.awaitQuiescent()
+            assertEquals(ObjectStableId("step-2"), engine.snapshot().root.position)
+
+            engine.migrate(
+                namedStepsLogic(3), paused = false, removedStableIds = setOf(ObjectStableId("step-2")))
+            engine.awaitQuiescent()
+
+            assertTrue(
+                engine.snapshot().root.status is NodeStatus.Terminal,
+                "the rebuilt run must not park at the removed element's breakpoint")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //--------------------------------------------------------------- settled frames across the barrier (spec §5)
+    /**
+     * A caller that hosts [child] under call-site [site] on its FIRST pass only, then parks — the shape of a
+     * Script whose completed RunStep is replay-adopted rather than re-invoked on the rebuilt run. The rebuilt
+     * definition is a fresh instance, so [hosted] carries the "already ran" fact across the barrier the way a
+     * flavour's own capture would.
+     */
+    private fun replayAdoptingCaller(hosted: AtomicBoolean, site: ObjectStableId, child: Logic): Logic =
+        logicOf { execution ->
+            if (!hosted.getAndSet(true)) {
+                execution.host(ObjectStableId("sub"), child, callerStableId = site)
+            }
+            parkForever(execution)
+        }
+
+
+    @Test
+    fun settledChildFrameSurvivesAMigrateThatDoesNotReHostIt() = runBlocking {
+        // The reported fault: a completed sub-execution (a RunStep's sub-Script) is replay-adopted rather than
+        // re-invoked on the rebuilt run, so nothing re-creates its frame — and every trace query projects the
+        // node tree, so the finished sub-document goes blank the moment its caller is edited.
+        val hosted = AtomicBoolean(false)
+        val site = ObjectStableId("call-site")
+        val child = logicOf { c ->
+            c.emit(Address.of("v"), ExecutionValue.of(42L))
+            TupleValue.ofMain("child")
+        }
+
+        val engine = RunEngine(replayAdoptingCaller(hosted, site, child), rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(
+                1, engine.snapshot().root.children.size, "the child ran and its retained frame stays in the tree")
+
+            engine.migrate(replayAdoptingCaller(hosted, site, child), paused = true)
+            engine.awaitQuiescent()
+
+            val carried = engine.snapshot().root.children.singleOrNull()
+                ?: fail("the settled frame must survive the rebuild — nothing else can re-create it")
+            assertEquals(ObjectStableId("sub"), carried.stableId)
+            assertEquals(site, carried.callerStableId, "call-site attribution survives with the frame")
+            assertIs<NodeStatus.Terminal>(carried.status, "it is carried as settled, not resurrected as live")
+            assertEquals(
+                ExecutionValue.of(42L), carried.live[Address.of("v")],
+                "the frame carries its live values — that IS the sub-document's execution state")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun settledChildFrameIsDroppedWhenItsCallSiteWasRemoved() = runBlocking {
+        // Deleting the element that hosted a sub-execution must take that sub-execution's trace with it —
+        // otherwise the deleted RunStep's sub-document lingers as navigable state with no way back to it.
+        val hosted = AtomicBoolean(false)
+        val site = ObjectStableId("call-site")
+        val child = logicOf { TupleValue.ofMain("child") }
+
+        val engine = RunEngine(replayAdoptingCaller(hosted, site, child), rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(1, engine.snapshot().root.children.size)
+
+            engine.migrate(
+                replayAdoptingCaller(hosted, site, child), paused = true, removedStableIds = setOf(site))
+            engine.awaitQuiescent()
+
+            assertTrue(
+                engine.snapshot().root.children.isEmpty(),
+                "the frame of a removed call-site's invocation is dropped, not carried")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aReHostedStableIdSupersedesItsCarriedFrame() = runBlocking {
+        // A flavour that RELAUNCHES every element on the rebuilt run (a Job worker adopting its "done" state)
+        // re-hosts the id the carried frame already occupies. The live re-invocation supersedes it, so an
+        // editing session doesn't accumulate one stale duplicate per element per edit.
+        val site = ObjectStableId("call-site")
+        fun caller() = logicOf { execution ->
+            execution.host(
+                ObjectStableId("w"),
+                logicOf { TupleValue.ofMain("ok") },
+                callerStableId = site)
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(caller(), rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            val before = engine.snapshot().root.children.single()
+
+            engine.migrate(caller(), paused = true)
+            engine.awaitQuiescent()
+
+            val after = engine.snapshot().root.children.single()
+            assertNotEquals(
+                before.id, after.id, "the relaunched invocation is the live one, not the carried frame")
+
+            engine.cancel()
+            engine.awaitQuiescent()
         }
         finally {
             engine.close()
