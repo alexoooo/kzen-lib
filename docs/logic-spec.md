@@ -513,6 +513,16 @@ them; they must not be re-implemented per flavour.
   > keyed by their owning frame's stable identity (§5); the slot declarations themselves are deliberately not
   > lifted, because the rebuilt tree re-declares them.
 
+- **A key holds exactly one registration, so re-registering it supersedes.** Re-opening a resource under a
+  key that is already live **disposes the registration it displaces**, there and then: the disposal walks and
+  the release walk each resolve a key to one registration, so a displaced one is unreachable and would
+  otherwise leak — which is exactly what a loop re-providing a browser or a subprocess does, once per
+  iteration. This puts a **contract on closers**: a closer must dispose the handle it *captured*, never
+  re-resolve its target by name from an external registry, because a superseded closer runs *after* its
+  replacement is registered — a `close(byName)` closer would tear down the replacement. It must also
+  tolerate running when the resource is already gone (an explicit closing step should `releaseResource`
+  first, but a throwing or double-closing closer is swallowed, not prevented).
+
 - **Two ways a resource outlives the document that opened it, and they are orthogonal.** Binding to an
   ancestor's slot moves *ownership* up — a sub-script opens the system under test, and the enclosing test
   owns and disposes it. A **manual** registration instead survives its owning frame's settle whatever that

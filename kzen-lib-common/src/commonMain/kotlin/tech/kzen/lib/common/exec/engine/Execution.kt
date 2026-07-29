@@ -148,10 +148,19 @@ interface Execution {
      * `':'` — and **falling back to THIS node** when no ancestor declares one. It is disposed when its
      * owning node settles, per [policy].
      *
-     * Re-registering the same [key] replaces the prior registration (value and closer). [value] optionally
-     * stores the live handle with the registration, readable via [resourceValue]; it travels with the
-     * registration across a live-edit migration (§5), so an open resource survives an edit with its owning
-     * frame's stable identity.
+     * Re-registering the same [key] **supersedes**: the displaced registration's [closer] is run, because a
+     * key resolves to exactly one registration, so nothing could ever reach the displaced one again. Without
+     * it a loop that re-opens the same resource each iteration leaks every iteration but the last.
+     *
+     * CLOSER CONTRACT. A [closer] must dispose the handle it CAPTURED, never re-resolve its target by name
+     * from a registry — a superseded closer runs *after* the replacement is registered, so a
+     * `close(byName)` closer would tear down the replacement instead of the thing it was registered for. It
+     * must also tolerate running twice (an explicit closing step that already disposed the resource should
+     * [releaseResource] it, but a closer that throws or double-closes is only swallowed, not prevented).
+     *
+     * [value] optionally stores the live handle with the registration, readable via [resourceValue]; it
+     * travels with the registration across a live-edit migration (§5), so an open resource survives an edit
+     * with its owning frame's stable identity.
      */
     fun resource(
         key: String,

@@ -2006,6 +2006,76 @@ class RunEngineTest {
 
 
     @Test
+    fun reRegisteringAKeyDisposesTheRegistrationItDisplaces() = runBlocking {
+        // Supersession (§6): a key resolves to exactly ONE registration, so re-registering it makes the prior
+        // one unreachable — it must be disposed then and there, not silently dropped. The displaced closer runs
+        // AFTER the replacement is registered (the closer contract on Execution.resource), and the live
+        // registration is always the newest, so a read never sees a disposed handle.
+        val disposed = mutableListOf<String>()
+        var handleWhileSecondLive: Any? = null
+
+        val root = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, value = "first") { disposed.add("first") }
+            execution.resource("r", ClosePolicy.Auto, value = "second") { disposed.add("second") }
+            handleWhileSecondLive = execution.resourceValue("r")
+            TupleValue.ofMain("root")
+        }
+
+        val engine = RunEngine(root, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(
+                listOf("first", "second"), disposed,
+                "the displaced registration is disposed at re-registration, the survivor at settle")
+            assertEquals("second", handleWhileSecondLive, "the live registration is the newest one")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun reProvidingInALoopKeepsOneLiveRegistrationAndDisposesEachPredecessor() = runBlocking {
+        // The regression this guards: a sub-script that re-opens a browser / subprocess every iteration used to
+        // leak all but the last, because the map write dropped the prior registration without closing it. The
+        // count of live-but-undisposed registrations must stay at 1 throughout, whatever the iteration count.
+        val iterations = 5
+        val disposed = mutableListOf<Int>()
+        var registered = 0
+        var peakLive = 0
+
+        val child = logicOf { execution ->
+            val iteration = registered++
+            execution.resource("r", ClosePolicy.Auto, value = iteration) { disposed.add(iteration) }
+            peakLive = maxOf(peakLive, registered - disposed.size)
+            TupleValue.ofMain("child")
+        }
+        val root = logicOf { execution ->
+            // The root owns the key, so every iteration's provide binds HERE and collides with its
+            // predecessor — which is the shape a re-providing sub-script actually has.
+            execution.declareSlot("r")
+            repeat(iterations) {
+                execution.host(ObjectStableId("child"), child)
+            }
+            TupleValue.ofMain("root")
+        }
+
+        val engine = RunEngine(root, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(1, peakLive, "at most one registration under a key is live at a time")
+            assertEquals((0 until iterations).toList(), disposed, "every iteration's resource is disposed once")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
     fun resourceValueReadableFromHostedChildViaAncestorWalk() = runBlocking {
         // The parent registers a resource with a live handle (value); a hosted child reads it back through the
         // ancestor-chain walk — the §6 "resource inheritance along the host chain" read affordance. A key with

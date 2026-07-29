@@ -1153,11 +1153,19 @@ class RunEngine(
     private fun registerResource(
         nodeId: NodeId, key: String, policy: ClosePolicy, value: Any?, closer: () -> Unit
     ) {
-        synchronized(lock) {
+        // A same-key re-registration SUPERSEDES: the displaced registration's closer runs, because nothing
+        // else can ever reach it once the map entry is gone — the disposal walks and [releaseResource] all
+        // resolve a key to exactly one registration. Without this a loop that re-opens the same resource each
+        // iteration (a sub-script re-providing a browser or a subprocess) leaks every iteration but the last.
+        // Run OFF-LOCK, like [disposeResources]: a closer is third-party code and must never hold the engine
+        // lock. It also runs AFTER the replacement is registered, which is the ordering a closer has to
+        // tolerate — see the closer contract on [Execution.resource].
+        val displaced = synchronized(lock) {
             // The resource is disposed on its OWNING node's settle; ownership is the nearest declared slot.
             val ownerId = slotOwnerOf(nodeId, key)
-            nodes.getValue(ownerId).resources[key] = Registration(policy, value, closer)
+            nodes.getValue(ownerId).resources.put(key, Registration(policy, value, closer))
         }
+        displaced?.let { runCatching { it.closer() } }
     }
 
 
