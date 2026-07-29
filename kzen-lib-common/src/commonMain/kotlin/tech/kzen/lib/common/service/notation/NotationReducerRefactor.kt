@@ -433,7 +433,21 @@ private fun isReferenced(
         .failures
         .locateOptional(reference, host)
 
-    return partialReferencedLocation == targetLocation
+    if (partialReferencedLocation == targetLocation) {
+        return true
+    }
+
+    // NB: a weak reference can name an object that has no definition and no failure at all — an
+    //  `abstract: true` archetype named by a `by: Nominal` data attribute (a Context declaration, a
+    //  branchArchetype). Fall back to the notation coalesce, or renaming such an object silently leaves
+    //  every weak reference to it dangling.
+    val notationLocation = graphDefinitionAttempt
+        .graphStructure
+        .graphNotation
+        .coalesce
+        .locateOptional(reference, host)
+
+    return notationLocation == targetLocation
 }
 
 

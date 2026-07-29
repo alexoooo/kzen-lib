@@ -104,8 +104,10 @@ re-inventing it.
   "run a sub-computation" feature (Script's run-step, Flow's run-vertex, Job's run-worker) is the same
   underlying capability. A host **records the call-site** that spawned each child (which element hosted it),
   so a re-used child definition's trace can be attributed to the *specific* invocation (§7). Confinement has
-  one deliberate exception: a child may **inherit a specific mutable resource** from its host (a shared
-  browser — §6), which is opt-in and explicit, never ambient.
+  one deliberate exception: a child may **share a specific mutable resource** with its host (a shared
+  browser — §6). The exception is granted by the *host*, not taken by the child — the host **declares a
+  context slot** for the resource's key and thereby owns whatever a descendant opens under it, and the child
+  reads the live handle off that ancestor — so it is opt-in and explicit on both sides, never ambient.
 
 - **Frame tree vs. execution tree.** One node tree serves two views. The **live frame tree** (the nested
   run-status display) shows only executions still *in progress* — a child that ran to completion (a
@@ -461,42 +463,88 @@ them; they must not be re-implemented per flavour.
 - A Logic may acquire **long-lived external resources** — a browser, a file handle, a spawned process —
   that must be **deterministically released** when execution settles to a terminal state.
 
-- **Per-resource close policy.** Each resource declares what happens at termination. The policy decomposes into
-  two orthogonal primitives: a **scope** (which document owns the resource) and a **disposal rule** (how that
-  document's outcome disposes it):
-  - **scope** — *self* (the document that opened it), *parent* (the calling document one level up, falling back
-    to self at the root), or *root* (the overall run);
-  - **disposal rule** — *auto* (dispose on completion: success, failure, or cancel), *manual* (never auto-dispose;
-    only an explicit closing action disposes it — survives a forgotten close), or *keep-on-failure* (dispose on
-    success/cancel, but **retain on a failed** owning document for inspection).
+- **Ownership is declared by the owner, not chosen by the opener.** A document **declares a context slot**
+  for a key, stating that it owns resources of that key on behalf of everything it hosts; a resource opened
+  anywhere beneath it binds to the **nearest** slot-declaring document on the opener's self → parent → … →
+  root chain, and is disposed when *that* document settles. The opener names only *what* it opens, never how
+  far up the tree the thing belongs — which is the point, because one sub-document is reachable from a test
+  that owns the browser, from a test that does not, and from a direct run of itself, and it cannot know
+  which. A slot matches a key **exactly** or by **family** — the part of the key before the first `':'` — so
+  a single `sut` declaration owns `sut:main` and `sut:other` as two independent registrations under one
+  owner.
 
-  The notation surface (`ResourceClosePolicy`) exposes these as flat values: `auto` / `manual` / `keepOnFailure`
-  (self-scoped), `parent` / `parentKeepOnFailure` (parent-scoped), and `run` / `runKeepOnFailure` (root-scoped).
+  **Undeclared usage is unchanged by construction.** Where no ancestor declares a matching slot, the resource
+  binds to the **opening document itself** — so a handle nobody claimed (a private scratch file, a plugin's,
+  a raw step's) is owned and disposed exactly where it was opened, as though slots did not exist. Slots are
+  therefore purely additive: they change ownership only where an ancestor asks for it.
 
-- **Resource scopes are attached at a level in the execution tree — not only the whole run.** This is a
-  first-class requirement: it must be possible to own a resource at the **top level** *and* own a
-  **separate** resource of the same kind **per child**. (Concretely: a top-level system-under-test browser,
-  **plus** a distinct browser instance for each sub-script.) Disposing a frame disposes the resources scoped
-  to it; the run-global scope is just the special case of the root frame.
+  **Ownership is fixed at bind time.** Editing a document to remove a slot declaration leaves an
+  already-bound resource on the document it bound to until that document settles; only subsequent opens
+  resolve against the new declarations.
 
-  > **Implemented.** Each resource is registered on the **node** its scope selects — the opening node (self), its
-  > parent, or the root — and disposed when *that* node settles (per its disposal rule); the run-global scope is
-  > just the root node's. An opening step can hand a resource up the tree (`parent` / `run`) so it outlives its
-  > own document — e.g. a sub-script opens the SUT but binds its lifetime to the enclosing test. A resource an
-  > explicit closing step disposes itself is **deregistered** first (searching the opener's ancestor chain, so an
-  > ancestor-scoped resource can be released from a descendant), so the auto-disposer never double-fires.
-  > A registration may also store the **live handle** (its value), readable from any descendant of the owning
-  > node via the same ancestor-chain search — the read side of the inheritance below — and registrations
-  > survive live-edit migration keyed by their owning frame's stable identity (§5). A **manual** registration
-  > also outlives its owning frame's settle: it hands up to the parent node (cascading toward the root), so it
-  > stays on the ancestor chain — readable and explicitly closeable by whatever runs after its opener (the
-  > open → use → close split across sibling sub-documents); at the root it leaves the registry alive (the
-  > "forgotten close").
+- **Per-resource close policy — the disposal rule only.** Each resource declares what happens to it when the
+  document that **owns** it reaches a terminal state: *auto* (dispose on completion: success, failure, or
+  cancel), *manual* (never auto-dispose; only an explicit closing action disposes it — survives a forgotten
+  close), or *keep-on-failure* (dispose on success/cancel, but **retain on a failed** owning document for
+  inspection). The policy says nothing about *who* owns the resource — the slot decides that — so `auto`
+  does not mean "this document": it means **the owning slot's** settle, which may be several documents up.
+  The notation surface (`ResourceClosePolicy`) is exactly those three values — `auto` / `manual` /
+  `keepOnFailure` — and the choice stays with the opener whatever the slot decided, because the closer and
+  what it means belong to whoever opened the resource.
+
+- **Ownership sits at a level of the execution tree — not only at the whole run.** This is a first-class
+  requirement: it must be possible to own a resource at the **top level** *and* own a **separate** resource
+  of the same kind **per child**. (Concretely: a top-level system-under-test browser, **plus** a distinct
+  browser instance for each sub-script.) Slots express both — the top-level document declares the slot the
+  shared browser binds to, while a sub-script that declares its own slot for the same key keeps its own
+  instance, as does one that declares nothing and runs with nothing declared above it. Disposing a frame
+  disposes the resources bound to it; the run-global case is just the root frame's slot.
+
+  > **Implemented.** `Execution.declareSlot(key)` records the slot on the calling node — invoked at the start
+  > of that node's `run`, before it hosts any child, so an ancestor has always declared before a descendant
+  > can open; it is idempotent, and free to re-run, since a live-edit rebuild re-invokes each `run` and
+  > re-declares. `Execution.resource(key, policy, value, closer)` resolves the owner by walking the opener's
+  > ancestor chain for an exact or family match, registers there, and falls back to the opening node when the
+  > walk finds nothing. A resource an explicit closing step disposes itself is **deregistered** first
+  > (`releaseResource`, searching the same ancestor chain, so a resource bound to an ancestor's slot can be
+  > released from a descendant), so the auto-disposer never double-fires. A registration may also store the
+  > **live handle** (its value), readable from any descendant of the owning node via the same walk
+  > (`resourceValue`) — the read side of the inheritance below. Registrations survive live-edit migration
+  > keyed by their owning frame's stable identity (§5); the slot declarations themselves are deliberately not
+  > lifted, because the rebuilt tree re-declares them.
+
+- **Two ways a resource outlives the document that opened it, and they are orthogonal.** Binding to an
+  ancestor's slot moves *ownership* up — a sub-script opens the system under test, and the enclosing test
+  owns and disposes it. A **manual** registration instead survives its owning frame's settle whatever that
+  owner is: it is handed one level up (cascading toward the root, and never displacing a live registration
+  the parent already holds under the same key, so `auto`'s disposal guarantee cannot be displaced by an
+  orphaned handle), leaving it on the ancestor chain — readable and explicitly closeable by whatever runs
+  after its opener, which is what makes the open → use → close split across sibling sub-documents work; at
+  the root it simply leaves the registry alive (the "forgotten close"). A resource may use either mechanism,
+  or both.
+
+- **A resource key is a global namespace, deliberately.** Keys are author-specified plain strings, and the
+  same string means the same registration wherever it appears — a slot declaration, a typed opening step,
+  and a raw call all naming `sut` refer to one resource. There is no per-flavour or per-document key space
+  and no generated qualifier, and that is exactly what makes the typed and raw surfaces interoperate: a
+  typed step opens the browser a raw step then drives, and a document can declare a slot for a resource
+  whose opener it has never heard of. The cost is that two unrelated authors choosing one key share one
+  registration and nothing detects it; qualified keys (`sut:main`) are the convention for keeping distinct
+  instances of a family apart.
+
+- **Documented limitation — enforcement is family-granular.** A flavour that gates on a resource being
+  present ("this step requires an open browser") asks whether the ancestor chain holds a live registration in
+  the key's **family** (`hasResourceInFamily`) — one keyed `sut`, or `sut:` with any qualifier. The check
+  deliberately answers "is *some* system under test open", never "is `sut:other` open": a qualifier is a step
+  parameter, so it may be computed at run time, and a declaration-driven gate cannot know which instance a
+  reader will end up asking for. A step that needs `sut:other` while only `sut:main` is open therefore passes
+  the gate and fails at the **read**, as an ordinary run-time error rather than an up-front refusal. That is
+  the accepted price of letting qualifiers be computed, not a defect in the gate.
 
 - **Resource inheritance along the host chain.** A hosted child may **share a specific resource with its
   host** rather than opening its own — the same browser instance a parent Script opened is the one its
   sub-scripts drive. This is the explicit, opt-in exception to confinement (§2): the shared resource stays
-  **owned (and disposed) by the frame that opened it**; the child only borrows the live handle for the
+  **owned (and disposed) by the frame the slot bound it to**; the child only borrows the live handle for the
   duration of the host, and does not dispose it on its own settle.
 
 ---
@@ -744,8 +792,9 @@ recorded here so the rationale isn't lost and future changes don't regress it.
 
 - **Tree-scoped resources (desired) vs. run-global disposal (old).** *Question: if a frame is the unit of
   resource ownership, does resource lifecycle just fall out of frame lifecycle?*
-  **Resolved:** yes — a resource is registered on its node and disposed when the node settles (per close
-  policy); run-global is just the root node. Resource lifecycle falls out of node lifecycle (§6).
+  **Resolved:** yes — a resource is registered on its **owning** node (the nearest ancestor declaring a
+  context slot for its key, else the opener) and disposed when that node settles (per close policy);
+  run-global is just the root node. Resource lifecycle falls out of node lifecycle (§6).
 
 - **Core vs. consumer placement.** *Question: what is the use-case-agnostic core surface that
   Script/Flow/Job (and future flavours) sit on top of with no duplicated orchestration?*
@@ -792,7 +841,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `resource` / `resourceValue` (ancestor-chain read) / `releaseResource`; `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` (one-shot repositioning hint, §4) | kzen-lib-common `exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `declareSlot` (this node owns the context slot for a key, §6) / `resource` / `resourceValue` (ancestor-chain read) / `hasResourceInFamily` / `releaseResource`; `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` (one-shot repositioning hint, §4) | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `setBreakpoints`; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) + `CountingDispatcher` (the quiescence primitive: counts dispatch tasks, and counts a pending `delay` / an `Execution.blocking` region as in-flight so neither reads as idle). Available but unconsumed: `observeFrames` (frame-close signal), `observeResets` / `TraceReset` (synchronous pre-return reset signal) — both left from the retired trace-store bridge | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live (+ `liveSequence`) + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / setBreakpoints / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
@@ -802,7 +851,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`, `setBreakpoints`, `moveTo` — refusable, returning `LogicRunResponse.Rejected`; `observeStatus`, `retainedTraceAccess`, `clearRetainedTrace`); the impl drives the engine on **one single-thread executor** (each release blocks in `RunEngine.awaitQuiescent` until the run settles, then reflects that back into the status flags; signal-only verbs — pause / cancel / setPauseOnError — call the engine directly so they reach an in-flight run instead of queueing behind it. E6 would need one executor **per run**, since a shared one would serialize unrelated runs), **retains the settled run** for post-run trace queries (disposed on the next `start` / a global clear) while reporting it as no-active-run, and detects live edits. REST surface: `LogicHandler` (+ the `/logic/events` SSE stream and the `/logic/trace-binary` blob route) | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/`, `server/api/handler/` |
 | Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo` (frame + state + value `sequence`), `LogicRunFrameInfo` (live frame tree + resolved `position`), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` (Running / Stepping / Pausing / Paused / ExplicitPaused / ErrorPaused / Cancelling), `LogicStatus` (the three version axes of §7: `epoch`, `structureVersion`, `active.sequence`), `LogicRunResponse` (incl. `Rejected`), `ObjectStableId` + `ObjectStableMapper`. (`LogicRunFrameState` is vestigial — its field on `LogicRunFrameInfo` is commented out.) | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
 | Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, resource lift/re-adopt, settled-frame lift/re-adopt via `liftRetiredFrames` / `adoptRetiredFrames` / `supersedeRetiredFrames`, orphan sweep) + `Execution.onCapture` / `restored` / `discardCaptured`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` → `Execution.moveTarget`, flavour capability `Repositionable.canMoveTo`; **removal reporting** via `RunEngine.migrate(removedStableIds)` → `Execution.removedStableIds`, sourced from `ObjectStableMapper.drainRemovedIds` and claimed only by a barrier that actually rebuilds (`ServerLogicController.migrationRemovals`); edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (the controller is a `LocalGraphStore.Observer`) gating a content-digest diff over the closure `LinkedLogicDocuments.transitiveDigest` builds from `LogicCallGraph.transitiveCallees` (root document ∪ weakly-linked callees, §5). Per-flavour carried state: `ScriptMigrationState` (completed outcomes + per-step carry + result), `FlowMigrationState` (per-vertex progress + harvested output), Job's channel drain/preload + per-Worker `WorkerBase.captureMigrationState`; Report registers no capture (clean restart — the §5 default) | engine kzen-lib-jvm; detection + flavours kzen-auto-jvm |
-| Resources (**now: tree-scoped**) | `Execution.resource(key, policy, scope)` / `releaseResource` (owner node selected by `ResourceScope` = Self / Parent / Root, disposed on that node's settle; release searches the ancestor chain), `ClosePolicy` (Auto / Manual / KeepOnFailure) + `ResourceScope` (Self / Parent / Root) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure / parent / parentKeepOnFailure / run / runKeepOnFailure) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
+| Resources (**now: slot-owned**) | `Execution.declareSlot(key)` (this node owns the context slot for `key`, matched exactly or by family — the part before the first `':'`; idempotent, re-declared by a migrate rebuild, not lifted across the barrier) / `resource(key, policy, value, closer)` (registered on the nearest declaring ancestor, falling back to the opening node; disposed on the owner's settle) / `resourceValue` (ancestor-chain read of the live handle) / `hasResourceInFamily(family)` (family-granular presence gate) / `releaseResource` (ancestor-chain deregister), `ClosePolicy` (Auto / Manual / KeepOnFailure — the disposal rule only, applied at the *owning* node's settle; Manual instead hands the registration one level up, `putIfAbsent`) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure, `toEngine()`) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
 | Tracing (wire contract) | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / tracedLocations / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register — the Report write adapter, `ExecutionLogicTraceHandle`, still uses it over `Execution.emit`/`log`; its `register` / `clearAll` are no-ops there), `LogicTracePath` (+ the `$stable` and `$outcome` markers, the latter via `nodeOutcome(stableId)` — §7), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; REST entry point `LogicTraceEndpoint` + `LogicConventions` actions; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/`; endpoint kzen-auto-jvm `server/objects/logic/` |
 | Trace address routing (§7 SPI) | `LogicTraceAddressRouting` (`marker` → `tracePath(address, stableId)`), autowired and indexed by marker in `RunEngineLogicTrace`; contributed by `JobTraceAddressRouting` (`$job-progress`) and `ReportTraceAddressRouting` (`$trace-path`). Flavours emitting only element addresses (Script, Flow) contribute none | kzen-auto-jvm `server/exec/`, `server/exec/{job,report}/` |
 | Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / **BinaryHandle** / List / Map). `BinaryHandleExecutionValue` (run + content hash + size + mime) is the **wire-only** substitution for a `BinaryExecutionValue` (§7), applied at `RunEngineLogicTrace.toWireValue` and resolved by `lookupBinary` behind the `/logic/trace-binary` blob route | kzen-lib-common `exec/`; substitution kzen-auto-jvm `server/exec/` |

@@ -250,6 +250,19 @@ class NotationMetadataReader(
 
             val isLocation = graphNotation.coalesce.locate(
                     ObjectReference.parse(isValue), objectReferenceHost)
+
+            // NB: an inferred hard reference to an abstract object could never define — abstract objects
+            //  are excluded from definition, so GraphDefinitionAttempt.transitiveSuccessful would silently
+            //  prune the host object. Treat such a scalar as raw data instead of promoting it.
+            //  (`abstract` is deliberately not inherited — directAttribute, mirroring GraphDefiner.isAbstract.)
+            val isAbstract = graphNotation
+                    .directAttribute(isLocation, NotationConventions.abstractAttributePath)
+                    ?.asBoolean()
+                    ?: false
+            if (isAbstract) {
+                return null
+            }
+
             val isClass = graphNotation
                     .firstAttribute(isLocation, NotationConventions.classAttributePath)
                     ?.asString()

@@ -16,7 +16,6 @@ import tech.kzen.lib.common.exec.engine.Node
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
-import tech.kzen.lib.common.exec.engine.ResourceScope
 import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
@@ -1695,7 +1694,7 @@ class RunEngineTest {
     }
 
 
-    //----------------------------------------------------------------------------- tree-scoped resources (ResourceScope)
+    //--------------------------------------------------------------------------------- slot-owned resources (spec §6)
     private fun logicOf(block: suspend (Execution) -> TupleValue): Logic =
         object: Logic {
             override fun signature() = LogicSignature.empty
@@ -1713,17 +1712,20 @@ class RunEngineTest {
 
 
     @Test
-    fun parentScopedResourceOutlivesItsChildAndDisposesAtParentSettle() = runBlocking {
-        // A child opens a Parent-scoped resource: it must survive the child's own settle and dispose when the
-        // parent (here the root) settles — the "sub-script opens the SUT, the caller owns its lifetime" case.
+    fun declaredSlotOnParentOutlivesTheOpeningChildAndDisposesAtTheSlotOwnersSettle() = runBlocking {
+        // The parent DECLARES a slot for "r"; a child opens it. Ownership follows the declaration, so the
+        // resource survives the child's own settle and disposes when the parent settles — the "root script
+        // owns the browser, a sub-script opens it" case, with the ancestor's consent rather than the
+        // opener's unilateral reach-up.
         var disposed = false
         var disposedWhenChildReturned: Boolean? = null
 
         val child = logicOf { execution ->
-            execution.resource("r", ClosePolicy.Auto, ResourceScope.Parent) { disposed = true }
+            execution.resource("r", ClosePolicy.Auto) { disposed = true }
             TupleValue.ofMain("child")
         }
         val parent = logicOf { execution ->
+            execution.declareSlot("r")
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
             TupleValue.ofMain("parent")
@@ -1733,8 +1735,8 @@ class RunEngineTest {
         try {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
-            assertEquals(false, disposedWhenChildReturned, "a Parent-scoped resource must outlive its child's settle")
-            assertTrue(disposed, "a Parent-scoped resource is disposed when the parent settles")
+            assertEquals(false, disposedWhenChildReturned, "a slot-owned resource must outlive its opener's settle")
+            assertTrue(disposed, "a slot-owned resource is disposed when the slot-declaring node settles")
         }
         finally {
             engine.close()
@@ -1743,15 +1745,15 @@ class RunEngineTest {
 
 
     @Test
-    fun rootScopedResourceFromDepthTwoDisposesOnlyAtRootSettle() = runBlocking {
-        // root → child → grandchild; the grandchild opens a Root-scoped resource. It must survive both the
-        // grandchild's and the intermediate child's settle, and dispose only when the root run settles.
+    fun rootDeclaredSlotOwnsAResourceOpenedAtDepthTwo() = runBlocking {
+        // root (declares) → child → grandchild (opens). The resource must survive both the grandchild's and
+        // the intermediate child's settle, and dispose only when the root run settles.
         var disposed = false
         var disposedWhenGrandchildReturned: Boolean? = null
         var disposedWhenChildReturned: Boolean? = null
 
         val grandchild = logicOf { execution ->
-            execution.resource("r", ClosePolicy.Auto, ResourceScope.Root) { disposed = true }
+            execution.resource("r", ClosePolicy.Auto) { disposed = true }
             TupleValue.ofMain("grandchild")
         }
         val child = logicOf { execution ->
@@ -1760,6 +1762,7 @@ class RunEngineTest {
             TupleValue.ofMain("child")
         }
         val root = logicOf { execution ->
+            execution.declareSlot("r")
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
             TupleValue.ofMain("root")
@@ -1769,9 +1772,9 @@ class RunEngineTest {
         try {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
-            assertEquals(false, disposedWhenGrandchildReturned, "Root-scoped resource must outlive the grandchild")
-            assertEquals(false, disposedWhenChildReturned, "Root-scoped resource must outlive the intermediate child")
-            assertTrue(disposed, "Root-scoped resource is disposed when the overall run settles")
+            assertEquals(false, disposedWhenGrandchildReturned, "a root-owned slot must outlive the grandchild")
+            assertEquals(false, disposedWhenChildReturned, "a root-owned slot must outlive the intermediate child")
+            assertTrue(disposed, "a root-owned slot disposes when the overall run settles")
         }
         finally {
             engine.close()
@@ -1780,24 +1783,64 @@ class RunEngineTest {
 
 
     @Test
-    fun parentKeepOnFailureRetainsWhenParentFails() = runBlocking {
-        // KeepOnFailure at Parent scope keys off the OWNING (parent) node's outcome: when the parent fails, the
-        // resource is retained for inspection.
+    fun nearestDeclaringAncestorWinsOverAFurtherOne() = runBlocking {
+        // Both root and the intermediate child declare "r"; the grandchild opens it. The NEAREST declaration
+        // wins, so the resource dies at the intermediate child's settle, not the root's.
         var disposed = false
+        var disposedWhenChildReturned: Boolean? = null
+
+        val grandchild = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto) { disposed = true }
+            TupleValue.ofMain("grandchild")
+        }
         val child = logicOf { execution ->
-            execution.resource("r", ClosePolicy.KeepOnFailure, ResourceScope.Parent) { disposed = true }
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("grandchild"), grandchild)
+            TupleValue.ofMain("child")
+        }
+        val root = logicOf { execution ->
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("child"), child)
+            disposedWhenChildReturned = disposed
+            TupleValue.ofMain("root")
+        }
+
+        val engine = RunEngine(root, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertTrue(disposedWhenChildReturned == true,
+                "the NEAREST declaring ancestor owns the resource, so it disposes at that node's settle")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun undeclaredKeyFallsBackToTheOpeningNode() = runBlocking {
+        // No ancestor declares "r": the opener owns it, exactly as before slots existed. This is what keeps
+        // undeclared usage working unchanged (a Job's "job-scratch", a plugin's own key, a raw test step).
+        var disposed = false
+        var disposedWhenChildReturned: Boolean? = null
+
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto) { disposed = true }
             TupleValue.ofMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
-            execution.recoverable({}) { throw RuntimeException("boom") }
+            disposedWhenChildReturned = disposed
+            TupleValue.ofMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
         try {
             engine.resume()
-            assertIs<Outcome.Failed>(engine.await())
-            assertFalse(disposed, "keep-on-failure at Parent scope retains when the parent fails")
+            assertIs<Outcome.Success>(engine.await())
+            assertTrue(disposedWhenChildReturned == true,
+                "an undeclared key binds to the opening node and disposes at ITS settle")
         }
         finally {
             engine.close()
@@ -1806,13 +1849,60 @@ class RunEngineTest {
 
 
     @Test
-    fun parentKeepOnFailureDisposesWhenParentSucceeds() = runBlocking {
-        var disposed = false
+    fun aSlotOwnsEveryQualifiedKeyInItsFamilyIndependently() = runBlocking {
+        // Slot "sut" owns "sut:a" and "sut:b" alike (the ':' family separator), as independent registrations
+        // with their own values and closers — the dynamic-key case (one SUT per name).
+        val disposed = ArrayList<String>()
+        var readA: Any? = null
+        var readB: Any? = null
+
         val child = logicOf { execution ->
-            execution.resource("r", ClosePolicy.KeepOnFailure, ResourceScope.Parent) { disposed = true }
+            execution.resource("sut:a", ClosePolicy.Auto, value = "handle-a") { disposed.add("a") }
+            execution.resource("sut:b", ClosePolicy.Auto, value = "handle-b") { disposed.add("b") }
             TupleValue.ofMain("child")
         }
         val parent = logicOf { execution ->
+            execution.declareSlot("sut")
+            execution.host(ObjectStableId("child"), child)
+            readA = execution.resourceValue("sut:a")
+            readB = execution.resourceValue("sut:b")
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals("handle-a", readA, "a family slot holds each qualified registration separately")
+            assertEquals("handle-b", readB, "a family slot holds each qualified registration separately")
+            assertEquals(setOf("a", "b"), disposed.toSet(), "both qualified registrations dispose at the slot owner")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun hasResourceInFamilyMatchesTheFamilyButNotTheQualifier() = runBlocking {
+        // The uniform requirement gate reads at FAMILY granularity: "sut:a" being open makes the whole "sut"
+        // family present, and a distinct family stays absent. A qualifier mismatch is deliberately invisible
+        // here — it surfaces at read instead.
+        var plainBefore: Boolean? = null
+        var qualifiedFamily: Boolean? = null
+        var otherFamily: Boolean? = null
+        var exactPlainKey: Boolean? = null
+
+        val child = logicOf { execution ->
+            qualifiedFamily = execution.hasResourceInFamily("sut")
+            otherFamily = execution.hasResourceInFamily("browser")
+            exactPlainKey = execution.hasResourceInFamily("scratch")
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            plainBefore = execution.hasResourceInFamily("sut")
+            execution.resource("sut:a", ClosePolicy.Auto, value = "handle") {}
+            execution.resource("scratch", ClosePolicy.Auto, value = "plain") {}
             execution.host(ObjectStableId("child"), child)
             TupleValue.ofMain("parent")
         }
@@ -1821,7 +1911,10 @@ class RunEngineTest {
         try {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
-            assertTrue(disposed, "keep-on-failure at Parent scope disposes on the parent's success")
+            assertEquals(false, plainBefore, "nothing open yet")
+            assertEquals(true, qualifiedFamily, "a qualified registration makes its family present, seen from a child")
+            assertEquals(false, otherFamily, "an unrelated family stays absent")
+            assertEquals(true, exactPlainKey, "an unqualified key matches its own family name exactly")
         }
         finally {
             engine.close()
@@ -1830,20 +1923,81 @@ class RunEngineTest {
 
 
     @Test
-    fun parentScopeAtRootFallsBackToSelf() = runBlocking {
-        // Parent scope opened by the root itself (no parent) falls back to the node itself — no crash, disposed at
-        // run end. Covers the "(if there is one)" clause.
+    fun keepOnFailureKeysOffTheSlotOwnersOutcomeNotTheOpeners() = runBlocking {
+        // KeepOnFailure is evaluated at the OWNING (slot-declaring) node's settle: the child that opened it
+        // succeeded, yet the resource is retained because the owner failed.
         var disposed = false
-        val root = logicOf { execution ->
-            execution.resource("r", ClosePolicy.Auto, ResourceScope.Parent) { disposed = true }
-            TupleValue.ofMain("root")
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.KeepOnFailure) { disposed = true }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("child"), child)
+            execution.recoverable({}) { throw RuntimeException("boom") }
         }
 
-        val engine = RunEngine(root, rootId)
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Failed>(engine.await())
+            assertFalse(disposed, "keep-on-failure retains when the SLOT OWNER fails, though the opener succeeded")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun keepOnFailureDisposesWhenTheSlotOwnerSucceeds() = runBlocking {
+        var disposed = false
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.KeepOnFailure) { disposed = true }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("child"), child)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
         try {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
-            assertTrue(disposed, "Parent scope at the root falls back to self and disposes at run end")
+            assertTrue(disposed, "keep-on-failure disposes on the slot owner's success")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun declareSlotIsIdempotent() = runBlocking {
+        // Re-declaring the same slot is a no-op, so a migrate rebuild's re-declaration costs nothing and
+        // ownership is unchanged.
+        var disposed = false
+        var disposedWhenChildReturned: Boolean? = null
+        val child = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto) { disposed = true }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.declareSlot("r")
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("child"), child)
+            disposedWhenChildReturned = disposed
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(false, disposedWhenChildReturned, "a re-declared slot still owns the resource")
+            assertTrue(disposed)
         }
         finally {
             engine.close()
@@ -1913,6 +2067,44 @@ class RunEngineTest {
             assertEquals("handle", siblingRead,
                 "a Manual registration hands up to the parent at its owner's settle, readable by a later sibling")
             assertFalse(disposed, "explicitly released — the engine's disposer never fires a Manual closer")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun manualHandsUpPastItsSlotOwnerAtThatOwnersSettle() = runBlocking {
+        // Manual is orthogonal to slots: an intermediate node declares the slot, so the resource binds THERE,
+        // and at that owner's settle the Manual hand-up walks it one level further up — where the root still
+        // reads it. This is the second way a resource outlives its opener without a slot on the reader's side.
+        var disposed = false
+        var rootRead: Any? = null
+
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Manual, value = "handle") { disposed = true }
+            TupleValue.ofMain("opener")
+        }
+        val slotOwner = logicOf { execution ->
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("opener"), opener)
+            TupleValue.ofMain("slotOwner")
+        }
+        val root = logicOf { execution ->
+            execution.host(ObjectStableId("slotOwner"), slotOwner)
+            rootRead = execution.resourceValue("r")
+            execution.releaseResource("r")
+            TupleValue.ofMain("root")
+        }
+
+        val engine = RunEngine(root, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals("handle", rootRead,
+                "a Manual registration hands up past its slot owner at that owner's settle")
+            assertFalse(disposed, "explicitly released — the engine never fires a Manual closer")
         }
         finally {
             engine.close()
@@ -2030,13 +2222,13 @@ class RunEngineTest {
 
 
     @Test
-    fun releaseResourceFromDescendantRemovesAncestorScopedRegistration() = runBlocking {
-        // A resource handed up to the parent by one child can be deregistered by a sibling child: releaseResource
-        // walks the caller's ancestor chain, finds it on the parent, and removes it — so the auto-disposer never
-        // fires it.
+    fun releaseResourceFromDescendantRemovesSlotOwnedRegistration() = runBlocking {
+        // A resource one child bound into the parent's slot can be deregistered by a sibling child:
+        // releaseResource walks the caller's ancestor chain, finds it on the slot owner, and removes it — so
+        // the auto-disposer never fires it. The open → use → close split across sibling sub-documents.
         var disposed = false
         val opener = logicOf { execution ->
-            execution.resource("r", ClosePolicy.Auto, ResourceScope.Parent) { disposed = true }
+            execution.resource("r", ClosePolicy.Auto) { disposed = true }
             TupleValue.ofMain("opener")
         }
         val releaser = logicOf { execution ->
@@ -2044,6 +2236,7 @@ class RunEngineTest {
             TupleValue.ofMain("releaser")
         }
         val parent = logicOf { execution ->
+            execution.declareSlot("r")
             execution.host(ObjectStableId("opener"), opener)
             execution.host(ObjectStableId("releaser"), releaser)
             TupleValue.ofMain("parent")
@@ -2053,7 +2246,52 @@ class RunEngineTest {
         try {
             engine.resume()
             assertIs<Outcome.Success>(engine.await())
-            assertFalse(disposed, "an ancestor-scoped registration released by a descendant is not auto-disposed")
+            assertFalse(disposed, "a slot-owned registration released by a descendant is not auto-disposed")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun migrateReDeclaresSlotsAndKeepsTheLiftedResourceOnItsOwner() = runBlocking {
+        // A slot-owned resource crosses the migration barrier by its OWNER's stable id (the root here), and
+        // the rebuilt tree re-declares the slot as part of re-running each Logic.run. The lifted registration
+        // is re-adopted, still readable, and still disposes at the (re-declared) owner's settle.
+        var disposed = false
+        val opener = logicOf { execution ->
+            execution.resource("r", ClosePolicy.Auto, value = "handle") { disposed = true }
+            parkForever(execution)
+        }
+        val before = logicOf { execution ->
+            execution.declareSlot("r")
+            execution.host(ObjectStableId("opener"), opener)
+            parkForever(execution)
+        }
+        var readBack: Any? = null
+        val after = logicOf { execution ->
+            execution.declareSlot("r")
+            readBack = execution.resourceValue("r")
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(before, rootId)
+        try {
+            // step(), not resume(): [parkForever] only parks while the run is paused or stepping.
+            engine.step()
+            engine.awaitQuiescent()
+            assertFalse(disposed, "the opener's own settle must not dispose a resource owned by the root's slot")
+
+            engine.migrate(after, paused = true)
+            engine.awaitQuiescent()
+
+            assertFalse(disposed, "a slot-owned resource survives the migration barrier")
+            assertEquals("handle", readBack, "the rebuilt tree reads the lifted + re-adopted resource")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+            assertTrue(disposed, "the re-adopted registration still disposes at the slot owner's settle")
         }
         finally {
             engine.close()

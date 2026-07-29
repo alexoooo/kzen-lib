@@ -25,7 +25,6 @@ import tech.kzen.lib.common.exec.engine.NodeId
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
-import tech.kzen.lib.common.exec.engine.ResourceScope
 import tech.kzen.lib.common.exec.engine.Run
 import tech.kzen.lib.common.exec.engine.RunState
 import tech.kzen.lib.common.exec.engine.StepMode
@@ -85,11 +84,11 @@ class RunEngine(
         val id: NodeId,
         val stableId: ObjectStableId,
         val depth: Int,
-        // The node that hosted this one (one level up); null for the root. Used to resolve
-        // [ResourceScope.Parent] ownership at resource registration. Mutable only for a settled frame
-        // carried across the [migrate] barrier, which is re-attached to the rebuilt node that shares its
-        // host's stable id (see [adoptRetiredFrames]) — a stale id here would break the next barrier's
-        // parent-stable-id lookup.
+        // The node that hosted this one (one level up); null for the root. The ancestor chain it forms is
+        // what [slotOwnerOf] walks to resolve slot ownership, and what the resource read / release walks
+        // follow. Mutable only for a settled frame carried across the [migrate] barrier, which is
+        // re-attached to the rebuilt node that shares its host's stable id (see [adoptRetiredFrames]) — a
+        // stale id here would break the next barrier's parent-stable-id lookup.
         var parentId: NodeId?,
         val inputs: TupleValue,
         // The element that hosted this node (a RunStep / Job worker), carried to [Node.callerStableId] for
@@ -110,6 +109,12 @@ class RunEngine(
         val liveSequence = LinkedHashMap<Address, Long>()
         val children = ArrayList<NodeId>()
         val resources = LinkedHashMap<String, Registration>()
+        // Context slots this node OWNS ([Execution.declareSlot]): a descendant's registration under one of
+        // these keys — or under a "<key>:<qualifier>" of the same family — binds here instead of on itself.
+        // Deliberately NOT lifted across the [migrate] barrier: the rebuilt tree re-runs each [Logic.run],
+        // which re-declares. Already-bound resources ARE lifted, keyed by their owner's stable id, so a
+        // resource keeps the owner it bound to regardless of what the edit did to the declarations.
+        val declaredSlots = LinkedHashSet<String>()
         var requestHandler: ((ExecutionRequest) -> ExecutionResult)? = null
         var captureProvider: (() -> Any?)? = null
     }
@@ -1119,17 +1124,38 @@ class RunEngine(
     }
 
 
+    private fun declareSlot(nodeId: NodeId, key: String) {
+        synchronized(lock) {
+            nodes.getValue(nodeId).declaredSlots.add(key)
+        }
+    }
+
+
+    // Must hold lock. The nearest node on [nodeId]'s ancestor chain (self → parent → … → root) declaring a
+    // slot that matches [key] — exactly, or by family (the part before the first ':'). Falls back to
+    // [nodeId] itself when none does, which is what preserves undeclared usage: a resource nobody claims
+    // ownership of is owned by whoever opened it. An actively running node's ancestors are always still
+    // live, so the walk never dangles.
+    private fun slotOwnerOf(nodeId: NodeId, key: String): NodeId {
+        val family = key.substringBefore(':')
+        var current: NodeId? = nodeId
+        while (current != null) {
+            val runtime = nodes[current] ?: break
+            if (key in runtime.declaredSlots || family in runtime.declaredSlots) {
+                return current
+            }
+            current = runtime.parentId
+        }
+        return nodeId
+    }
+
+
     private fun registerResource(
-        nodeId: NodeId, key: String, policy: ClosePolicy, scope: ResourceScope, value: Any?, closer: () -> Unit
+        nodeId: NodeId, key: String, policy: ClosePolicy, value: Any?, closer: () -> Unit
     ) {
         synchronized(lock) {
-            // Resolve the owning node from [scope]: the resource is disposed on that node's settle. An actively
-            // running node's ancestors are always still live, so the resolved target exists.
-            val ownerId = when (scope) {
-                ResourceScope.Self -> nodeId
-                ResourceScope.Parent -> nodes.getValue(nodeId).parentId ?: nodeId
-                ResourceScope.Root -> rootId
-            }
+            // The resource is disposed on its OWNING node's settle; ownership is the nearest declared slot.
+            val ownerId = slotOwnerOf(nodeId, key)
             nodes.getValue(ownerId).resources[key] = Registration(policy, value, closer)
         }
     }
@@ -1137,8 +1163,8 @@ class RunEngine(
 
     private fun resourceValueFor(nodeId: NodeId, key: String): Any? {
         synchronized(lock) {
-            // Same ancestor-chain walk as [releaseResource]: a resource registered on this node or handed up
-            // the tree via [ResourceScope] is readable from any descendant of its owner.
+            // Same ancestor-chain walk as [releaseResource]: a resource bound to a slot-declaring ancestor
+            // (or handed up by a Manual settle) is readable from any descendant of its owner.
             var current: NodeId? = nodeId
             while (current != null) {
                 val runtime = nodes[current] ?: break
@@ -1150,10 +1176,28 @@ class RunEngine(
     }
 
 
+    private fun hasResourceInFamily(nodeId: NodeId, family: String): Boolean {
+        synchronized(lock) {
+            // Family-level by design (see [Execution.hasResourceInFamily]): "<family>" itself, or any
+            // "<family>:<qualifier>", anywhere on the ancestor chain.
+            val qualifiedPrefix = "$family:"
+            var current: NodeId? = nodeId
+            while (current != null) {
+                val runtime = nodes[current] ?: break
+                if (runtime.resources.keys.any { it == family || it.startsWith(qualifiedPrefix) }) {
+                    return true
+                }
+                current = runtime.parentId
+            }
+            return false
+        }
+    }
+
+
     private fun releaseResource(nodeId: NodeId, key: String) {
         synchronized(lock) {
-            // Walk the ancestor chain (self → parent → … → root) and remove the first match, so a resource handed
-            // up the tree via [ResourceScope] can be deregistered by a descendant (e.g. a sibling closing step).
+            // Walk the ancestor chain (self → parent → … → root) and remove the first match, so a resource bound
+            // to a slot-declaring ancestor can be deregistered by a descendant (e.g. a sibling closing step).
             var current: NodeId? = nodeId
             while (current != null) {
                 val runtime = nodes[current] ?: break
@@ -1328,11 +1372,17 @@ class RunEngine(
         ): TupleValue =
             this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace)
 
-        override fun resource(key: String, policy: ClosePolicy, scope: ResourceScope, value: Any?, closer: () -> Unit) =
-            this@RunEngine.registerResource(nodeId, key, policy, scope, value, closer)
+        override fun declareSlot(key: String) =
+            this@RunEngine.declareSlot(nodeId, key)
+
+        override fun resource(key: String, policy: ClosePolicy, value: Any?, closer: () -> Unit) =
+            this@RunEngine.registerResource(nodeId, key, policy, value, closer)
 
         override fun resourceValue(key: String): Any? =
             this@RunEngine.resourceValueFor(nodeId, key)
+
+        override fun hasResourceInFamily(family: String): Boolean =
+            this@RunEngine.hasResourceInFamily(nodeId, family)
 
         override fun releaseResource(key: String) =
             this@RunEngine.releaseResource(nodeId, key)

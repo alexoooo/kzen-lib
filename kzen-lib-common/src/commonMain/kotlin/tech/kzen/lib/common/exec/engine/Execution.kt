@@ -128,18 +128,34 @@ interface Execution {
         retainTrace: Boolean = true
     ): TupleValue
 
+    //----------------------------------------------------------------------------------- resources & slots (§6)
     /**
-     * Register a resource owned by the node selected by [scope] (default THIS node), disposed when that node
-     * settles per [policy] — so an opening element can hand ownership up the tree ([ResourceScope.Parent] /
-     * [ResourceScope.Root]) to outlive its own document. Re-registering the same [key] replaces the prior
-     * registration (value and closer). [value] optionally stores the live handle with the registration,
-     * readable via [resourceValue]; it travels with the registration across a live-edit migration (§5), so
-     * an open resource survives an edit with its owning frame's stable identity.
+     * Declare that THIS node owns a **context slot** for [key]: any descendant registering a resource under
+     * [key] — or under a qualified `"[key]:<qualifier>"` of the same family — binds HERE rather than on
+     * itself, so disposal follows this node's settle. Ownership is the ancestor's own declaration, not the
+     * opener's unilateral choice.
+     *
+     * Call at [Logic.run] start, before hosting children, so a parent has declared before any descendant can
+     * open. Idempotent, and free to re-run: a live-edit migration rebuilds the tree and re-runs each
+     * [Logic.run], which re-declares. An already-bound resource keeps the owner it bound to (ownership is
+     * fixed at bind time), so removing a declaration by editing affects only subsequent opens.
+     */
+    fun declareSlot(key: String)
+
+    /**
+     * Register a resource under [key], owned by the nearest node on this node's ancestor chain (self →
+     * parent → … → root) that [declareSlot]s a matching slot — exact [key], or the family before the first
+     * `':'` — and **falling back to THIS node** when no ancestor declares one. It is disposed when its
+     * owning node settles, per [policy].
+     *
+     * Re-registering the same [key] replaces the prior registration (value and closer). [value] optionally
+     * stores the live handle with the registration, readable via [resourceValue]; it travels with the
+     * registration across a live-edit migration (§5), so an open resource survives an edit with its owning
+     * frame's stable identity.
      */
     fun resource(
         key: String,
         policy: ClosePolicy,
-        scope: ResourceScope = ResourceScope.Self,
         value: Any? = null,
         closer: () -> Unit)
 
@@ -153,9 +169,18 @@ interface Execution {
     fun resourceValue(key: String): Any?
 
     /**
+     * True when a live registration exists on this node's ancestor chain whose key is [family] itself or
+     * `"[family]:<qualifier>"`. Deliberately **family-level**: it answers "is SOME browser / SOME sut open",
+     * never "is `sut:formula-error` open" — a qualifier is a step parameter and may be computed, so a
+     * declaration-driven check cannot know which one a reader wants. Used by a flavour's uniform
+     * requirement gate; a qualifier mismatch still surfaces at read.
+     */
+    fun hasResourceInFamily(family: String): Boolean
+
+    /**
      * Deregister a previously-registered resource [key] (e.g. an explicit closing step disposed it itself),
      * so the auto-disposer never double-fires. Searches this node's ancestor chain (self → parent → … → root),
-     * so a resource handed up the tree via [ResourceScope] can be released from a descendant.
+     * so a resource bound to a slot-declaring ancestor can be released from a descendant.
      */
     fun releaseResource(key: String)
 
