@@ -85,7 +85,7 @@ class RunEngine(
         val stableId: ObjectStableId,
         val depth: Int,
         // The node that hosted this one (one level up); null for the root. The ancestor chain it forms is
-        // what [slotOwnerOf] walks to resolve slot ownership, and what the resource read / release walks
+        // what [exportOwnerOf] climbs to resolve export-chain ownership, and what the resource read / release walks
         // follow. Mutable only for a settled frame carried across the [migrate] barrier, which is
         // re-attached to the rebuilt node that shares its host's stable id (see [adoptRetiredFrames]) — a
         // stale id here would break the next barrier's parent-stable-id lookup.
@@ -109,12 +109,14 @@ class RunEngine(
         val liveSequence = LinkedHashMap<Address, Long>()
         val children = ArrayList<NodeId>()
         val resources = LinkedHashMap<String, Registration>()
-        // Context slots this node OWNS ([Execution.declareSlot]): a descendant's registration under one of
-        // these keys — or under a "<key>:<qualifier>" of the same family — binds here instead of on itself.
+        // Contexts this node EXPORTS to its host ([Execution.declareExport]): a registration under one of these
+        // keys — or under a "<key>:<qualifier>" of the same family — climbs PAST this node to its parent, and
+        // keeps climbing while each frame in turn exports it. A key absent here makes this node the resting
+        // frame, so an un-exported resource is private to the frame that opened it.
         // Deliberately NOT lifted across the [migrate] barrier: the rebuilt tree re-runs each [Logic.run],
         // which re-declares. Already-bound resources ARE lifted, keyed by their owner's stable id, so a
         // resource keeps the owner it bound to regardless of what the edit did to the declarations.
-        val declaredSlots = LinkedHashSet<String>()
+        val exports = LinkedHashSet<String>()
         var requestHandler: ((ExecutionRequest) -> ExecutionResult)? = null
         var captureProvider: (() -> Any?)? = null
     }
@@ -1124,29 +1126,29 @@ class RunEngine(
     }
 
 
-    private fun declareSlot(nodeId: NodeId, key: String) {
+    private fun declareExport(nodeId: NodeId, key: String) {
         synchronized(lock) {
-            nodes.getValue(nodeId).declaredSlots.add(key)
+            nodes.getValue(nodeId).exports.add(key)
         }
     }
 
 
-    // Must hold lock. The nearest node on [nodeId]'s ancestor chain (self → parent → … → root) declaring a
-    // slot that matches [key] — exactly, or by family (the part before the first ':'). Falls back to
-    // [nodeId] itself when none does, which is what preserves undeclared usage: a resource nobody claims
-    // ownership of is owned by whoever opened it. An actively running node's ancestors are always still
-    // live, so the walk never dangles.
-    private fun slotOwnerOf(nodeId: NodeId, key: String): NodeId {
+    // Must hold lock. The furthest frame on [nodeId]'s self → parent → … → root chain reachable through an
+    // UNBROKEN chain of export declarations: climb while the CURRENT frame declares an export matching [key]
+    // (exactly, or by family before the first ':'). The first frame that does not export is where the
+    // registration rests — so a provide nothing exports stays on the opening frame, private by construction,
+    // and a frame of a flavour that never calls [declareExport] ends every chain that reaches it. An actively
+    // running node's ancestors are always still live, so the walk never dangles.
+    private fun exportOwnerOf(nodeId: NodeId, key: String): NodeId {
         val family = key.substringBefore(':')
-        var current: NodeId? = nodeId
-        while (current != null) {
-            val runtime = nodes[current] ?: break
-            if (key in runtime.declaredSlots || family in runtime.declaredSlots) {
+        var current = nodeId
+        while (true) {
+            val runtime = nodes[current] ?: return current
+            if (key !in runtime.exports && family !in runtime.exports) {
                 return current
             }
-            current = runtime.parentId
+            current = runtime.parentId ?: return current
         }
-        return nodeId
     }
 
 
@@ -1161,8 +1163,8 @@ class RunEngine(
         // lock. It also runs AFTER the replacement is registered, which is the ordering a closer has to
         // tolerate — see the closer contract on [Execution.resource].
         val displaced = synchronized(lock) {
-            // The resource is disposed on its OWNING node's settle; ownership is the nearest declared slot.
-            val ownerId = slotOwnerOf(nodeId, key)
+            // The resource is disposed on its OWNING node's settle; ownership rests at the end of the export chain.
+            val ownerId = exportOwnerOf(nodeId, key)
             nodes.getValue(ownerId).resources.put(key, Registration(policy, value, closer))
         }
         displaced?.let { runCatching { it.closer() } }
@@ -1171,8 +1173,8 @@ class RunEngine(
 
     private fun resourceValueFor(nodeId: NodeId, key: String): Any? {
         synchronized(lock) {
-            // Same ancestor-chain walk as [releaseResource]: a resource bound to a slot-declaring ancestor
-            // (or handed up by a Manual settle) is readable from any descendant of its owner.
+            // Same ancestor-chain walk as [releaseResource]: a resource resting on an ancestor frame it was
+            // exported to (or handed up by a Manual settle) is readable from any descendant of its owner.
             var current: NodeId? = nodeId
             while (current != null) {
                 val runtime = nodes[current] ?: break
@@ -1204,8 +1206,8 @@ class RunEngine(
 
     private fun releaseResource(nodeId: NodeId, key: String) {
         synchronized(lock) {
-            // Walk the ancestor chain (self → parent → … → root) and remove the first match, so a resource bound
-            // to a slot-declaring ancestor can be deregistered by a descendant (e.g. a sibling closing step).
+            // Walk the ancestor chain (self → parent → … → root) and remove the first match, so a resource resting
+            // on an ancestor frame can be deregistered by a descendant (e.g. a sibling closing step).
             var current: NodeId? = nodeId
             while (current != null) {
                 val runtime = nodes[current] ?: break
@@ -1380,8 +1382,8 @@ class RunEngine(
         ): TupleValue =
             this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace)
 
-        override fun declareSlot(key: String) =
-            this@RunEngine.declareSlot(nodeId, key)
+        override fun declareExport(key: String) =
+            this@RunEngine.declareExport(nodeId, key)
 
         override fun resource(key: String, policy: ClosePolicy, value: Any?, closer: () -> Unit) =
             this@RunEngine.registerResource(nodeId, key, policy, value, closer)

@@ -128,24 +128,27 @@ interface Execution {
         retainTrace: Boolean = true
     ): TupleValue
 
-    //----------------------------------------------------------------------------------- resources & slots (§6)
+    //----------------------------------------------------------------------------------- resources & exports (§6)
     /**
-     * Declare that THIS node owns a **context slot** for [key]: any descendant registering a resource under
-     * [key] — or under a qualified `"[key]:<qualifier>"` of the same family — binds HERE rather than on
-     * itself, so disposal follows this node's settle. Ownership is the ancestor's own declaration, not the
-     * opener's unilateral choice.
+     * Declare that THIS node **exports** [key] to its host: a resource registered here — or anywhere beneath
+     * this node — under [key], or under a qualified `"[key]:<qualifier>"` of the same family, climbs PAST
+     * this frame to its host, and keeps climbing while each frame in turn exports it. Ownership is OFFERED by
+     * the provider (a `return` move), never claimed by an ancestor; what a frame does not export is private
+     * to it, so an un-exported resource is disposed at the settle of the frame that opened it.
      *
-     * Call at [Logic.run] start, before hosting children, so a parent has declared before any descendant can
-     * open. Idempotent, and free to re-run: a live-edit migration rebuilds the tree and re-runs each
-     * [Logic.run], which re-declares. An already-bound resource keeps the owner it bound to (ownership is
-     * fixed at bind time), so removing a declaration by editing affects only subsequent opens.
+     * Call at [Logic.run] start, before hosting children and before any local step opens a resource, so the
+     * chain is complete before anything can climb it. Idempotent, and free to re-run: a live-edit migration
+     * rebuilds the tree and re-runs each [Logic.run], which re-declares. An already-bound resource keeps the
+     * owner it bound to (ownership is fixed at bind time), so adding or removing a declaration by editing
+     * affects only subsequent opens.
      */
-    fun declareSlot(key: String)
+    fun declareExport(key: String)
 
     /**
-     * Register a resource under [key], owned by the nearest node on this node's ancestor chain (self →
-     * parent → … → root) that [declareSlot]s a matching slot — exact [key], or the family before the first
-     * `':'` — and **falling back to THIS node** when no ancestor declares one. It is disposed when its
+     * Register a resource under [key], owned by the furthest frame on this node's ancestor chain (self →
+     * parent → … → root) reachable through an **unbroken chain of [declareExport] declarations** — matched on
+     * the exact [key] or the family before the first `':'` — resting at the first frame that does not export
+     * it, and **falling back to THIS node** when this node exports nothing matching. It is disposed when its
      * owning node settles, per [policy].
      *
      * Re-registering the same [key] **supersedes**: the displaced registration's [closer] is run, because a
@@ -189,7 +192,7 @@ interface Execution {
     /**
      * Deregister a previously-registered resource [key] (e.g. an explicit closing step disposed it itself),
      * so the auto-disposer never double-fires. Searches this node's ancestor chain (self → parent → … → root),
-     * so a resource bound to a slot-declaring ancestor can be released from a descendant.
+     * so a resource resting on an ancestor frame it was exported to can be released from a descendant.
      */
     fun releaseResource(key: String)
 

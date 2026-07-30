@@ -8,11 +8,12 @@ import tech.kzen.lib.common.exec.logic.ResourceClosePolicy.Companion.parse
  * What happens to a run-scoped resource (e.g. a spawned process or a browser) when the document that OWNS it
  * reaches a terminal state. A notation value declared per-resource on the opening step.
  *
- * The owner is **not** named here: it is the nearest enclosing document declaring a *context slot* for the
- * resource's key ([tech.kzen.lib.common.exec.engine.Execution.declareSlot]), falling back to the opening
- * document when none does. So `auto` means "at the owning slot's settle", which may be several documents up
- * — the ancestor's own declaration, not the opener's unilateral reach-up. This enum is the disposal *rule*
- * only; it maps one-to-one onto the engine's [ClosePolicy] via [toEngine].
+ * The owner is **not** named here: it is the furthest document on the resource's *export chain* — each
+ * document in turn exports the resource's key ([tech.kzen.lib.common.exec.engine.Execution.declareExport]),
+ * and it rests at the first that does not — falling back to the opening document, which is what an
+ * un-exported provide gets. So `auto` means "at the settle of the frame the export chain reached", which may
+ * be several documents up, but only as far as an unbroken run of declarations someone wrote. This enum is the
+ * disposal *rule* only; it maps one-to-one onto the engine's [ClosePolicy] via [toEngine].
  */
 enum class ResourceClosePolicy(
     /** Canonical notation wire value; the inverse of [parse]. */
@@ -23,8 +24,9 @@ enum class ResourceClosePolicy(
 
     /**
      * Never auto-dispose; only the explicit closing step disposes (survives a forgotten close). At the
-     * owning document's settle the registration is handed one level up, so it stays readable and
-     * releasable by whatever runs after — the second way a resource outlives its opener, without a slot.
+     * owning document's settle the registration is handed one level up, so it stays readable and releasable
+     * by whatever runs after — the second, orthogonal way a resource outlives its opener, and now the only
+     * way an *un-exported* one does.
      */
     Manual("manual"),
 
