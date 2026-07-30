@@ -295,23 +295,52 @@ below is addressed and concurrent runs are independently controllable.
 
 - **Repositioning (move-to) — a flavour-owned self-migration.** A driver may **reposition** a paused run to
   a named element (a debugger's "set next statement"): move the run's position to a target *without*
-  executing the intervening elements. The engine's whole role is to carry that target — an opaque element
-  position (stable id) — as a **one-shot hint across the §5 migration barrier** (`migrate(moveTarget = …)`,
-  surfaced to the rebuilt tree as `Execution.moveTarget`); the actual reposition is **flavour-owned state
-  surgery performed at restore** (§5), because only the flavour knows its own outcome/replay model. A Logic
-  that supports it advertises so **structurally** (`Repositionable.canMoveTo`, checked before the barrier is
-  torn down, so an illegal target is rejected without disrupting the run); a Logic that does not — or one in
-  whose structure the target does not resolve — **ignores** the hint, leaving an ordinary migrate parked at
-  its existing frontier. Like breakpoints, the target is stable-id keyed, so it is rename / live-edit safe.
+  executing the intervening elements. The engine's whole role is to carry the request across the **§5
+  migration barrier**, **one-shot** (`migrate(moveTarget = …)`); the actual reposition is **flavour-owned
+  state surgery performed at restore** (§5), because only the flavour knows its own outcome/replay model.
+  Like breakpoints, every id in a request is stable-id keyed, so it is rename / live-edit safe.
+
+  **A request addresses exactly ONE frame, by call-site path.** It carries the target *and* the path to the
+  frame that owns it: root → the addressed frame, one entry per hop, each the stable id of the **call-site**
+  (`Execution.host`'s `callerStableId`) through which that hop was opened. An empty path addresses the root
+  frame. Addressing narrows *who* receives a request, never *what* may be repositioned — a frame any number
+  of hops down is a legitimate destination, and the path is what makes it reachable. Broadcasting the target
+  to every frame instead cannot survive recursion: a self-hosting document has the same element live in
+  several frames at once, so a bare target id resolves in all of them and would move all of them.
+
+  **Two roles, one obligation each.** Every frame of the rebuilt tree reads both surfaces, and at most one of
+  them is non-null for it:
+  - the **addressed** frame reads the target (`Execution.moveTarget`) and performs the state surgery;
+  - a **transit** frame on the path to it reads the call-site it must descend through
+    (`Execution.moveDescendCallSite`): it runs to that call-site with its **own boundary suppressed** — so a
+    paused rebuild does not park at the hosting element short of the destination — and then hosts it, handing
+    the remainder of the path down;
+  - every other frame reads null on both and rebuilds as an ordinary migrate.
+
+  Delivery is **one-shot per barrier**: the hosting that claims a hop consumes it, so a host that re-runs its
+  call-sites cannot re-apply the jump on a later pass. Matching is by call-site identity alone — a host that
+  names **no distinct call-site** matches no hop (null is not a wildcard), so nothing reached through it can
+  be path-addressed.
+
+  A Logic that supports the verb advertises so **structurally** (`Repositionable`, checked before the barrier
+  is torn down, so an illegal request is rejected without disrupting the run) — and it answers **per role**:
+  `canDescendThrough(callSite)` for a transit hop, `canMoveTo(target)` for the addressed frame. Because a
+  request names a chain of frames, a driver checks **every frame on the path** and refuses the move unless all
+  of them can honour their role. Asking each frame about its own structure is what keeps the driver
+  flavour-agnostic: a Script alone knows that a call-site inside a loop body cannot carry a descent (its walk
+  cannot be resumed mid-iteration), and the driver never has to reason about any flavour's shape to find that
+  out. A frame handed a request it cannot honour **ignores** it, leaving an ordinary migrate parked at its
+  existing frontier.
 
   Repositioning is the one control verb that is **refusable**: unlike run / pause / step, which are always
-  accepted, a reposition whose target the current definition cannot honour must be **rejected with the run
-  left untouched** — nothing torn down, no state lost — which is why the capability check happens before
-  the barrier. It is also the one verb that **always re-reads the definition** (a reposition *is* a
-  migrate, so it shares its barrier with any pending edit and the two land in a single rebuild; a failure
-  to rebuild is likewise a refusal, not a run-ending error). It is permitted while paused **or**
-  error-parked — jumping past a failing element is a headline use — and refused while running. Asking to
-  move to where the run is already parked is a no-op, not a rebuild.
+  accepted, a reposition the current definition cannot honour — an unresolvable target, or a path hop that
+  cannot carry the descent — must be **rejected with the run left untouched** (nothing torn down, no state
+  lost), which is why the capability check happens before the barrier. It is also the one verb that
+  **always re-reads the definition** (a reposition *is* a migrate, so it shares its barrier with any pending
+  edit and the two land in a single rebuild; a failure to rebuild is likewise a refusal, not a run-ending
+  error). It is permitted while paused **or** error-parked — jumping past a failing element is a headline use
+  — and refused while running. Asking to move to where the addressed frame is already parked is a no-op, not
+  a rebuild.
 
 - **Outcome taxonomy.** Every boundary resolves the execution to one of:
   - **success(value)** — terminal, carrying the typed output tuple,
@@ -427,13 +456,25 @@ them; they must not be re-implemented per flavour.
     loop resetting for its next iteration, or restarting) **discards its dropped call-sites' captures** —
     transitively including their descendants' — so a fresh invocation starts clean instead of adopting the
     abandoned one's state (`Execution.discardCaptured`).
+
+    > **Undefined.** These rules resolve a live-vs-settled collision, not a **live-vs-live** one. Two
+    > *simultaneously mid-flight* invocations of the same document — self-recursion — collide on one stable
+    > identity at the barrier with no defined winner: the capture register is keyed by stable identity alone,
+    > so which of the two carries across is arbitrary. This bounds every capture-dependent behaviour under
+    > recursion, repositioning included — an addressed frame acts on its target from inside its restore, and
+    > a restore runs only where a frame adopts a capture.
+
   - **Repositioning (move-to) is a self-migration.** A driver-requested move-to (§4 "Repositioning") reuses
-    this same barrier with the target carried as a one-shot `Execution.moveTarget`: the flavour performs the
-    outcome/replay **state surgery at restore** (dropping the target-and-after outcomes so its position walk
-    re-parks at the target — additionally short-circuiting the value-less steps the walk skips over on a
-    forward jump, and re-running the target's ancestor containers with their `checkpoint` suppressed so the
-    rebuild parks at the target rather than an enclosing boundary), so no new engine machinery is needed — a
-    move-to *is* a migrate the flavour steers.
+    this same barrier, carrying a one-shot request addressed to a single frame by call-site path. The
+    **addressed** frame reads the target (`Execution.moveTarget`) and performs the outcome/replay **state
+    surgery at restore** (dropping the target-and-after outcomes so its position walk re-parks at the target —
+    additionally short-circuiting the value-less steps the walk skips over on a forward jump, and re-running
+    the target's ancestor containers with their `checkpoint` suppressed so the rebuild parks at the target
+    rather than an enclosing boundary). Each **transit** frame above it reads a descent obligation instead
+    (`Execution.moveDescendCallSite`) and applies the same suppression one level out: it runs to that
+    call-site without parking there and hosts it, so the rebuild descends toward the addressed frame instead
+    of parking at the hosting element. Either way no new engine machinery is needed — a move-to *is* a
+    migrate the flavour steers.
 
 - **Step-after-edit re-parks; run-after-edit resumes.** Applying an edit is bounded by the pending command:
   **stepping** after an edit rebuilds onto the new definition and re-parks at its **first** wavefront (a
@@ -932,7 +973,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `declareExport` (this node exports a key upward, offering ownership to whoever hosts it, §6) / `resource` / `resourceValue` (ancestor-chain read) / `hasResourceInFamily` / `releaseResource`; `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` (one-shot repositioning hint, §4) | kzen-lib-common `exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `declareExport` (this node exports a key upward, offering ownership to whoever hosts it, §6) / `resource` / `resourceValue` (ancestor-chain read) / `hasResourceInFamily` / `releaseResource`; `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` / `moveDescendCallSite` (the addressed frame's target and a transit frame's descent obligation for a one-shot repositioning request, §4) | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `setBreakpoints`; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) + `CountingDispatcher` (the quiescence primitive: counts dispatch tasks, and counts a pending `delay` / an `Execution.blocking` region as in-flight so neither reads as idle). Available but unconsumed: `observeFrames` (frame-close signal), `observeResets` / `TraceReset` (synchronous pre-return reset signal) — both left from the retired trace-store bridge | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live (+ `liveSequence`) + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / setBreakpoints / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
@@ -941,7 +982,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / `Failed(message, at)` — `at` = origin stable id, propagated unchanged through `host` / Cancelled); `OutcomeTrace` (the `{kind, message, at}` wire shape shared by the server projection and the client) | kzen-lib-common `exec/engine/` |
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`, `setBreakpoints`, `moveTo` — refusable, returning `LogicRunResponse.Rejected`; `observeStatus`, `retainedTraceAccess`, `clearRetainedTrace`); the impl drives the engine on **one single-thread executor** (each release blocks in `RunEngine.awaitQuiescent` until the run settles, then reflects that back into the status flags; signal-only verbs — pause / cancel / setPauseOnError — call the engine directly so they reach an in-flight run instead of queueing behind it. E6 would need one executor **per run**, since a shared one would serialize unrelated runs), **retains the settled run** for post-run trace queries (disposed on the next `start` / a global clear) while reporting it as no-active-run, and detects live edits. REST surface: `LogicHandler` (+ the `/logic/events` SSE stream and the `/logic/trace-binary` blob route) | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/`, `server/api/handler/` |
 | Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo` (frame + state + value `sequence`), `LogicRunFrameInfo` (live frame tree + resolved `position`), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` (Running / Stepping / Pausing / Paused / ExplicitPaused / ErrorPaused / Cancelling), `LogicStatus` (the three version axes of §7: `epoch`, `structureVersion`, `active.sequence`), `LogicRunResponse` (incl. `Rejected`), `ObjectStableId` + `ObjectStableMapper`. (`LogicRunFrameState` is vestigial — its field on `LogicRunFrameInfo` is commented out.) | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
-| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, resource lift/re-adopt, settled-frame lift/re-adopt via `liftRetiredFrames` / `adoptRetiredFrames` / `supersedeRetiredFrames`, orphan sweep) + `Execution.onCapture` / `restored` / `discardCaptured`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` → `Execution.moveTarget`, flavour capability `Repositionable.canMoveTo`; **removal reporting** via `RunEngine.migrate(removedStableIds)` → `Execution.removedStableIds`, sourced from `ObjectStableMapper.drainRemovedIds` and claimed only by a barrier that actually rebuilds (`ServerLogicController.migrationRemovals`); edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (the controller is a `LocalGraphStore.Observer`) gating a content-digest diff over the closure `LinkedLogicDocuments.transitiveDigest` builds from `LogicCallGraph.transitiveCallees` (root document ∪ weakly-linked callees, §5). Per-flavour carried state: `ScriptMigrationState` (completed outcomes + per-step carry + result), `FlowMigrationState` (per-vertex progress + harvested output), Job's channel drain/preload + per-Worker `WorkerBase.captureMigrationState`; Report registers no capture (clean restart — the §5 default) | engine kzen-lib-jvm; detection + flavours kzen-auto-jvm |
+| Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, resource lift/re-adopt, settled-frame lift/re-adopt via `liftRetiredFrames` / `adoptRetiredFrames` / `supersedeRetiredFrames`, orphan sweep) + `Execution.onCapture` / `restored` / `discardCaptured`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` — a `MoveTarget` addressed to one frame by `callSitePath`, surfaced there as `Execution.moveTarget` and to each transit frame as `Execution.moveDescendCallSite` (per-node routing in `RunEngine.NodeRuntime.moveSuffix` / `inheritMoveSuffix`), flavour capability `Repositionable.canMoveTo` (addressed frame) / `Repositionable.canDescendThrough` (transit hop); **removal reporting** via `RunEngine.migrate(removedStableIds)` → `Execution.removedStableIds`, sourced from `ObjectStableMapper.drainRemovedIds` and claimed only by a barrier that actually rebuilds (`ServerLogicController.migrationRemovals`); edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (the controller is a `LocalGraphStore.Observer`) gating a content-digest diff over the closure `LinkedLogicDocuments.transitiveDigest` builds from `LogicCallGraph.transitiveCallees` (root document ∪ weakly-linked callees, §5). Per-flavour carried state: `ScriptMigrationState` (completed outcomes + per-step carry + result), `FlowMigrationState` (per-vertex progress + harvested output), Job's channel drain/preload + per-Worker `WorkerBase.captureMigrationState`; Report registers no capture (clean restart — the §5 default) | engine kzen-lib-jvm; detection + flavours kzen-auto-jvm |
 | Resources (**now: export-chain owned**) | `Execution.declareExport(key)` (this node offers `key` upward, matched exactly or by family — the part before the first `':'`; idempotent, re-declared by a migrate rebuild, not lifted across the barrier) / `resource(key, policy, value, closer)` (registered on the furthest frame reached by climbing while each frame exports the key, falling back to the opening node; disposed on the resting frame's settle) / `resourceValue` (ancestor-chain read of the live handle) / `hasResourceInFamily(family)` (family-granular presence gate) / `releaseResource` (ancestor-chain deregister), `ClosePolicy` (Auto / Manual / KeepOnFailure — the disposal rule only, applied at the *resting* node's settle; Manual instead hands the registration one level up, `putIfAbsent`) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure, `toEngine()`) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
 | Tracing (wire contract) | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / tracedLocations / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register — the Report write adapter, `ExecutionLogicTraceHandle`, still uses it over `Execution.emit`/`log`; its `register` / `clearAll` are no-ops there), `LogicTracePath` (+ the `$stable` and `$outcome` markers, the latter via `nodeOutcome(stableId)` — §7), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; REST entry point `LogicTraceEndpoint` + `LogicConventions` actions; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/`; endpoint kzen-auto-jvm `server/objects/logic/` |
 | Trace address routing (§7 SPI) | `LogicTraceAddressRouting` (`marker` → `tracePath(address, stableId)`), autowired and indexed by marker in `RunEngineLogicTrace`; contributed by `JobTraceAddressRouting` (`$job-progress`) and `ReportTraceAddressRouting` (`$trace-path`). Flavours emitting only element addresses (Script, Flow) contribute none | kzen-auto-jvm `server/exec/`, `server/exec/{job,report}/` |

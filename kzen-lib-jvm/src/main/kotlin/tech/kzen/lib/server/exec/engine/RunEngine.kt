@@ -20,6 +20,7 @@ import tech.kzen.lib.common.exec.engine.ClosePolicy
 import tech.kzen.lib.common.exec.engine.Execution
 import tech.kzen.lib.common.exec.engine.Logic
 import tech.kzen.lib.common.exec.engine.LogicFailure
+import tech.kzen.lib.common.exec.engine.MoveTarget
 import tech.kzen.lib.common.exec.engine.Node
 import tech.kzen.lib.common.exec.engine.NodeId
 import tech.kzen.lib.common.exec.engine.NodeStatus
@@ -104,6 +105,12 @@ class RunEngine(
         // Last named boundary reached, carried to [Node.position]; anonymous checkpoints leave it unchanged.
         // Starts null on a migrate rebuild too — re-established when the rebuilt spine re-parks at its boundary.
         var position: ObjectStableId? = null
+        // The call-site hops still remaining from THIS frame to the frame a [MoveTarget] addresses. Null and
+        // empty are DIFFERENT states: null = not addressed (both move surfaces read null); empty = this IS the
+        // addressed frame (it reads [Execution.moveTarget]); non-empty = a transit frame, whose first entry is
+        // the call-site it must descend through ([Execution.moveDescendCallSite]). Collapsing the two would
+        // hand the target to every unaddressed frame — precisely what path addressing exists to prevent.
+        var moveSuffix: List<ObjectStableId>? = null
         val live = LinkedHashMap<Address, ExecutionValue>()
         // Parallel to [live], carried to [Node.liveSequence]: the write sequence of each live entry.
         val liveSequence = LinkedHashMap<Address, Long>()
@@ -197,12 +204,13 @@ class RunEngine(
     // superseded generation, which is how [host] tells a carried frame from one this generation settled.
     private var migrationNodeWatermark = 0
 
-    // A one-shot repositioning target carried across the [migrate] barrier, surfaced to every node of the
-    // rebuilt tree as [Execution.moveTarget] (spec §4 "Repositioning"). Tree-wide (not keyed by node) and read
-    // WITHOUT claiming — root and hosted children may all read it during one barrier's rebuild. Every migrate
-    // overwrites it (an ordinary edit passes null, clearing it), so it is one-shot by construction; also
-    // cleared by [sweepOrphans] so [close] leaves nothing behind.
-    private var migrationMoveTarget: ObjectStableId? = null
+    // A one-shot repositioning request carried across the [migrate] barrier and delivered to the single frame
+    // its call-site path addresses (spec §4 "Repositioning"). Which frame that is lives per node in
+    // [NodeRuntime.moveSuffix], handed one hop down at each [host]; this register holds the request itself and
+    // gates BOTH [Execution] move surfaces, so clearing it silences them regardless of any suffix left on a
+    // node. Read WITHOUT claiming. Every migrate overwrites it (an ordinary edit passes null, clearing it), so
+    // it is one-shot by construction; also cleared by [sweepOrphans] so [close] leaves nothing behind.
+    private var migrationMoveTarget: MoveTarget? = null
 
     // The stable identities the edit removed, reported by the driver at the [migrate] barrier and surfaced as
     // [Execution.removedStableIds]. An id is the element's address, and an address freed by a removal is
@@ -509,9 +517,11 @@ class RunEngine(
      * Must be called while the run is quiescent — every non-terminal node parked at a checkpoint and no
      * dispatch in flight (the caller awaits [awaitQuiescent] first), and never from a dispatcher thread.
      * [paused] starts the rebuilt run parked at its first wavefront (a step-after-edit); false resumes it.
-     * [moveTarget] is an advisory one-shot repositioning hint surfaced to the rebuilt tree as
-     * [Execution.moveTarget] — a self-migration that repositions the run; a flavour that doesn't support
-     * repositioning (or in whose structure the id doesn't resolve) ignores it, leaving an ordinary migrate.
+     * [moveTarget] is an advisory one-shot repositioning request — a self-migration that repositions the run.
+     * It is addressed to a single frame by [call-site path][MoveTarget.callSitePath] (empty = the root frame),
+     * surfaced there as [Execution.moveTarget]; each frame on the way to it instead surfaces the hop it must
+     * descend through as [Execution.moveDescendCallSite]. A flavour that doesn't support repositioning (or in
+     * whose structure the id doesn't resolve) ignores it, leaving an ordinary migrate.
      * [removedStableIds] names the elements the edit REMOVED: their captures and lifted resources are held
      * back from adoption (and swept as orphans) and their breakpoints dropped, so an element the edit created
      * at a removed one's address starts clean instead of inheriting it. Also surfaced to the rebuilt tree as
@@ -520,7 +530,7 @@ class RunEngine(
     fun migrate(
         newRoot: Logic,
         paused: Boolean = true,
-        moveTarget: ObjectStableId? = null,
+        moveTarget: MoveTarget? = null,
         removedStableIds: Set<ObjectStableId> = emptySet()
     ) {
         // Dispose orphans left unclaimed by a prior edit before this edit's captures overwrite the registers.
@@ -594,6 +604,9 @@ class RunEngine(
 
             liveRootLogic = newRoot
             val rootRuntime = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
+            // The whole path starts here, so the root holds it in full: empty addresses the root itself, and
+            // null (no request) leaves the root unaddressed rather than making it the target's frame.
+            rootRuntime.moveSuffix = moveTarget?.callSitePath
             nodes[rootId] = rootRuntime
             adoptLiftedResources(rootRuntime)
             adoptRetiredFrames(rootRuntime)
@@ -817,6 +830,17 @@ class RunEngine(
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
             val runtime = NodeRuntime(id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace)
+            runtime.moveSuffix = inheritMoveSuffix(parent, callerStableId)
+            if (runtime.moveSuffix != null && callerStableId != null) {
+                // This hosting CLAIMED a descent hop, which means the transit frame ran to [callerStableId] with
+                // its boundary suppressed — and a named boundary is the only writer of [NodeRuntime.position],
+                // which starts null on every rebuild. Re-establish it here, or the frame reports no position at
+                // all and its document loses the "element about to run" marker (and with it the move-to drag
+                // handle that marker IS) until the run advances past the child. Scoped to the claimed hop, so a
+                // host that never suppressed anything keeps whatever its own checkpoints recorded — notably a
+                // Job worker, whose frame deliberately reports no position.
+                parent.position = callerStableId
+            }
             nodes[id] = runtime
             adoptLiftedResources(runtime)
             adoptRetiredFrames(runtime)
@@ -834,6 +858,25 @@ class RunEngine(
             is Outcome.Failed -> throw LogicFailure(outcome.message, outcome.at)
             Outcome.Cancelled -> throw CancellationException("Child cancelled")
         }
+    }
+
+
+    // Must hold lock. Hand a [MoveTarget]'s remaining call-site path one hop down: the child inherits the
+    // parent's suffix minus its own hop when the parent is a transit frame whose next hop IS this call-site,
+    // and null (unaddressed) otherwise. A null [callerStableId] never matches — it is not a wildcard; a host
+    // that names no distinct call-site simply cannot be path-addressed.
+    //
+    // Consumption is ONE-SHOT: the parent's suffix is cleared by the hosting that claims it, so a second
+    // hosting from the same call-site in the same rebuild inherits nothing. Without that, a host that re-runs
+    // its call-sites would re-apply the jump on a later pass — arbitrarily far from the request that asked
+    // for it, with nothing on screen connecting the two.
+    private fun inheritMoveSuffix(parent: NodeRuntime, callerStableId: ObjectStableId?): List<ObjectStableId>? {
+        val suffix = parent.moveSuffix
+        if (suffix.isNullOrEmpty() || callerStableId == null || suffix.first() != callerStableId) {
+            return null
+        }
+        parent.moveSuffix = null
+        return suffix.drop(1)
     }
 
 
@@ -1409,7 +1452,23 @@ class RunEngine(
             get() = this@RunEngine.restoredForNode(nodeId)
 
         override val moveTarget: ObjectStableId?
-            get() = synchronized(lock) { migrationMoveTarget }
+            get() = synchronized(lock) {
+                val request = migrationMoveTarget
+                    ?: return@synchronized null
+                val suffix = nodes.getValue(nodeId).moveSuffix
+                    ?: return@synchronized null
+                // An exhausted path means this node IS the addressed frame; hops still remaining mean it is a
+                // transit frame, which reads [moveDescendCallSite] instead.
+                if (suffix.isEmpty()) request.target else null
+            }
+
+        override val moveDescendCallSite: ObjectStableId?
+            get() = synchronized(lock) {
+                if (migrationMoveTarget == null) {
+                    return@synchronized null
+                }
+                nodes.getValue(nodeId).moveSuffix?.firstOrNull()
+            }
 
         override val removedStableIds: Set<ObjectStableId>
             get() = synchronized(lock) { migrationRemovedStableIds }

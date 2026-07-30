@@ -109,9 +109,14 @@ interface Execution {
      *
      * [stableId] is the CHILD's own root identity (used for its frame / migration carry-over). [callerStableId]
      * is the element on THIS side that hosts it — the call-site (a RunStep, a Job worker) — recorded on the
-     * child node ([Node.callerStableId]) purely for trace attribution, so a consumer can scope a hosting
-     * element's view to the executions it spawned even when several call-sites host the same child document.
-     * Null when there is no distinct call-site.
+     * child node ([Node.callerStableId]). It is **load-bearing frame addressing**, not a cosmetic label:
+     * several invocations can share one child document, and the call-site is what tells them apart, so
+     * migration delivers a capture only to a node hosted from the SAME call-site ([restored]), and a
+     * repositioning request names the frame it addresses as a path of call-sites, one per hop of the host
+     * chain ([MoveTarget.callSitePath]). It carries the trace attribution too: a consumer scopes a hosting
+     * element's view to the executions it spawned. Null when this host names no distinct call-site — null
+     * never matches a path hop (it is not a wildcard), so a frame reached through such a hop cannot be
+     * path-addressed.
      *
      * [retainTrace] governs the child frame's trace retention (§7 retention-vs-bounding), recorded on the child
      * node ([Node.retainTrace]). True (the default) KEEPS the frame's trace buffer after it closes, so post-run
@@ -247,12 +252,30 @@ interface Execution {
     /**
      * Advisory one-shot repositioning hint set by the driver at the migration barrier (§5). A [Logic]
      * whose structure resolves this id MAY interpret it when adopting [restored] — repositioning the
-     * rebuilt walk. Any Logic that does not support repositioning, or a hosted child in whose structure
-     * the id does not resolve, MUST ignore it, in which case the rebuild is an ordinary migrate parked at
-     * the existing frontier. Unlike [restored], reading is not a claim: the root and hosted children may
-     * all read it during one barrier's rebuild. Non-null only on a rebuilt tree; null on a fresh run.
+     * rebuilt walk. Any Logic that does not support repositioning, or in whose structure the id does not
+     * resolve, MUST ignore it, in which case the rebuild is an ordinary migrate parked at the existing
+     * frontier.
+     *
+     * Delivered to exactly ONE frame of the rebuilt tree: the one the request's
+     * [call-site path][MoveTarget.callSitePath] names. Every other frame reads null here — a frame on the
+     * way to the addressed one reads [moveDescendCallSite] instead, and a frame off the path reads null on
+     * both. That precision is what holds under recursion, where the same id resolves in several live frames
+     * at once and only the addressed one may move.
+     *
+     * Unlike [restored], reading is not a claim: a frame may read it repeatedly during one barrier's
+     * rebuild. Non-null only on a rebuilt tree; null on a fresh run.
      */
     val moveTarget: ObjectStableId?
+
+    /**
+     * The call-site this frame must DESCEND THROUGH rather than park at — surfaced to a TRANSIT frame on the
+     * path to the frame a move request addresses, in place of a target of its own. The frame runs to that
+     * call-site with its own boundary SUPPRESSED, so the paused rebuild does not park at the hosting element,
+     * and then hosts it: the descent obligation that carries the move down to the addressed frame. Null for
+     * every frame that is not a transit frame on this barrier's path — including the addressed frame itself,
+     * which reads [moveTarget].
+     */
+    val moveDescendCallSite: ObjectStableId?
 
     /**
      * The stable identities the edit REMOVED, as reported by the driver at the migration barrier (§5

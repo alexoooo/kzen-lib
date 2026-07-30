@@ -12,6 +12,7 @@ import tech.kzen.lib.common.exec.engine.ClosePolicy
 import tech.kzen.lib.common.exec.engine.Execution
 import tech.kzen.lib.common.exec.engine.Logic
 import tech.kzen.lib.common.exec.engine.LogicSignature
+import tech.kzen.lib.common.exec.engine.MoveTarget
 import tech.kzen.lib.common.exec.engine.Node
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
@@ -472,9 +473,10 @@ class RunEngineTest {
     //---------------------------------------------------------------- repositioning move-target carry (spec §4/§5)
     @Test
     fun migrateCarriesMoveTargetAndNextMigrateClearsIt() = runBlocking {
-        // The engine carries a one-shot move target across the migration barrier, surfaced to the rebuilt tree
-        // as Execution.moveTarget: null on a fresh run, the passed id on a move-migrate, and back to null on the
-        // next ordinary migrate (overwrite-clears — one-shot by construction).
+        // The engine carries a one-shot move target across the migration barrier, surfaced to the frame its
+        // call-site path addresses — empty here, so the rebuilt ROOT reads it: null on a fresh run, the passed
+        // id on a move-migrate, and back to null on the next ordinary migrate (overwrite-clears — one-shot by
+        // construction).
         val seen = mutableListOf<Any?>()
         fun parkingRoot() = logicOf { execution ->
             seen.add(execution.moveTarget)
@@ -487,7 +489,7 @@ class RunEngineTest {
             engine.awaitQuiescent()
             assertEquals(listOf<Any?>(null), seen, "a fresh run has no move target")
 
-            engine.migrate(parkingRoot(), paused = true, moveTarget = ObjectStableId("target"))
+            engine.migrate(parkingRoot(), paused = true, moveTarget = MoveTarget(ObjectStableId("target")))
             engine.awaitQuiescent()
             assertEquals(
                 listOf<Any?>(null, ObjectStableId("target")), seen,
@@ -521,7 +523,7 @@ class RunEngineTest {
             }
             assertEquals(ExecutionValue.of(3L), engine.snapshot().root.live[Address.of("count")])
 
-            engine.migrate(CountUpLogic(5), paused = false, moveTarget = ObjectStableId("ignored"))
+            engine.migrate(CountUpLogic(5), paused = false, moveTarget = MoveTarget(ObjectStableId("ignored")))
             val outcome = engine.await()
 
             assertEquals(
@@ -535,36 +537,28 @@ class RunEngineTest {
     }
 
 
-    @Test
-    fun moveTargetReadableFromHostedChildExecution() = runBlocking {
-        // The move target is tree-wide: a child hosted on the rebuilt tree reads the same Execution.moveTarget
-        // the root sees (documented — a real flavour ignores an id its own structure can't resolve, but the
-        // value IS visible to every node of the barrier's rebuild, since a read is not a claim).
-        val target = ObjectStableId("target")
-        var rootSeen: Any? = "unset"
-        var childSeen: Any? = "unset"
-        val engine = RunEngine(logicOf { parkForever(it) }, rootId)
+    // What a frame reads on the two move surfaces: (moveTarget, moveDescendCallSite). Asserting the pair — and
+    // in host order across the whole rebuilt tree — is what separates "addressed", "transit" and "not
+    // addressed"; checking either surface alone cannot tell the last two apart.
+    private fun moveSurfacesOf(execution: Execution): Pair<Any?, Any?> =
+        execution.moveTarget to execution.moveDescendCallSite
+
+
+    // Park a fresh run at its first boundary, then rebuild it against [rebuilt] carrying [moveTarget] — the
+    // barrier every move-addressing case is observed across. Returns once the rebuilt tree has quiesced and the
+    // run is cancelled, so a caller only asserts what its frames recorded on the way.
+    private fun acrossMoveBarrier(
+        moveTarget: MoveTarget,
+        rootStableId: ObjectStableId = rootId,
+        rebuilt: Logic
+    ) {
+        val engine = RunEngine(logicOf { parkForever(it) }, rootStableId)
         try {
             engine.step()
             engine.awaitQuiescent()
 
-            engine.migrate(
-                logicOf { execution ->
-                    rootSeen = execution.moveTarget
-                    execution.host(
-                        ObjectStableId("child"),
-                        logicOf { child ->
-                            childSeen = child.moveTarget
-                            TupleValue.ofMain("ok")
-                        })
-                    parkForever(execution)
-                },
-                paused = true,
-                moveTarget = target)
+            engine.migrate(rebuilt, paused = true, moveTarget = moveTarget)
             engine.awaitQuiescent()
-
-            assertEquals(target, rootSeen, "the rebuilt root reads the move target")
-            assertEquals(target, childSeen, "a hosted child reads the same tree-wide move target")
 
             engine.cancel()
             engine.awaitQuiescent()
@@ -572,6 +566,216 @@ class RunEngineTest {
         finally {
             engine.close()
         }
+    }
+
+
+    @Test
+    fun moveTargetDeliveredToAddressedChildFrameWhileRootDescends() {
+        // A one-hop call-site path addresses the hosted child: the child reads the target, and the root — a
+        // transit frame — reads the call-site it must descend through instead of a target of its own. The
+        // pairing is what lets a paused rebuild run PAST the hosting element rather than parking at it.
+        val target = ObjectStableId("target")
+        val site = ObjectStableId("site")
+        val seen = mutableListOf<Pair<Any?, Any?>>()
+
+        acrossMoveBarrier(
+            MoveTarget(target, listOf(site)),
+            rebuilt = logicOf { execution ->
+                seen.add(moveSurfacesOf(execution))
+                execution.host(
+                    ObjectStableId("child"),
+                    logicOf { child ->
+                        seen.add(moveSurfacesOf(child))
+                        TupleValue.ofMain("ok")
+                    },
+                    callerStableId = site)
+                parkForever(execution)
+            })
+
+        assertEquals(
+            listOf<Pair<Any?, Any?>>(null to site, target to null), seen,
+            "the transit root descends through the call-site; the addressed child frame reads the target")
+    }
+
+
+    @Test
+    fun transitFrameTakesItsPositionFromTheDescentCallSiteItSuppressed() = runBlocking {
+        // A transit frame runs to its descent call-site with its own boundary SUPPRESSED, so it never
+        // checkpoints there — and a named checkpoint is otherwise the only writer of a position that starts null
+        // on every rebuild. Claiming the hop has to establish it, or the frame's document shows no "element
+        // about to run". The frame below claims no hop and names no boundary, so it stays position-less.
+        val target = ObjectStableId("target")
+        val site = ObjectStableId("site")
+        val workerSite = ObjectStableId("worker-site")
+
+        val engine = RunEngine(logicOf { parkForever(it) }, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+
+            engine.migrate(
+                logicOf { execution ->
+                    val descentCallSite = execution.moveDescendCallSite
+                    execution.host(
+                        ObjectStableId("worker"),
+                        logicOf { worker ->
+                            worker.host(
+                                ObjectStableId("instruction"),
+                                logicOf { parkForever(it) },
+                                callerStableId = workerSite)
+                        },
+                        callerStableId = descentCallSite)
+                    parkForever(execution)
+                },
+                paused = true,
+                moveTarget = MoveTarget(target, listOf(site)))
+            engine.awaitQuiescent()
+
+            val root = engine.snapshot().root
+            assertEquals(
+                site, root.position,
+                "the transit frame positions at the descent call-site it never checkpointed at")
+            assertNull(
+                root.children.single().position,
+                "a hosting that claims no hop leaves its host position-less — a Job worker names no boundary")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun unaddressedSiblingFrameReadsNullOnBothMoveSurfaces() {
+        // "Not addressed" and "IS the addressed frame" are distinct states of a frame's remaining path, not one
+        // emptiness test. A sibling hosted from a call-site the path does not name reads null on BOTH surfaces,
+        // while the addressed sibling reads the target — so a rebuild carries the move to one frame, never to
+        // whatever else happens to be rebuilt alongside it.
+        val target = ObjectStableId("target")
+        val addressedSite = ObjectStableId("addressed-site")
+        val otherSite = ObjectStableId("other-site")
+        val seen = mutableListOf<Pair<Any?, Any?>>()
+
+        acrossMoveBarrier(
+            MoveTarget(target, listOf(addressedSite)),
+            rebuilt = logicOf { execution ->
+                execution.host(
+                    ObjectStableId("child"),
+                    logicOf { child ->
+                        seen.add(moveSurfacesOf(child))
+                        TupleValue.ofMain("other")
+                    },
+                    callerStableId = otherSite)
+                execution.host(
+                    ObjectStableId("child"),
+                    logicOf { child ->
+                        seen.add(moveSurfacesOf(child))
+                        TupleValue.ofMain("addressed")
+                    },
+                    callerStableId = addressedSite)
+                parkForever(execution)
+            })
+
+        assertEquals(
+            listOf<Pair<Any?, Any?>>(null to null, target to null), seen,
+            "the unaddressed sibling gets neither surface; the addressed one gets the target")
+    }
+
+
+    @Test
+    fun moveSuffixConsumedOnceSoASecondHostingOfTheCallSiteIsNotAddressed() {
+        // Consumption is one-shot: the hosting that claims a hop clears it from the parent, so a second hosting
+        // from the SAME call-site in the same rebuild inherits nothing. Without it a host that re-runs its
+        // call-sites would re-apply the jump on a later pass, arbitrarily far from the request that asked for it.
+        val target = ObjectStableId("target")
+        val site = ObjectStableId("site")
+        val seen = mutableListOf<Pair<Any?, Any?>>()
+
+        acrossMoveBarrier(
+            MoveTarget(target, listOf(site)),
+            rebuilt = logicOf { execution ->
+                val child = logicOf { hosted ->
+                    seen.add(moveSurfacesOf(hosted))
+                    TupleValue.ofMain("ok")
+                }
+                execution.host(ObjectStableId("child"), child, callerStableId = site)
+                execution.host(ObjectStableId("child"), child, callerStableId = site)
+                seen.add(moveSurfacesOf(execution))
+                parkForever(execution)
+            })
+
+        assertEquals(
+            listOf<Pair<Any?, Any?>>(target to null, null to null, null to null), seen,
+            "only the first hosting is addressed, and the parent's discharged obligation is gone with it")
+    }
+
+
+    @Test
+    fun hostWithoutACallSiteDoesNotConsumeAMoveSuffixHop() {
+        // A null callerStableId is not a wildcard: a host that names no distinct call-site cannot be
+        // path-addressed, so its child reads null on both surfaces AND leaves the hop unclaimed — which the
+        // properly-addressed hosting that follows still collects.
+        val target = ObjectStableId("target")
+        val site = ObjectStableId("site")
+        val seen = mutableListOf<Pair<Any?, Any?>>()
+
+        acrossMoveBarrier(
+            MoveTarget(target, listOf(site)),
+            rebuilt = logicOf { execution ->
+                execution.host(
+                    ObjectStableId("anonymous"),
+                    logicOf { child ->
+                        seen.add(moveSurfacesOf(child))
+                        TupleValue.ofMain("anonymous")
+                    })
+                execution.host(
+                    ObjectStableId("named"),
+                    logicOf { child ->
+                        seen.add(moveSurfacesOf(child))
+                        TupleValue.ofMain("named")
+                    },
+                    callerStableId = site)
+                parkForever(execution)
+            })
+
+        assertEquals(
+            listOf<Pair<Any?, Any?>>(null to null, target to null), seen,
+            "the call-site-less hosting matches nothing and leaves the hop for the named one")
+    }
+
+
+    @Test
+    fun recursiveFramesShareAStableIdButOnlyTheAddressedOneMoves() {
+        // A document hosting ITSELF: one stable id is live in four frames at once, so the target id resolves in
+        // every one of them and structure alone cannot say which the user meant. The call-site path can — the
+        // frame two hops down reads the target, the frames above it read only their descent obligation, and the
+        // frame below reads null on both.
+        val target = ObjectStableId("target")
+        val site = ObjectStableId("site")
+        val documentId = ObjectStableId("document")
+        val deepestDepth = 3
+        val seen = mutableListOf<Pair<Any?, Any?>>()
+
+        fun selfHosting(depth: Int): Logic =
+            logicOf { execution ->
+                seen.add(moveSurfacesOf(execution))
+                if (depth < deepestDepth) {
+                    execution.host(documentId, selfHosting(depth + 1), callerStableId = site)
+                }
+                parkForever(execution)
+            }
+
+        acrossMoveBarrier(
+            MoveTarget(target, listOf(site, site)),
+            rootStableId = documentId,
+            rebuilt = selfHosting(0))
+
+        assertEquals(
+            listOf<Pair<Any?, Any?>>(null to site, null to site, target to null, null to null), seen,
+            "exactly the path-addressed frame moves, though all four share the document's stable id")
     }
 
 
