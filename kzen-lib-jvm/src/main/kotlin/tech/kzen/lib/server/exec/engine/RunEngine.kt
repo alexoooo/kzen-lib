@@ -162,9 +162,11 @@ class RunEngine(
 
     // Live-edit migration registers: the state captured from the torn-down definition keyed by stable id, and
     // the subset a node of the rebuilt definition has adopted via [Execution.restored] — the unclaimed
-    // remainder are removed-element orphans, disposed by [sweepOrphans]. Only LIVE (non-terminal) nodes are
-    // captured, and adoption is call-site-gated ([restoredForNode]) — several invocations of the same hosted
-    // document share a stable id, so invocation identity is what keeps one's state out of another.
+    // remainder are removed-element orphans, disposed by [sweepOrphans]. SETTLED (terminal) nodes are captured
+    // alongside live ones (see [migrate] step 1 — a relaunching flavour needs the "done" state; the live frame
+    // wins a stable-id collision), and adoption is call-site-gated ([restoredForNode]) — several invocations of
+    // the same hosted document share a stable id, so invocation identity is what keeps one's state out of
+    // another.
     private val migrationCaptured = HashMap<ObjectStableId, Captured>()
     private val claimedCaptures = HashSet<ObjectStableId>()
 
