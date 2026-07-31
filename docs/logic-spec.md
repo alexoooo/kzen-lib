@@ -327,10 +327,11 @@ below is addressed and concurrent runs are independently controllable.
   `canDescendThrough(callSite)` for a transit hop, `canMoveTo(target)` for the addressed frame. Because a
   request names a chain of frames, a driver checks **every frame on the path** and refuses the move unless all
   of them can honour their role. Asking each frame about its own structure is what keeps the driver
-  flavour-agnostic: a Script alone knows that a call-site inside a loop body cannot carry a descent (its walk
-  cannot be resumed mid-iteration), and the driver never has to reason about any flavour's shape to find that
-  out. A frame handed a request it cannot honour **ignores** it, leaving an ordinary migrate parked at its
-  existing frontier.
+  flavour-agnostic: a Script alone knows that a jump INTO a loop body has no defined landing (which iteration?)
+  while a **call-site** inside that same body carries a descent perfectly well, because the loop's walk resumes
+  mid-iteration — so the two roles give different answers for the same element, and the driver never has to
+  reason about any flavour's shape to find that out. A frame handed a request it cannot honour **ignores** it,
+  leaving an ordinary migrate parked at its existing frontier.
 
   Repositioning is the one control verb that is **refusable**: unlike run / pause / step, which are always
   accepted, a reposition the current definition cannot honour — an unresolvable target, or a path hop that

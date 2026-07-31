@@ -23,9 +23,10 @@ import tech.kzen.lib.common.service.store.normal.ObjectStableId
  * this interface can be neither an addressed frame nor a transit hop: it ignores both surfaces and rebuilds as
  * an ordinary migrate parked at its existing frontier.
  *
- * Asking each frame about its own role is what keeps the driver flavour-agnostic: only the Logic knows which
- * of its elements can carry a descent (a Script rejects a call-site inside a loop body, whose walk cannot be
- * resumed mid-iteration), so the driver never reasons about any flavour's structure.
+ * Asking each frame about its own role is what keeps the driver flavour-agnostic: only the Logic knows which of
+ * its elements can carry which role, and the two answers need not agree (a Script refuses a jump INTO a loop
+ * body — there is no defined iteration to land in — while accepting a call-site inside that same body, whose
+ * walk resumes mid-iteration), so the driver never reasons about any flavour's structure.
  */
 interface Repositionable {
     /** The [target] resolves to a legal move-to element in this Logic's structure. */
