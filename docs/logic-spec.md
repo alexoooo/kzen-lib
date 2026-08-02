@@ -501,10 +501,29 @@ them; they must not be re-implemented per flavour.
 
 ---
 
-## 6. Resources
+## 6. Ambient context and scoped disposal
+
+**Two features, composed in one stated place.** *Ambient context* answers "what values are in scope here, under
+what name?"; *scoped disposal* answers "what must be torn down, and when?". They were one primitive long
+enough for the fusion to be worth naming: it made a value that closes nothing register an empty closer, and a
+teardown with nothing worth naming invent a key. Everything below about *finding* a value is ambient context;
+everything about *tearing something down* is scoped disposal; the one place they meet is a managed binding,
+where a name and a teardown travel together on purpose.
+
+**Ambient context — binding and lookup.**
+
+- A Logic **binds** a value into its frame's scope under a key — a base path, a tenant id, a browser handle.
+  Reads walk self → parent → … → root and stop at the first match, so a nearer binding **shadows** a farther
+  one. A lookup answers `Present(value)` or `Missing`, and the two stay distinct: presence is
+  registration-existence, never value-non-nullness, so a Context whose value contract is nullable may bind
+  `null` deliberately without becoming indistinguishable from nothing at all.
 
 - A Logic may acquire **long-lived external resources** — a browser, a file handle, a spawned process —
-  that must be **deterministically released** when execution settles to a terminal state.
+  that must be **deterministically released** when execution settles to a terminal state. A resource worth
+  naming is a **managed binding**: its teardown is passed to `bind` rather than registered separately, which
+  is what makes it structurally impossible to own the teardown on a different frame than the name and so hand
+  a descendant a handle that is already closed. A teardown with nothing worth naming is registered
+  anonymously instead (below).
 
 - **Ownership is offered by the provider and travels the export chain.** A document **declares
   `context.exports`** for a key, stating that what it opens under that key is handed to whoever hosts it — an
@@ -542,16 +561,55 @@ them; they must not be re-implemented per flavour.
   already-bound resource on the frame it bound to until that frame settles; only subsequent opens resolve
   against the new declarations.
 
-- **Per-resource close policy — the disposal rule only.** Each resource declares what happens to it when the
-  document that **owns** it reaches a terminal state: *auto* (dispose on completion: success, failure, or
-  cancel), *manual* (never auto-dispose; only an explicit closing action disposes it — survives a forgotten
-  close), or *keep-on-failure* (dispose on success/cancel, but **retain on a failed** owning document for
-  inspection). The policy says nothing about *who* owns the resource — the export chain decides that — so
-  `auto` does not mean "this document": it means **the resting frame's** settle, which may be several
-  documents up. The notation surface (`ResourceClosePolicy`) is exactly those three values — `auto` /
+**Scoped disposal — teardown, settlement and anonymity.**
+
+- **Anonymous disposal is the common case, and it is frame-local always.** "Delete this file / kill this
+  process when I finish" needs no key, no namespace entry and no lookup, and it **never climbs an export
+  chain** — because handing upward something nobody can name is meaningless. That is also the standing
+  explanation for why the two features fused in the first place: a closer that must outlive its frame belongs
+  to a *binding*, and the export chain then carries it exactly as far as it carries the name. An anonymous
+  registration takes only *auto* or *keep-on-failure*; *manual* is a promotion — it hands a registration one
+  frame up so something later can find and close it — and there is nothing to find an anonymous one by.
+
+- **At-most-once is an engine guarantee, not a plugin aspiration.** Supersession, explicit release and frame
+  settle all route through one claim on the disposal, and only the winner invokes third-party code. A closer
+  must still capture its own handle rather than resolve by name, and should tolerate the external resource
+  being gone already, but the engine never deliberately invokes one twice — and swallowing a second failure
+  after a side effect has happened is no substitute for that.
+
+- **Per-binding settlement policy — the disposal rule only.** A managed binding declares what happens to it
+  when the document that **owns** it reaches a terminal state: *auto* (dispose on completion: success,
+  failure, or cancel), *manual* (never auto-dispose; only an explicit closing action disposes it — survives a
+  forgotten close), or *keep-on-failure* (dispose on success/cancel, but **retain on a failed** owning
+  document for inspection). The policy says nothing about *who* owns the resource — the export chain decides
+  that — so `auto` does not mean "this document": it means **the resting frame's** settle, which may be
+  several documents up. The notation surface (`ResourceClosePolicy`) is exactly those three values — `auto` /
   `manual` / `keepOnFailure` — the policy travels with the registration however far the chain carried it, and
   the choice stays with the opener, because the closer and what it means belong to whoever opened the
   resource.
+
+- **The settlement table, because the three values are not a clean product.** `manual` masks automatic
+  disposal at the root rather than composing independently with it, so the real state machine is written out
+  rather than derived:
+
+  | Event | `auto` | `manual` | `keepOnFailure` |
+  |---|---|---|---|
+  | Same-key rebind | release displaced binding + dispose once | same | same |
+  | Explicit release | remove + dispose once | remove + dispose once | remove + dispose once |
+  | Non-root success/cancel | remove + dispose once | promote binding + disposal one frame | remove + dispose once |
+  | Non-root failure | remove + dispose once | promote binding + disposal one frame | retain binding + disposal on failed frame |
+  | Root success/cancel | remove + dispose once | retain without invoking disposal | remove + dispose once |
+  | Root failure | remove + dispose once | retain without invoking disposal | retain binding + disposal on failed root |
+  | Live-edit migration | carry with the stable owner; do not settle | same | same |
+
+  For an anonymous registration only two rows exist: *auto* disposes on every terminal outcome, and
+  *keep-on-failure* disposes on success/cancel and on failure simply leaves the side effect undone — there is
+  no handle to hold, so nothing is retained.
+
+  **"Retain" is a promise about findability, not a synonym for "forget".** A retained binding stays available
+  to the run's inspection surface with its live handle, and is closeable there through the same one-shot
+  claim. Dropping the registration while the browser or process it names keeps running would be a leak
+  wearing the word.
 
 - **Ownership sits at a level of the execution tree — not only at the whole run.** This is a first-class
   requirement: it must be possible to own a resource at the **top level** *and* own a **separate** resource
@@ -564,18 +622,18 @@ them; they must not be re-implemented per flavour.
   sub-script to declare a competing claim of its own. Disposing a frame disposes the resources resting on it;
   the run-global case is an export chain that reaches the root frame.
 
-  > **Implemented.** `Execution.declareExport(key)` records the export on the calling node — invoked at the
-  > start of that node's `run`, before it hosts any child and before any local step opens, so every frame on a
-  > chain has declared before a descendant can open; it is idempotent, and free to re-run, since a live-edit
-  > rebuild re-invokes each `run` and re-declares. `Execution.resource(key, policy, value, closer)` resolves
-  > the resting frame by climbing the opener's ancestor chain while each frame exports the key (exact or
-  > family match), and falls back to the opening node when it exports nothing. A resource an explicit closing
-  > step disposes itself is **deregistered** first (`releaseResource`, searching the same ancestor chain, so a
-  > resource resting on an ancestor can be released from a descendant), so the auto-disposer never
-  > double-fires. A registration may also store the **live handle** (its value), readable from any descendant
-  > of the resting frame via the same walk (`resourceValue`) — the read side of the inheritance below.
-  > Registrations survive live-edit migration keyed by their resting frame's stable identity (§5); the export
-  > declarations themselves are deliberately not lifted, because the rebuilt tree re-declares them.
+  > **Implemented.** `Execution.declareExport(selector)` records the export on the calling node — invoked at
+  > the start of that node's `run`, before it hosts any child and before any local step binds, so every frame
+  > on a chain has declared before a descendant can bind; it is idempotent, and free to re-run, since a
+  > live-edit rebuild re-invokes each `run` and re-declares. `Execution.bind(key, value, disposal?)` resolves
+  > the resting frame by climbing the opener's ancestor chain while each frame's selectors cover the key, and
+  > falls back to the binding node when nothing matching is exported. `releaseBinding(key)` removes the
+  > nearest binding on that same chain — so one resting on an ancestor can be released from a descendant —
+  > and invokes its attached disposal, at most once; on a plain or borrowed binding there is no disposal, so
+  > release degenerates safely to unbinding the name. The stored **live handle** is readable from any
+  > descendant of the resting frame via the same walk (`binding`) — the read side of the inheritance below.
+  > Both registries survive live-edit migration keyed by their resting frame's stable identity (§5); the
+  > export declarations themselves are deliberately not lifted, because the rebuilt tree re-declares them.
 
 - **A key holds exactly one registration, so re-registering it supersedes.** Re-opening a resource under a
   key that is already live **disposes the registration it displaces**, there and then: the disposal walks and
@@ -584,8 +642,8 @@ them; they must not be re-implemented per flavour.
   iteration. This puts a **contract on closers**: a closer must dispose the handle it *captured*, never
   re-resolve its target by name from an external registry, because a superseded closer runs *after* its
   replacement is registered — a `close(byName)` closer would tear down the replacement. It must also
-  tolerate running when the resource is already gone (an explicit closing step should `releaseResource`
-  first, but a throwing or double-closing closer is swallowed, not prevented).
+  tolerate running when the external resource is already gone; what it does *not* have to defend against is
+  being invoked twice, which the one-shot claim above rules out.
 
 - **One registration per key *per frame*, so two live ones under one key are coherent.** Supersession is
   scoped to a single frame's registry, which leaves a key legitimately live on two frames at once: a caller
@@ -603,8 +661,20 @@ them; they must not be re-implemented per flavour.
   registration the parent already holds under the same key, so `auto`'s disposal guarantee cannot be displaced
   by an orphaned handle), leaving it on the ancestor chain — readable and explicitly closeable by whatever
   runs after its opener, which is what makes the open → use → close split across sibling sub-documents work;
-  at the root it simply leaves the registry alive (the "forgotten close"). A resource may use either
-  mechanism, or both — and Manual is the only way an **un-exported** resource outlives its provider.
+  at the root there is nowhere left to promote to, so it is retained on the run's inspection surface instead
+  (the "forgotten close"). A resource may use either mechanism, or both — and Manual is the only way an
+  **un-exported** resource outlives its provider.
+
+- **The address is a domain type, and export is a selector.** A registry address is a
+  `ContextKey(family, qualifier?)` — the family being the part before the first `':'` — rendered wire-identically
+  to the plain string below, so a typed reader and a raw one address one registration. An export declaration is
+  an `ExportSelector`: `Family` carries the bare key and every qualifier of it (what an unqualified declaration
+  admitting a *computed* qualifier must claim), `Exact` carries one member only (what a *declared* qualifier
+  claims). The distinction is an ownership property, not gate width: an exact declaration that climbed
+  family-wide would hand a caller a sibling nobody offered it. Reads answer with a `BindingLookup` —
+  `Present(value)` or `Missing`, kept apart because presence is registration-existence and a nullable value
+  contract may bind `null` deliberately — and presence is askable exactly (`hasBinding`) or family-wide
+  (`hasBindingInFamily`), the latter being all a computed qualifier permits (see the enforcement note below).
 
 - **A resource key is a global namespace, deliberately.** Keys are author-specified plain strings, and the
   same string means the same registration wherever it appears — an export declaration, a typed opening step,
@@ -615,14 +685,14 @@ them; they must not be re-implemented per flavour.
   nothing detects it; qualified keys (`sut:main`) are the convention for keeping distinct instances of a
   family apart.
 
-- **Documented limitation — enforcement is family-granular.** A flavour that gates on a resource being
-  present ("this step requires an open browser") asks whether the ancestor chain holds a live registration in
-  the key's **family** (`hasResourceInFamily`) — one keyed `sut`, or `sut:` with any qualifier. The check
-  deliberately answers "is *some* system under test open", never "is `sut:other` open": a qualifier is a step
-  parameter, so it may be computed at run time, and a declaration-driven gate cannot know which instance a
-  reader will end up asking for. A step that needs `sut:other` while only `sut:main` is open therefore passes
-  the gate and fails at the **read**, as an ordinary run-time error rather than an up-front refusal. That is
-  the accepted price of letting qualifiers be computed, not a defect in the gate.
+- **Enforcement granularity follows the declaration, not a blanket rule.** A flavour that gates on a resource
+  being present ("this step requires an open browser") asks `hasBinding` when the declaration names an exact
+  member, and `hasBindingInFamily` — one keyed `sut`, or `sut:` with any qualifier — only when the qualifier
+  is **computed**. The family form deliberately answers "is *some* system under test open", never "is
+  `sut:other` open": a computed qualifier is a step parameter, so a declaration-driven gate cannot know which
+  instance a reader will end up asking for, and a step that needs `sut:other` while only `sut:main` is open
+  passes the gate and fails at the **read**, as an ordinary run-time error rather than an up-front refusal.
+  That is the accepted price of letting qualifiers be computed — paid only by the case that computes them.
 
 - **Resource inheritance along the host chain.** A hosted child may **share a specific resource with its
   host** rather than opening its own — the same browser instance a parent Script opened is the one its
@@ -974,7 +1044,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `declareExport` (this node exports a key upward, offering ownership to whoever hosts it, §6) / `resource` / `resourceValue` (ancestor-chain read) / `hasResourceInFamily` / `releaseResource`; `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` / `moveDescendCallSite` (the addressed frame's target and a transit frame's descent obligation for a one-shot repositioning request, §4) | kzen-lib-common `exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `declareExport(ExportSelector)` (this node exports a family or one exact member upward, offering ownership to whoever hosts it, §6) / `bind(ContextKey, value, FrameDisposal?)` / `binding` (ancestor-chain read, `Present`/`Missing`) / `hasBinding` / `hasBindingInFamily` / `releaseBinding` / `onSettle(SettleDisposalPolicy, closer)` (anonymous, frame-local); `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` / `moveDescendCallSite` (the addressed frame's target and a transit frame's descent obligation for a one-shot repositioning request, §4) | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `setBreakpoints`; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) + `CountingDispatcher` (the quiescence primitive: counts dispatch tasks, and counts a pending `delay` / an `Execution.blocking` region as in-flight so neither reads as idle). Available but unconsumed: `observeFrames` (frame-close signal), `observeResets` / `TraceReset` (synchronous pre-return reset signal) — both left from the retired trace-store bridge | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live (+ `liveSequence`) + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / setBreakpoints / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |

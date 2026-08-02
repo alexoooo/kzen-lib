@@ -3,6 +3,12 @@ package tech.kzen.lib.common.exec.engine
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
 import tech.kzen.lib.common.exec.ExecutionValue
+import tech.kzen.lib.common.exec.engine.context.BindingLookup
+import tech.kzen.lib.common.exec.engine.context.ContextFamily
+import tech.kzen.lib.common.exec.engine.context.ContextKey
+import tech.kzen.lib.common.exec.engine.context.ExportSelector
+import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
+import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
@@ -135,11 +141,14 @@ interface Execution {
 
     //----------------------------------------------------------------------------------- resources & exports (§6)
     /**
-     * Declare that THIS node **exports** [key] to its host: a resource registered here — or anywhere beneath
-     * this node — under [key], or under a qualified `"[key]:<qualifier>"` of the same family, climbs PAST
-     * this frame to its host, and keeps climbing while each frame in turn exports it. Ownership is OFFERED by
-     * the provider (a `return` move), never claimed by an ancestor; what a frame does not export is private
-     * to it, so an un-exported resource is disposed at the settle of the frame that opened it.
+     * Declare that THIS node **exports** what [selector] covers to its host: a binding registered here — or
+     * anywhere beneath this node — under a covered key climbs PAST this frame to its host, and keeps climbing
+     * while each frame in turn exports it. Ownership is OFFERED by the provider (a `return` move), never
+     * claimed by an ancestor; what a frame does not export is private to it, so an un-exported resource is
+     * disposed at the settle of the frame that opened it.
+     *
+     * [ExportSelector.Exact] and [ExportSelector.Family] are a real distinction here, not a convenience: a
+     * declaration naming one qualified member must not move its siblings. See [ExportSelector].
      *
      * Call at [Logic.run] start, before hosting children and before any local step opens a resource, so the
      * chain is complete before anything can climb it. Idempotent, and free to re-run: a live-edit migration
@@ -147,7 +156,76 @@ interface Execution {
      * owner it bound to (ownership is fixed at bind time), so adding or removing a declaration by editing
      * affects only subsequent opens.
      */
+    fun declareExport(selector: ExportSelector)
+
+    @Deprecated(
+        "Declare an ExportSelector — a bare family and a qualified member are different claims",
+        ReplaceWith("declareExport(ExportSelector.parse(key))"))
     fun declareExport(key: String)
+
+    /**
+     * Read the ambient binding at [key], searching this node's ancestor chain (self → parent → … → root) and
+     * stopping at the first frame that holds it — so a nearer binding shadows a farther one. This is the §6
+     * "resource inheritance along the host chain" read affordance: a hosted child borrows the handle its host
+     * (or any ancestor) bound; ownership and disposal stay with the registering frame, and the reader must not
+     * dispose what it borrows.
+     *
+     * [BindingLookup.Missing] and [BindingLookup.Present] with a null value are DIFFERENT answers: presence is
+     * registration-existence, not value-non-nullness, so a nullable Context that legitimately binds null is
+     * distinguishable from one nothing bound.
+     */
+    fun binding(key: ContextKey): BindingLookup
+
+    /** Is a binding live at exactly [key] anywhere on this node's ancestor chain? */
+    fun hasBinding(key: ContextKey): Boolean
+
+    /**
+     * Bind [value] at [key], on the frame the export chain resolves ([declareExport]) — this node when nothing
+     * matching is exported. One binding per key per frame, so a nearer one shadows a farther one and re-binding
+     * the same key on the same frame **supersedes**: the displaced binding's [disposal], if it had one, runs
+     * exactly once, there and then, because a key resolves to one binding and nothing could reach the displaced
+     * one again. Without that a loop re-binding a browser each iteration leaks every iteration but the last.
+     *
+     * [disposal] is the deliberate composition of the two features, and it is a PARAMETER rather than a
+     * separate call for a structural reason: an attached teardown cannot be given a frame different from its
+     * binding's, so a descendant can never read a handle that was already closed. Pass null — the default — for
+     * an ordinary ambient value or an explicit borrow, which says nothing about tearing anything down.
+     * For teardown with no value to name, use [onSettle].
+     */
+    fun bind(key: ContextKey, value: Any?, disposal: FrameDisposal? = null)
+
+    /**
+     * Remove the nearest binding at [key] on this node's ancestor chain — so a binding resting on an ancestor
+     * frame it was exported to can be released from a descendant — and invoke its attached disposal, at most
+     * once. A plain or borrowed binding has no disposal, so release degenerates safely to unbinding the name.
+     *
+     * This is why the user-facing verb stays "release" rather than "unbind": the operation does what the word
+     * promises. A remove-WITHOUT-dispose operation, if one is ever wanted, must be separately named; it must
+     * not hide behind this one.
+     */
+    fun releaseBinding(key: ContextKey)
+
+    /**
+     * Register anonymous teardown against THIS frame: [closer] runs when this node settles, per [policy]. No
+     * key, no namespace entry, no lookup — "delete this file / kill this process when I finish", which is the
+     * common case and has no name worth inventing.
+     *
+     * Always frame-local: an anonymous registration never climbs an export chain, because handing upward
+     * something nobody can name is meaningless. A closer that must outlive its frame belongs to a *binding*,
+     * and [bind]'s `disposal` then carries it exactly as far as the export chain carries the name.
+     *
+     * Invoked at most once, and — having no name — with no early-release operation; a use case that needs one
+     * wants a managed binding.
+     */
+    fun onSettle(policy: SettleDisposalPolicy, closer: () -> Unit)
+
+    /**
+     * Is SOME member of [family] live on this node's ancestor chain — the bare family key or any qualifier of
+     * it? Deliberately family-granular: a computed qualifier is a step parameter, so a declaration-driven gate
+     * cannot know which member a reader will end up asking for, and a qualifier mismatch surfaces at the read
+     * instead. A DECLARED qualifier should gate with [hasBinding], which answers the exact question.
+     */
+    fun hasBindingInFamily(family: ContextFamily): Boolean
 
     /**
      * Register a resource under [key], owned by the furthest frame on this node's ancestor chain (self →
@@ -169,7 +247,15 @@ interface Execution {
      * [value] optionally stores the live handle with the registration, readable via [resourceValue]; it
      * travels with the registration across a live-edit migration (§5), so an open resource survives an edit
      * with its owning frame's stable identity.
+     *
+     * Fusing a name and a teardown into one call is what this supersedes: a value that closes nothing had to
+     * register an empty closer, and a teardown with nothing worth naming had to invent a key. [bind] and
+     * [onSettle] are the two halves, and `bind(key, value, disposal)` is the composed form when a binding
+     * really does own a resource.
      */
+    @Deprecated(
+        "Fuses ambient binding with scoped disposal",
+        ReplaceWith("bind(ContextKey.parse(key), value, FrameDisposal(policy, closer))"))
     fun resource(
         key: String,
         policy: ClosePolicy,
@@ -179,26 +265,42 @@ interface Execution {
     /**
      * Read the live handle stored with a resource registration (the [resource] `value`), searching this
      * node's ancestor chain (self → parent → … → root); null when no live registration holds the [key] (or
-     * it registered no value). This is the §6 "resource inheritance along the host chain" read affordance:
-     * a hosted child borrows the handle its host (or any ancestor) opened — ownership and disposal stay
-     * with the registering frame; the reader must not dispose what it borrows.
+     * it registered no value).
+     *
+     * Collapsing those two answers onto one null is why this is superseded: a Context whose value contract is
+     * nullable can bind null legitimately, and [binding] keeps that distinct.
      */
+    @Deprecated(
+        "Collapses a missing binding with a present null one",
+        ReplaceWith("binding(ContextKey.parse(key)).valueOrNull()"))
     fun resourceValue(key: String): Any?
 
     /**
      * True when a live registration exists on this node's ancestor chain whose key is [family] itself or
-     * `"[family]:<qualifier>"`. Deliberately **family-level**: it answers "is SOME browser / SOME sut open",
-     * never "is `sut:formula-error` open" — a qualifier is a step parameter and may be computed, so a
-     * declaration-driven check cannot know which one a reader wants. Used by a flavour's uniform
-     * requirement gate; a qualifier mismatch still surfaces at read.
+     * `"[family]:<qualifier>"`.
+     *
+     * A plain-string family is exactly the hazard [ContextFamily] exists to close: passing a fully-qualified
+     * key here degrades the gate to an exact-key check with no diagnostic — true only if a registration exists
+     * under that whole string, silently false for the family it looks like it is asking about. The behaviour
+     * is preserved as-is for callers still on the string form; [hasBindingInFamily] is the fix.
      */
+    @Deprecated(
+        "A fully-qualified key silently degrades this to an exact-key check",
+        ReplaceWith("hasBindingInFamily(ContextFamily(family))"))
     fun hasResourceInFamily(family: String): Boolean
 
     /**
      * Deregister a previously-registered resource [key] (e.g. an explicit closing step disposed it itself),
      * so the auto-disposer never double-fires. Searches this node's ancestor chain (self → parent → … → root),
      * so a resource resting on an ancestor frame it was exported to can be released from a descendant.
+     *
+     * Removes WITHOUT invoking the registration's closer, which is why it is superseded rather than renamed:
+     * it exists for a caller that already tore the resource down itself. [releaseBinding] is the operation the
+     * word describes — remove the name and run whatever teardown was attached to it.
      */
+    @Deprecated(
+        "Removes without disposing; releaseBinding does what the word says",
+        ReplaceWith("releaseBinding(ContextKey.parse(key))"))
     fun releaseResource(key: String)
 
     /**

@@ -18,6 +18,12 @@ import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
 import tech.kzen.lib.common.exec.engine.StepMode
+import tech.kzen.lib.common.exec.engine.context.BindingLookup
+import tech.kzen.lib.common.exec.engine.context.ContextFamily
+import tech.kzen.lib.common.exec.engine.context.ContextKey
+import tech.kzen.lib.common.exec.engine.context.ExportSelector
+import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
+import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
 import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import java.util.concurrent.ConcurrentHashMap
@@ -2142,6 +2148,128 @@ class RunEngineTest {
 
 
     @Test
+    fun anExactExportCarriesOneMemberWhereAFamilyExportCarriesThemAll() = runBlocking {
+        // The two selectors are different ownership claims, not a wide gate and a narrow one. A child that
+        // declares Exact("db:primary") hands THAT member to its caller and keeps its sibling private; a child
+        // that declares the whole "other" family hands up every qualifier it opens. Collapsing the first onto
+        // the second would move a resource nobody offered — the leak the exact/family split exists to prevent.
+        val disposed = ArrayList<String>()
+        var primary: BindingLookup? = null
+        var reporting: BindingLookup? = null
+        var otherA: BindingLookup? = null
+        var otherB: BindingLookup? = null
+
+        val exactChild = logicOf { execution ->
+            execution.declareExport(ExportSelector.Exact(ContextKey.of("db", "primary")))
+            execution.resource("db:primary", ClosePolicy.Auto, value = "primary") { disposed.add("primary") }
+            execution.resource("db:reporting", ClosePolicy.Auto, value = "reporting") { disposed.add("reporting") }
+            TupleValue.ofMain("exact")
+        }
+        val familyChild = logicOf { execution ->
+            execution.declareExport(ExportSelector.Family(ContextFamily("other")))
+            execution.resource("other:a", ClosePolicy.Auto, value = "a") { disposed.add("a") }
+            execution.resource("other:b", ClosePolicy.Auto, value = "b") { disposed.add("b") }
+            TupleValue.ofMain("family")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("exact"), exactChild)
+            execution.host(ObjectStableId("family"), familyChild)
+            primary = execution.binding(ContextKey.of("db", "primary"))
+            reporting = execution.binding(ContextKey.of("db", "reporting"))
+            otherA = execution.binding(ContextKey.of("other", "a"))
+            otherB = execution.binding(ContextKey.of("other", "b"))
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(BindingLookup.Present("primary"), primary,
+                "the exactly-exported member climbs to the caller")
+            assertEquals(BindingLookup.Missing, reporting,
+                "a sibling qualifier the declaration does not name stays private to the frame that opened it")
+            assertEquals(BindingLookup.Present("a"), otherA, "a family export carries every qualifier")
+            assertEquals(BindingLookup.Present("b"), otherB, "a family export carries every qualifier")
+            assertEquals(
+                setOf("primary", "reporting", "a", "b"), disposed.toSet(),
+                "everything is disposed exactly once, on whichever frame it came to rest")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    @Suppress("DEPRECATION")
+    fun aBindingRegisteredWithoutAValueIsPresentRatherThanMissing() = runBlocking {
+        // Presence is registration-existence, never value-non-nullness. A Context whose value contract is
+        // nullable can bind null deliberately, and only the lossy plain-string read confuses that with nothing
+        // being bound — which is the whole reason it is superseded.
+        var boundNull: BindingLookup? = null
+        var absent: BindingLookup? = null
+        var lossyBound: Any? = null
+        var lossyAbsent: Any? = null
+
+        val logic = logicOf { execution ->
+            execution.resource("nullable", ClosePolicy.Auto, value = null) {}
+            boundNull = execution.binding(ContextKey.of("nullable"))
+            absent = execution.binding(ContextKey.of("absent"))
+            lossyBound = execution.resourceValue("nullable")
+            lossyAbsent = execution.resourceValue("absent")
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(BindingLookup.Present(null), boundNull)
+            assertEquals(BindingLookup.Missing, absent)
+            assertNull(lossyBound)
+            assertNull(lossyAbsent)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun exactAndFamilyPresenceGatesAnswerDifferentQuestions() = runBlocking {
+        // A DECLARED qualifier can gate on the member it names; only a COMPUTED one is stuck with "is SOME sut
+        // open", because no declaration-driven layer can know which member a reader will ask for.
+        var exactOpen: Boolean? = null
+        var exactSibling: Boolean? = null
+        var familyOpen: Boolean? = null
+        var otherFamily: Boolean? = null
+
+        val logic = logicOf { execution ->
+            execution.resource("sut:main", ClosePolicy.Auto, value = "handle") {}
+            exactOpen = execution.hasBinding(ContextKey.of("sut", "main"))
+            exactSibling = execution.hasBinding(ContextKey.of("sut", "other"))
+            familyOpen = execution.hasBindingInFamily(ContextFamily("sut"))
+            otherFamily = execution.hasBindingInFamily(ContextFamily("browser"))
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(true, exactOpen)
+            assertEquals(false, exactSibling, "an exact gate refuses the sibling a family gate would admit")
+            assertEquals(true, familyOpen, "one open qualifier makes its whole family present")
+            assertEquals(false, otherFamily)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
     fun keepOnFailureKeysOffTheRestingFramesOutcomeNotTheOpeners() = runBlocking {
         // The close policy travels with the registration and applies where it comes to rest, so KeepOnFailure
         // is evaluated at the settle of the frame the export chain handed it to: the child that opened it
@@ -2524,6 +2652,399 @@ class RunEngineTest {
             assertEquals("handle", rootRead,
                 "a Manual registration hands up past the frame it rests on at that frame's settle")
             assertFalse(disposed, "explicitly released — the engine never fires a Manual closer")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //--------------------------------------------------------- ambient binding / scoped disposal split (spec §6)
+    // The settlement table: what each event does to a managed binding under each policy, and to an anonymous
+    // disposal under the two that can apply to one. Every cell is pinned here rather than described, because
+    // the previous fused implementation left several of them (root/manual, failed keep-on-failure) as
+    // "the registration disappears" — which reads as retention only until someone looks for what was retained.
+    private val autoKey = ContextKey.of("auto")
+    private val manualKey = ContextKey.of("manual")
+    private val keepKey = ContextKey.of("keep")
+
+
+    private fun Execution.bindAllPolicies(disposed: MutableList<String>) {
+        bind(autoKey, "a", FrameDisposal(ClosePolicy.Auto) { disposed.add("auto") })
+        bind(manualKey, "m", FrameDisposal(ClosePolicy.Manual) { disposed.add("manual") })
+        bind(keepKey, "k", FrameDisposal(ClosePolicy.KeepOnFailure) { disposed.add("keep") })
+    }
+
+
+    @Test
+    fun aPlainBindingGoesOutOfScopeWithNothingTornDown() = runBlocking {
+        // A value that closes nothing no longer has to register an empty closer to say so — which is the
+        // conflation the split removes. Releasing one degenerates to unbinding the name.
+        val baseKey = ContextKey.of("base")
+        var childRead: BindingLookup? = null
+        var childAfterRelease: BindingLookup? = null
+        var parentRead: BindingLookup? = null
+
+        val child = logicOf { execution ->
+            execution.bind(baseKey, "C:/work/inbox")
+            childRead = execution.binding(baseKey)
+            execution.bind(baseKey, "C:/work/outbox")
+            execution.releaseBinding(baseKey)
+            childAfterRelease = execution.binding(baseKey)
+            execution.bind(baseKey, "C:/work/inbox")
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            parentRead = execution.binding(baseKey)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(BindingLookup.Present("C:/work/inbox"), childRead)
+            assertEquals(BindingLookup.Missing, childAfterRelease,
+                "releasing an unmanaged binding removes the name; there is nothing to dispose")
+            assertEquals(BindingLookup.Missing, parentRead, "an un-exported binding is private to its frame")
+            assertTrue(engine.retainedBindings().isEmpty(), "nothing unmanaged can be retained")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun supersessionReleaseAndSettleEachDisposeExactlyOnce() = runBlocking {
+        // At-most-once is structural: all three events route through the same one-shot claim, so a closer is
+        // written for a single invocation instead of being made defensively idempotent.
+        val key = ContextKey.of("r")
+        val disposed = ArrayList<String>()
+        var afterRebind: BindingLookup? = null
+        var afterRelease: BindingLookup? = null
+
+        val logic = logicOf { execution ->
+            execution.bind(key, "first", FrameDisposal(ClosePolicy.Auto) { disposed.add("first") })
+            execution.bind(key, "second", FrameDisposal(ClosePolicy.Auto) { disposed.add("second") })
+            afterRebind = execution.binding(key)
+            execution.releaseBinding(key)
+            afterRelease = execution.binding(key)
+            execution.releaseBinding(key)
+            execution.bind(key, "third", FrameDisposal(ClosePolicy.Auto) { disposed.add("third") })
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(BindingLookup.Present("second"), afterRebind)
+            assertEquals(BindingLookup.Missing, afterRelease, "release removes the name, not only the teardown")
+            assertEquals(
+                listOf("first", "second", "third"), disposed,
+                "supersession, explicit release and settle each dispose once, and a second release is a no-op")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun explicitReleaseDisposesWhateverThePolicyWouldHaveDoneAtSettle() = runBlocking {
+        val disposed = ArrayList<String>()
+
+        val logic = logicOf { execution ->
+            execution.bindAllPolicies(disposed)
+            execution.releaseBinding(autoKey)
+            execution.releaseBinding(manualKey)
+            execution.releaseBinding(keepKey)
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(
+                listOf("auto", "manual", "keep"), disposed,
+                "the policy governs what SETTLE does; an explicit release always tears down")
+            assertTrue(engine.retainedBindings().isEmpty())
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aSucceedingNonRootFramePromotesManualAndDisposesTheRest() = runBlocking {
+        val disposed = ArrayList<String>()
+        var disposedWhenChildReturned: Set<String>? = null
+        var promotedReadInParent: BindingLookup? = null
+
+        val child = logicOf { execution ->
+            execution.bindAllPolicies(disposed)
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            disposedWhenChildReturned = disposed.toSet()
+            promotedReadInParent = execution.binding(manualKey)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(setOf("auto", "keep"), disposedWhenChildReturned)
+            assertEquals(
+                BindingLookup.Present("m"), promotedReadInParent,
+                "manual is promoted one frame up, so a later sibling can still find and close it")
+            assertEquals(
+                listOf(manualKey), engine.retainedBindings().map { it.key },
+                "the promoted binding reaches the root and is retained there, never silently dropped")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aFailingNonRootFrameRetainsKeepOnFailureAndStillDisposesAuto() = runBlocking {
+        val disposed = ArrayList<String>()
+
+        val child = logicOf { execution ->
+            execution.bind(autoKey, "a", FrameDisposal(ClosePolicy.Auto) { disposed.add("auto") })
+            execution.bind(keepKey, "k", FrameDisposal(ClosePolicy.KeepOnFailure) { disposed.add("keep") })
+            execution.recoverable({}) { throw RuntimeException("boom") }
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Failed>(engine.await())
+            assertEquals(listOf("auto"), disposed, "keep-on-failure is held on the frame that failed")
+            assertEquals(
+                listOf(keepKey), engine.retainedBindings().map { it.key },
+                "retention is real: the binding stays findable instead of vanishing with its frame")
+            assertEquals("k", engine.retainedBindings().single().value)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aSucceedingRootRetainsManualUninvokedAndDisposesTheRest() = runBlocking {
+        val disposed = ArrayList<String>()
+
+        val logic = logicOf { execution ->
+            execution.bindAllPolicies(disposed)
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(setOf("auto", "keep"), disposed.toSet())
+            assertEquals(
+                listOf(manualKey), engine.retainedBindings().map { it.key },
+                "at the root there is nowhere to promote to, so manual is kept uninvoked — the forgotten close")
+            assertEquals("m", engine.retainedBindings().single().value)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aFailingRootRetainsBothManualAndKeepOnFailure() = runBlocking {
+        val disposed = ArrayList<String>()
+
+        val logic = logicOf { execution ->
+            execution.bindAllPolicies(disposed)
+            execution.recoverable({}) { throw RuntimeException("boom") }
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Failed>(engine.await())
+            assertEquals(listOf("auto"), disposed)
+            assertEquals(
+                setOf(manualKey, keepKey), engine.retainedBindings().map { it.key }.toSet(),
+                "a failed root keeps both, and both stay closeable")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun cancelSettlesLikeSuccess() = runBlocking {
+        // The table pairs success and cancel: neither is a failure, so only manual survives.
+        val disposed = ArrayList<String>()
+
+        val logic = logicOf { execution ->
+            execution.bindAllPolicies(disposed)
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            engine.cancel()
+            assertEquals(Outcome.Cancelled, withTimeout(5000) { engine.await() })
+            assertEquals(setOf("auto", "keep"), disposed.toSet())
+            assertEquals(listOf(manualKey), engine.retainedBindings().map { it.key })
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aRetainedBindingIsCloseableExactlyOnce() = runBlocking {
+        // What makes "retain" mean something rather than "silently drop": the run can still name what it kept,
+        // and closing it goes through the same one-shot claim as every other disposal.
+        var disposals = 0
+
+        val logic = logicOf { execution ->
+            execution.bind(manualKey, "handle", FrameDisposal(ClosePolicy.Manual) { disposals += 1 })
+            TupleValue.ofMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+
+            val retained = engine.retainedBindings().single()
+            assertEquals("handle", retained.value)
+            assertEquals(0, disposals)
+
+            assertTrue(engine.releaseRetained(retained.node, retained.key))
+            assertEquals(1, disposals)
+            assertTrue(engine.retainedBindings().isEmpty())
+
+            assertFalse(engine.releaseRetained(retained.node, retained.key), "nothing is retained there now")
+            assertEquals(1, disposals)
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun anAnonymousDisposalIsFrameLocalAndNeverClimbs() = runBlocking {
+        // Ownership transfer requires a name: the child's BINDING climbs to the parent on its export, while its
+        // anonymous cleanup has nothing to hand upward and settles with the child.
+        val order = ArrayList<String>()
+        var anonymousRanWhenChildReturned: Boolean? = null
+
+        val child = logicOf { execution ->
+            execution.declareExport(ExportSelector.Family(ContextFamily("r")))
+            execution.bind(
+                ContextKey.of("r"), "handle", FrameDisposal(ClosePolicy.Auto) { order.add("binding") })
+            execution.onSettle(SettleDisposalPolicy.Auto) { order.add("anonymous") }
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child)
+            anonymousRanWhenChildReturned = "anonymous" in order
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(true, anonymousRanWhenChildReturned, "an anonymous disposal settles with its own frame")
+            assertEquals(
+                listOf("anonymous", "binding"), order,
+                "the exported binding outlives the frame that opened it; the anonymous cleanup does not")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun anAnonymousKeepOnFailureLeavesItsSideEffectUndone() = runBlocking {
+        // There is no handle to retain here — retention means the temp file simply stays for inspection — so
+        // the closer is never claimed rather than parked somewhere.
+        val ran = ArrayList<String>()
+
+        val logic = logicOf { execution ->
+            execution.onSettle(SettleDisposalPolicy.Auto) { ran.add("auto") }
+            execution.onSettle(SettleDisposalPolicy.KeepOnFailure) { ran.add("keep") }
+            execution.recoverable({}) { throw RuntimeException("boom") }
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Failed>(engine.await())
+            assertEquals(listOf("auto"), ran)
+            assertTrue(engine.retainedBindings().isEmpty(), "an anonymous registration has no key to retain it by")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun migrationCarriesBothRegistriesWithoutSettlingThem() = runBlocking {
+        val disposed = ArrayList<String>()
+        var readBack: BindingLookup? = null
+
+        val opener = logicOf { execution ->
+            execution.bind(
+                ContextKey.of("r"), "handle", FrameDisposal(ClosePolicy.Auto) { disposed.add("binding") })
+            execution.onSettle(SettleDisposalPolicy.Auto) { disposed.add("anonymous") }
+            parkForever(execution)
+        }
+        val reader = logicOf { execution ->
+            readBack = execution.binding(ContextKey.of("r"))
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(opener, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertTrue(disposed.isEmpty())
+
+            engine.migrate(reader, paused = true)
+            engine.awaitQuiescent()
+
+            assertTrue(disposed.isEmpty(), "the barrier lifts both registries; it does not settle them")
+            assertEquals(BindingLookup.Present("handle"), readBack,
+                "the rebuilt frame with the same stable id adopts the carried binding")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+            assertEquals(
+                listOf("anonymous", "binding"), disposed,
+                "an anonymous registration carries across the edit exactly as a named binding does")
         }
         finally {
             engine.close()
