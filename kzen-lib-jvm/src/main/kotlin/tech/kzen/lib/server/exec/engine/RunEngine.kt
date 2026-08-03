@@ -136,7 +136,23 @@ class RunEngine(
         // (§7 retention-vs-bounding); false makes the engine compact the frame out of [nodes] / the snapshot
         // tree on settle (see [settleNode]), and the frame-close signal ([observeFrames]) lets a trace
         // consumer evict its buffer likewise. Always true for the root.
-        val retainTrace: Boolean = true
+        val retainTrace: Boolean = true,
+        // A wall for OUTWARD context writes, transparent to INWARD reads (logic-spec §6) — what a flavour that
+        // hosts several children CONCURRENTLY declares on each of them, so their bindings cannot meet. §6's
+        // supersede rule was specified for a sequential host chain: two siblings exporting one key would
+        // otherwise collapse onto a single slot in the shared parent, where the second bind displaces the first
+        // and runs its closer while that sibling is still live. The lock makes that safe (one claim, no leak,
+        // no double close) but not MEANINGFUL — the winner is whichever coroutine got there first.
+        // Four walks change at this frame, and only these four; every one of them moves a registration UP or
+        // destroys one above:
+        //   - [exportOwnerOf] stops here, so a bind at or below this frame can never rest above it
+        //   - [declareExport] is an ERROR here rather than a silent no-op, so the restriction is visible where
+        //     it is violated instead of surfacing later as a value that mysteriously stayed local
+        //   - [removeNearestBinding] stops here, so a sibling cannot release a shared ancestor's binding
+        //   - [settleFrame]'s `manual` PROMOTION retains instead of handing up (there is nowhere to hand to)
+        // The read walks ([bindingOf], [anyBindingOnChain]) are deliberately untouched: a barrier child still
+        // inherits everything its ancestors bound, call-site borrows included. Reading up is not a race.
+        val contextBarrier: Boolean = false
     ) {
         var status: NodeStatus = NodeStatus.Running
         // Last named boundary reached, carried to [Node.position]; anonymous checkpoints leave it unchanged.
@@ -884,12 +900,14 @@ class RunEngine(
         inputs: TupleValue,
         callerStableId: ObjectStableId?,
         retainTrace: Boolean,
-        initialBindings: List<InitialBinding>
+        initialBindings: List<InitialBinding>,
+        contextBarrier: Boolean
     ): TupleValue {
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
-            val runtime = NodeRuntime(id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace)
+            val runtime = NodeRuntime(
+                id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace, contextBarrier)
             runtime.moveSuffix = inheritMoveSuffix(parent, callerStableId)
             if (runtime.moveSuffix != null && callerStableId != null) {
                 // This hosting CLAIMED a descent hop, which means the transit frame ran to [callerStableId] with
@@ -1173,7 +1191,13 @@ class RunEngine(
                         disposal.claim()?.let { bindingClosers.add(it) }
 
                     ClosePolicy.Manual ->
-                        if (parent != null) {
+                        // A barrier frame has nowhere to promote TO — the hand-up is an upward write, the one
+                        // kind the barrier withholds, and it bypasses [exportOwnerOf] entirely, so blocking the
+                        // climb alone would leave this as an open second route into the shared parent. Falls
+                        // through to the same retention the root uses for the identical reason ("nowhere left
+                        // to promote to"), which keeps the handle findable on the run's inspection surface
+                        // rather than dropping it.
+                        if (parent != null && ! runtime.contextBarrier) {
                             parent.bindings.putIfAbsent(key, binding)
                         }
                         else {
@@ -1279,7 +1303,19 @@ class RunEngine(
 
     private fun declareExport(nodeId: NodeId, selector: ExportSelector) {
         synchronized(lock) {
-            nodes.getValue(nodeId).exports.add(selector)
+            val runtime = nodes.getValue(nodeId)
+
+            // Loud rather than silently ineffective. [exportOwnerOf] stops at a barrier regardless, so accepting
+            // the declaration would leave the author with a frame that says it exports and demonstrably does
+            // not — the failure would surface much later, as a caller reading Missing under a key it was told
+            // is provided. A concurrently-hosted frame that wants to publish upward is asking for the semantics
+            // the barrier exists to withhold, so it has to be a refusal, not a downgrade.
+            check(! runtime.contextBarrier) {
+                "Context barrier frame cannot declare an export (hosted concurrently, so an upward binding " +
+                        "would race its siblings): ${runtime.stableId.value} - $selector"
+            }
+
+            runtime.exports.add(selector)
         }
     }
 
@@ -1290,11 +1326,21 @@ class RunEngine(
     // stays on the opening frame, private by construction, and a frame of a flavour that never calls
     // [declareExport] ends every chain that reaches it. An actively running node's ancestors are always still
     // live, so the walk never dangles.
+    //
+    // A [NodeRuntime.contextBarrier] frame also ends the chain. NOTE this branch is currently UNREACHABLE and
+    // is defence-in-depth only: [declareExport] refuses on a barrier frame, it is the sole writer of
+    // [NodeRuntime.exports], and that set is not lifted across the [migrate] barrier — so a barrier frame's
+    // selector set is always empty, and the ordinary `none { covers }` test below already ends the climb there,
+    // for a bind made BY that frame and for one climbing up from BELOW it alike. Removing the flag test changes
+    // no observable behaviour today; that was verified by removing it and re-running
+    // RunEngineParallelBindingTest, which stayed green in full. It is kept so containment is a property of THIS
+    // walk rather than a consequence of a guard elsewhere staying correct — a future writer of [exports] that
+    // bypasses [declareExport] would otherwise silently reopen the concurrent-sibling collision.
     private fun exportOwnerOf(nodeId: NodeId, key: ContextKey): NodeId {
         var current = nodeId
         while (true) {
             val runtime = nodes[current] ?: return current
-            if (runtime.exports.none { it.covers(key) }) {
+            if (runtime.contextBarrier || runtime.exports.none { it.covers(key) }) {
                 return current
             }
             current = runtime.parentId ?: return current
@@ -1366,11 +1412,21 @@ class RunEngine(
 
     // Must hold lock. The same walk as [bindingOf], removing the first match instead of reading it — so a
     // binding resting on an ancestor frame can be dropped by a descendant (a sibling closing step).
+    //
+    // Stops AFTER a [NodeRuntime.contextBarrier] frame's own registry rather than before it: the barrier frame
+    // may still release what it holds itself, it just cannot reach past. This is the destructive half of the
+    // same wall [exportOwnerOf] enforces for binds — reaching up to unbind is exactly as order-dependent as
+    // reaching up to bind, and worse to diagnose, since the victim's next read reports Missing, which is
+    // indistinguishable from never-bound. A release that finds nothing within the barrier is a no-op, matching
+    // what this walk already does when a key is absent from the whole chain.
     private fun removeNearestBinding(nodeId: NodeId, key: ContextKey): Binding? {
         var current: NodeId? = nodeId
         while (current != null) {
             val runtime = nodes[current] ?: break
             runtime.bindings.remove(key)?.let { return it }
+            if (runtime.contextBarrier) {
+                break
+            }
             current = runtime.parentId
         }
         return null
@@ -1652,9 +1708,11 @@ class RunEngine(
             inputs: TupleValue,
             callerStableId: ObjectStableId?,
             retainTrace: Boolean,
-            initialBindings: List<InitialBinding>
+            initialBindings: List<InitialBinding>,
+            contextBarrier: Boolean
         ): TupleValue =
-            this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace, initialBindings)
+            this@RunEngine.host(
+                nodeId, stableId, child, inputs, callerStableId, retainTrace, initialBindings, contextBarrier)
 
         override fun declareExport(selector: ExportSelector) =
             this@RunEngine.declareExport(nodeId, selector)

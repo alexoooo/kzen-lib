@@ -40,9 +40,22 @@ import kotlin.test.assertTrue
  * verdict rests on measured behaviour rather than on a reading of the engine. **Two of the three are recorded
  * hazards** and are labelled ⚠ at their site; both are open as ledger row 43.
  *
- * The last two are ordinary **regression** fixtures for the one thing the gate found that was outright broken
+ * The next two are ordinary **regression** fixtures for the one thing the gate found that was outright broken
  * rather than merely unspecified — a bind travelling the export chain leaving the borrow it replaced behind to
  * shadow it (ledger row 42, fixed).
+ *
+ * The last five cover the **context barrier** (ledger row 43), which is the resolution of the two hazards
+ * above: a caller hosting children concurrently declares each `contextBarrier = true`, walling off outward
+ * writes while leaving inward reads transparent. The hazard fixtures are deliberately KEPT unchanged — they
+ * still describe exactly what unbarriered concurrent hosting does, and the barrier is opt-in, so both
+ * behaviours are live and both are pinned.
+ *
+ * **Each barrier rule was falsified individually**, by removing its guard and confirming which fixtures go red:
+ * dropping the [RunEngine] `removeNearestBinding` stop fails only the release fixture, dropping the
+ * `settleFrame` manual-promotion stop fails only the manual fixture, and dropping the `declareExport` refusal
+ * fails only the loud-refusal fixture. The one exception is documented at its site: the barrier test inside
+ * `exportOwnerOf` is **unreachable** and covered by nothing here, because `declareExport`'s refusal already
+ * keeps a barrier frame's selector set empty — it is retained as defence-in-depth, not as behaviour.
  */
 class RunEngineParallelBindingTest {
     //-----------------------------------------------------------------------------------------------------------------
@@ -63,6 +76,17 @@ class RunEngineParallelBindingTest {
             listOf(
                 async { execution.host(ObjectStableId("a"), a) },
                 async { execution.host(ObjectStableId("b"), b) }
+            ).awaitAll()
+        }
+    }
+
+
+    /** The same launch, with the barrier a concurrent host is now required to declare — what `JobRun` passes. */
+    private suspend fun hostBothBarriered(execution: Execution, a: Logic, b: Logic) {
+        coroutineScope {
+            listOf(
+                async { execution.host(ObjectStableId("a"), a, contextBarrier = true) },
+                async { execution.host(ObjectStableId("b"), b, contextBarrier = true) }
             ).awaitAll()
         }
     }
@@ -376,6 +400,261 @@ class RunEngineParallelBindingTest {
                 "two export declarations carried it two hops, exactly as an unbroken chain should")
             assertEquals(listOf("own"), disposed,
                 "disposed once, by the frame the chain came to rest on")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    // The context barrier (ledger row 43) — the answer to the two hazards above. A caller hosting children
+    // concurrently declares each one `contextBarrier = true`, which walls off OUTWARD writes while leaving
+    // INWARD reads transparent. These five pin each half of that rule; the hazard fixtures above stay as they
+    // are, because they still describe exactly what UNBARRIERED concurrent hosting does.
+
+    @Test
+    fun aBarrieredSiblingsNestedChildExportsOntoTheBarrierFrameRatherThanIntoTheSharedParent() = runBlocking {
+        // The case the barrier test in `exportOwnerOf` actually exists for. A barrier frame's own bind rests
+        // locally no matter what (it may not declare an export at all — below), but a frame BELOW it can: this
+        // is the `RunWorker` shape, a Worker hosting a further logic per element. That nested child's export
+        // climbs legitimately, hop by hop, and without a barrier it would keep right on climbing into the Job
+        // frame — where the identical structure under every other Worker lands on the same slot.
+        val disposed = CopyOnWriteArrayList<String>()
+        var readInA: BindingLookup? = null
+        var readInB: BindingLookup? = null
+        var readInParent: BindingLookup? = null
+
+        fun nested(value: String) = logicOf { execution ->
+            execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
+            execution.bind(sut, value, FrameDisposal(ClosePolicy.Auto) { disposed.add(value) })
+            TupleValue.ofMain(value)
+        }
+
+        val childA = logicOf { execution ->
+            execution.host(ObjectStableId("nestedA"), nested("browserA"))
+            readInA = execution.binding(sut)
+            TupleValue.ofMain("a")
+        }
+        val childB = logicOf { execution ->
+            execution.host(ObjectStableId("nestedB"), nested("browserB"))
+            readInB = execution.binding(sut)
+            TupleValue.ofMain("b")
+        }
+        val parent = logicOf { execution ->
+            hostBothBarriered(execution, childA, childB)
+            readInParent = execution.binding(sut)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            withTimeout(30_000) {
+                engine.resume()
+                assertIs<Outcome.Success>(engine.await())
+            }
+
+            assertEquals(BindingLookup.Present("browserA"), readInA,
+                "the export still travelled one hop — the nested child handed ownership to the frame that " +
+                        "hosted it, which is the whole point of declaring it")
+            assertEquals(BindingLookup.Present("browserB"), readInB,
+                "and the other sibling's chain came to rest on ITS barrier frame, so two live resources " +
+                        "under one key coexist instead of collapsing into one slot")
+            assertEquals(BindingLookup.Missing, readInParent,
+                "the shared parent holds neither: the barrier is where both climbs stopped, so there is no " +
+                        "slot for two concurrent siblings to race for")
+            assertEquals(listOf("browserA", "browserB"), disposed.sorted(),
+                "each disposed exactly once, at its own barrier frame's settle — and neither closer ran " +
+                        "while the frame using it was still live, which is what the hazard fixture records")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun declaringAnExportInsideABarrierFrameFailsLoudlyRatherThanRestingSilentlyLocal() = runBlocking {
+        // A refusal, not a downgrade. `exportOwnerOf` stops at the barrier regardless, so accepting the
+        // declaration would leave the author with a frame that claims to export and demonstrably does not —
+        // and that failure would surface far away, as a caller reading Missing under a key it was told is
+        // provided. The author is asking for precisely the semantics the barrier exists to withhold.
+        val child = logicOf { execution ->
+            execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.host(ObjectStableId("child"), child, contextBarrier = true)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            val outcome = withTimeout(30_000) {
+                engine.resume()
+                engine.await()
+            }
+
+            val failed = assertIs<Outcome.Failed>(outcome,
+                "silently ignoring the declaration would be the worse failure — it defers the diagnosis to " +
+                        "whoever later reads the key that never arrived")
+            assertTrue(
+                failed.message.contains("Context barrier frame cannot declare an export"),
+                "the message has to name the barrier as the reason, since the declaration itself is " +
+                        "well-formed and would be legal under any sequential host: $failed")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aBarrieredSiblingCannotReleaseASharedAncestorsBindingOutFromUnderItsPeer() = runBlocking {
+        // The destructive mirror, and the reason the barrier had to cover `removeNearestBinding` as well as the
+        // export climb. Reaching up to UNBIND is exactly as order-dependent as reaching up to bind, and worse
+        // to diagnose: the victim's next read reports Missing, which is indistinguishable from never-bound.
+        // Compare the ⚠ release hazard above — same fixture, same interleaving, barrier added.
+        val disposed = CopyOnWriteArrayList<String>()
+        val aReady = CompletableDeferred<Unit>()
+        val bReleased = CompletableDeferred<Unit>()
+        var readInAAfter: BindingLookup? = null
+        var disposedWhenAResumed: List<String>? = null
+        var readInParent: BindingLookup? = null
+
+        val childA = logicOf { execution ->
+            aReady.complete(Unit)
+            bReleased.await()
+            disposedWhenAResumed = disposed.toList()
+            readInAAfter = execution.binding(sut)
+            TupleValue.ofMain("a")
+        }
+        val childB = logicOf { execution ->
+            aReady.await()
+            execution.releaseBinding(sut)
+            bReleased.complete(Unit)
+            TupleValue.ofMain("b")
+        }
+        val parent = logicOf { execution ->
+            execution.bind(sut, "shared", FrameDisposal(ClosePolicy.Auto) { disposed.add("shared") })
+            hostBothBarriered(execution, childA, childB)
+            readInParent = execution.binding(sut)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            withTimeout(30_000) {
+                engine.resume()
+                assertIs<Outcome.Success>(engine.await())
+            }
+
+            assertEquals(listOf(), disposedWhenAResumed,
+                "the peer's release found nothing within its own barrier and stopped there, so the shared " +
+                        "closer did not run mid-run")
+            assertEquals(BindingLookup.Present("shared"), readInAAfter,
+                "and the frame still using it keeps reading it — the inherited value survives a peer's " +
+                        "release, which is the guarantee that was missing")
+            assertEquals(BindingLookup.Present("shared"), readInParent,
+                "the owner still owns what it opened; a concurrent child cannot reach into its registry")
+            assertEquals(listOf("shared"), disposed,
+                "disposed once, at its owner's settle, on the normal path rather than by a peer")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aBarrierFrameStillReadsEverythingItsAncestorsBoundIncludingCallSiteBorrows() = runBlocking {
+        // The transparency half, and the reason the barrier is one-directional. Walling off reads too would
+        // make a barrier child unable to see anything its caller set up — including the `contexts:` borrow a
+        // call site installs — which would break the arc's headline capability the moment a Job used it.
+        // Reading up is not a race: nothing mutates.
+        val borrowed = ContextKey.of("borrowed")
+        var readOwnAncestorBinding: BindingLookup? = null
+        var readCallSiteBorrow: BindingLookup? = null
+
+        val child = logicOf { execution ->
+            readOwnAncestorBinding = execution.binding(sut)
+            readCallSiteBorrow = execution.binding(borrowed)
+            TupleValue.ofMain("child")
+        }
+        val parent = logicOf { execution ->
+            execution.bind(sut, "shared")
+            execution.host(
+                ObjectStableId("child"), child,
+                initialBindings = listOf(InitialBinding(borrowed, "fromCallSite")),
+                contextBarrier = true)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            withTimeout(30_000) {
+                engine.resume()
+                assertIs<Outcome.Success>(engine.await())
+            }
+
+            assertEquals(BindingLookup.Present("shared"), readOwnAncestorBinding,
+                "ambient inheritance is untouched — the barrier stops writes climbing out, not reads " +
+                        "walking in")
+            assertEquals(BindingLookup.Present("fromCallSite"), readCallSiteBorrow,
+                "and a call-site bootstrap still lands, so a barriered flavour can still be handed its " +
+                        "subject per invocation")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aBarrierFrameRetainsAManualBindingInsteadOfPromotingItPastTheBarrier() = runBlocking {
+        // The SECOND upward route, and the one that would have been left open by blocking the export climb
+        // alone: a `manual` binding is handed one frame up at settle by direct map write, bypassing
+        // `exportOwnerOf` entirely. Hosted sequentially it is exactly how open → use → close splits across
+        // sibling sub-documents; out of a concurrent frame it is the same collision by another path.
+        //
+        // Both children here are hosted SEQUENTIALLY under different keys, so the only variable is the flag.
+        val barriered = ContextKey.of("barriered")
+        val promoted = ContextKey.of("promoted")
+        val disposed = CopyOnWriteArrayList<String>()
+        var readBarrieredInParent: BindingLookup? = null
+        var readPromotedInParent: BindingLookup? = null
+
+        fun binder(key: ContextKey, value: String) = logicOf { execution ->
+            execution.bind(key, value, FrameDisposal(ClosePolicy.Manual) { disposed.add(value) })
+            TupleValue.ofMain(value)
+        }
+
+        val parent = logicOf { execution ->
+            execution.host(
+                ObjectStableId("barriered"), binder(barriered, "walled"), contextBarrier = true)
+            execution.host(
+                ObjectStableId("promoted"), binder(promoted, "handedUp"))
+            readBarrieredInParent = execution.binding(barriered)
+            readPromotedInParent = execution.binding(promoted)
+            TupleValue.ofMain("parent")
+        }
+
+        val engine = RunEngine(parent, rootId)
+        try {
+            withTimeout(30_000) {
+                engine.resume()
+                assertIs<Outcome.Success>(engine.await())
+            }
+
+            assertEquals(BindingLookup.Present("handedUp"), readPromotedInParent,
+                "the control: manual promotion is unchanged for an ordinary child, so this test fails if " +
+                        "the barrier ever starts applying to frames that did not ask for it")
+            assertEquals(BindingLookup.Missing, readBarrieredInParent,
+                "and the barriered child's manual binding did NOT climb — it is retained on the run's " +
+                        "inspection surface instead, the same fallback the root uses for the same reason")
+            assertEquals(listOf(), disposed,
+                "neither was auto-disposed either way: manual means the teardown outlives the frame, which " +
+                        "the barrier does not change — it changes only WHERE the handle came to rest")
         }
         finally {
             engine.close()

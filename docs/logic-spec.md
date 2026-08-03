@@ -679,6 +679,35 @@ where a name and a teardown travel together on purpose.
   (the "forgotten close"). A resource may use either mechanism, or both — and Manual is the only way an
   **un-exported** resource outlives its provider.
 
+- **Everything above is specified for a SEQUENTIAL host chain, so concurrent frames need a barrier.** Both
+  upward mechanisms — the export chain and the manual hand-up — assume that when a registration moves up, the
+  frame it moves into is not simultaneously receiving another one. Supersession's justification depends on it:
+  the displaced handle is "provably nobody's business by then" only because *by then* is a point in time that
+  exists. A flavour that hosts several children at once (a Job and its Workers) breaks that assumption
+  outright. Two siblings exporting one key collapse onto **one slot in the shared parent**, where the second
+  bind displaces the first, claims its disposal and runs the closer — closing a live sibling's resource
+  underneath it — after which the loser's own read silently returns its sibling's handle. The engine lock
+  delivers exactly what it claims (one claim, no leak, no double close) and nothing more: it does not make the
+  winner deterministic. The mirror-image hazard is release, where a sibling unbinds a shared ancestor's
+  registration and the victim's next read reports `Missing`, indistinguishable from never-bound.
+
+  The resolution is a property of the **host call**, not a detection: a caller hosting children concurrently
+  declares each one a **context barrier**. A barrier frame is *opaque to outward writes and transparent to
+  inward reads* — the export climb stops at it, `declareExport` on it is an error rather than a silent no-op, a
+  release from it stops at it, and a `manual` binding is retained rather than promoted past it; while every
+  read still walks through, so a barrier child inherits its ancestors' bindings and call-site bootstraps
+  normally. Determinism follows by construction rather than by check: no two concurrent siblings can name one
+  slot, so there is no order for the outcome to depend on.
+
+  **This restricts rather than resolves, and that is the choice.** Handing a resource from one concurrent
+  sibling to another, or up to their shared parent, is *not expressible* — a barrier flavour can only open what
+  it also closes. The two alternatives were rejected on determinism grounds: making a concurrent same-key bind
+  a hard *error* leaves the diagnosis schedule-dependent (the same document passes or fails run to run), and
+  per-frame isolation with an explicit merge needs a merge-policy vocabulary and an answer for disposing N
+  values in one slot. Neither is precluded later; a barrier is the conservative floor they would build on.
+  *(Added 2026-08-03. Before it, this section was simply silent on parallelism — see the concurrency
+  characterizations in `RunEngineParallelBindingTest`, which pin what unbarriered concurrent hosting does.)*
+
 - **The address is a domain type, and export is a selector.** A registry address is a
   `ContextKey(family, qualifier?)` — the family being the part before the first `':'` — rendered wire-identically
   to the plain string below, so a typed reader and a raw one address one registration. An export declaration is

@@ -112,7 +112,8 @@ interface Execution {
      * this one — its own trace scope and resource scope — and the engine drives its stepping uniformly
      * (step-over/out cross the boundary). A child failure surfaces here as [LogicFailure]; a child cancel
      * propagates as cancellation. To run children concurrently, wrap [host] calls in structured concurrency
-     * (`coroutineScope { launch { host(...) } ... }`).
+     * (`coroutineScope { launch { host(...) } ... }`) — and pass [contextBarrier], without which those children
+     * share one ambient context whose write order is whatever the scheduler chose.
      *
      * [stableId] is the CHILD's own root identity (used for its frame / migration carry-over). [callerStableId]
      * is the element on THIS side that hosts it — the call-site (a RunStep, a Job worker) — recorded on the
@@ -145,6 +146,21 @@ interface Execution {
      * migration-owned, keeps the stable owner it bound to, and therefore **supersedes** a same-key bootstrap
      * value on the rebuilt frame. Pinned by
      * `RunEngineTest.anAdoptedLocalBindingSupersedesTheSameKeyBootstrapValueOnRebuild`.
+     *
+     * [contextBarrier] makes the child frame a wall for OUTWARD context writes while leaving INWARD reads
+     * transparent (§6). **Pass it whenever this host call is one of several launched concurrently** — it is
+     * what makes a parallel flavour's ambient context deterministic, and the engine cannot infer it, because
+     * "am I inside a `coroutineScope` with siblings" is not something a frame can see. Under it: a [bind] at or
+     * below the child rests at or below the child rather than climbing into THIS frame; [declareExport] on the
+     * child frame FAILS rather than silently doing nothing; [releaseBinding] from the child stops at the child,
+     * so it cannot dispose a binding this frame owns out from under a sibling; and a `manual` binding is
+     * retained instead of promoted up. What still works unchanged is every read — the child inherits this
+     * frame's bindings, [initialBindings] included, exactly as a sequential child does.
+     *
+     * The cost is real and deliberate: a barrier child cannot hand a resource to its parent or to a sibling.
+     * Sequential composition (Script, Flow) must NOT pass it — the open → use → close split across sibling
+     * sub-documents is built on exactly the upward reach it removes. See §6's concurrent-frames rule for why
+     * the alternatives (detect-and-fail, per-frame merge) were not taken.
      */
     suspend fun host(
         stableId: ObjectStableId,
@@ -152,7 +168,8 @@ interface Execution {
         inputs: TupleValue = TupleValue.empty,
         callerStableId: ObjectStableId? = null,
         retainTrace: Boolean = true,
-        initialBindings: List<InitialBinding> = listOf()
+        initialBindings: List<InitialBinding> = listOf(),
+        contextBarrier: Boolean = false
     ): TupleValue
 
     //----------------------------------------------------------------------------------- resources & exports (§6)
