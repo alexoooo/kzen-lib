@@ -994,10 +994,12 @@ recorded here so the rationale isn't lost and future changes don't regress it.
 
 - **Naming the signature key.** *Question: the consumer half of the signature is `context.requires`, so
   should the provider half be `context.provides` and keep the rhyme?*
-  **Resolved: no — it is `context.exports`.** Step-level `provides` already means *opening* a resource into
-  the run (kzen-auto's `ContextProvider`), so a document-level `provides` would give one word two meanings
-  one nesting level apart, while the model's vocabulary — this spec, `declareExport`, the diagnostics — is
-  export throughout. One word, one meaning; the lost `requires` / `provides` rhyme is the accepted cost.
+  **Resolved: no — it is `context.exports`.** The model's vocabulary — this spec, `declareExport`, the
+  diagnostics — is export throughout, so one word with one meaning beats the rhyme. A second argument
+  applied at the time and has since expired: step-level `provides` then meant *opening* a resource into the
+  run, so a document-level `provides` would have given one word two meanings one nesting level apart. The
+  step verbs are now `binds` / `uses` (kzen-auto's `ContextBinder`), so that particular collision is gone —
+  the verdict rests on the export-vocabulary argument alone, and is unchanged.
 
 - **Core vs. consumer placement.** *Question: what is the use-case-agnostic core surface that
   Script/Flow/Job (and future flavours) sit on top of with no duplicated orchestration?*

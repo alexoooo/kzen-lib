@@ -122,8 +122,20 @@ class NotationMetadataReader(
                     continue
                 }
 
-                val attributeMetadata = readAttribute(e.value, objectReferenceHost, graphNotation)
-                builder[AttributeName(e.key.asString())] = attributeMetadata
+                // MOST-DERIVED WINS, matching what [GraphNotation.firstAttribute] does for attribute VALUES.
+                // [inheritanceChain] is linearized most-derived first, so the first declaration seen is the
+                // closest one and a base must not overwrite it — an unconditional put made metadata inherit in
+                // the OPPOSITE direction from values, which meant a subtype could not refine an inherited
+                // attribute's `meta:` at all: its entry was silently replaced by its base's. The failure was
+                // invisible wherever a subtype restated something value-identical to its base, and surfaced as
+                // a definition error only where it narrowed (e.g. a scalar default under an inherited
+                // non-nullable `is: List`). NB: no `putIfAbsent` — it is not in the common stdlib.
+                val attributeName = AttributeName(e.key.asString())
+                if (attributeName in builder) {
+                    continue
+                }
+
+                builder[attributeName] = readAttribute(e.value, objectReferenceHost, graphNotation)
             }
         }
 
