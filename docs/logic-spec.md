@@ -606,6 +606,17 @@ where a name and a teardown travel together on purpose.
   *keep-on-failure* disposes on success/cancel and on failure simply leaves the side effect undone — there is
   no handle to hold, so nothing is retained.
 
+  A binding with **no disposal at all** — a plain ambient value, and every call-site bootstrap value (below) —
+  gets a note rather than a fourth column, because the columns are close policies and it has none: with
+  nothing attached to dispose, every event above degenerates to removing the name.
+
+  Migration is where those two part company, and the difference is *who bound it*, not whether a disposal is
+  attached. A plain ambient value the frame bound itself follows the table's migration row like any other
+  registration — carried with its stable owner, so a value bound early in a document is still in scope after
+  an edit. A **call-site bootstrap value inverts that row**: it is dropped at the barrier and re-supplied by
+  the rebuilt caller, because it was never the callee's to keep. Reading "no disposal" as "not worth
+  carrying" would break the first case; reading "carry everything" as universal breaks the second.
+
   **"Retain" is a promise about findability, not a synonym for "forget".** A retained binding stays available
   to the run's inspection surface with its live handle, and is closeable there through the same one-shot
   claim. Dropping the registration while the browser or process it names keeps running would be a leak
@@ -632,6 +643,9 @@ where a name and a teardown travel together on purpose.
   > and invokes its attached disposal, at most once; on a plain or borrowed binding there is no disposal, so
   > release degenerates safely to unbinding the name. The stored **live handle** is readable from any
   > descendant of the resting frame via the same walk (`binding`) — the read side of the inheritance below.
+  > `Execution.host(…, initialBindings)` installs each `InitialBinding(key, value)` on the newly-minted child
+  > frame as a borrow — under the same lock that publishes the node, and *before* lifted registrations are
+  > adopted, which is where the ordering rule below falls out with no precedence logic written.
   > Both registries survive live-edit migration keyed by their resting frame's stable identity (§5); the
   > export declarations themselves are deliberately not lifted, because the rebuilt tree re-declares them.
 
@@ -685,6 +699,25 @@ where a name and a teardown travel together on purpose.
   nothing detects it; qualified keys (`sut:main`) are the convention for keeping distinct instances of a
   family apart.
 
+  **Three raw members are supported, and two are not.** `resource(key, policy, value, closer)`,
+  `resourceValue(key)` and `releaseResource(key)` take the plain string and are the layer that makes the
+  interoperation above real — `ContextKey.asString` and `parse` are exact inverses, so a raw caller and a
+  typed one naming `sut` address one registration, and a plugin drives a first-party resource without
+  declaring a Context of its own. What staying raw gives up is **declaration, not correctness**: nothing raw
+  is visible to the static analysis, so a raw open leaves a downstream typed `requires` unsatisfiable —
+  prefer the typed API whenever the key is known at authoring time. The layer is **strict to write and
+  permissive to address, deliberately**: registering under a string no key could be spelled as is a caller
+  bug with no sensible silent outcome, so `resource` throws, while reading or releasing such a string
+  addresses nothing — every key in a registry got there through `parse` — and answering "nothing is bound
+  there" is more truthful than throwing at a reader. `releaseResource` is the one member with **no typed
+  equivalent**, and it is not the string spelling of `releaseBinding`: it removes *without* disposing, for a
+  caller that already tore the resource down itself, where `releaseBinding` removes the name **and** runs the
+  teardown — two different operations, not two spellings of one. What stays deprecated is the pair that
+  spells no typed operation losslessly: `declareExport(String)` cannot say whether it claims a family or one
+  exact member, and `hasResourceInFamily(String)` handed a qualified key silently degrades to an exact-key
+  check. Those answer *differently and wrongly* rather than less declaratively, and no caller has ever needed
+  the wrong answer.
+
 - **Enforcement granularity follows the declaration, not a blanket rule.** A flavour that gates on a resource
   being present ("this step requires an open browser") asks `hasBinding` when the declaration names an exact
   member, and `hasBindingInFamily` — one keyed `sut`, or `sut:` with any qualifier — only when the qualifier
@@ -699,6 +732,50 @@ where a name and a teardown travel together on purpose.
   sub-scripts drive. This is the explicit, opt-in exception to confinement (§2): the shared resource stays
   **owned (and disposed) by the frame the export chain rested it on**; the child only borrows the live handle
   for the duration of the host, and does not dispose it on its own settle.
+
+- **A call site may bootstrap its callee's ambient context — the `with(…)` shape.** Inheritance is ambient:
+  whatever an ancestor bound, its whole subtree sees. A caller may instead supply the callee's dependency
+  **per call**, handing `host` a list of bindings installed on the child's own frame before the child's first
+  instruction. The callee stays unaware — it declares what it requires and is run twice against two different
+  values without being edited, which is exactly what two systems under test in parallel need, and what
+  threading a qualifier cannot reach, since every step of the callee would have to carry the qualifier
+  through. It is also not an ordinary bind the caller could already make: `host` mints the child node and
+  runs it as one operation and the caller never holds the child's `Execution`, so there is no instant between
+  the two at which it could bind anything. The install happens under the same lock that publishes the node,
+  so there is no window in which anything could observe a half-bootstrapped frame.
+
+  **A bootstrap binding is a borrow, never a handover.** It carries no disposal, because the value's owner is
+  whatever frame bound it on the caller's side — a frame that outlives the sequential child by construction
+  and disposes as it always would. A `release` inside the callee therefore finds the borrow, unbinds the
+  name, and closes nothing: "stop borrowing", which is what an absent disposal already means everywhere else.
+  A later same-key `bind` inside the child supersedes the borrow, exactly as a re-bind does anywhere else,
+  and a key listed twice keeps its last entry.
+
+  **Superseding a borrow follows the bind wherever the export chain sends it.** The two rules meet here, and
+  they have to be read together or a callee stops seeing its own work: a bind resolves its owner by climbing
+  the export chain, so a callee that exports the very key it was loaned sends the value *above* the frame the
+  borrow rests on — and a read, which starts at the frame and stops at the first match, would otherwise hand
+  the binder straight back the value it just replaced, for the rest of its run. So a bind supersedes every
+  borrow under that key on the frames its climb travels past, not merely one in the slot it happens to land
+  in. Nothing is lost by removing them: a borrow carries no disposal, and ownership having moved above those
+  frames is exactly why their reads should resolve there too. Only borrows are dropped — an owned binding on
+  a frame in between belongs to that frame and disposes at its settle. (Fixed 2026-08-03; the earlier engine
+  cleared a borrow only when the replacement landed in its own slot, which held for every non-exporting
+  callee and silently failed for the rest.)
+
+  **Across a live edit they are re-supplied, not carried — and a binding the child made itself supersedes
+  them.** The rebuilt caller re-runs and passes whatever its sources hold *now*, which is right precisely
+  because a bootstrap value is a borrowed read of the caller's current state and not something the child
+  owns; a binding the child bound is the opposite — migration-owned, keeping the stable owner it bound to,
+  and so it must win. That ordering is placement rather than policy: the bootstrap install runs before lifted
+  registrations are adopted and adoption overwrites, so there is no precedence rule to get wrong. Installing
+  after adoption would let a stale re-read displace the child's own live handle and, having no disposal, drop
+  it without closing it. The other half is what the barrier does *not* do: a borrow is dropped there rather
+  than lifted, because lifting it would carry a pre-edit read forward and — adoption overwriting the fresh
+  value — leave the callee driving whatever the caller named before the edit, which is precisely the thing an
+  edit was meant to change. Nothing leaks by dropping it, since a borrow has no disposal for the orphan sweep
+  to close. What makes both halves safe is that the marking rides on the registry entry, so a child binding
+  its own value under that key replaces the entry and stops borrowing in the same stroke.
 
 ---
 
@@ -1046,7 +1123,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Requirement area | Current types | Where |
 |---|---|---|
 | Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
-| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace)`; `declareExport(ExportSelector)` (this node exports a family or one exact member upward, offering ownership to whoever hosts it, §6) / `bind(ContextKey, value, FrameDisposal?)` / `binding` (ancestor-chain read, `Present`/`Missing`) / `hasBinding` / `hasBindingInFamily` / `releaseBinding` / `onSettle(SettleDisposalPolicy, closer)` (anonymous, frame-local); `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` / `moveDescendCallSite` (the addressed frame's target and a transit frame's descent obligation for a one-shot repositioning request, §4) | kzen-lib-common `exec/engine/` |
+| Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace, initialBindings)` (the last being the call site's `InitialBinding` bootstrap of the child frame, §6); `declareExport(ExportSelector)` (this node exports a family or one exact member upward, offering ownership to whoever hosts it, §6) / `bind(ContextKey, value, FrameDisposal?)` / `binding` (ancestor-chain read, `Present`/`Missing`) / `hasBinding` / `hasBindingInFamily` / `releaseBinding` / `onSettle(SettleDisposalPolicy, closer)` (anonymous, frame-local); `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` / `moveDescendCallSite` (the addressed frame's target and a transit frame's descent obligation for a one-shot repositioning request, §4) | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `setBreakpoints`; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) + `CountingDispatcher` (the quiescence primitive: counts dispatch tasks, and counts a pending `delay` / an `Execution.blocking` region as in-flight so neither reads as idle). Available but unconsumed: `observeFrames` (frame-close signal), `observeResets` / `TraceReset` (synchronous pre-return reset signal) — both left from the retired trace-store bridge | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live (+ `liveSequence`) + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / setBreakpoints / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
@@ -1056,7 +1133,7 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`, `setBreakpoints`, `moveTo` — refusable, returning `LogicRunResponse.Rejected`; `observeStatus`, `retainedTraceAccess`, `clearRetainedTrace`); the impl drives the engine on **one single-thread executor** (each release blocks in `RunEngine.awaitQuiescent` until the run settles, then reflects that back into the status flags; signal-only verbs — pause / cancel / setPauseOnError — call the engine directly so they reach an in-flight run instead of queueing behind it. E6 would need one executor **per run**, since a shared one would serialize unrelated runs), **retains the settled run** for post-run trace queries (disposed on the next `start` / a global clear) while reporting it as no-active-run, and detects live edits. REST surface: `LogicHandler` (+ the `/logic/events` SSE stream and the `/logic/trace-binary` blob route) | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/`, `server/api/handler/` |
 | Run / execution identity | `LogicRunId`, `LogicExecutionId`, `LogicRunExecutionId`, `LogicRunInfo` (frame + state + value `sequence`), `LogicRunFrameInfo` (live frame tree + resolved `position`), `LogicRunExecutionInfo` (parent + call-site attribution), `LogicRunState` (Running / Stepping / Pausing / Paused / ExplicitPaused / ErrorPaused / Cancelling), `LogicStatus` (the three version axes of §7: `epoch`, `structureVersion`, `active.sequence`), `LogicRunResponse` (incl. `Rejected`), `ObjectStableId` + `ObjectStableMapper`. (`LogicRunFrameState` is vestigial — its field on `LogicRunFrameInfo` is commented out.) | kzen-lib-common `exec/logic/run/model/`, `service/store/normal/` |
 | Live edit & migration (**now: core**) | `RunEngine.migrate` (capture-before-teardown, rebuild-by-stable-id, resource lift/re-adopt, settled-frame lift/re-adopt via `liftRetiredFrames` / `adoptRetiredFrames` / `supersedeRetiredFrames`, orphan sweep) + `Execution.onCapture` / `restored` / `discardCaptured`; **repositioning** (move-to, §4) via `RunEngine.migrate(moveTarget)` — a `MoveTarget` addressed to one frame by `callSitePath`, surfaced there as `Execution.moveTarget` and to each transit frame as `Execution.moveDescendCallSite` (per-node routing in `RunEngine.NodeRuntime.moveSuffix` / `inheritMoveSuffix`), flavour capability `Repositionable.canMoveTo` (addressed frame) / `Repositionable.canDescendThrough` (transit hop); **removal reporting** via `RunEngine.migrate(removedStableIds)` → `Execution.removedStableIds`, sourced from `ObjectStableMapper.drainRemovedIds` and claimed only by a barrier that actually rebuilds (`ServerLogicController.migrationRemovals`); edit-**detection** in `ServerLogicController.pendingMigration` — an event-driven dirty flag (the controller is a `LocalGraphStore.Observer`) gating a content-digest diff over the closure `LinkedLogicDocuments.transitiveDigest` builds from `LogicCallGraph.transitiveCallees` (root document ∪ weakly-linked callees, §5). Per-flavour carried state: `ScriptMigrationState` (completed outcomes + per-step carry + result), `FlowMigrationState` (per-vertex progress + harvested output), Job's channel drain/preload + per-Worker `WorkerBase.captureMigrationState`; Report registers no capture (clean restart — the §5 default) | engine kzen-lib-jvm; detection + flavours kzen-auto-jvm |
-| Resources (**now: export-chain owned**) | `Execution.declareExport(key)` (this node offers `key` upward, matched exactly or by family — the part before the first `':'`; idempotent, re-declared by a migrate rebuild, not lifted across the barrier) / `resource(key, policy, value, closer)` (registered on the furthest frame reached by climbing while each frame exports the key, falling back to the opening node; disposed on the resting frame's settle) / `resourceValue` (ancestor-chain read of the live handle) / `hasResourceInFamily(family)` (family-granular presence gate) / `releaseResource` (ancestor-chain deregister), `ClosePolicy` (Auto / Manual / KeepOnFailure — the disposal rule only, applied at the *resting* node's settle; Manual instead hands the registration one level up, `putIfAbsent`) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure, `toEngine()`) [notation-level] | kzen-lib-common `exec/engine/`, `exec/logic/` |
+| Ambient context & resources (**now: export-chain owned**) | Addressing: `ContextKey(family, qualifier?)` + `ContextFamily` (`asString` / `parse` are exact inverses, which is what makes the raw layer below address the same registrations), `ExportSelector.Family` / `.Exact`, `BindingLookup.Present` / `.Missing`, `InitialBinding`. Typed surface: `Execution.declareExport(ExportSelector)` (this node offers a family or one exact member upward; idempotent, re-declared by a migrate rebuild, not lifted across the barrier) / `bind(ContextKey, value, FrameDisposal?)` (registered on the furthest frame reached by climbing while each frame exports the key, falling back to the opening node; disposed on the resting frame's settle, and only if a disposal was attached) / `binding` (ancestor-chain read keeping a present `null` distinct from nothing bound) / `hasBinding` / `hasBindingInFamily(ContextFamily)` / `releaseBinding` (remove the name **and** dispose) / `onSettle(SettleDisposalPolicy, closer)` (anonymous, frame-local); `host(…, initialBindings)` bootstraps a callee's frame with borrows (§6). Raw string interop, supported: `resource(key, policy, value, closer)` / `resourceValue` / `releaseResource` (deregister **without** disposing — no typed equivalent), strict to write and permissive to address. Deprecated: `declareExport(String)` (cannot say family vs exact) and `hasResourceInFamily(String)` (a qualified key silently degrades it to an exact-key check). `ClosePolicy` (Auto / Manual / KeepOnFailure — the disposal rule only, applied at the *resting* node's settle; Manual instead hands the registration one level up, `putIfAbsent`) + `FrameDisposal` (one-shot, at-most-once via `claim`) [engine], `ResourceClosePolicy` (auto / manual / keepOnFailure, `toEngine()`) [notation-level] | kzen-lib-common `exec/engine/`, `exec/engine/context/`, `exec/engine/disposal/`, `exec/logic/` |
 | Tracing (wire contract) | `LogicTrace` (lookup / lookupRun / lookupRunHistory / lookupRunExecutions / mostRecent / tracedLocations / clear / clearAll), `LogicTraceHandle` (set / append / clearAll / register — the Report write adapter, `ExecutionLogicTraceHandle`, still uses it over `Execution.emit`/`log`; its `register` / `clearAll` are no-ops there), `LogicTracePath` (+ the `$stable` and `$outcome` markers, the latter via `nodeOutcome(stableId)` — §7), `LogicTraceEntry` / `LogicTraceEvent` / `LogicTraceSnapshot` / `LogicTraceQuery`; REST entry point `LogicTraceEndpoint` + `LogicConventions` actions; engine-side `TraceEvent` (sequence, nodeId, stableId, address, value) + `Address` | kzen-lib-common `exec/logic/trace/`, `exec/engine/`; endpoint kzen-auto-jvm `server/objects/logic/` |
 | Trace address routing (§7 SPI) | `LogicTraceAddressRouting` (`marker` → `tracePath(address, stableId)`), autowired and indexed by marker in `RunEngineLogicTrace`; contributed by `JobTraceAddressRouting` (`$job-progress`) and `ReportTraceAddressRouting` (`$trace-path`). Flavours emitting only element addresses (Script, Flow) contribute none | kzen-auto-jvm `server/exec/`, `server/exec/{job,report}/` |
 | Trace values | `ExecutionValue` hierarchy (Null / Text / Boolean / Number / Long / **Binary** / **BinaryHandle** / List / Map). `BinaryHandleExecutionValue` (run + content hash + size + mime) is the **wire-only** substitution for a `BinaryExecutionValue` (§7), applied at `RunEngineLogicTrace.toWireValue` and resolved by `lookupBinary` behind the `/logic/trace-binary` blob route | kzen-lib-common `exec/`; substitution kzen-auto-jvm `server/exec/` |

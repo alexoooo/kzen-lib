@@ -7,6 +7,7 @@ import tech.kzen.lib.common.exec.engine.context.BindingLookup
 import tech.kzen.lib.common.exec.engine.context.ContextFamily
 import tech.kzen.lib.common.exec.engine.context.ContextKey
 import tech.kzen.lib.common.exec.engine.context.ExportSelector
+import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
 import tech.kzen.lib.common.exec.tuple.TupleValue
@@ -130,13 +131,28 @@ interface Execution {
      * this). A long STREAMING host that opens one child per element passes false to opt into eviction of each
      * per-element frame when it settles — bounding a streaming run to its live frames instead of leaking one
      * buffer per element. The engine only records the flag; a trace consumer acts on it at frame close.
+     *
+     * [initialBindings] are installed on the child frame under the same lock that mints it, so the child sees
+     * them from its first instruction and there is no window in which it could observe a half-bootstrapped
+     * frame. They are plain borrows — no disposal, so the child releasing one unbinds a name and closes
+     * nothing (see [InitialBinding]). A later same-key [bind] inside the child supersedes the borrow on the
+     * child's own frame, exactly as a re-bind does anywhere else. Listed order is put order, so a duplicated
+     * key keeps the last entry.
+     *
+     * ACROSS A LIVE EDIT they are **re-supplied, not carried**: the rebuilt caller re-runs and passes whatever
+     * its sources hold NOW, which is the point — a bootstrap value is a borrowed read of the caller's current
+     * state, not something the child owns. A binding the child itself bound is the opposite: it IS
+     * migration-owned, keeps the stable owner it bound to, and therefore **supersedes** a same-key bootstrap
+     * value on the rebuilt frame. Pinned by
+     * `RunEngineTest.anAdoptedLocalBindingSupersedesTheSameKeyBootstrapValueOnRebuild`.
      */
     suspend fun host(
         stableId: ObjectStableId,
         child: Logic,
         inputs: TupleValue = TupleValue.empty,
         callerStableId: ObjectStableId? = null,
-        retainTrace: Boolean = true
+        retainTrace: Boolean = true,
+        initialBindings: List<InitialBinding> = listOf()
     ): TupleValue
 
     //----------------------------------------------------------------------------------- resources & exports (§6)
@@ -227,6 +243,20 @@ interface Execution {
      */
     fun hasBindingInFamily(family: ContextFamily): Boolean
 
+    //--------------------------------------------------------------------------------- raw string interop (§6)
+    // The plain-string layer beneath the typed API above, and a SUPPORTED one rather than debt. Keys are a
+    // global namespace (§6): `ContextKey.asString` / `parse` are exact inverses, so a raw caller and a typed
+    // one naming `sut` address one registration — which is the whole point, and what lets a typed step open
+    // the browser a raw step then drives, or a plugin interoperate with a first-party Context without
+    // declaring one. What a caller gives up by staying here is DECLARATION, not correctness: nothing raw is
+    // visible to the static analysis, so a raw open leaves a downstream typed `uses` unsatisfiable. Prefer the
+    // typed API whenever the key is known at authoring time; this exists for when it genuinely is not.
+    //
+    // Strict to WRITE, permissive to ADDRESS, deliberately. Registering under a string no key could be
+    // spelled as is a caller bug with no sensible silent outcome, so [resource] throws. Reading or releasing
+    // such a string addresses nothing — every key in a registry got there through `parse` — so answering
+    // "nothing is bound there" is more truthful than throwing at a reader, and those two go through
+    // `ContextKey.parseOrNull`.
     /**
      * Register a resource under [key], owned by the furthest frame on this node's ancestor chain (self →
      * parent → … → root) reachable through an **unbroken chain of [declareExport] declarations** — matched on
@@ -248,14 +278,10 @@ interface Execution {
      * travels with the registration across a live-edit migration (§5), so an open resource survives an edit
      * with its owning frame's stable identity.
      *
-     * Fusing a name and a teardown into one call is what this supersedes: a value that closes nothing had to
-     * register an empty closer, and a teardown with nothing worth naming had to invent a key. [bind] and
-     * [onSettle] are the two halves, and `bind(key, value, disposal)` is the composed form when a binding
-     * really does own a resource.
+     * The typed equivalent splits the fused name-and-teardown in two: `bind(key, value, disposal)` is this
+     * call's composed form, [bind] alone binds a value that owns nothing, and [onSettle] registers a teardown
+     * worth no name. Throws `IllegalArgumentException` for a [key] that is not a spellable `ContextKey`.
      */
-    @Deprecated(
-        "Fuses ambient binding with scoped disposal",
-        ReplaceWith("bind(ContextKey.parse(key), value, FrameDisposal(policy, closer))"))
     fun resource(
         key: String,
         policy: ClosePolicy,
@@ -264,15 +290,14 @@ interface Execution {
 
     /**
      * Read the live handle stored with a resource registration (the [resource] `value`), searching this
-     * node's ancestor chain (self → parent → … → root); null when no live registration holds the [key] (or
-     * it registered no value).
+     * node's ancestor chain (self → parent → … → root); null when no live registration holds the [key], when
+     * the registration holds null, or when [key] is not a spellable `ContextKey`.
      *
-     * Collapsing those two answers onto one null is why this is superseded: a Context whose value contract is
-     * nullable can bind null legitimately, and [binding] keeps that distinct.
+     * Lossy by construction — it collapses "nothing is bound" onto "a binding holds null", which a Context
+     * with a nullable value contract can produce deliberately. A caller that needs those apart wants [binding]
+     * and its `BindingLookup`; a caller reaching for an arbitrary runtime string usually cannot act on the
+     * difference anyway.
      */
-    @Deprecated(
-        "Collapses a missing binding with a present null one",
-        ReplaceWith("binding(ContextKey.parse(key)).valueOrNull()"))
     fun resourceValue(key: String): Any?
 
     /**
@@ -283,6 +308,9 @@ interface Execution {
      * key here degrades the gate to an exact-key check with no diagnostic — true only if a registration exists
      * under that whole string, silently false for the family it looks like it is asking about. The behaviour
      * is preserved as-is for callers still on the string form; [hasBindingInFamily] is the fix.
+     *
+     * Unlike the raw interop layer above, this stays deprecated: it is not a lossless string spelling of a
+     * typed operation but a *different, wrong* one, and no caller has ever needed the wrong answer.
      */
     @Deprecated(
         "A fully-qualified key silently degrades this to an exact-key check",
@@ -292,15 +320,14 @@ interface Execution {
     /**
      * Deregister a previously-registered resource [key] (e.g. an explicit closing step disposed it itself),
      * so the auto-disposer never double-fires. Searches this node's ancestor chain (self → parent → … → root),
-     * so a resource resting on an ancestor frame it was exported to can be released from a descendant.
+     * so a resource resting on an ancestor frame it was exported to can be released from a descendant. A [key]
+     * that is not a spellable `ContextKey` addresses nothing, so it is a no-op.
      *
-     * Removes WITHOUT invoking the registration's closer, which is why it is superseded rather than renamed:
-     * it exists for a caller that already tore the resource down itself. [releaseBinding] is the operation the
-     * word describes — remove the name and run whatever teardown was attached to it.
+     * Removes WITHOUT invoking the registration's closer — the operation exists for a caller that already tore
+     * the resource down itself, and it has no typed equivalent because the typed API deliberately offers only
+     * [releaseBinding], which removes the name AND runs the teardown attached to it. The two are different
+     * operations, not two spellings of one; do not read this as the string form of [releaseBinding].
      */
-    @Deprecated(
-        "Removes without disposing; releaseBinding does what the word says",
-        ReplaceWith("releaseBinding(ContextKey.parse(key))"))
     fun releaseResource(key: String)
 
     /**

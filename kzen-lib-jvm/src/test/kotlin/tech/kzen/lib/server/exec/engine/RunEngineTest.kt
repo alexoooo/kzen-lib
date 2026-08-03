@@ -22,6 +22,7 @@ import tech.kzen.lib.common.exec.engine.context.BindingLookup
 import tech.kzen.lib.common.exec.engine.context.ContextFamily
 import tech.kzen.lib.common.exec.engine.context.ContextKey
 import tech.kzen.lib.common.exec.engine.context.ExportSelector
+import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
 import tech.kzen.lib.common.exec.tuple.TupleValue
@@ -3282,6 +3283,333 @@ class RunEngineTest {
             engine.cancel()
             engine.awaitQuiescent()
             assertTrue(disposed, "the re-adopted registration still disposes at its resting frame's settle")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //------------------------------------------------------------------- call-site bootstrap bindings (spec §6)
+    @Test
+    fun aBootstrapBindingIsVisibleToTheChildsFirstInstruction() = runBlocking {
+        // An ambient dependency the caller supplies has to be in scope before ANY of the callee's own code
+        // runs: [Execution.host] mints the child frame and runs it as one operation, so there is no instant at
+        // which the caller could bind it instead — and a value that only arrived once the callee yielded would
+        // already be too late for the first step it exists to serve.
+        var firstRead: BindingLookup? = null
+
+        val callee = logicOf { execution ->
+            firstRead = execution.binding(ContextKey.of("sut"))
+            parkForever(execution)
+        }
+        val caller = logicOf { execution ->
+            execution.host(
+                ObjectStableId("callee"), callee,
+                initialBindings = listOf(InitialBinding(ContextKey.of("sut"), "handleA")))
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            // step(), not resume(): nothing is ever released past the callee's first boundary, so a read that
+            // succeeded here provably did not need a checkpoint or a wait to see the value.
+            engine.step()
+            engine.awaitQuiescent()
+
+            assertEquals(BindingLookup.Present("handleA"), firstRead,
+                "the caller's bootstrap value is in scope from the callee's very first instruction")
+            val calleeNode = engine.snapshot().root.children.single()
+            assertTrue(calleeNode.status is NodeStatus.Suspended,
+                "the callee is still parked at its first boundary — nothing released it before that read")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun theSameCalleeRunsTwiceAgainstTwoDifferentBootstrapValues() = runBlocking {
+        // The whole point of supplying the dependency at the call-site: ONE unparameterized callee, run against
+        // two different subjects by the caller alone. If the callee had to name its own subject, a second one
+        // would mean editing or duplicating it — the callee stays unaware that there is more than one.
+        val reads = ArrayList<BindingLookup>()
+        var firstOutput: Any? = null
+        var secondOutput: Any? = null
+
+        val callee = logicOf { execution ->
+            val seen = execution.binding(ContextKey.of("sut"))
+            reads.add(seen)
+            TupleValue.ofMain(seen.valueOrNull())
+        }
+        val caller = logicOf { execution ->
+            firstOutput = execution
+                .host(
+                    ObjectStableId("first"), callee,
+                    initialBindings = listOf(InitialBinding(ContextKey.of("sut"), "handleA")))
+                .mainComponentValue()
+            secondOutput = execution
+                .host(
+                    ObjectStableId("second"), callee,
+                    initialBindings = listOf(InitialBinding(ContextKey.of("sut"), "handleB")))
+                .mainComponentValue()
+            TupleValue.ofMain("caller")
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+
+            assertEquals(
+                listOf<BindingLookup>(BindingLookup.Present("handleA"), BindingLookup.Present("handleB")), reads,
+                "the same callee saw a different subject per call — the value is per-invocation, not per-Logic")
+            assertEquals("handleA", firstOutput, "each invocation returns what it was run against")
+            assertEquals("handleB", secondOutput, "each invocation returns what it was run against")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aBootstrapBindingCarriesNoDisposalSoReleasingItInsideTheCalleeClosesNothing() = runBlocking {
+        // A borrow is not a handover: the value's owner is whatever frame bound it on the caller's side, and
+        // that frame outlives the sequential callee. So a release inside the callee unbinds the NAME and closes
+        // nothing — otherwise supplying a subject would silently hand the callee a lifetime it never asked for,
+        // and the caller's own resource would die halfway through its own frame.
+        val disposed = ArrayList<String>()
+        var disposedInsideCallee: List<String>? = null
+        var readAfterReleasingABorrowOnlyName: BindingLookup? = null
+        var readAfterReleasingTheBorrowedName: BindingLookup? = null
+        var callerReadAfterCallee: BindingLookup? = null
+
+        val callee = logicOf { execution ->
+            execution.releaseBinding(ContextKey.of("aux"))
+            execution.releaseBinding(ContextKey.of("sut"))
+            disposedInsideCallee = disposed.toList()
+            readAfterReleasingABorrowOnlyName = execution.binding(ContextKey.of("aux"))
+            readAfterReleasingTheBorrowedName = execution.binding(ContextKey.of("sut"))
+            TupleValue.ofMain("callee")
+        }
+        val caller = logicOf { execution ->
+            execution.bind(
+                ContextKey.of("sut"), "handle", FrameDisposal(ClosePolicy.Auto) { disposed.add("sut") })
+            execution.host(
+                ObjectStableId("callee"), callee,
+                initialBindings = listOf(
+                    InitialBinding(ContextKey.of("sut"), "handle"),
+                    InitialBinding(ContextKey.of("aux"), "aux-handle")))
+            callerReadAfterCallee = execution.binding(ContextKey.of("sut"))
+            TupleValue.ofMain("caller")
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+
+            assertEquals(
+                listOf<String>(), disposedInsideCallee,
+                "releasing a borrow closes nothing — there is no disposal attached to claim")
+            assertEquals(
+                BindingLookup.Missing, readAfterReleasingABorrowOnlyName,
+                "a borrow the caller holds no registration of simply stops being in scope")
+            assertEquals(
+                BindingLookup.Present("handle"), readAfterReleasingTheBorrowedName,
+                "the release stopped at the callee's own frame, so the owner's registration shows through " +
+                        "underneath rather than being reached across into")
+            assertEquals(
+                BindingLookup.Present("handle"), callerReadAfterCallee,
+                "the owner's registration is untouched by anything the callee did to its borrow")
+            assertEquals(
+                listOf("sut"), disposed,
+                "the owner disposes exactly once, at the settle of the frame that actually bound it")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aChildsOwnBindUnderTheBootstrapKeySupersedesTheBorrowOnItsOwnFrame() = runBlocking {
+        // A borrow occupies an ordinary registry slot on the callee's OWN frame, so a callee that binds that
+        // name is doing the ordinary same-frame supersede — substituting its own subject for the supplied one
+        // without reaching up into the caller's registry. That containment is what keeps the loan scoped: the
+        // callee can always override what it was handed, and the caller never observes it.
+        var readBeforeOwnBind: BindingLookup? = null
+        var readAfterOwnBind: BindingLookup? = null
+        var callerReadAfterCallee: BindingLookup? = null
+
+        val callee = logicOf { execution ->
+            readBeforeOwnBind = execution.binding(ContextKey.of("sut"))
+            execution.bind(ContextKey.of("sut"), "own")
+            readAfterOwnBind = execution.binding(ContextKey.of("sut"))
+            TupleValue.ofMain("callee")
+        }
+        val caller = logicOf { execution ->
+            execution.bind(ContextKey.of("sut"), "callerOwned")
+            execution.host(
+                ObjectStableId("callee"), callee,
+                initialBindings = listOf(InitialBinding(ContextKey.of("sut"), "borrowed")))
+            callerReadAfterCallee = execution.binding(ContextKey.of("sut"))
+            TupleValue.ofMain("caller")
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+
+            assertEquals(BindingLookup.Present("borrowed"), readBeforeOwnBind,
+                "the borrow shadows the caller's own binding of the same name for the callee's duration")
+            assertEquals(BindingLookup.Present("own"), readAfterOwnBind,
+                "the callee's own bind wins on its own frame — a borrow is not privileged over it")
+            assertEquals(BindingLookup.Present("callerOwned"), callerReadAfterCallee,
+                "neither the borrow nor the callee's override of it is visible on the caller's side")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun anAdoptedLocalBindingSupersedesTheSameKeyBootstrapValueOnRebuild() = runBlocking {
+        // The two sources of a name on a rebuilt child frame are NOT symmetric, and this is the fixture that
+        // pins which wins: a bootstrap value is a re-supplied borrow of whatever the caller holds now, whereas
+        // an adopted binding is one the child itself opened — migration-owned, keeping the stable owner it
+        // bound to. Letting a stale re-read displace the child's own live handle would drop that handle
+        // WITHOUT closing it (a borrow carries no disposal), so adoption has to land last.
+        val sut = ContextKey.of("sut")
+        val disposed = ArrayList<String>()
+        val readsAtStart = ArrayList<BindingLookup>()
+        var readAfterOwnBind: BindingLookup? = null
+        var callerSupplies = "beforeEdit"
+
+        val callee = logicOf { execution ->
+            readsAtStart.add(execution.binding(sut))
+            if (readsAtStart.size == 1) {
+                // Opened once, then adopted rather than re-opened — the "own handle" shape a live edit must
+                // not disturb.
+                execution.bind(sut, "calleeOwned", FrameDisposal(ClosePolicy.Auto) { disposed.add("calleeOwned") })
+                readAfterOwnBind = execution.binding(sut)
+            }
+            parkForever(execution)
+        }
+        val caller = logicOf { execution ->
+            execution.host(
+                ObjectStableId("callee"), callee,
+                initialBindings = listOf(InitialBinding(sut, callerSupplies)))
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(BindingLookup.Present("beforeEdit"), readsAtStart.single(),
+                "the callee starts from what the caller supplied")
+            assertEquals(BindingLookup.Present("calleeOwned"), readAfterOwnBind,
+                "and then substitutes the handle it opened itself")
+
+            // The edit changes what the caller would supply; the callee's stable id is unchanged, so the
+            // rebuilt frame is the one that adopts.
+            callerSupplies = "afterEdit"
+            engine.migrate(caller, paused = true)
+            engine.awaitQuiescent()
+
+            assertEquals(2, readsAtStart.size, "the rebuilt callee re-ran from its first instruction")
+            assertEquals(BindingLookup.Present("calleeOwned"), readsAtStart[1],
+                "an adopted binding supersedes a same-key bootstrap value: the bootstrap is a borrow the " +
+                        "rebuilt caller re-supplies, while the adopted one is the callee's own live handle, " +
+                        "which keeps its owner across the edit")
+            assertTrue(disposed.isEmpty(), "the adopted handle crossed the barrier open, not disposed")
+
+            engine.cancel()
+            engine.awaitQuiescent()
+            assertEquals(listOf("calleeOwned"), disposed,
+                "the adopted handle still disposes exactly once, at the settle of the frame that owns it")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aBootstrapValueIsReSuppliedFromTheCallersCurrentStateOnRebuild() = runBlocking {
+        // The other half of the same rule, with nothing of the callee's own under the key: a borrow is read
+        // from the caller's CURRENT state at every hosting, so an edit that changes what the caller supplies
+        // reaches the rebuilt callee. Nothing owns the borrowed value on the callee's side for the barrier to
+        // preserve — preserving it would pin the callee to a subject the edited caller no longer names.
+        val sut = ContextKey.of("sut")
+        val readsAtStart = ArrayList<BindingLookup>()
+        var callerSupplies = "beforeEdit"
+
+        val callee = logicOf { execution ->
+            readsAtStart.add(execution.binding(sut))
+            parkForever(execution)
+        }
+        val caller = logicOf { execution ->
+            execution.host(
+                ObjectStableId("callee"), callee,
+                initialBindings = listOf(InitialBinding(sut, callerSupplies)))
+            parkForever(execution)
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(BindingLookup.Present("beforeEdit"), readsAtStart.single(),
+                "the callee starts from what the caller supplied")
+
+            callerSupplies = "afterEdit"
+            engine.migrate(caller, paused = true)
+            engine.awaitQuiescent()
+
+            assertEquals(2, readsAtStart.size, "the rebuilt callee re-ran from its first instruction")
+            assertEquals(BindingLookup.Present("afterEdit"), readsAtStart[1],
+                "a borrowed value the callee never took ownership of is re-supplied from the edited caller, " +
+                        "not carried over from the superseded generation — a disposal-less borrow must not be " +
+                        "lifted at the barrier and re-adopted over what the rebuilt caller just supplied")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun aDuplicateBootstrapKeyKeepsTheLastEntry() = runBlocking {
+        // The supplied list lands in one registry slot per key, in order, so a caller that COMPOSES its
+        // bindings (a base set with an override appended) gets last-wins — the same rule as re-binding a name.
+        // Rejecting the duplicate would push de-duplication onto every caller that builds the list.
+        var read: BindingLookup? = null
+
+        val callee = logicOf { execution ->
+            read = execution.binding(ContextKey.of("sut"))
+            TupleValue.ofMain("callee")
+        }
+        val caller = logicOf { execution ->
+            execution.host(
+                ObjectStableId("callee"), callee,
+                initialBindings = listOf(
+                    InitialBinding(ContextKey.of("sut"), "base"),
+                    InitialBinding(ContextKey.of("sut"), "override")))
+            TupleValue.ofMain("caller")
+        }
+
+        val engine = RunEngine(caller, rootId)
+        try {
+            engine.resume()
+            assertIs<Outcome.Success>(engine.await())
+            assertEquals(BindingLookup.Present("override"), read,
+                "a later entry overrides an earlier one under the same key")
         }
         finally {
             engine.close()

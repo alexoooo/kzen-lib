@@ -22,6 +22,7 @@ import tech.kzen.lib.common.exec.engine.context.BindingLookup
 import tech.kzen.lib.common.exec.engine.context.ContextFamily
 import tech.kzen.lib.common.exec.engine.context.ContextKey
 import tech.kzen.lib.common.exec.engine.context.ExportSelector
+import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.context.RetainedBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
@@ -87,7 +88,16 @@ class RunEngine(
     // [NodeRuntime.settleDisposals] instead.
     private class Binding(
         val value: Any?,
-        val disposal: FrameDisposal?
+        val disposal: FrameDisposal?,
+        // Installed by a call site as [InitialBinding] rather than bound by the frame itself — a BORROW, which
+        // the [migrate] barrier must not lift: the rebuilt caller re-supplies it from whatever its sources hold
+        // now, and carrying the old one would pin the callee to a subject the edited caller no longer names.
+        // A flag on the entry rather than a set beside the map, deliberately: a later [bind] under the same key
+        // replaces the entry and so clears the marking on its own, which is exactly right — the frame has now
+        // bound its own value there — and no separate bookkeeping can drift out of sync with the map. That
+        // self-clearing holds only while the bind lands on THIS frame, which is why [bind] additionally
+        // supersedes borrows the export climb travelled past ([supersedeBorrowsBelowOwner]).
+        val bootstrap: Boolean = false
     )
 
 
@@ -212,6 +222,8 @@ class RunEngine(
     // open resource survives a live edit instead of being disposed by teardown (spec §5 "open resources").
     // Unlike [migrationCaptured] (claimed lazily by a user-code [Execution.restored] read, hence the separate
     // claimed-set), adoption here is eager and engine-driven at node spawn, so remove-on-adopt IS the claim.
+    // Holds only what a frame OWNS: a call-site borrow ([Binding.bootstrap]) is dropped at the barrier instead,
+    // because the rebuilt caller re-supplies it from its current sources.
     private val migrationResources = HashMap<ObjectStableId, LiftedRegistrations>()
 
     // Managed bindings settled frames kept instead of disposing: a `manual` one at the root (§6's forgotten
@@ -608,12 +620,18 @@ class RunEngine(
         val oldJob = synchronized(lock) {
             migrating = true
             for (runtime in nodes.values) {
-                if (runtime.bindings.isNotEmpty() || runtime.settleDisposals.isNotEmpty()) {
-                    migrationResources[runtime.stableId] = LiftedRegistrations(
-                        LinkedHashMap(runtime.bindings), ArrayList(runtime.settleDisposals))
-                    runtime.bindings.clear()
-                    runtime.settleDisposals.clear()
+                // Borrows are dropped rather than lifted: the rebuilt caller re-runs and re-supplies them from
+                // its CURRENT sources, so carrying one would silently reinstate a stale read — and because
+                // adoption overwrites the fresh bootstrap value, the callee would keep driving whatever the
+                // pre-edit caller named. Nothing leaks by dropping them: a borrow carries no disposal, so there
+                // is nothing the sweep would have had to close.
+                val owned = LinkedHashMap(runtime.bindings.filterValues { ! it.bootstrap })
+                if (owned.isNotEmpty() || runtime.settleDisposals.isNotEmpty()) {
+                    migrationResources[runtime.stableId] =
+                        LiftedRegistrations(owned, ArrayList(runtime.settleDisposals))
                 }
+                runtime.bindings.clear()
+                runtime.settleDisposals.clear()
             }
             scope.coroutineContext[Job]!!
         }
@@ -865,7 +883,8 @@ class RunEngine(
         child: Logic,
         inputs: TupleValue,
         callerStableId: ObjectStableId?,
-        retainTrace: Boolean
+        retainTrace: Boolean,
+        initialBindings: List<InitialBinding>
     ): TupleValue {
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
@@ -883,6 +902,19 @@ class RunEngine(
                 parent.position = callerStableId
             }
             nodes[id] = runtime
+            // BEFORE [adoptLiftedResources], and that placement IS the migration ordering rule — no precedence
+            // logic needed, because adoption's putAll then overwrites any bootstrap value under the same key.
+            // The two sources are asymmetric on purpose: a bootstrap value is a BORROWED read of whatever the
+            // caller holds now, re-supplied by the rebuilt caller on every edit, whereas an adopted binding is
+            // one the child itself bound — migration-owned, keeping the stable owner it bound to. Installing
+            // after adoption would let a stale re-read silently displace the child's own live handle (and,
+            // having no disposal, drop it without closing it). Direct map writes rather than [bind]: the
+            // bootstrap rests on the child frame by construction, and routing through [exportOwnerOf] would
+            // consult an `exports` set that is necessarily still empty here — the child re-declares its
+            // exports when its [Logic.run] starts, which cannot have happened yet.
+            for (initialBinding in initialBindings) {
+                runtime.bindings[initialBinding.key] = Binding(initialBinding.value, null, bootstrap = true)
+            }
             adoptLiftedResources(runtime)
             adoptRetiredFrames(runtime)
             childLogic[id] = child
@@ -1270,6 +1302,30 @@ class RunEngine(
     }
 
 
+    // Must hold lock. Drop any BORROW under [key] resting on the frames the export climb travelled past —
+    // [nodeId] up to but excluding [ownerId] — so that a frame's own bind is what its own reads resolve to.
+    //
+    // A bind is meant to supersede a same-key borrow: the frame has substituted its own subject for the one it
+    // was handed, and [Binding.bootstrap] normally clears itself because the replacement lands in the very slot
+    // the borrow occupies. An export declaration breaks that, and silently: [exportOwnerOf] climbs PAST the
+    // frame holding the borrow, so the value comes to rest above while the borrow stays below — and [bindingOf]
+    // starts at the frame and stops at the first match, handing the binder back the value it just replaced, for
+    // the rest of its run. Removing rather than overwriting because the borrow belongs where it is no longer:
+    // ownership moved up, so every read below the new owner must resolve there too. Nothing can leak — a borrow
+    // carries no disposal by construction — and only borrows are touched, since an owned binding on a frame in
+    // between is somebody's live resource that dropping would strand unclosed.
+    private fun supersedeBorrowsBelowOwner(nodeId: NodeId, ownerId: NodeId, key: ContextKey) {
+        var current: NodeId? = nodeId
+        while (current != null && current != ownerId) {
+            val runtime = nodes[current] ?: break
+            if (runtime.bindings[key]?.bootstrap == true) {
+                runtime.bindings.remove(key)
+            }
+            current = runtime.parentId
+        }
+    }
+
+
     private fun bind(nodeId: NodeId, key: ContextKey, value: Any?, disposal: FrameDisposal?) {
         // A same-key re-bind SUPERSEDES: the displaced binding's disposal runs, because nothing else can ever
         // reach it once the map entry is gone — the settle walk and [releaseBinding] all resolve a key to
@@ -1280,6 +1336,7 @@ class RunEngine(
         val displaced = synchronized(lock) {
             // A binding is disposed on its OWNING node's settle; ownership rests at the end of the export chain.
             val ownerId = exportOwnerOf(nodeId, key)
+            supersedeBorrowsBelowOwner(nodeId, ownerId, key)
             nodes.getValue(ownerId).bindings.put(key, Binding(value, disposal))?.disposal?.claim()
         }
         displaced?.let { runCatching { it() } }
@@ -1594,9 +1651,10 @@ class RunEngine(
             child: Logic,
             inputs: TupleValue,
             callerStableId: ObjectStableId?,
-            retainTrace: Boolean
+            retainTrace: Boolean,
+            initialBindings: List<InitialBinding>
         ): TupleValue =
-            this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace)
+            this@RunEngine.host(nodeId, stableId, child, inputs, callerStableId, retainTrace, initialBindings)
 
         override fun declareExport(selector: ExportSelector) =
             this@RunEngine.declareExport(nodeId, selector)
@@ -1625,15 +1683,11 @@ class RunEngine(
         override fun onSettle(policy: SettleDisposalPolicy, closer: () -> Unit) =
             this@RunEngine.onSettle(nodeId, policy, closer)
 
-        @Deprecated(
-            "Fuses ambient binding with scoped disposal",
-            ReplaceWith("bind(ContextKey.parse(key), value, FrameDisposal(policy, closer))"))
+        // The raw string interop layer routes into exactly the same engine operations as the typed API — one
+        // registry, one lookup — which is what makes a raw caller and a typed one address one registration.
         override fun resource(key: String, policy: ClosePolicy, value: Any?, closer: () -> Unit) =
             this@RunEngine.bind(nodeId, ContextKey.parse(key), value, FrameDisposal(policy, closer))
 
-        @Deprecated(
-            "Collapses a missing binding with a present null one",
-            ReplaceWith("binding(ContextKey.parse(key)).valueOrNull()"))
         override fun resourceValue(key: String): Any? =
             this@RunEngine.resourceValueFor(nodeId, key)
 
@@ -1643,9 +1697,6 @@ class RunEngine(
         override fun hasResourceInFamily(family: String): Boolean =
             this@RunEngine.hasResourceInFamily(nodeId, family)
 
-        @Deprecated(
-            "Removes without disposing; releaseBinding does what the word says",
-            ReplaceWith("releaseBinding(ContextKey.parse(key))"))
         override fun releaseResource(key: String) =
             this@RunEngine.releaseResource(nodeId, key)
 
