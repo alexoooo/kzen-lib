@@ -62,6 +62,46 @@ class DigestTest {
 
 
     @Test
+    fun digestByteArrayWithHighAndNegativeBytes() {
+        val bytes = byteArrayOf(0, 1, -1, 127, -128, 42, 7)
+
+        assertEquals(
+            Digest.ofBytes(bytes),
+            Digest.build { addBytes(bytes) })
+    }
+
+
+    @Test
+    fun unorderedCollectionIgnoresOrder() {
+        assertEquals(
+            Digest.build { addUnorderedCollection(listOf("foo", "bar")) { addUtf8(it) } },
+            Digest.build { addUnorderedCollection(listOf("bar", "foo")) { addUtf8(it) } })
+    }
+
+
+    @Test
+    fun unorderedCollectionDiffersFromOrdered() {
+        val list = listOf("foo", "bar")
+
+        assertNotEquals(
+            Digest.build { addCollection(list) { addUtf8(it) } },
+            Digest.build { addUnorderedCollection(list) { addUtf8(it) } })
+    }
+
+
+    @Test
+    fun unorderedDigestibleVariantsAgree() {
+        val foo = Digest.ofUtf8("foo")
+        val bar = Digest.ofUtf8("bar")
+        val expected = Digest.build { addDigestibleUnorderedList(listOf(foo, bar)) }
+
+        assertEquals(expected, Digest.build { addDigestibleUnorderedList(listOf(bar, foo)) })
+        assertEquals(expected, Digest.build { addDigestibleUnorderedSet(setOf(foo, bar)) })
+        assertEquals(expected, Digest.build { addUnorderedCollection(listOf(foo, bar)) { addDigestible(it) } })
+    }
+
+
+    @Test
     fun encodeDecode() {
         val digest = digest("foo")
         val encoding = digest.asString()

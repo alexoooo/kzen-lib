@@ -108,59 +108,38 @@ interface Execution {
     suspend fun <R> blocking(block: () -> R): R
 
     /**
-     * Run [child] as a confined sub-execution and return its output. The child runs as a new node under
-     * this one — its own trace scope and resource scope — and the engine drives its stepping uniformly
-     * (step-over/out cross the boundary). A child failure surfaces here as [LogicFailure]; a child cancel
-     * propagates as cancellation. To run children concurrently, wrap [host] calls in structured concurrency
-     * (`coroutineScope { launch { host(...) } ... }`) — and pass [contextBarrier], without which those children
-     * share one ambient context whose write order is whatever the scheduler chose.
+     * Run [child] as a confined sub-execution and return its output: a new node under this one, with its own
+     * trace scope and resource scope, stepped uniformly by the engine (step-over/out cross the boundary).
+     * A child failure surfaces here as [LogicFailure]; a child cancel propagates as cancellation. To run
+     * children concurrently, wrap [host] calls in structured concurrency
+     * (`coroutineScope { launch { host(...) } ... }`) — and pass [contextBarrier].
      *
      * [stableId] is the CHILD's own root identity (used for its frame / migration carry-over). [callerStableId]
-     * is the element on THIS side that hosts it — the call-site (a RunStep, a Job worker) — recorded on the
+     * is the element on THIS side that hosts it — the call-site (a RunStep, a Job worker), recorded on the
      * child node ([Node.callerStableId]). It is **load-bearing frame addressing**, not a cosmetic label:
-     * several invocations can share one child document, and the call-site is what tells them apart, so
-     * migration delivers a capture only to a node hosted from the SAME call-site ([restored]), and a
-     * repositioning request names the frame it addresses as a path of call-sites, one per hop of the host
-     * chain ([MoveTarget.callSitePath]). It carries the trace attribution too: a consumer scopes a hosting
-     * element's view to the executions it spawned. Null when this host names no distinct call-site — null
-     * never matches a path hop (it is not a wildcard), so a frame reached through such a hop cannot be
-     * path-addressed.
+     * invocation identity for migration adoption ([restored]), the per-hop path unit of a repositioning
+     * request ([MoveTarget.callSitePath]), and trace attribution. Null when this host names no distinct
+     * call-site — null never matches a path hop (it is not a wildcard), so a frame reached through such a hop
+     * cannot be path-addressed.
      *
-     * [retainTrace] governs the child frame's trace retention (§7 retention-vs-bounding), recorded on the child
-     * node ([Node.retainTrace]). True (the default) KEEPS the frame's trace buffer after it closes, so post-run
-     * review sees every finished invocation (a Script `RunStep`'s per-iteration screenshot strip depends on
-     * this). A long STREAMING host that opens one child per element passes false to opt into eviction of each
-     * per-element frame when it settles — bounding a streaming run to its live frames instead of leaking one
-     * buffer per element. The engine only records the flag; a trace consumer acts on it at frame close.
+     * [retainTrace] governs the child frame's trace retention after it closes, recorded on the child node
+     * ([Node.retainTrace]); a long streaming host passes false to bound the run to its live frames. The engine
+     * only records the flag; a trace consumer acts on it at frame close. See logic-spec §7
+     * retention-vs-bounding.
      *
-     * [initialBindings] are installed on the child frame under the same lock that mints it, so the child sees
-     * them from its first instruction and there is no window in which it could observe a half-bootstrapped
-     * frame. They are plain borrows — no disposal, so the child releasing one unbinds a name and closes
-     * nothing (see [InitialBinding]). A later same-key [bind] inside the child supersedes the borrow on the
-     * child's own frame, exactly as a re-bind does anywhere else. Listed order is put order, so a duplicated
-     * key keeps the last entry.
-     *
-     * ACROSS A LIVE EDIT they are **re-supplied, not carried**: the rebuilt caller re-runs and passes whatever
-     * its sources hold NOW, which is the point — a bootstrap value is a borrowed read of the caller's current
-     * state, not something the child owns. A binding the child itself bound is the opposite: it IS
-     * migration-owned, keeps the stable owner it bound to, and therefore **supersedes** a same-key bootstrap
-     * value on the rebuilt frame. Pinned by
-     * `RunEngineTest.anAdoptedLocalBindingSupersedesTheSameKeyBootstrapValueOnRebuild`.
+     * [initialBindings] bootstrap the child's ambient context per call: plain borrows (see [InitialBinding])
+     * installed on the child frame under the same lock that mints it, so the child never observes a
+     * half-bootstrapped frame. Listed order is put order, so a duplicated key keeps the last entry. Semantics
+     * (borrow vs own, live-edit re-supply, supersession): logic-spec §6 "call-site bootstrap"; the
+     * bootstrap-vs-adoption ordering is pinned by
+     * `RunEngineContextTest.anAdoptedLocalBindingSupersedesTheSameKeyBootstrapValueOnRebuild`.
      *
      * [contextBarrier] makes the child frame a wall for OUTWARD context writes while leaving INWARD reads
-     * transparent (§6). **Pass it whenever this host call is one of several launched concurrently** — it is
-     * what makes a parallel flavour's ambient context deterministic, and the engine cannot infer it, because
-     * "am I inside a `coroutineScope` with siblings" is not something a frame can see. Under it: a [bind] at or
-     * below the child rests at or below the child rather than climbing into THIS frame; [declareExport] on the
-     * child frame FAILS rather than silently doing nothing; [releaseBinding] from the child stops at the child,
-     * so it cannot dispose a binding this frame owns out from under a sibling; and a `manual` binding is
-     * retained instead of promoted up. What still works unchanged is every read — the child inherits this
-     * frame's bindings, [initialBindings] included, exactly as a sequential child does.
-     *
-     * The cost is real and deliberate: a barrier child cannot hand a resource to its parent or to a sibling.
-     * Sequential composition (Script, Flow) must NOT pass it — the open → use → close split across sibling
-     * sub-documents is built on exactly the upward reach it removes. See §6's concurrent-frames rule for why
-     * the alternatives (detect-and-fail, per-frame merge) were not taken.
+     * transparent. **Pass it whenever this host call is one of several launched concurrently** — the engine
+     * cannot infer that, because "am I inside a `coroutineScope` with siblings" is not something a frame can
+     * see. Sequential composition (Script, Flow) must NOT pass it — the open → use → close split across
+     * sibling sub-documents is built on exactly the upward reach it removes. Full semantics and rationale:
+     * logic-spec §6 concurrent-frames rule.
      */
     suspend fun host(
         stableId: ObjectStableId,

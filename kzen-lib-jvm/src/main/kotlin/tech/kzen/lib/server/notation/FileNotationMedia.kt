@@ -67,6 +67,14 @@ class FileNotationMedia(
     private val folderDigest = Digest.ofUtf8("")
 
 
+    // Every media operation holds this instance's monitor for its whole body — the caches and scan mirrors
+    // below are plain mutable maps. A `suspend` entry point can't carry @Synchronized (only the plain
+    // [invalidate] does), and none of these bodies suspend, so they take the same monitor through here.
+    private inline fun <T> sync(body: () -> T): T {
+        return synchronized(this) { body() }
+    }
+
+
     //-----------------------------------------------------------------------------------------------------------------
     override fun isReadOnly(): Boolean {
         return false
@@ -74,29 +82,22 @@ class FileNotationMedia(
 
 
     override suspend fun scan(): NotationScan {
-        return scanSynchronized()
-    }
+        return sync {
+            val cached = notationScanCache
+            if (cached != null) {
+                return@sync cached
+            }
 
+            if (notationScanMirror.isEmpty()) {
+                for (root in notationLocator.scanRoots()) {
+                    scanRootIntoCache(root)
+                }
+            }
 
-    @Synchronized
-    private fun scanSynchronized(): NotationScan {
-        if (notationScanCache != null) {
-            return notationScanCache!!
+            val scan = NotationScan(DocumentPathMap(notationScanMirror.toPersistentMap()))
+            notationScanCache = scan
+            scan
         }
-
-        if (notationScanMirror.isNotEmpty()) {
-            notationScanCache = NotationScan(DocumentPathMap(notationScanMirror.toPersistentMap()))
-            return notationScanCache!!
-        }
-
-        val roots = notationLocator.scanRoots()
-
-        for (root in roots) {
-            scanRootIntoCache(root)
-        }
-
-        notationScanCache = NotationScan(DocumentPathMap(notationScanMirror.toPersistentMap()))
-        return notationScanCache!!
     }
 
 
@@ -297,263 +298,218 @@ class FileNotationMedia(
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun readDocument(documentPath: DocumentPath, expectedDigest: Digest?): String {
-        return readDocumentSynchronized(documentPath, expectedDigest)
-    }
+        return sync {
+            val cachedDocumentInfo = documentInfoCache.getIfPresent(documentPath)
 
+            // Set only where the cached entry is validated against disk, so the re-read below can reuse that
+            // stat instead of taking a second one.
+            var statedModified: Instant? = null
 
-    @Synchronized
-    private fun readDocumentSynchronized(documentPath: DocumentPath, expectedDigest: Digest?): String {
-        val cachedDocumentInfo: FileInfo?
-        var resolvedDocumentPath: Path? = null
-        var modified: Instant? = null
-
-        if (expectedDigest != null) {
-            val cached = documentCache.getIfPresent(expectedDigest)
-            if (cached != null) {
-                return cached
+            if (expectedDigest != null) {
+                documentCache.getIfPresent(expectedDigest)?.let { return@sync it }
             }
-            cachedDocumentInfo = documentInfoCache.getIfPresent(documentPath)
-        }
-        else {
-            cachedDocumentInfo = documentInfoCache.getIfPresent(documentPath)
-            if (cachedDocumentInfo != null) {
-                resolvedDocumentPath = cachedDocumentInfo.path
-                modified = Files.getLastModifiedTime(resolvedDocumentPath).toInstant()
+            else if (cachedDocumentInfo != null) {
+                val modified = Files.getLastModifiedTime(cachedDocumentInfo.path).toInstant()
+                statedModified = modified
 
                 if (cachedDocumentInfo.modified == modified) {
-                    val cached = documentCache.getIfPresent(cachedDocumentInfo.digest)
-                    if (cached != null) {
-                        return cached
-                    }
+                    documentCache.getIfPresent(cachedDocumentInfo.digest)?.let { return@sync it }
                 }
             }
-        }
 
-        if (resolvedDocumentPath == null) {
-            resolvedDocumentPath = cachedDocumentInfo?.path
+            val resolvedDocumentPath = cachedDocumentInfo?.path
                 ?: notationLocator.locateExisting(documentPath)
                 ?: throw IllegalArgumentException("Not found: $documentPath")
-        }
 
-        val bytes = Files.readAllBytes(resolvedDocumentPath)
+            val bytes = Files.readAllBytes(resolvedDocumentPath)
 
-        val digest = Digest.ofBytes(bytes)
-        if (expectedDigest != null) {
-            check(digest == expectedDigest) {
-                "Unexpected digest: $documentPath - $expectedDigest - $digest"
+            val digest = Digest.ofBytes(bytes)
+            if (expectedDigest != null) {
+                check(digest == expectedDigest) {
+                    "Unexpected digest: $documentPath - $expectedDigest - $digest"
+                }
             }
+
+            val contents = String(bytes, Charsets.UTF_8)
+            val modified = statedModified
+                ?: Files.getLastModifiedTime(resolvedDocumentPath).toInstant()
+
+            documentCache.put(digest, contents)
+            documentInfoCache.put(documentPath, FileInfo(
+                resolvedDocumentPath, modified, digest))
+
+            contents
         }
-
-        val contents = String(bytes, Charsets.UTF_8)
-
-        if (modified == null) {
-            modified = Files.getLastModifiedTime(resolvedDocumentPath).toInstant()
-        }
-
-        documentCache.put(digest, contents)
-        documentInfoCache.put(documentPath, FileInfo(
-            resolvedDocumentPath, modified!!, digest))
-
-        return contents
     }
 
 
     override suspend fun writeDocument(documentPath: DocumentPath, contents: String) {
-        writeDocumentSynchronized(documentPath, contents)
-    }
+        sync {
+            val existingPath = notationLocator.locateExisting(documentPath)
 
+            val path =
+                if (existingPath != null) {
+                    existingPath
+                }
+                else {
+                    val resolvedPath = notationLocator.resolveNew(documentPath)
+                        ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
 
-    @Synchronized
-    private fun writeDocumentSynchronized(documentPath: DocumentPath, contents: String) {
-        val existingPath = notationLocator.locateExisting(documentPath)
+                    val parent = resolvedPath.parent
+                    Files.createDirectories(parent)
 
-        val path =
-            if (existingPath != null) {
-                existingPath
-            }
-            else {
-                val resolvedPath = notationLocator.resolveNew(documentPath)
-                    ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
+                    resolvedPath
+                }
 
-                val parent = resolvedPath.parent
-                Files.createDirectories(parent)
+            val bytes = contents.toByteArray()
+            Files.write(path, bytes)
 
-                resolvedPath
-            }
+            val modified = Files.getLastModifiedTime(path).toInstant()
+            val digest = Digest.ofBytes(bytes)
 
-        val bytes = contents.toByteArray()
-        Files.write(path, bytes)
-
-        val modified = Files.getLastModifiedTime(path).toInstant()
-        val digest = Digest.ofBytes(bytes)
-
-        invalidateDocumentContents(documentPath, path, modified, contents, digest)
+            invalidateDocumentContents(documentPath, path, modified, contents, digest)
+        }
     }
 
 
     override suspend fun createFolder(documentPath: DocumentPath) {
-        createFolderSynchronized(documentPath)
-    }
+        sync {
+            check(documentPath.folder) {
+                "Not a folder: $documentPath"
+            }
 
+            val resolved = notationLocator.locateExisting(documentPath)
+                ?: notationLocator.resolveNew(documentPath)
+                ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
 
-    @Synchronized
-    private fun createFolderSynchronized(documentPath: DocumentPath) {
-        check(documentPath.folder) {
-            "Not a folder: $documentPath"
+            Files.createDirectories(resolved)
+
+            if (notationScanMirror.isNotEmpty()) {
+                notationScanMirror[documentPath] = DocumentScan(folderDigest, null)
+            }
+            notationScanCache = null
         }
-
-        val resolved = notationLocator.locateExisting(documentPath)
-            ?: notationLocator.resolveNew(documentPath)
-            ?: throw IllegalArgumentException("Unable to resolve: $documentPath")
-
-        Files.createDirectories(resolved)
-
-        if (notationScanMirror.isNotEmpty()) {
-            notationScanMirror[documentPath] = DocumentScan(folderDigest, null)
-        }
-        notationScanCache = null
     }
 
 
     override suspend fun deleteDocument(documentPath: DocumentPath) {
-        deleteDocumentSynchronized(documentPath)
-    }
+        sync {
+            val path = notationLocator.locateExisting(documentPath)
+                ?: if (documentPath.folder) {
+                    // tolerant for folders: a deepest-first cascade may have already removed this directory as part of
+                    // an ancestor's recursive delete. The goal state (dir absent) is reached — just drop the entry.
+                    invalidateDocument(documentPath)
+                    return@sync
+                }
+                else {
+                    throw IllegalArgumentException("Not found: $documentPath")
+                }
 
+            when (documentPath.form) {
+                // a folder IS the directory at `path`; its graph-tracked contents are deleted first (deepest-first
+                // ordering in DirectGraphStore), so the directory is empty by the time we remove it
+                DocumentForm.Folder ->
+                    MoreFiles.deleteRecursively(path, RecursiveDeleteOption.ALLOW_INSECURE)
 
-    @Synchronized
-    private fun deleteDocumentSynchronized(documentPath: DocumentPath) {
-        val path = notationLocator.locateExisting(documentPath)
-            ?: if (documentPath.folder) {
-                // tolerant for folders: a deepest-first cascade may have already removed this directory as part of
-                // an ancestor's recursive delete. The goal state (dir absent) is reached — just drop the entry.
-                invalidateDocument(documentPath)
-                return
+                // a directory-document's `path` is its ~main.yaml marker; remove the whole containing directory
+                DocumentForm.Directory ->
+                    MoreFiles.deleteRecursively(path.parent, RecursiveDeleteOption.ALLOW_INSECURE)
+
+                DocumentForm.Document ->
+                    Files.delete(path)
             }
-            else {
-                throw IllegalArgumentException("Not found: $documentPath")
-            }
 
-        when (documentPath.form) {
-            // a folder IS the directory at `path`; its graph-tracked contents are deleted first (deepest-first
-            // ordering in DirectGraphStore), so the directory is empty by the time we remove it
-            DocumentForm.Folder ->
-                MoreFiles.deleteRecursively(path, RecursiveDeleteOption.ALLOW_INSECURE)
-
-            // a directory-document's `path` is its ~main.yaml marker; remove the whole containing directory
-            DocumentForm.Directory ->
-                MoreFiles.deleteRecursively(path.parent, RecursiveDeleteOption.ALLOW_INSECURE)
-
-            DocumentForm.Document ->
-                Files.delete(path)
+            invalidateDocument(documentPath)
         }
-
-        invalidateDocument(documentPath)
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
-        return readResourceSynchronized(resourceLocation)
-    }
+        return sync {
+            val resolvedDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
+            val resolvedResourcePath = resolvedDocumentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
 
-    @Synchronized
-    private fun readResourceSynchronized(resourceLocation: ResourceLocation): ImmutableByteArray {
-        val resolvedDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            val bytes = Files.readAllBytes(resolvedResourcePath)
 
-        val resolvedResourcePath = resolvedDocumentPath.resolveSibling(
-            resourceLocation.resourcePath.asRelativeFile())
-
-        val bytes = Files.readAllBytes(resolvedResourcePath)
-
-        return ImmutableByteArray.wrap(bytes)
+            ImmutableByteArray.wrap(bytes)
+        }
     }
 
 
     override suspend fun writeResource(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
-        return writeResourceSynchronized(resourceLocation, contents)
-    }
+        sync {
+            val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
+            val resourcePath = documentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
 
-    @Synchronized
-    private fun writeResourceSynchronized(resourceLocation: ResourceLocation, contents: ImmutableByteArray) {
-        val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            Files.createDirectories(resourcePath.parent)
 
-        val resourcePath = documentPath.resolveSibling(
-            resourceLocation.resourcePath.asRelativeFile())
+            Files.copy(contents.toInputStream(), resourcePath, StandardCopyOption.REPLACE_EXISTING)
 
-        Files.createDirectories(resourcePath.parent)
+            val digest = contents.digest()
+            val modified = Files.getLastModifiedTime(resourcePath).toInstant()
 
-        Files.copy(contents.toInputStream(), resourcePath, StandardCopyOption.REPLACE_EXISTING)
-
-        val digest = contents.digest()
-        val modified = Files.getLastModifiedTime(resourcePath).toInstant()
-
-        invalidateUpsertResource(
-            resourcePath, resourceLocation, digest, modified)
+            invalidateUpsertResource(
+                resourcePath, resourceLocation, digest, modified)
+        }
     }
 
 
     override suspend fun copyResource(resourceLocation: ResourceLocation, destination: ResourceLocation) {
-        copyResourceSynchronized(resourceLocation, destination)
-    }
+        sync {
+            val sourceDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
+            val sourceResourcePath = sourceDocumentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
 
-    @Synchronized
-    private fun copyResourceSynchronized(resourceLocation: ResourceLocation, destination: ResourceLocation) {
-        val sourceDocumentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            val destinationDocumentPath = notationLocator.locateExisting(destination.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
 
-        val sourceResourcePath = sourceDocumentPath.resolveSibling(
-            resourceLocation.resourcePath.asRelativeFile())
+            val destinationResourcePath = destinationDocumentPath.resolveSibling(
+                destination.resourcePath.asRelativeFile())
 
-        val destinationDocumentPath = notationLocator.locateExisting(destination.documentPath)
-            ?: throw IllegalArgumentException("Not found: ${destination.documentPath}")
+            Files.createDirectories(destinationResourcePath.parent)
 
-        val destinationResourcePath = destinationDocumentPath.resolveSibling(
-            destination.resourcePath.asRelativeFile())
+            val contents = Files.readAllBytes(sourceResourcePath)
+            Files.copy(ByteArrayInputStream(contents), destinationResourcePath)
 
-        Files.createDirectories(destinationResourcePath.parent)
+            val modified = Files.getLastModifiedTime(destinationResourcePath).toInstant()
+            val digest = Digest.ofBytes(contents)
 
-        val contents = Files.readAllBytes(sourceResourcePath)
-        Files.copy(ByteArrayInputStream(contents), destinationResourcePath)
-        // Files.copy(sourceResourcePath, destinationResourcePath)
-
-        val modified = Files.getLastModifiedTime(destinationResourcePath).toInstant()
-        val digest = Digest.ofBytes(contents)
-
-        invalidateUpsertResource(
-            destinationResourcePath, resourceLocation, digest, modified)
+            invalidateUpsertResource(
+                destinationResourcePath, destination, digest, modified)
+        }
     }
 
 
     override suspend fun deleteResource(resourceLocation: ResourceLocation) {
-        deleteResourceSynchronized(resourceLocation)
-    }
+        sync {
+            val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
+                ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
 
+            val resourcePath = documentPath.resolveSibling(
+                resourceLocation.resourcePath.asRelativeFile())
+            check(Files.exists(resourcePath)) {
+                "Resource not found: $resourceLocation"
+            }
 
-    @Synchronized
-    private fun deleteResourceSynchronized(resourceLocation: ResourceLocation) {
-        val documentPath = notationLocator.locateExisting(resourceLocation.documentPath)
-            ?: throw IllegalArgumentException("Not found: ${resourceLocation.documentPath}")
+            Files.delete(resourcePath)
 
-        val resourcePath = documentPath.resolveSibling(
-            resourceLocation.resourcePath.asRelativeFile())
-        check(Files.exists(resourcePath)) {
-            "Resource not found: $resourceLocation"
+            var dirCursor = resourcePath.parent
+            while (MoreFiles.listFiles(dirCursor).isEmpty()) {
+                Files.delete(dirCursor)
+                dirCursor = dirCursor.parent
+            }
+
+            invalidateRemovedResource(resourceLocation)
         }
-
-        Files.delete(resourcePath)
-
-        var dirCursor = resourcePath.parent
-        while (MoreFiles.listFiles(dirCursor).isEmpty()) {
-            Files.delete(dirCursor)
-            dirCursor = dirCursor.parent
-        }
-
-        invalidateRemovedResource(resourceLocation)
     }
 
 

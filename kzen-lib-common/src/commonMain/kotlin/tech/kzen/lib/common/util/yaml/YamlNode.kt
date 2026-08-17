@@ -35,16 +35,6 @@ sealed class YamlNode {
                         "Unsupported YAML value: $value (${value::class.simpleName})")
             }
         }
-
-
-        fun ofMap(vararg pairs: Pair<String, Any?>): YamlMap {
-            return YamlMap(pairs.map { it.first to ofObject(it.second) }.toMap())
-        }
-
-
-        fun ofList(vararg values: Any?): YamlList {
-            return YamlList(values.map { ofObject(it) })
-        }
     }
 
 

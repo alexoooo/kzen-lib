@@ -55,6 +55,12 @@ kzen-lib is a library — no `main`. The most-touched API surfaces:
 
 After bumping the Kotlin version, follow the toolchain-bump checklist in [`../kzen/AGENTS.md`](../kzen/AGENTS.md) (`kotlinUpgradeYarnLock`, publish order, `FormulaStepTest` canary).
 
+### Test topology
+
+Tests mirror the package of the code under test (CC-13), and a test that only needs commonMain APIs lives in `kzen-lib-common/src/commonTest` so it runs on **both** JVM and JS. `kzen-lib-jvm/src/test` is only for tests that genuinely need the JVM — real file I/O (`FileNotationMedia`, `GradleLocator`), JDK reflection (`ReflectiveClassMirror`, the `@Reflect` fixture graph reached through `JvmGraphTestUtils.readNotation()`), threads, or the `RunEngine`. Those still mirror the package of what they cover, so `tech.kzen.lib.common.*` test packages exist inside `kzen-lib-jvm` for commonMain units that can only be exercised from the JVM.
+
+`kotlin.test` is the only assertion API — no JUnit4 annotations or `org.junit.Assert`. Suspend entry points use `runTest` (kotlinx-coroutines-test, a `commonTest` dependency), never `runBlocking`, which would pin the test to the JVM.
+
 ## Gotchas
 
 - **Variant-suffix coords route through mavenLocal.** Bump the version → `publishToMavenLocal` (all four subprojects) → consumer can compile; skip the publish and any non-umbrella consumer build breaks. Mechanics: [`../kzen/AGENTS.md`](../kzen/AGENTS.md) KMP variant-suffix gotcha.

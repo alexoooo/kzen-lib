@@ -1,10 +1,5 @@
 package tech.kzen.lib.server.reflect
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
-import org.junit.Test
 import tech.kzen.lib.platform.ClassName
 import tech.kzen.lib.server.objects.EscapedObject
 import tech.kzen.lib.server.objects.StringHolder
@@ -16,6 +11,11 @@ import tech.kzen.lib.server.objects.reflective.JavaServiceHolder
 import tech.kzen.lib.server.objects.service.SampleService
 import tech.kzen.lib.server.objects.service.ServiceHolder
 import tech.kzen.lib.server.util.JvmGraphTestUtils
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 
 /**

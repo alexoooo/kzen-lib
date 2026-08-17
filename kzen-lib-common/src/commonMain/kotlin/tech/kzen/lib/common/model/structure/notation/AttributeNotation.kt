@@ -272,30 +272,32 @@ data class MapAttributeNotation(
             return this
         }
 
-        val notationIntersection =
-            map.keys.partition { it in previous.map }
+        // Resulting key order is: keys only this map has, then the ancestor's additions, then the shared
+        // keys in this map's order — which is why the shared ones are collected here and applied last.
+        val merged = mutableMapOf<AttributeSegment, AttributeNotation>()
+        val sharedKeys = mutableListOf<AttributeSegment>()
 
-        val ancestorIntersection =
-            previous.map.keys.partition { it in map }
-
-        val uniqueNotation =
-            map.filterKeys { it !in previous.map } +
-                previous.map.filterKeys { it !in map }
-
-        val intersectionKeys =
-            notationIntersection.first.union(ancestorIntersection.first)
-
-        val intersectionNotation =
-            intersectionKeys.map { key ->
-                val notationValue = get(key)!!
-                val ancestorValue = previous.get(key)!!
-                key to notationValue.merge(ancestorValue)
+        for ((key, value) in map) {
+            if (key in previous.map) {
+                sharedKeys.add(key)
             }
+            else {
+                merged[key] = value
+            }
+        }
 
-        val allNotation = uniqueNotation + intersectionNotation
+        for ((key, value) in previous.map) {
+            if (key !in map) {
+                merged[key] = value
+            }
+        }
+
+        for (key in sharedKeys) {
+            merged[key] = map[key]!!.merge(previous.map[key]!!)
+        }
 
         return MapAttributeNotation(
-            allNotation.toPersistentMap())
+            merged.toPersistentMap())
     }
 
 

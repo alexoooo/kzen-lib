@@ -37,6 +37,7 @@ internal fun renameObjectRefactor(
     val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
     check(objectLocation in graphNotation.coalesce.map)
 
+    val referenceIndex = ReferenceIndex.of(graphDefinitionAttempt)
     val buffer = StructuralBuffer(graphNotation)
 
     val nestedObjectLocations = graphNotation
@@ -53,7 +54,7 @@ internal fun renameObjectRefactor(
             ObjectLocation(objectLocation.documentPath, it.key),
             it.value.nesting,
             buffer,
-            graphDefinitionAttempt
+            referenceIndex
         )
     }
 
@@ -61,7 +62,7 @@ internal fun renameObjectRefactor(
     val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
 
     val adjustedReferenceCommands = adjustReferenceCommands(
-        objectLocation, newObjectLocation, graphDefinitionAttempt)
+        objectLocation, newObjectLocation, referenceIndex)
 
     // Embedded code references (e.g. a Formula naming this step by its variable identifier) are rewritten in
     // place by the injected domain rewriters and applied within this same refactor — see CodeReferenceRewriter.
@@ -117,6 +118,7 @@ internal fun relocateObjectTreeRefactor(
         .filter { it == oldRootPath || it.startsWith(oldRootPath) }
         .toList()
 
+    val referenceIndex = ReferenceIndex.of(graphDefinitionAttempt)
     val buffer = StructuralBuffer(graphNotation)
 
     // Re-nest each subtree object by swapping its old root-nesting prefix for the new one (segments past
@@ -134,7 +136,7 @@ internal fun relocateObjectTreeRefactor(
             ObjectLocation(documentPath, path),
             newNesting,
             buffer,
-            graphDefinitionAttempt)
+            referenceIndex)
     }
 
     // Reposition the now-re-nested subtree as a contiguous block (resolved against the doc minus subtree).
@@ -181,13 +183,13 @@ private fun nestedRenameObjectRefactor(
     objectLocation: ObjectLocation,
     newObjectNesting: ObjectNesting,
     buffer: StructuralBuffer,
-    graphDefinitionAttempt: GraphDefinitionAttempt
+    referenceIndex: ReferenceIndex
 ): NestedObjectRename {
     val newObjectPath = objectLocation.objectPath.copy(nesting = newObjectNesting)
     val newObjectLocation = objectLocation.copy(objectPath = newObjectPath)
 
     val adjustedReferenceCommands = adjustReferenceCommands(
-        objectLocation, newObjectLocation, graphDefinitionAttempt)
+        objectLocation, newObjectLocation, referenceIndex)
 
     val adjustedReferenceEvents = adjustedReferenceCommands
         .map { buffer.apply(it) as UpdatedInAttributeEvent }
@@ -205,14 +207,13 @@ private fun nestedRenameObjectRefactor(
 private fun adjustReferenceCommands(
     objectLocation: ObjectLocation,
     newObjectLocation: ObjectLocation,
-    graphDefinitionAttempt: GraphDefinitionAttempt
+    referenceIndex: ReferenceIndex
 ): List<UpdateInAttributeCommand> {
     val commands = mutableListOf<UpdateInAttributeCommand>()
 
     val newFullReference = newObjectLocation.toReference()
-    val referenceLocations = locateReferences(objectLocation, graphDefinitionAttempt)
-    for (referenceLocation in referenceLocations) {
-        val existingReference = existingReference(referenceLocation, graphDefinitionAttempt)
+    for (referenceLocation in referenceIndex.referencesTo(objectLocation)) {
+        val existingReference = referenceIndex.existingReference(referenceLocation)
         val newReference = newFullReference.crop(existingReference.hasPath())
         if (existingReference == newReference) {
             continue
@@ -230,33 +231,58 @@ private fun adjustReferenceCommands(
 }
 
 
-private fun existingReference(
-    referenceLocation: AttributeLocation,
-    graphDefinitionAttempt: GraphDefinitionAttempt
-): ObjectReference {
-    val attributePath = referenceLocation.attributePath
-
-    // NB: top-level 'is:' (incl. list-element 'is[i]:') and meta-attribute inheritance refs
-    //  live in the notation, not the definition
-    if (isInheritancePath(attributePath) || isMetaInheritancePath(attributePath)) {
-        val notation = graphDefinitionAttempt
-                .graphStructure
-                .graphNotation
-                .coalesce
-                .map[referenceLocation.objectLocation]!!
-        val scalar = notation.get(attributePath) as ScalarAttributeNotation
-        return ObjectReference.parse(scalar.value)
+/**
+ * Every object reference in the graph, keyed by the location it resolves to.
+ *
+ * A refactor rewrites references for each of the objects it moves — every nested object of a renamed
+ * container, every root object of every document under a moved folder — and resolving them means visiting
+ * every object definition plus every `is:` / `meta:` entry in the notation. Scanning once per moved object
+ * makes that whole-graph pass the inner loop, so the scan happens once per refactor instead and every
+ * rewrite reads this index. The definition attempt a refactor works from never changes while it runs (the
+ * buffer's edits are not fed back into it), so one index covers the whole refactor.
+ */
+private class ReferenceIndex private constructor(
+    private val graphDefinitionAttempt: GraphDefinitionAttempt,
+    private val byTarget: Map<ObjectLocation, Set<AttributeLocation>>
+) {
+    companion object {
+        fun of(graphDefinitionAttempt: GraphDefinitionAttempt): ReferenceIndex {
+            return ReferenceIndex(graphDefinitionAttempt, indexReferences(graphDefinitionAttempt))
+        }
     }
 
-    val existingReferenceDefinition =
-        graphDefinitionAttempt
-            .objectDefinitions[referenceLocation.objectLocation]
-            ?.get(attributePath)
-        ?: graphDefinitionAttempt
-            .failures[referenceLocation.objectLocation]!!
-            .partial!!
-            .get(attributePath)
-    return (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
+
+    fun referencesTo(objectLocation: ObjectLocation): Set<AttributeLocation> {
+        return byTarget[objectLocation]
+            ?: setOf()
+    }
+
+
+    fun existingReference(referenceLocation: AttributeLocation): ObjectReference {
+        val attributePath = referenceLocation.attributePath
+
+        // NB: top-level 'is:' (incl. list-element 'is[i]:') and meta-attribute inheritance refs
+        //  live in the notation, not the definition
+        if (isInheritancePath(attributePath) || isMetaInheritancePath(attributePath)) {
+            val notation = graphDefinitionAttempt
+                    .graphStructure
+                    .graphNotation
+                    .coalesce
+                    .map[referenceLocation.objectLocation]!!
+            val scalar = notation.get(attributePath) as ScalarAttributeNotation
+            return ObjectReference.parse(scalar.value)
+        }
+
+        val existingReferenceDefinition =
+            graphDefinitionAttempt
+                .objectDefinitions[referenceLocation.objectLocation]
+                ?.get(attributePath)
+            ?: graphDefinitionAttempt
+                .failures[referenceLocation.objectLocation]!!
+                .partial!!
+                .get(attributePath)
+        return (existingReferenceDefinition as ReferenceAttributeDefinition).objectReference!!
+    }
 }
 
 
@@ -286,84 +312,91 @@ private fun isMetaInheritancePath(path: AttributePath): Boolean {
 }
 
 
-private fun locateReferences(
-    objectLocation: ObjectLocation,
+private fun indexReferences(
     graphDefinitionAttempt: GraphDefinitionAttempt
-): Set<AttributeLocation> {
-    val referenceLocations = mutableSetOf<AttributeLocation>()
+): Map<ObjectLocation, Set<AttributeLocation>> {
+    val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+    val byTarget = mutableMapOf<ObjectLocation, MutableSet<AttributeLocation>>()
 
-    fun locateInObjectDefinition(hostObjectLocation: ObjectLocation, objectDefinition: ObjectDefinition) {
-        val attributeReferences =
-                objectDefinition.attributeReferencesIncludingWeak()
+    fun index(target: ObjectLocation?, referencingAttribute: AttributeLocation) {
+        if (target == null) {
+            return
+        }
+        byTarget.getOrPut(target) { mutableSetOf() }.add(referencingAttribute)
+    }
 
-        for (attributeReference in attributeReferences) {
-            if (!isReferenced(
-                    objectLocation,
-                    attributeReference.value.objectReference,
-                    ObjectReferenceHost.ofLocation(hostObjectLocation),
-                    graphDefinitionAttempt)) {
-                continue
-            }
+    fun indexObjectDefinition(hostObjectLocation: ObjectLocation, objectDefinition: ObjectDefinition) {
+        val host = ObjectReferenceHost.ofLocation(hostObjectLocation)
 
+        for (attributeReference in objectDefinition.attributeReferencesIncludingWeak()) {
             // Skip references that live in a derived/auto-wired attribute with no notation backing — e.g.
             // the synthetic NestedList step lists (and Autowired / ParentChild). They re-compute from object
             // structure after a rename/move, so there is nothing to rewrite; trying would throw in
             // updateInAttribute (which guards on this same null merged attribute).
-            if (graphDefinitionAttempt.graphStructure.graphNotation.mergeAttribute(
+            if (graphNotation.mergeAttribute(
                     hostObjectLocation, attributeReference.key.attribute) == null) {
                 continue
             }
 
             val referencingAttribute = AttributeLocation(hostObjectLocation, attributeReference.key)
-            referenceLocations.add(referencingAttribute)
+            val reference = attributeReference.value.objectReference
+
+            // A reference is indexed under whatever each layer resolves it to, because a rename must follow
+            // it through any of them. Notably a weak reference can name an object that has no definition and
+            // no failure at all — an `abstract: true` archetype named by a `by: Nominal` data attribute (a
+            // Context declaration, a branchArchetype) — and without the notation coalesce fallback, renaming
+            // such an object silently leaves every weak reference to it dangling.
+            index(graphDefinitionAttempt.objectDefinitions.locateOptional(reference, host), referencingAttribute)
+            index(graphDefinitionAttempt.failures.locateOptional(reference, host), referencingAttribute)
+            index(graphNotation.coalesce.locateOptional(reference, host), referencingAttribute)
         }
     }
 
     for (e in graphDefinitionAttempt.objectDefinitions.map) {
-        locateInObjectDefinition(e.key, e.value)
+        indexObjectDefinition(e.key, e.value)
     }
 
     for (e in graphDefinitionAttempt.failures.map) {
         val partial = e.value.partial
             ?: continue
 
-        locateInObjectDefinition(e.key, partial)
+        indexObjectDefinition(e.key, partial)
     }
 
-    referenceLocations.addAll(locateIsReferences(objectLocation, graphDefinitionAttempt))
+    indexIsReferences(graphNotation, ::index)
 
-    return referenceLocations
+    return byTarget
 }
 
 
-private fun locateIsReferences(
-    objectLocation: ObjectLocation,
-    graphDefinitionAttempt: GraphDefinitionAttempt
-): Set<AttributeLocation> {
-    val referenceLocations = mutableSetOf<AttributeLocation>()
-    val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
+private fun indexIsReferences(
+    graphNotation: GraphNotation,
+    index: (ObjectLocation?, AttributeLocation) -> Unit
+) {
+    fun resolve(value: String, host: ObjectReferenceHost): ObjectLocation? {
+        return graphNotation.coalesce.locateOptional(ObjectReference.parse(value), host)
+    }
 
     for ((hostObjectLocation, objectNotation) in graphNotation.coalesce.map) {
         val host = ObjectReferenceHost.ofLocation(hostObjectLocation)
 
         when (val isAttribute = objectNotation.get(NotationConventions.isAttributePath)) {
             is ScalarAttributeNotation -> {
-                if (resolvesToTarget(graphNotation, isAttribute.value, host, objectLocation)) {
-                    referenceLocations.add(
-                            AttributeLocation(hostObjectLocation, NotationConventions.isAttributePath))
-                }
+                index(
+                    resolve(isAttribute.value, host),
+                    AttributeLocation(hostObjectLocation, NotationConventions.isAttributePath))
             }
 
             is ListAttributeNotation -> {
                 // NB: multiple inheritance — each list element is a parent reference
-                isAttribute.values.forEachIndexed { index, element ->
+                isAttribute.values.forEachIndexed { elementIndex, element ->
                     val scalar = element as? ScalarAttributeNotation
                         ?: return@forEachIndexed
-                    if (resolvesToTarget(graphNotation, scalar.value, host, objectLocation)) {
-                        referenceLocations.add(AttributeLocation(
-                                hostObjectLocation,
-                                NotationConventions.isAttributePath.nest(AttributeSegment.ofIndex(index))))
-                    }
+                    index(
+                        resolve(scalar.value, host),
+                        AttributeLocation(
+                            hostObjectLocation,
+                            NotationConventions.isAttributePath.nest(AttributeSegment.ofIndex(elementIndex))))
                 }
             }
 
@@ -379,75 +412,26 @@ private fun locateIsReferences(
 
             when (metaValue) {
                 is ScalarAttributeNotation -> {
-                    if (resolvesToTarget(graphNotation, metaValue.value, host, objectLocation)) {
-                        referenceLocations.add(AttributeLocation(hostObjectLocation, metaAttributePath))
-                    }
+                    index(
+                        resolve(metaValue.value, host),
+                        AttributeLocation(hostObjectLocation, metaAttributePath))
                 }
 
                 is MapAttributeNotation -> {
                     val nestedIs = metaValue.map[NotationConventions.isAttributeSegment]
                             as? ScalarAttributeNotation
                         ?: continue
-                    if (resolvesToTarget(graphNotation, nestedIs.value, host, objectLocation)) {
-                        referenceLocations.add(AttributeLocation(
-                                hostObjectLocation,
-                                metaAttributePath.nest(NotationConventions.isAttributeSegment)))
-                    }
+                    index(
+                        resolve(nestedIs.value, host),
+                        AttributeLocation(
+                            hostObjectLocation,
+                            metaAttributePath.nest(NotationConventions.isAttributeSegment)))
                 }
 
                 else -> {}
             }
         }
     }
-
-    return referenceLocations
-}
-
-
-private fun resolvesToTarget(
-    graphNotation: GraphNotation,
-    value: String,
-    host: ObjectReferenceHost,
-    target: ObjectLocation
-): Boolean {
-    val reference = ObjectReference.parse(value)
-    return graphNotation.coalesce.locateOptional(reference, host) == target
-}
-
-
-private fun isReferenced(
-    targetLocation: ObjectLocation,
-    reference: ObjectReference,
-    host: ObjectReferenceHost,
-    graphDefinitionAttempt: GraphDefinitionAttempt
-): Boolean {
-    val referencedLocation = graphDefinitionAttempt
-        .objectDefinitions
-        .locateOptional(reference, host)
-
-    if (referencedLocation == targetLocation) {
-        return true
-    }
-
-    val partialReferencedLocation = graphDefinitionAttempt
-        .failures
-        .locateOptional(reference, host)
-
-    if (partialReferencedLocation == targetLocation) {
-        return true
-    }
-
-    // NB: a weak reference can name an object that has no definition and no failure at all — an
-    //  `abstract: true` archetype named by a `by: Nominal` data attribute (a Context declaration, a
-    //  branchArchetype). Fall back to the notation coalesce, or renaming such an object silently leaves
-    //  every weak reference to it dangling.
-    val notationLocation = graphDefinitionAttempt
-        .graphStructure
-        .graphNotation
-        .coalesce
-        .locateOptional(reference, host)
-
-    return notationLocation == targetLocation
 }
 
 
@@ -480,7 +464,7 @@ internal fun relocateDocumentRefactor(
         as DeletedDocumentEvent
 
     val adjustedReferenceEvents = adjustReferencesForRenamedDocument(
-            documentPath, newDocumentPath, documentNotation, graphDefinitionAttempt, buffer)
+            documentPath, newDocumentPath, documentNotation, ReferenceIndex.of(graphDefinitionAttempt), buffer)
 
     return NotationTransition(
         RenamedDocumentRefactorEvent(
@@ -496,7 +480,7 @@ private fun adjustReferencesForRenamedDocument(
     documentPath: DocumentPath,
     newDocumentPath: DocumentPath,
     documentNotation: DocumentNotation,
-    graphDefinitionAttempt: GraphDefinitionAttempt,
+    referenceIndex: ReferenceIndex,
     buffer: StructuralBuffer
 ): List<UpdatedInAttributeEvent> {
     // NB: only top-level (root) objects cross-document reference are currently supported
@@ -514,7 +498,7 @@ private fun adjustReferencesForRenamedDocument(
         val newObjectLocation = ObjectLocation(newDocumentPath, adjustedObjectPath)
 
         val adjustedReferenceCommands = adjustReferenceCommands(
-            rootObjectLocation, newObjectLocation, graphDefinitionAttempt)
+            rootObjectLocation, newObjectLocation, referenceIndex)
 
         val adjustedReferenceEvents = adjustedReferenceCommands
             .map { buffer.apply(it) as UpdatedInAttributeEvent }
@@ -584,7 +568,8 @@ internal fun relocateFolderRefactor(
     // 3. rewrite references into the moved objects, AT the referencing object's final location (so an
     //    inside→inside reference lands on the just-made copy, which DirectGraphStore then persists)
     val adjustedReferences = adjustReferencesForRelocatedFolder(
-        descendantDocuments, oldContentNesting, folderPath, ::reNestPath, graphDefinitionAttempt, buffer)
+        descendantDocuments, oldContentNesting, folderPath, ::reNestPath, graphNotation,
+        ReferenceIndex.of(graphDefinitionAttempt), buffer)
 
     // 4. cascade-delete the old subtree (the folder's own entry + everything under its content nesting)
     val removedFolder = buffer
@@ -602,11 +587,10 @@ private fun adjustReferencesForRelocatedFolder(
     oldContentNesting: DocumentNesting,
     oldFolderPath: DocumentPath,
     reNestPath: (DocumentPath) -> DocumentPath,
-    graphDefinitionAttempt: GraphDefinitionAttempt,
+    graphNotation: GraphNotation,
+    referenceIndex: ReferenceIndex,
     buffer: StructuralBuffer
 ): List<UpdatedInAttributeEvent> {
-    val graphNotation = graphDefinitionAttempt.graphStructure.graphNotation
-
     fun finalReferencingLocation(referencingObjectLocation: ObjectLocation): ObjectLocation {
         val documentPath = referencingObjectLocation.documentPath
         val insideSubtree = documentPath == oldFolderPath ||
@@ -636,9 +620,8 @@ private fun adjustReferencesForRelocatedFolder(
             val oldObjectLocation = ObjectLocation(movedDocument, rootObjectPath)
             val newFullReference = ObjectLocation(newDocumentPath, rootObjectPath).toReference()
 
-            val referenceLocations = locateReferences(oldObjectLocation, graphDefinitionAttempt)
-            for (referenceLocation in referenceLocations) {
-                val existingReference = existingReference(referenceLocation, graphDefinitionAttempt)
+            for (referenceLocation in referenceIndex.referencesTo(oldObjectLocation)) {
+                val existingReference = referenceIndex.existingReference(referenceLocation)
                 val newReference = newFullReference.crop(existingReference.hasPath())
                 if (existingReference == newReference) {
                     continue

@@ -144,29 +144,11 @@ internal fun insertListItemInAttribute(
     state: GraphNotation,
     command: InsertListItemInAttributeCommand
 ): NotationTransition {
-    val documentNotation = state.documents.map[command.objectLocation.documentPath]
-        ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
-
-    return remergeAttributeThenEdit(
-        state, documentNotation, command.objectLocation, command.containingList.attribute
-    ) { objectWithMergedAttribute ->
-        val listInAttribute = objectWithMergedAttribute
-            .get(command.containingList) as? ListAttributeNotation
-            ?: throw IllegalStateException(
-                "List attribute expected: ${command.objectLocation} - ${command.containingList}")
-
-        val indexInList = command.indexInList.resolve(listInAttribute.values.size)
-
-        val listWithInsert = listInAttribute.insert(indexInList, command.item)
-
-        val modifiedObjectNotation = objectWithMergedAttribute.upsertAttribute(
-                command.containingList, listWithInsert)
-
-        val event = InsertedListItemInAttributeEvent(
-                command.objectLocation, command.containingList, indexInList, listInAttribute)
-
-        modifiedObjectNotation to event
-    }
+    return insertInListAttribute(
+        state, command.objectLocation, command.containingList, command.indexInList,
+        { list, index -> list.insert(index, command.item) },
+        { index -> InsertedListItemInAttributeEvent(
+            command.objectLocation, command.containingList, index, command.item) })
 }
 
 
@@ -174,28 +156,41 @@ internal fun insertAllListItemsInAttribute(
     state: GraphNotation,
     command: InsertAllListItemsInAttributeCommand
 ): NotationTransition {
-    val documentNotation = state.documents.map[command.objectLocation.documentPath]
-        ?: throw IllegalArgumentException("Not found: ${command.objectLocation.documentPath}")
+    return insertInListAttribute(
+        state, command.objectLocation, command.containingList, command.indexInList,
+        { list, index -> list.insertAll(index, command.items) },
+        { index -> InsertedAllListItemsInAttributeEvent(
+            command.objectLocation, command.containingList, index, command.items) })
+}
+
+
+// The insertion index is resolved against the list as merged, so it is the insert lambda's second argument
+// rather than something either caller can compute up front.
+private fun insertInListAttribute(
+    state: GraphNotation,
+    objectLocation: ObjectLocation,
+    containingList: AttributePath,
+    indexInList: PositionRelation,
+    insert: (ListAttributeNotation, PositionIndex) -> ListAttributeNotation,
+    event: (PositionIndex) -> NotationEvent
+): NotationTransition {
+    val documentNotation = state.documents.map[objectLocation.documentPath]
+        ?: throw IllegalArgumentException("Not found: ${objectLocation.documentPath}")
 
     return remergeAttributeThenEdit(
-        state, documentNotation, command.objectLocation, command.containingList.attribute
+        state, documentNotation, objectLocation, containingList.attribute
     ) { objectWithMergedAttribute ->
         val listInAttribute = objectWithMergedAttribute
-            .get(command.containingList) as? ListAttributeNotation
+            .get(containingList) as? ListAttributeNotation
             ?: throw IllegalStateException(
-                "List attribute expected: ${command.objectLocation} - ${command.containingList}")
+                "List attribute expected: $objectLocation - $containingList")
 
-        val indexInList = command.indexInList.resolve(listInAttribute.values.size)
-
-        val listWithInsert = listInAttribute.insertAll(indexInList, command.items)
+        val resolvedIndex = indexInList.resolve(listInAttribute.values.size)
 
         val modifiedObjectNotation = objectWithMergedAttribute.upsertAttribute(
-            command.containingList, listWithInsert)
+            containingList, insert(listInAttribute, resolvedIndex))
 
-        val event = InsertedAllListItemsInAttributeEvent(
-            command.objectLocation, command.containingList, indexInList, command.items)
-
-        modifiedObjectNotation to event
+        modifiedObjectNotation to event(resolvedIndex)
     }
 }
 
@@ -353,42 +348,21 @@ internal fun removeListItemInAttribute(
     val objectNotation = state.coalesce[command.objectLocation]!!
 
     val containerPath = command.containingList
-    val containerNotation = objectNotation.get(containerPath)
-            as? ListAttributeNotation
-        ?: throw IllegalArgumentException("List expected: " +
-                "$containerPath - ${objectNotation.get(containerPath)}")
-
-    val firstIndex = containerNotation.values.indexOfFirst { it == command.item }
-    require(firstIndex != -1) { "List does not contain item: ${command.item} - $containerNotation" }
-
-    val lastIndex = containerNotation.values.indexOfLast { it == command.item }
-    require(firstIndex == lastIndex) {
-        "List contains item duplicates: ${command.item} - $containerNotation"
-    }
-
-    val itemIndex = PositionIndex(firstIndex)
-    val containerWithoutElement = containerNotation.remove(itemIndex)
-
-    val modifiedObjectNotation =
-        if (containerWithoutElement.isEmpty() && command.removeContainerIfEmpty) {
-            removeEmptyContainer(objectNotation, containerPath)
-        }
-        else {
-            objectNotation.upsertAttribute(
-                containerPath, containerWithoutElement)
-        }
+    val removal = removeListItem(
+        objectNotation,
+        listInAttribute(objectNotation, containerPath),
+        containerPath,
+        command.item,
+        command.removeContainerIfEmpty)
 
     val modifiedDocumentNotation = documentNotation.withModifiedObject(
-            command.objectLocation.objectPath, modifiedObjectNotation)
+            command.objectLocation.objectPath, removal.objectNotation)
 
     val nextState = state.withModifiedDocument(
             command.objectLocation.documentPath, modifiedDocumentNotation)
 
-    val removedAttributePath = command.containingList.nest(
-        AttributeSegment.ofIndex(firstIndex))
-
     val event = RemovedInAttributeEvent(
-            command.objectLocation, removedAttributePath)
+            command.objectLocation, removal.removedAttributePath)
 
     return NotationTransition(event, nextState)
 }
@@ -402,43 +376,25 @@ internal fun removeAllListItemsInAttribute(
     val objectNotation = state.coalesce[command.objectLocation]!!
 
     val containerPath = command.containingList
-    val containerNotation = objectNotation.get(containerPath)
-            as? ListAttributeNotation
-        ?: throw IllegalArgumentException("List expected: " +
-                "$containerPath - ${objectNotation.get(containerPath)}")
-
     val removedAttributePaths = mutableListOf<AttributePath>()
+
     var nextObjectNotation = objectNotation
-    var nextContainerNotation = containerNotation
+    var nextContainerNotation = listInAttribute(objectNotation, containerPath)
 
+    // Each removal shifts the indices of the items after it, so the next item is located against the list
+    // as left by the previous removal rather than against the original.
     for (item in command.items) {
-        val firstIndex = nextContainerNotation.values.indexOfFirst { it == item }
-        require(firstIndex != -1) { "List does not contain item: $item - $nextContainerNotation" }
+        val removal = removeListItem(
+            nextObjectNotation,
+            nextContainerNotation,
+            containerPath,
+            item,
+            command.removeContainerIfEmpty)
 
-        val lastIndex = nextContainerNotation.values.indexOfLast { it == item }
-        require(firstIndex == lastIndex) {
-            "List contains item duplicates: $item - $nextContainerNotation"
-        }
+        removedAttributePaths.add(removal.removedAttributePath)
 
-        val itemIndex = PositionIndex(firstIndex)
-        val containerWithoutElement = nextContainerNotation.remove(itemIndex)
-
-        val modifiedObjectNotation =
-            if (containerWithoutElement.isEmpty() && command.removeContainerIfEmpty) {
-                removeEmptyContainer(nextObjectNotation, containerPath)
-            }
-            else {
-                nextObjectNotation.upsertAttribute(
-                    containerPath, containerWithoutElement)
-            }
-
-        val removedAttributePath = command.containingList.nest(
-            AttributeSegment.ofIndex(firstIndex))
-
-        removedAttributePaths.add(removedAttributePath)
-
-        nextContainerNotation = containerWithoutElement
-        nextObjectNotation = modifiedObjectNotation
+        nextObjectNotation = removal.objectNotation
+        nextContainerNotation = removal.containerNotation
     }
 
     val event = RemovedAllInAttributeEvent(
@@ -451,6 +407,57 @@ internal fun removeAllListItemsInAttribute(
         command.objectLocation.documentPath, modifiedDocumentNotation)
 
     return NotationTransition(event, nextState)
+}
+
+
+private class ListItemRemoval(
+    val objectNotation: ObjectNotation,
+    val containerNotation: ListAttributeNotation,
+    val removedAttributePath: AttributePath
+)
+
+
+private fun listInAttribute(
+    objectNotation: ObjectNotation,
+    containerPath: AttributePath
+): ListAttributeNotation {
+    return objectNotation.get(containerPath)
+            as? ListAttributeNotation
+        ?: throw IllegalArgumentException("List expected: " +
+                "$containerPath - ${objectNotation.get(containerPath)}")
+}
+
+
+private fun removeListItem(
+    objectNotation: ObjectNotation,
+    containerNotation: ListAttributeNotation,
+    containerPath: AttributePath,
+    item: AttributeNotation,
+    removeContainerIfEmpty: Boolean
+): ListItemRemoval {
+    val firstIndex = containerNotation.values.indexOfFirst { it == item }
+    require(firstIndex != -1) { "List does not contain item: $item - $containerNotation" }
+
+    val lastIndex = containerNotation.values.indexOfLast { it == item }
+    require(firstIndex == lastIndex) {
+        "List contains item duplicates: $item - $containerNotation"
+    }
+
+    val containerWithoutElement = containerNotation.remove(PositionIndex(firstIndex))
+
+    val modifiedObjectNotation =
+        if (containerWithoutElement.isEmpty() && removeContainerIfEmpty) {
+            removeEmptyContainer(objectNotation, containerPath)
+        }
+        else {
+            objectNotation.upsertAttribute(
+                containerPath, containerWithoutElement)
+        }
+
+    return ListItemRemoval(
+        modifiedObjectNotation,
+        containerWithoutElement,
+        containerPath.nest(AttributeSegment.ofIndex(firstIndex)))
 }
 
 

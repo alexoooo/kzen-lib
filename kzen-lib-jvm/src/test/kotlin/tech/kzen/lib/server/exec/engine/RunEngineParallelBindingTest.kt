@@ -9,7 +9,6 @@ import kotlinx.coroutines.withTimeout
 import tech.kzen.lib.common.exec.engine.ClosePolicy
 import tech.kzen.lib.common.exec.engine.Execution
 import tech.kzen.lib.common.exec.engine.Logic
-import tech.kzen.lib.common.exec.engine.LogicSignature
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.context.BindingLookup
 import tech.kzen.lib.common.exec.engine.context.ContextFamily
@@ -61,13 +60,6 @@ class RunEngineParallelBindingTest {
     //-----------------------------------------------------------------------------------------------------------------
     private val rootId = ObjectStableId("root")
     private val sut = ContextKey.of("sut")
-
-
-    private fun logicOf(block: suspend (Execution) -> TupleValue): Logic =
-        object: Logic {
-            override fun signature() = LogicSignature.empty
-            override suspend fun run(execution: Execution) = block(execution)
-        }
 
 
     /** Host [a] and [b] as concurrent children of the calling frame — the `JobRun` worker-launch shape. */
@@ -159,7 +151,7 @@ class RunEngineParallelBindingTest {
         //
         // The engine is not doing anything wrong at its own level: the claim is under the lock, so exactly one
         // caller wins and nothing leaks or double-closes. But `bind`'s supersede rule was reasoned for a loop
-        // re-binding sequentially (RunEngine.kt:1303-1309), where the displaced handle is provably nobody's
+        // re-binding sequentially (see RunEngine.bind), where the displaced handle is provably nobody's
         // business by then. Under concurrency the displaced handle is a live sibling's, the winner is whichever
         // frame happened to be scheduled second, and nothing anywhere reports it.
         val disposed = CopyOnWriteArrayList<String>()
@@ -220,7 +212,8 @@ class RunEngineParallelBindingTest {
     fun oneConcurrentSiblingsReleaseUnbindsAndDisposesASharedAncestorsBindingUnderTheOther() = runBlocking {
         // ⚠ RECORDED HAZARD — the release half of the same problem.
         //
-        // `releaseBinding` removes the NEAREST binding on the ancestor chain (RunEngine.kt:1342-1350), which is
+        // `releaseBinding` removes the NEAREST binding on the ancestor chain (see
+        // RunEngine.removeNearestBinding), which is
         // deliberate: a sibling closing step is meant to be able to release what an earlier sibling opened onto
         // their shared parent. Sequentially that is exactly right. Concurrently it means any one frame can close
         // a shared resource out from under every other frame that is using it, with no coordination and no
@@ -296,7 +289,7 @@ class RunEngineParallelBindingTest {
         // `bind` now supersedes the borrows the climb travels past, so both halves hold at once: the export
         // still moves ownership up, and the binder still reads what it bound. Note how narrowly the old
         // coverage missed it — `aChildsOwnBindUnderTheBootstrapKeySupersedesTheBorrowOnItsOwnFrame`
-        // (RunEngineTest) pins the same rule for the NON-exporting callee, where `exportOwnerOf` returns the
+        // (RunEngineContextTest) pins the same rule for the NON-exporting callee, where `exportOwnerOf` returns the
         // callee itself and the in-place overwrite does the superseding for free. One `declareExport` away.
         val disposed = CopyOnWriteArrayList<String>()
         var readInCalleeBeforeOwnBind: BindingLookup? = null

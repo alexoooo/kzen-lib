@@ -10,6 +10,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
+import org.slf4j.LoggerFactory
 import java.util.concurrent.Executors
 import tech.kzen.lib.common.exec.ExecutionFailure
 import tech.kzen.lib.common.exec.ExecutionRequest
@@ -67,6 +68,12 @@ class RunEngine(
     threads: Int = (Runtime.getRuntime().availableProcessors() - 1).coerceAtLeast(2)
 ): Run, AutoCloseable {
     //-----------------------------------------------------------------------------------------------------------------
+    companion object {
+        private val logger = LoggerFactory.getLogger(RunEngine::class.java)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
     private sealed interface Command {
         data object Running: Command
         data object Paused: Command
@@ -77,8 +84,7 @@ class RunEngine(
 
     private class Parked(
         val deferred: CompletableDeferred<Unit>,
-        val depth: Int,
-        @Suppress("unused") val reason: PauseReason
+        val depth: Int
     )
 
 
@@ -197,6 +203,8 @@ class RunEngine(
     private var scope = CoroutineScope(dispatcher + SupervisorJob())
 
     private val nodes = HashMap<NodeId, NodeRuntime>()
+    // Each hosted child's compiled Logic; the root's is [liveRootLogic], which [migrate] can replace.
+    private val childLogic = HashMap<NodeId, Logic>()
     private val parked = HashMap<NodeId, Parked>()
     private val history = ArrayList<TraceEvent>()
     private val observers = ArrayList<() -> Unit>()
@@ -238,8 +246,8 @@ class RunEngine(
     // open resource survives a live edit instead of being disposed by teardown (spec §5 "open resources").
     // Unlike [migrationCaptured] (claimed lazily by a user-code [Execution.restored] read, hence the separate
     // claimed-set), adoption here is eager and engine-driven at node spawn, so remove-on-adopt IS the claim.
-    // Holds only what a frame OWNS: a call-site borrow ([Binding.bootstrap]) is dropped at the barrier instead,
-    // because the rebuilt caller re-supplies it from its current sources.
+    // Holds only what a frame OWNS — a call-site borrow is dropped at the barrier instead (see
+    // [Binding.bootstrap]).
     private val migrationResources = HashMap<ObjectStableId, LiftedRegistrations>()
 
     // Managed bindings settled frames kept instead of disposing: a `manual` one at the root (§6's forgotten
@@ -636,11 +644,7 @@ class RunEngine(
         val oldJob = synchronized(lock) {
             migrating = true
             for (runtime in nodes.values) {
-                // Borrows are dropped rather than lifted: the rebuilt caller re-runs and re-supplies them from
-                // its CURRENT sources, so carrying one would silently reinstate a stale read — and because
-                // adoption overwrites the fresh bootstrap value, the callee would keep driving whatever the
-                // pre-edit caller named. Nothing leaks by dropping them: a borrow carries no disposal, so there
-                // is nothing the sweep would have had to close.
+                // Borrows are dropped rather than lifted — see [Binding.bootstrap].
                 val owned = LinkedHashMap(runtime.bindings.filterValues { ! it.bootstrap })
                 if (owned.isNotEmpty() || runtime.settleDisposals.isNotEmpty()) {
                     migrationResources[runtime.stableId] =
@@ -694,6 +698,18 @@ class RunEngine(
     }
 
 
+    // Closers and captured-state teardowns are third-party code, run off-lock: a failure must not break the
+    // settle / supersede / sweep walk that claimed them, but it must not vanish either.
+    private fun runCloserLogged(closer: () -> Unit) {
+        try {
+            closer()
+        }
+        catch (e: Throwable) {
+            logger.warn("Resource closer failed", e)
+        }
+    }
+
+
     // Dispose any captured state no node of the rebuilt definition adopted (a removed element), and reset the
     // migration registers. Run at the next [migrate] and at [close]: within a run's life an orphaned detached
     // resource lingers at most one edit cycle (deliberate: no eager sweep on every edit). Unadopted lifted
@@ -716,7 +732,7 @@ class RunEngine(
             result
         }
         orphans.forEach { captured ->
-            (captured.state as? AutoCloseable)?.let { runCatching { it.close() } }
+            (captured.state as? AutoCloseable)?.let { runCloserLogged { it.close() } }
         }
 
         val orphanedClosers = synchronized(lock) {
@@ -727,7 +743,7 @@ class RunEngine(
             migrationResources.clear()
             result
         }
-        orphanedClosers.forEach { runCatching { it() } }
+        orphanedClosers.forEach { runCloserLogged(it) }
     }
 
 
@@ -882,15 +898,11 @@ class RunEngine(
     }
 
 
-    // Each node's Logic: the root uses the (possibly migrated) live root logic; children carry their own Logic
-    // in a side map.
     private fun rootOrChildLogic(nodeId: NodeId): Logic {
         return synchronized(lock) {
             if (nodeId == rootId) liveRootLogic else childLogic.getValue(nodeId)
         }
     }
-
-    private val childLogic = HashMap<NodeId, Logic>()
 
 
     private suspend fun host(
@@ -921,15 +933,12 @@ class RunEngine(
             }
             nodes[id] = runtime
             // BEFORE [adoptLiftedResources], and that placement IS the migration ordering rule — no precedence
-            // logic needed, because adoption's putAll then overwrites any bootstrap value under the same key.
-            // The two sources are asymmetric on purpose: a bootstrap value is a BORROWED read of whatever the
-            // caller holds now, re-supplied by the rebuilt caller on every edit, whereas an adopted binding is
-            // one the child itself bound — migration-owned, keeping the stable owner it bound to. Installing
-            // after adoption would let a stale re-read silently displace the child's own live handle (and,
-            // having no disposal, drop it without closing it). Direct map writes rather than [bind]: the
-            // bootstrap rests on the child frame by construction, and routing through [exportOwnerOf] would
-            // consult an `exports` set that is necessarily still empty here — the child re-declares its
-            // exports when its [Logic.run] starts, which cannot have happened yet.
+            // logic needed, because adoption's putAll then overwrites any bootstrap value under the same key
+            // (a borrow is re-supplied by the rebuilt caller; an adopted binding is the child's own — see
+            // [Binding.bootstrap]). Direct map writes rather than [bind]: the bootstrap rests on the child
+            // frame by construction, and routing through [exportOwnerOf] would consult an `exports` set that
+            // is necessarily still empty here — the child re-declares its exports when its [Logic.run] starts,
+            // which cannot have happened yet.
             for (initialBinding in initialBindings) {
                 runtime.bindings[initialBinding.key] = Binding(initialBinding.value, null, bootstrap = true)
             }
@@ -1090,7 +1099,7 @@ class RunEngine(
     private fun park(nodeId: NodeId, depth: Int, reason: PauseReason): CompletableDeferred<Unit> {
         val deferred = CompletableDeferred<Unit>()
         nodes.getValue(nodeId).status = NodeStatus.Suspended(reason)
-        parked[nodeId] = Parked(deferred, depth, reason)
+        parked[nodeId] = Parked(deferred, depth)
         return deferred
     }
 
@@ -1128,10 +1137,14 @@ class RunEngine(
         }
 
         // Frame close: capture the settled node (its final events are already in [history]), compact, and
-        // notify frame observers before the general change signal.
+        // notify frame observers before the general change signal. The capture deep-copies the settled
+        // subtree and nothing but the observers reads it, so with none registered there is nothing to build.
         val (closedNode, frameObserversCopy) = synchronized(lock) {
             val runtime = nodes.getValue(nodeId)
-            val closedNode = buildNode(nodeId)
+            val observersCopy = frameObservers.toList()
+            val closedNode =
+                if (observersCopy.isEmpty()) null
+                else buildNode(nodeId)
             // The compiled Logic is never used after [host] returns; [migrate] clears the map wholesale.
             childLogic.remove(nodeId)
             if (!runtime.retainTrace && nodeId != rootId) {
@@ -1141,9 +1154,11 @@ class RunEngine(
                 removeSubtree(nodeId)
                 runtime.parentId?.let { nodes[it]?.children?.remove(nodeId) }
             }
-            closedNode to frameObservers.toList()
+            closedNode to observersCopy
         }
-        frameObserversCopy.forEach { it(closedNode) }
+        if (closedNode != null) {
+            frameObserversCopy.forEach { it(closedNode) }
+        }
         publish()
         if (nodeId == rootId) {
             terminal.complete(outcome)
@@ -1191,12 +1206,8 @@ class RunEngine(
                         disposal.claim()?.let { bindingClosers.add(it) }
 
                     ClosePolicy.Manual ->
-                        // A barrier frame has nowhere to promote TO — the hand-up is an upward write, the one
-                        // kind the barrier withholds, and it bypasses [exportOwnerOf] entirely, so blocking the
-                        // climb alone would leave this as an open second route into the shared parent. Falls
-                        // through to the same retention the root uses for the identical reason ("nowhere left
-                        // to promote to"), which keeps the handle findable on the run's inspection surface
-                        // rather than dropping it.
+                        // A barrier frame retains instead of handing up, exactly like the root — see
+                        // [NodeRuntime.contextBarrier].
                         if (parent != null && ! runtime.contextBarrier) {
                             parent.bindings.putIfAbsent(key, binding)
                         }
@@ -1231,7 +1242,7 @@ class RunEngine(
             // is still open.
             settleClosers.asReversed() + bindingClosers.asReversed()
         }
-        toDispose.forEach { runCatching { it() } }
+        toDispose.forEach { runCloserLogged(it) }
     }
 
 
@@ -1305,11 +1316,7 @@ class RunEngine(
         synchronized(lock) {
             val runtime = nodes.getValue(nodeId)
 
-            // Loud rather than silently ineffective. [exportOwnerOf] stops at a barrier regardless, so accepting
-            // the declaration would leave the author with a frame that says it exports and demonstrably does
-            // not — the failure would surface much later, as a caller reading Missing under a key it was told
-            // is provided. A concurrently-hosted frame that wants to publish upward is asking for the semantics
-            // the barrier exists to withhold, so it has to be a refusal, not a downgrade.
+            // Refusal rather than silent no-op — see [NodeRuntime.contextBarrier].
             check(! runtime.contextBarrier) {
                 "Context barrier frame cannot declare an export (hosted concurrently, so an upward binding " +
                         "would race its siblings): ${runtime.stableId.value} - $selector"
@@ -1327,15 +1334,12 @@ class RunEngine(
     // [declareExport] ends every chain that reaches it. An actively running node's ancestors are always still
     // live, so the walk never dangles.
     //
-    // A [NodeRuntime.contextBarrier] frame also ends the chain. NOTE this branch is currently UNREACHABLE and
-    // is defence-in-depth only: [declareExport] refuses on a barrier frame, it is the sole writer of
-    // [NodeRuntime.exports], and that set is not lifted across the [migrate] barrier — so a barrier frame's
-    // selector set is always empty, and the ordinary `none { covers }` test below already ends the climb there,
-    // for a bind made BY that frame and for one climbing up from BELOW it alike. Removing the flag test changes
-    // no observable behaviour today; that was verified by removing it and re-running
-    // RunEngineParallelBindingTest, which stayed green in full. It is kept so containment is a property of THIS
-    // walk rather than a consequence of a guard elsewhere staying correct — a future writer of [exports] that
-    // bypasses [declareExport] would otherwise silently reopen the concurrent-sibling collision.
+    // A [NodeRuntime.contextBarrier] frame also ends the chain. The flag test is UNREACHABLE defence-in-depth:
+    // [declareExport] refuses on a barrier frame and is the sole writer of [exports] (not lifted across
+    // [migrate]), so a barrier frame's selector set is always empty and `none { covers }` already ends the
+    // climb there. Kept so containment is a property of THIS walk rather than of a guard elsewhere staying
+    // correct — a future writer of [exports] bypassing [declareExport] would silently reopen the
+    // concurrent-sibling collision.
     private fun exportOwnerOf(nodeId: NodeId, key: ContextKey): NodeId {
         var current = nodeId
         while (true) {
@@ -1349,17 +1353,9 @@ class RunEngine(
 
 
     // Must hold lock. Drop any BORROW under [key] resting on the frames the export climb travelled past —
-    // [nodeId] up to but excluding [ownerId] — so that a frame's own bind is what its own reads resolve to.
-    //
-    // A bind is meant to supersede a same-key borrow: the frame has substituted its own subject for the one it
-    // was handed, and [Binding.bootstrap] normally clears itself because the replacement lands in the very slot
-    // the borrow occupies. An export declaration breaks that, and silently: [exportOwnerOf] climbs PAST the
-    // frame holding the borrow, so the value comes to rest above while the borrow stays below — and [bindingOf]
-    // starts at the frame and stops at the first match, handing the binder back the value it just replaced, for
-    // the rest of its run. Removing rather than overwriting because the borrow belongs where it is no longer:
-    // ownership moved up, so every read below the new owner must resolve there too. Nothing can leak — a borrow
-    // carries no disposal by construction — and only borrows are touched, since an owned binding on a frame in
-    // between is somebody's live resource that dropping would strand unclosed.
+    // [nodeId] up to but excluding [ownerId] — so that a frame's own bind is what its own reads resolve to
+    // (rationale: [Binding.bootstrap]). Only borrows are touched: an owned binding on a frame in between is
+    // somebody's live resource that dropping would strand unclosed.
     private fun supersedeBorrowsBelowOwner(nodeId: NodeId, ownerId: NodeId, key: ContextKey) {
         var current: NodeId? = nodeId
         while (current != null && current != ownerId) {
@@ -1385,7 +1381,7 @@ class RunEngine(
             supersedeBorrowsBelowOwner(nodeId, ownerId, key)
             nodes.getValue(ownerId).bindings.put(key, Binding(value, disposal))?.disposal?.claim()
         }
-        displaced?.let { runCatching { it() } }
+        displaced?.let { runCloserLogged(it) }
     }
 
 
@@ -1414,11 +1410,7 @@ class RunEngine(
     // binding resting on an ancestor frame can be dropped by a descendant (a sibling closing step).
     //
     // Stops AFTER a [NodeRuntime.contextBarrier] frame's own registry rather than before it: the barrier frame
-    // may still release what it holds itself, it just cannot reach past. This is the destructive half of the
-    // same wall [exportOwnerOf] enforces for binds — reaching up to unbind is exactly as order-dependent as
-    // reaching up to bind, and worse to diagnose, since the victim's next read reports Missing, which is
-    // indistinguishable from never-bound. A release that finds nothing within the barrier is a no-op, matching
-    // what this walk already does when a key is absent from the whole chain.
+    // may still release what it holds itself, it just cannot reach past — see [NodeRuntime.contextBarrier].
     private fun removeNearestBinding(nodeId: NodeId, key: ContextKey): Binding? {
         var current: NodeId? = nodeId
         while (current != null) {
@@ -1477,7 +1469,7 @@ class RunEngine(
         val closer = synchronized(lock) {
             removeNearestBinding(nodeId, key)?.disposal?.claim()
         }
-        closer?.let { runCatching { it() } }
+        closer?.let { runCloserLogged(it) }
     }
 
 
@@ -1523,6 +1515,9 @@ class RunEngine(
      * §6's forgotten close) and a `keepOnFailure` binding on a frame that failed, kept for inspection. This is
      * what makes "retain" mean something — the alternative is a registry entry that disappears while the
      * process it names keeps running.
+     *
+     * Spec-led, deliberately unconsumed (like [observeFrames]): awaiting a run-inspection consumer; exercised
+     * by tests only.
      */
     fun retainedBindings(): List<RetainedBinding> {
         return synchronized(lock) {
@@ -1535,6 +1530,9 @@ class RunEngine(
      * Dispose the retained binding at [node] / [key] and drop it, at most once; false when nothing is retained
      * there. The explicit cleanup a `manual` binding was always waiting for, and the way an inspected
      * `keepOnFailure` resource is finally closed.
+     *
+     * Spec-led, deliberately unconsumed (like [retainedBindings]): awaiting a run-inspection consumer;
+     * exercised by tests only.
      */
     fun releaseRetained(node: NodeId, key: ContextKey): Boolean {
         val closer = synchronized(lock) {
@@ -1544,7 +1542,7 @@ class RunEngine(
             }
             retained.removeAt(index).binding.disposal?.claim()
         }
-        closer?.let { runCatching { it() } }
+        closer?.let { runCloserLogged(it) }
         return true
     }
 
@@ -1624,7 +1622,7 @@ class RunEngine(
             unclaimed
         }
         unclaimedRemoved.forEach { state ->
-            (state as? AutoCloseable)?.let { runCatching { it.close() } }
+            (state as? AutoCloseable)?.let { runCloserLogged { it.close() } }
         }
     }
 

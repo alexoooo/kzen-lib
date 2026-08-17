@@ -242,7 +242,7 @@ Interfaces and pure-data models live in `kzen-lib-common/commonMain` (`exec/engi
 
 **Run vs execution — nested traces live in separate nodes, merged per run.** A `LogicRunId` identifies one top-level run; a `LogicExecutionId` identifies one execution of a logic *within* that run — 1:1 with an engine node id. When a logic *hosts another logic* — kzen-auto's `RunStep` running a linked sub-script via `Execution.host` — the sub-logic is a **new node under the same run**, so its live values land in a **separate node**: a single `lookup(parentRunExecutionId, …)` does *not* include them (it reads exactly one node's live map, translated to wire paths). To read a whole run at once, `lookupRun(logicRunId, …)` merges **every node of the run** into one snapshot, keeping only the latest node per stable id and resolving residual duplicate paths by the highest sequence (each live entry carries its `TraceEvent.sequence` via `Node.liveSequence`) — reproducing the former store's re-entry clearing. kzen-auto's client `ScriptProgressStore` does exactly this — one `mostRecent(scriptRoot)` to discover the run, then one `lookupRun` — and derives each `RunStep`'s execution-ordered screenshots from the run's history (log events, via `lookupRunHistory`). Individual executions stay separately addressable via `lookup`; `lookupRun` is the run-wide read.
 
-**Stepping across concurrent spines.** `RunEngine` computes Step Over / Step Out centrally from tree depth, and two choices are load-bearing precisely because they only misbehave under a *multi-spine* run (Job): the step `limit` is the **shallowest** parked frame (`minOf`, never `maxOf` — a concurrent Job parks siblings at different depths, and referencing an already-descended child's depth re-descends Step Over into it), and `SteppingOver` / `SteppingOut` stay active for the whole step rather than collapsing to `Paused` when one spine parks at its boundary (collapsing lets a shallow worker catch a deeper still-running child at its next checkpoint and park it inside). A single-spine Script/Flow parks exactly one node at a time (min depth == max depth), so single-spine tests cannot catch regressions here — any change to Step Into/Over/Out or `checkpoint` depth logic must be validated with a concurrent-spine test (`RunEngineTest.stepOverRunsAlreadyDescendedConcurrentChildFree` is the pin).
+**Stepping across concurrent spines.** `RunEngine` computes Step Over / Step Out centrally from tree depth, and two choices are load-bearing precisely because they only misbehave under a *multi-spine* run (Job): the step `limit` is the **shallowest** parked frame (`minOf`, never `maxOf` — a concurrent Job parks siblings at different depths, and referencing an already-descended child's depth re-descends Step Over into it), and `SteppingOver` / `SteppingOut` stay active for the whole step rather than collapsing to `Paused` when one spine parks at its boundary (collapsing lets a shallow worker catch a deeper still-running child at its next checkpoint and park it inside). A single-spine Script/Flow parks exactly one node at a time (min depth == max depth), so single-spine tests cannot catch regressions here — any change to Step Into/Over/Out or `checkpoint` depth logic must be validated with a concurrent-spine test (`RunEngineControlTest.stepOverRunsAlreadyDescendedConcurrentChildFree` is the pin).
 
 Nothing in the engine limits a process to one run — an engine is created per run and owns only that run's state. The **server** currently tracks a single active run (kzen-auto's `ServerLogicController`), retaining it after it settles so its trace stays readable for post-run review; lifting that is a known deferred item (`logic-spec.md` §2).
 
@@ -291,7 +291,7 @@ model/
     notation/ — DocumentNotation, DocumentObjectNotation, GraphNotation, ObjectNotation,
                 AttributeNotation, PositionIndex/Relation, Positioned* + cqrs/ + codec/
     metadata/ — GraphMetadata, ObjectMetadata, TypeMetadata, AttributeMetadata + tag/
-    resource/ — ResourcePath, ResourceListing, ResourceContent/Directory/Info/Name/Nesting
+    resource/ — ResourcePath, ResourceListing, ResourceDirectory/Name/Nesting
     scan/     — NotationScan, DocumentScan (the on-disk document tree, folders included)
 objects/     — bootstrap + built-in SPI implementations
   base/      — AttributeObjectDefiner/Creator, StructuralAttributeDefiner, ServiceAttributeCreator
@@ -301,7 +301,7 @@ reflect/     — @Reflect/@Service, ClassMirror, GlobalMirror, ReflectionRegistr
 service/
   context/   — GraphDefiner, GraphCreator; environment/ (GraphEnvironment + builder — @Service DI)
   media/     — NotationMedia (I/O) + ReadWrite/Literal/Map/Seeded impls
-  metadata/  — NotationMetadataReader, MirrorMetadataReader
+  metadata/  — NotationMetadataReader
   notation/  — NotationReducer (+ per-target handler files), NotationConventions, CodeReferenceRewriter
   parse/     — NotationParser, YamlNotationParser
   store/     — LocalGraphStore, DirectGraphStore, RemoteGraphStore, MirroredGraphStore;
@@ -311,7 +311,7 @@ util/        — digest/ (Digest, DigestCache, Digestible), naming/, yaml/, Immu
 
 Platform code lives under `tech.kzen.lib.platform` — declared in `commonMain` and implemented per target in jvmMain / jsMain: `ClassName`, `collect/` (persistent collections), `DateTimeUtils`, `IoUtils`, `PlatformSynchronized`. `commonMain` types depend only on `platform/`, not on the inverse.
 
-Beyond `kzen-lib-common` the repo holds `kzen-lib-jvm` (JVM-only server code: `server/exec/engine/` for `RunEngine` + `CountingDispatcher`, `server/notation/` for file-backed media, `server/reflect/` for the reflective mirror, `server/codegen/`), `kzen-lib-js`, and `kzen-lib-reflect-ksp` (the KSP processor that generates each module's `ModuleReflection`).
+Beyond `kzen-lib-common` the repo holds `kzen-lib-jvm` (JVM-only server code: `server/exec/engine/` for `RunEngine` + `CountingDispatcher`, `server/notation/` for file-backed media, `server/reflect/` for the reflective mirror), `kzen-lib-js`, and `kzen-lib-reflect-ksp` (the KSP processor that generates each module's `ModuleReflection`). Note `server.codegen` is a *generated* package, not a source directory — KSP emits `KzenLibJvmTestModule` into it for the jvm test source set.
 
 ## Critical files to read first
 

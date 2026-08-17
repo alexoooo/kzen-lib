@@ -1,0 +1,71 @@
+package tech.kzen.lib.common.service.notation
+
+import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
+import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftObjectCommand
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+
+
+class ShiftObjectTest: StructuralNotationTest() {
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Shift up`() {
+        val notation = parseGraph("""
+A:
+  hello: "a"
+B:
+  hello: "b"
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                ShiftObjectCommand(
+                        location("B"), PositionRelation.first))
+
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
+        assertEquals(0, packageNotation.indexOf(ObjectPath.parse("B")).value)
+        assertNotEquals(notation.documents.map[testPath]!!.objects, packageNotation.objects)
+    }
+
+
+    @Test
+    fun `Shift down`() {
+        val notation = parseGraph("""
+A:
+  hello: "a"
+B:
+  hello: "b"
+""")
+
+        val transition = reducer.applyStructural(
+            notation,
+            ShiftObjectCommand(
+                location("A"), PositionRelation.at(1)))
+
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
+        assertEquals(1, packageNotation.indexOf(ObjectPath.parse("A")).value)
+        assertNotEquals(notation.documents.map[testPath]!!.objects, packageNotation.objects)
+    }
+
+
+    @Test
+    fun `Shift in place`() {
+        val notation = parseGraph("""
+A:
+  hello: "a"
+B:
+  hello: "b"
+""")
+
+        val transition = reducer.applyStructural(
+            notation,
+            ShiftObjectCommand(
+                location("A"), PositionRelation.first))
+
+        val packageNotation = transition.graphNotation.documents.map[testPath]!!
+        assertEquals(0, packageNotation.indexOf(ObjectPath.parse("A")).value)
+        assertEquals(notation.documents.map[testPath]!!.objects, packageNotation.objects)
+    }
+}

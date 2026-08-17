@@ -38,6 +38,12 @@ data class Digest(
 
         /**
          * Data to be digested is absent or missing, e.g. null
+         *
+         * Null has two encodings here and they are not interchangeable: a whole-value factory ([ofUtf8],
+         * [ofBytes]) returns this sentinel, whereas a [Sink] member taking a nullable
+         * ([Sink.addUtf8Nullable], [Sink.addDigestibleNullable]) writes a presence boolean followed by the
+         * value. Digests are compared and persisted across runs, so neither encoding can be migrated onto
+         * the other without invalidating stored values.
          */
         val missing = Digest(Int.MIN_VALUE, 0, 0, 0)
 
@@ -100,27 +106,9 @@ data class Digest(
                 return empty
             }
 
-            var s0: Int = constantSeed
-            var s1: Int = murmurHash3(bytes.size)
-            var s2: Int = hashMapHash(bytes.size)
-            var s3: Int = guavaHashingSmear(bytes.size)
-
-            for (b in bytes) {
-                s0 = s0 * 37 xor guavaHashingSmear(b.toInt())
-
-                val t = s1 shl 9
-
-                s2 = s2 xor s0
-                s3 = s3 xor s1
-                s1 = s1 xor s2
-                s0 = s0 xor s3
-
-                s2 = s2 xor t
-
-                s3 = rotateLeft(s3, 11)
-            }
-
-            return finalize(s0, s1, s2, s3)
+            // A fresh Builder seeds itself from the leading size add, so this is the same seed-then-mix
+            // sequence spelled once (pinned by DigestTest.digestByteArray).
+            return Builder().addBytes(bytes).digest()
         }
 
 
@@ -181,63 +169,33 @@ data class Digest(
             s3 = rotateLeft(s3, 11)
             return Digest(s0, s1, s2, s3)
         }
-
-
-//        private fun finalizeLong(a: Int, b: Int, c: Int, d: Int): Long {
-//            var s0 = murmurHash3(a)
-//            val t = b shl 9
-//            var s2 = guavaHashingSmear(c xor s0)
-//            var s3 = murmurHash3(d xor b + 0x6fa035c3)
-//            val s1 = b xor s2
-//            s0 = s0 xor s3
-//            s2 = murmurHash3(s2 xor t)
-//            s3 = rotl(s3, 11)
-//            return (s0.toLong() shl 32 or (s1.toLong() and 0xffffffffL)) * 92821 +
-//                    (s2.toLong() shl 32 or (s3.toLong() and 0xffffffffL))
-//        }
     }
 
 
     //-----------------------------------------------------------------------------------------------------------------
     interface Sink {
-        fun addMissing(): Sink
-
         fun addBoolean(value: Boolean): Sink
-        fun addBooleanNullable(value: Boolean?): Sink
-
-        fun addByte(value: Byte): Sink
-        fun addByteNullable(value: Byte?): Sink
-
-        fun addChar(value: Char): Sink
-        fun addCharNullable(value: Char?): Sink
-
-        fun addShort(value: Short): Sink
-        fun addShortNullable(value: Short?): Sink
 
         fun addInt(value: Int): Sink
-        fun addIntNullable(value: Int?): Sink
 
         fun addDouble(value: Double): Sink
-        fun addDoubleNullable(value: Double?): Sink
 
         fun addLong(value: Long): Sink
-        fun addLongNullable(value: Long?): Sink
 
         fun addBytes(value: ByteArray): Sink
-        fun addBytesNullable(value: ByteArray?): Sink
 
         fun addUtf8(value: String): Sink
+
+        // Nullables write a presence boolean then the value, NOT the [Digest.missing] sentinel — see there.
         fun addUtf8Nullable(value: String?): Sink
 
         fun addDigest(value: Digest): Sink
-        fun addDigestNullable(value: Digest?): Sink
 
         fun addDigestible(value: Digestible): Sink
         fun addDigestibleNullable(value: Digestible?): Sink
 
         fun addDigestibleList(digestibleList: List<Digestible>): Sink
         fun addDigestibleUnorderedList(digestibleList: List<Digestible>): Sink
-        fun addDigestibleOrderedSet(digestibleSet: Set<Digestible>): Sink
         fun addDigestibleUnorderedSet(digestibleSet: Set<Digestible>): Sink
         fun addDigestibleOrderedMap(digestibleMap: Map<out Digestible, Digestible>): Sink
         fun addDigestibleUnorderedMap(digestibleMap: Map<out Digestible, Digestible>): Sink
@@ -262,12 +220,6 @@ data class Digest(
         }
 
 
-        override fun addMissing(): Builder {
-            addDigest(missing)
-            return this
-        }
-
-
         override fun addBoolean(value: Boolean): Builder {
             if (value) {
                 addInt(1)
@@ -279,80 +231,8 @@ data class Digest(
         }
 
 
-        override fun addBooleanNullable(value: Boolean?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addBoolean(value)
-            }
-            return this
-        }
-
-
-        override fun addByte(value: Byte): Builder {
-            addInt(value.toInt())
-            return this
-        }
-
-
-        override fun addByteNullable(value: Byte?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addByte(value)
-            }
-            return this
-        }
-
-
-        override fun addChar(value: Char): Builder {
-            addInt(value.code)
-            return this
-        }
-
-
-        override fun addCharNullable(value: Char?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addChar(value)
-            }
-            return this
-        }
-
-
-        override fun addShort(value: Short): Builder {
-            addInt(value.toInt())
-            return this
-        }
-
-        override fun addShortNullable(value: Short?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addShort(value)
-            }
-            return this
-        }
-
-
         override fun addDouble(value: Double): Builder {
             addLong(value.toBits())
-            return this
-        }
-
-
-        override fun addDoubleNullable(value: Double?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addDouble(value)
-            }
             return this
         }
 
@@ -365,34 +245,11 @@ data class Digest(
         }
 
 
-        override fun addLongNullable(value: Long?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addLong(value)
-            }
-            return this
-        }
-
-
         override fun addDigest(value: Digest): Builder {
             addInt(value.a)
             addInt(value.b)
             addInt(value.c)
             addInt(value.d)
-            return this
-        }
-
-
-        override fun addDigestNullable(value: Digest?): Builder {
-            if (value == null) {
-                addBoolean(false)
-            }
-            else {
-                addBoolean(true)
-                addDigest(value)
-            }
             return this
         }
 
@@ -425,45 +282,12 @@ data class Digest(
 
 
         override fun addDigestibleUnorderedList(digestibleList: List<Digestible>): Builder {
-            addInt(digestibleList.size)
-
-            val unorderedCombiner = UnorderedCombiner()
-            val valueDigester = Builder()
-
-            for (value in digestibleList) {
-                valueDigester.clear()
-                valueDigester.addDigestible(value)
-                unorderedCombiner.add(valueDigester.digest())
-            }
-
-            addDigest(unorderedCombiner.combine())
-            return this
-        }
-
-
-        override fun addDigestibleOrderedSet(digestibleSet: Set<Digestible>): Builder {
-            addInt(digestibleSet.size)
-            for (value in digestibleSet) {
-                addDigestible(value)
-            }
-            return this
+            return addUnorderedCollection(digestibleList) { addDigestible(it) }
         }
 
 
         override fun addDigestibleUnorderedSet(digestibleSet: Set<Digestible>): Builder {
-            addInt(digestibleSet.size)
-
-            val unorderedCombiner = UnorderedCombiner()
-            val valueDigester = Builder()
-
-            for (value in digestibleSet) {
-                valueDigester.clear()
-                valueDigester.addDigestible(value)
-                unorderedCombiner.add(valueDigester.digest())
-            }
-
-            addDigest(unorderedCombiner.combine())
-            return this
+            return addUnorderedCollection(digestibleSet) { addDigestible(it) }
         }
 
 
@@ -478,22 +302,10 @@ data class Digest(
 
 
         override fun addDigestibleUnorderedMap(digestibleMap: Map<out Digestible, Digestible>): Builder {
-            addInt(digestibleMap.size)
-
-            val unorderedCombiner = UnorderedCombiner()
-            val entryDigester = Builder()
-
-            for ((key, value) in digestibleMap) {
-                entryDigester.clear()
-
-                entryDigester.addDigestible(key)
-                entryDigester.addDigestible(value)
-
-                unorderedCombiner.add(entryDigester.digest())
+            return addUnorderedCollection(digestibleMap.entries) { (key, value) ->
+                addDigestible(key)
+                addDigestible(value)
             }
-
-            addDigest(unorderedCombiner.combine())
-            return this
         }
 
 
@@ -544,21 +356,35 @@ data class Digest(
 
         override fun addBytes(value: ByteArray): Builder {
             addInt(value.size)
-            value.forEach {
-                addByte(it)
-            }
-            return this
-        }
 
+            // The inner loop of every string and blob digest, so [addInt]'s mixing step is spelled out over
+            // locals: the four state words stay in registers instead of being re-read and re-written per
+            // byte. The leading size add leaves the state non-zero, so addInt's seeding branch cannot apply.
+            var h0 = s0
+            var h1 = s1
+            var h2 = s2
+            var h3 = s3
 
-        override fun addBytesNullable(value: ByteArray?): Builder {
-            if (value == null) {
-                addBoolean(false)
+            for (element in value) {
+                h0 = h0 * 37 xor guavaHashingSmear(element.toInt())
+
+                val t = h1 shl 9
+
+                h2 = h2 xor h0
+                h3 = h3 xor h1
+                h1 = h1 xor h2
+                h0 = h0 xor h3
+
+                h2 = h2 xor t
+
+                h3 = rotateLeft(h3, 11)
             }
-            else {
-                addBoolean(true)
-                addBytes(value)
-            }
+
+            s0 = h0
+            s1 = h1
+            s2 = h2
+            s3 = h3
+
             return this
         }
 
@@ -580,17 +406,6 @@ data class Digest(
                 s2 = s2 xor t
 
                 s3 = rotateLeft(s3, 11)
-            }
-            return this
-        }
-
-
-        override fun addIntNullable(value: Int?): Builder {
-            if (value == null) {
-                addMissing()
-            }
-            else {
-                addInt(value)
             }
             return this
         }
@@ -664,35 +479,6 @@ data class Digest(
             b += digest.b
             c += digest.c
             d += digest.d
-        }
-
-
-        override fun combine(): Digest {
-            return Digest(a, b, c, d)
-        }
-    }
-
-
-    class OrderedCombiner: Combiner {
-        private var a: Int = 0
-        private var b: Int = 0
-        private var c: Int = 0
-        private var d: Int = 0
-
-
-        override fun clear() {
-            a = 0
-            b = 0
-            c = 0
-            d = 0
-        }
-
-
-        override fun add(digest: Digest) {
-            a = a * 37 xor digest.a
-            b = b * 37 xor digest.b
-            c = c * 37 xor digest.c
-            d = d * 37 xor digest.d
         }
 
 

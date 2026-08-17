@@ -256,14 +256,6 @@ data class RemoveObjectInAttributeCommand(
 ): StructuralNotationCommand()
 
 
-//data class InsertObjectInMapAttributeCommand(
-//        val objectLocation: PositionedObjectLocation,
-//        val containingMapPosition: PositionedAttributeNesting,
-//        val key: MapKeyAttributeSegment,
-//        val body: ObjectNotation
-//): ProjectCommand()
-
-
 data class RenameObjectRefactorCommand(
     val objectLocation: ObjectLocation,
     val newName: ObjectName
@@ -322,22 +314,4 @@ data class AddResourceCommand(
 data class RemoveResourceCommand(
     val resourceLocation: ResourceLocation
 ): ResourceNotationCommand()
-
-
-//data class ReplaceResourceCommand(
-//        val resourceLocation: ResourceLocation,
-//        val newResourceContent: ResourceContent
-//): ResourceNotationCommand()
-//
-//
-//data class RenameResourceCommand(
-//        val resourceLocation: ResourceLocation,
-//        val newName: ResourceName
-//): ResourceNotationCommand()
-//
-//
-//data class MoveResourceCommand(
-//        val resourceLocation: ResourceLocation,
-//        val newPath: ResourcePath
-//): ResourceNotationCommand()
 

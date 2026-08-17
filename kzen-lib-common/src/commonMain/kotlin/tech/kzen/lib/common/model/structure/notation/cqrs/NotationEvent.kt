@@ -32,6 +32,15 @@ sealed class CompoundNotationEvent(
 ): NotationEvent()
 
 
+// An event addressed to one object, which is where its document comes from.
+sealed class ObjectNotationEvent: SingularNotationEvent() {
+    abstract val objectLocation: ObjectLocation
+
+    override val documentPath: DocumentPath
+        get() = objectLocation.documentPath
+}
+
+
 //---------------------------------------------------------------------------------------------------------------------
 data class CreatedDocumentEvent(
     override val documentPath: DocumentPath,
@@ -69,50 +78,35 @@ data class SetDocumentObjectsEvent(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class AddedObjectEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val indexInDocument: PositionIndex,
     val objectNotation: ObjectNotation
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class RemovedObjectEvent(
-    val objectLocation: ObjectLocation
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+    override val objectLocation: ObjectLocation
+): ObjectNotationEvent()
 
 
 data class ShiftedObjectEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val newPositionInDocument: PositionIndex
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 // NB: the subtree's repositioned descendants are reflected in the resulting GraphNotation, not enumerated here
 // (newPositionInDocument is the resolved insertion index of the subtree root).
 data class ShiftedObjectTreeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val newPositionInDocument: PositionIndex
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class RenamedObjectEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val newName: ObjectName
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-
+): ObjectNotationEvent() {
     @Suppress("MemberVisibilityCanBePrivate")
     fun newObjectPath(): ObjectPath {
         return objectLocation.objectPath.copy(name = newName)
@@ -127,12 +121,9 @@ data class RenamedObjectEvent(
 
 
 data class RenamedNestedObjectEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val newObjectNesting: ObjectNesting
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-
+): ObjectNotationEvent() {
     @Suppress("MemberVisibilityCanBePrivate")
     fun newObjectPath(): ObjectPath {
         return objectLocation.objectPath.copy(nesting = newObjectNesting)
@@ -147,71 +138,48 @@ data class RenamedNestedObjectEvent(
 
 //---------------------------------------------------------------------------------------------------------------------
 data class UpsertedAttributeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val attributeName: AttributeName,
     val attributeValue: AttributeNotation
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class UpdatedInAttributeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val attributeNesting: AttributePath,
     val attributeNotation: AttributeNotation
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class UpdatedAllNestingsInAttributeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val attributeName: AttributeName,
     val attributeNestings: List<AttributeNesting>,
     val attributeNotation: AttributeNotation
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class UpdatedAllValuesInAttributeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val attributeName: AttributeName,
     val nestingNotations: Map<AttributeNesting, AttributeNotation>
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class RemovedInAttributeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val attributePath: AttributePath
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 data class RemovedAllInAttributeEvent(
-    val objectLocation: ObjectLocation,
+    override val objectLocation: ObjectLocation,
     val attributePaths: List<AttributePath>
-): SingularNotationEvent() {
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+): ObjectNotationEvent()
 
 
 //--------------------------------------------------------------
-sealed class InsertedInAttributeEvent: SingularNotationEvent() {
-    abstract val objectLocation: ObjectLocation
-
-    override val documentPath
-        get() = objectLocation.documentPath
-}
+sealed class InsertedInAttributeEvent: ObjectNotationEvent()
 
 
 data class InsertedListItemInAttributeEvent(

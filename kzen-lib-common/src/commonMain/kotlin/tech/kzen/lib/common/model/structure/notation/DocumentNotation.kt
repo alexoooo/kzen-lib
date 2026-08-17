@@ -93,7 +93,9 @@ data class DocumentNotation(
 
 
     fun indexOf(objectPath: ObjectPath): PositionIndex {
-        return PositionIndex(objects.notations.map.keys.indexOf(objectPath))
+        val index = objects.notations.map.keys.indexOf(objectPath)
+        require(index != -1) { "Object not found: $objectPath" }
+        return PositionIndex(index)
     }
 
 

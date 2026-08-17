@@ -109,13 +109,15 @@ class ClasspathNotationMedia(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    // No resource subtree is exposed: scan() emits a null ResourceListing per document, so nothing this media
+    // serves ever addresses a resource and every operation below is out of contract rather than unfinished.
     override suspend fun containsResource(resourceLocation: ResourceLocation): Boolean {
         return false
     }
 
 
     override suspend fun readResource(resourceLocation: ResourceLocation): ImmutableByteArray {
-        TODO("not implemented")
+        throw UnsupportedOperationException("Classpath media carries no resources: $resourceLocation")
     }
 
 

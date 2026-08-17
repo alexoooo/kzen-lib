@@ -33,12 +33,6 @@ data class DocumentName(
 
 
     //-----------------------------------------------------------------------------------------------------------------
-    fun withoutExtension(): String {
-        return value.substringBeforeLast(".")
-    }
-
-
-    //-----------------------------------------------------------------------------------------------------------------
     override fun digest(sink: Digest.Sink) {
         sink.addUtf8(value)
     }

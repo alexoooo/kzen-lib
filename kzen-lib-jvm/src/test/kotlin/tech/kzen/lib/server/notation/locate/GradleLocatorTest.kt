@@ -1,7 +1,7 @@
 package tech.kzen.lib.server.notation.locate
 
-import org.junit.Test
 import java.nio.file.Files
+import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 

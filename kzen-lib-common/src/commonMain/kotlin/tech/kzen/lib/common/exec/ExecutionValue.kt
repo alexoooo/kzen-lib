@@ -19,9 +19,8 @@ sealed class ExecutionValue
     : Digestible
 {
     companion object {
-        private val className = ClassName("tech.kzen.auto.common.paradigm.common.model.ExecutionValue")
+        private val className = ClassName("tech.kzen.lib.common.exec.ExecutionValue")
 
-        @Suppress("unused")
         val typeMetadata = TypeMetadata.of(className)
 
         private const val typeKey = "type"
@@ -455,6 +454,17 @@ data class BinaryExecutionValue(
 
     fun asBase64(): String {
         return cache("base64") { IoUtils.base64Encode(value) }
+    }
+
+
+    /**
+     * Content hash of the bytes, in the [Digest.asString] encoding that addresses a binary trace value
+     * out-of-band ([BinaryHandleExecutionValue.hash]). Memoized because both sides of that exchange hash the
+     * same bytes repeatedly: the projection that mints a handle re-hashes every binary it serializes, and
+     * the blob endpoint that resolves one re-hashes every retained binary until it finds a match.
+     */
+    fun contentHash(): String {
+        return cache("contentHash") { Digest.ofBytes(value).asString() }
     }
 
 

@@ -48,39 +48,10 @@ data class ObjectNotation(
 
 
     fun get(notationPath: AttributePath): AttributeNotation? {
-//        if (parameters.containsKey(notationPath)) {
-//            return parameters[notationPath]!!
-//        }
-//
-//        val segments = notationPath.split(".")
-
-        val firstSegment = notationPath.attribute
-        if (!attributes.map.containsKey(firstSegment)) {
-            return null
-        }
-
         val root = get(notationPath.attribute)
-                ?: return null
+            ?: return null
 
-        if (notationPath.nesting.segments.isEmpty()) {
-            return root
-        }
-
-        var next: StructuredAttributeNotation = root
-                as? StructuredAttributeNotation
-                ?: return null
-
-        for (segment in notationPath.nesting.segments.dropLast(1)) {
-            val sub = next.get(segment.asString())
-                    as? StructuredAttributeNotation
-                    ?: return null
-
-            next = sub
-        }
-
-        val lastPathSegment = notationPath.nesting.segments.last()
-
-        return next.get(lastPathSegment.asString())
+        return root.get(notationPath.nesting)
     }
 
 

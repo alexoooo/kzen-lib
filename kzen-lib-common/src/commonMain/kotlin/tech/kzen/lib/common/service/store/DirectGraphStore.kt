@@ -62,26 +62,6 @@ class DirectGraphStore(
     }
 
 
-    private suspend fun publishFailure(
-        command: NotationCommand,
-        cause: Throwable,
-        attachment: LocalGraphStore.Attachment
-    ) {
-        for (observer in observers) {
-            observer.onCommandFailure(command, cause, attachment)
-        }
-    }
-
-
-    private suspend fun publishRefresh() {
-        val graphDefinition = graphDefinition()
-
-        for (observer in observers) {
-            observer.onStoreRefresh(graphDefinition)
-        }
-    }
-
-
     //-----------------------------------------------------------------------------------------------------------------
     override suspend fun graphNotation(): GraphNotation {
         return mutex.withLock { graphNotationLocked(notationMedia.scan()) }
@@ -164,7 +144,7 @@ class DirectGraphStore(
 
     /**
      * One tryDefine per notation version: keyed by the notation's (memoized) content digest, so the
-     * old-notation define inside a semantic command, observe() and publishRefresh() are all cache hits.
+     * old-notation define inside a semantic command and observe() are cache hits.
      * A hit also skips the metadata read, and reusing the attempt instance memoizes its lazy
      * transitiveSuccessful pruning once per notation version.
      */

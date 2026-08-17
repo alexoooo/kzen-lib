@@ -23,9 +23,7 @@ import tech.kzen.lib.platform.collect.persistentMapOf
 import tech.kzen.lib.platform.collect.toPersistentMap
 
 
-class NotationMetadataReader(
-//        private val mirrorMetadataReader: MirrorMetadataReader
-) {
+class NotationMetadataReader {
     //-----------------------------------------------------------------------------------------------------------------
     private val objectMetadataCache = DigestCache<ObjectMetadata>(1024)
 
@@ -329,12 +327,6 @@ class NotationMetadataReader(
             }
         val mergedAttributeNotation = MapAttributeNotation(augmentedMergedAttributeMap)
 
-//        val classNotation = metadataAttribute(
-//            NotationConventions.classAttributePath, inheritanceParentLocation, attributeMap, graphNotation)
-//        val className = ((classNotation as? ScalarAttributeNotation)?.value)
-//            ?.let { ClassName(it) }
-//            ?: throw IllegalArgumentException("Unknown class: $host - $attributeNotation")
-
         val definerReference = mergedAttributeNotation
             .map[NotationConventions.definerAttributeSegment]
             ?.asString()
@@ -342,25 +334,6 @@ class NotationMetadataReader(
         val creatorReference = mergedAttributeNotation
             .map[NotationConventions.creatorAttributeSegment]
             ?.asString()
-
-//        val nullable = attributeMap
-//            .values[NotationConventions.nullableAttributeSegment]
-//            ?.asBoolean()
-//            ?: false
-//
-//
-//        val genericsNotation = attributeMap.values[NotationConventions.ofAttributeSegment]
-//
-//        val generics: List<TypeMetadata> =
-//            if (genericsNotation == null) {
-//                listOf()
-//            }
-//            else {
-//                readGenerics(genericsNotation, host, graphNotation)
-//            }
-//
-//        val typeMetadata = TypeMetadata(
-//            className, generics, nullable)
 
         val typeMetadata = readAttributeType(mergedAttributeNotation, host, graphNotation)
 
@@ -472,10 +445,6 @@ class NotationMetadataReader(
     ): String? {
         return when (attributeNotation) {
             is ScalarAttributeNotation -> {
-//                check(attributeNotation.value is String) {
-//                    "Inline '${NotationConventions.isKey}' must be String: $attributeNotation"
-//                }
-
                 attributeNotation.value
             }
 

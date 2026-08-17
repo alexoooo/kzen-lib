@@ -1,0 +1,91 @@
+package tech.kzen.lib.common.service.context
+
+import tech.kzen.lib.common.model.document.DocumentPath
+import tech.kzen.lib.common.model.location.ObjectLocation
+import tech.kzen.lib.common.model.obj.ObjectPath
+import tech.kzen.lib.server.objects.autowire.NestedHolder
+import tech.kzen.lib.server.objects.autowire.ObjectGroup
+import tech.kzen.lib.server.objects.autowire.StrongHolder
+import tech.kzen.lib.server.objects.autowire.WeakHolder
+import tech.kzen.lib.server.util.JvmGraphTestUtils
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+
+class AutowiredTest {
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Literal object locations`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val location = location("WeakLiteral")
+        val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
+        
+        assertEquals(listOf(
+            location("AbstractFoo"),
+            location("AbstractBar")
+        ), weakHolderInstance.locations)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Autowired object locations`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val location = location("WeakHolder")
+        val weakHolderInstance = objectGraph[location]?.reference as WeakHolder
+
+        assertEquals(listOf(
+            location("AbstractFoo"),
+            location("AbstractBar")
+        ), weakHolderInstance.locations)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Autowired object instances`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val location = location("StrongHolder")
+        val strongHolderInstance = objectGraph[location]?.reference as StrongHolder
+
+        assertEquals(2, strongHolderInstance.concreteObjects.size)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Autowired parent child`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val location = location("ObjectGroup")
+        val objectGroup = objectGraph.objectInstances[location]?.reference as ObjectGroup
+
+        assertEquals(2, objectGroup.children.size)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Nested list by document position`() {
+        val objectGraph = JvmGraphTestUtils.newObjectGraph()
+
+        val nestedHolder = objectGraph[location("NestedHolder")]?.reference as NestedHolder
+
+        // Document order, not name order: 'Second' is declared before 'First' in the notation.
+        assertEquals(listOf(
+            location("NestedHolder.children/Second"),
+            location("NestedHolder.children/First")
+        ), nestedHolder.children)
+    }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    private fun location(name: String): ObjectLocation {
+        return ObjectLocation(
+            DocumentPath.parse("test/autowired.yaml"),
+            ObjectPath.parse(name))
+    }
+}

@@ -9,6 +9,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
+import tech.kzen.lib.common.util.naming.EscapedDelimiter
 
 
 @Serializable(with = AttributePathSerializer::class)
@@ -24,49 +25,26 @@ data class AttributePath(
         @Suppress("ConstPropertyName")
         const val delimiter = "."
 
+        private val escapedDelimiter = EscapedDelimiter('.')
+
 
         fun indexOfDelimiter(encodedObjectPath: String): Int {
-            for (i in 1 until encodedObjectPath.length) {
-                if (encodedObjectPath[i] == '.' &&
-                        encodedObjectPath[i - 1] != '\\') {
-                    return i
-                }
-            }
-            if (encodedObjectPath.isNotEmpty() && encodedObjectPath[0] == '.') {
-                return 0
-            }
-            return -1
+            return escapedDelimiter.indexOf(encodedObjectPath)
         }
 
 
         fun encodeDelimiter(value: String): String {
-            return value.replace(".", "\\.")
+            return escapedDelimiter.encode(value)
         }
 
 
         fun decodeDelimiter(value: String): String {
-            return value.replace("\\.", ".")
+            return escapedDelimiter.decode(value)
         }
 
 
         fun splitOnDelimiter(encodedObjectPath: String): List<String> {
-            val segments = mutableListOf<String>()
-
-            var remaining = encodedObjectPath
-
-            while (true) {
-                val nextIndex = indexOfDelimiter(remaining)
-                if (nextIndex == -1) {
-                    segments.add(remaining)
-                    break
-                }
-
-                segments.add(remaining.substring(0, nextIndex))
-
-                remaining = remaining.substring(nextIndex + 1)
-            }
-
-            return segments
+            return escapedDelimiter.split(encodedObjectPath)
         }
 
 

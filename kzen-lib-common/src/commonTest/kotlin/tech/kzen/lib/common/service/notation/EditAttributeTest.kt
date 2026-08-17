@@ -1,0 +1,237 @@
+package tech.kzen.lib.common.service.notation
+
+import tech.kzen.lib.common.model.attribute.AttributeName
+import tech.kzen.lib.common.model.attribute.AttributePath
+import tech.kzen.lib.common.model.attribute.AttributeSegment
+import tech.kzen.lib.common.model.structure.notation.ListAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.MapAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.PositionRelation
+import tech.kzen.lib.common.model.structure.notation.ScalarAttributeNotation
+import tech.kzen.lib.common.model.structure.notation.cqrs.RemoveInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.ShiftInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.UpdateInAttributeCommand
+import tech.kzen.lib.common.model.structure.notation.cqrs.UpsertAttributeCommand
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+
+
+class EditAttributeTest: StructuralNotationTest() {
+    //-----------------------------------------------------------------------------------------------------------------
+    @Test
+    fun `Edit simple attribute`() {
+        val notation = parseGraph("""
+Foo:
+  hello: "bar"
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                UpsertAttributeCommand(
+                        location("Foo"),
+                        AttributeName("hello"),
+                        ScalarAttributeNotation("world")))
+
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello"))
+        assertEquals("world", value)
+    }
+
+
+    @Test
+    fun `Edit default attribute`() {
+        val notation = parseGraph("""
+Foo:
+  hello: "bar"
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                UpsertAttributeCommand(
+                        location("Foo"),
+                        AttributeName("foo"),
+                        ScalarAttributeNotation("baz")))
+
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("foo"))
+        assertEquals("baz", value)
+    }
+
+
+    @Test
+    fun `Edit in map attribute`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    world: bar
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                UpdateInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.world"),
+                        ScalarAttributeNotation("baz")))
+
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello.world"))
+        assertEquals("baz", value)
+    }
+
+
+    @Test
+    fun `Update in list attribute`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    - bar
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                UpdateInAttributeCommand(
+                        location("Foo"),
+                        AttributePath.parse("hello.0"),
+                        ScalarAttributeNotation("baz")))
+
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello.0"))
+        assertEquals("baz", value)
+    }
+
+
+    @Test
+    fun `Update in nested attribute`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    foo:
+      bar: baz
+
+Bar:
+  is: Foo
+  hello: {}
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                UpdateInAttributeCommand(
+                        location("Bar"),
+                        AttributePath.parse("hello.foo.key"),
+                        ScalarAttributeNotation("world")))
+
+        val value = transition.graphNotation.getString(
+                location("Bar"), attribute("hello.foo.key"))
+        assertEquals("world", value)
+    }
+
+
+    @Test
+    fun `Shift in list`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    - bar
+    - baz
+""")
+
+        val transition = reducer.applyStructural(
+                notation,
+                ShiftInAttributeCommand(
+                    location("Foo"),
+                    AttributePath.parse("hello.0"),
+                    PositionRelation.at(1)))
+
+        val value = transition.graphNotation.getString(
+                location("Foo"), attribute("hello.0"))
+        assertEquals("baz", value)
+    }
+
+
+    @Test
+    fun `Shift in map`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    foo: 1
+    bar: 2
+""")
+
+        val transition = reducer.applyStructural(
+            notation,
+            ShiftInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.foo"),
+                PositionRelation.at(1)))
+
+        val objectNotation =
+                transition.graphNotation.coalesce.map[location("Foo")]!!
+        val containerNotation =
+                objectNotation.get(attribute("hello")) as MapAttributeNotation
+
+        val fooIndex = containerNotation.map.keys.indexOf(AttributeSegment.ofKey("foo"))
+        assertEquals(1, fooIndex)
+    }
+
+
+    @Test
+    fun `Remove last remaining in list`() {
+        val notation = parseGraph("""
+Foo:
+  hello:
+    - baz
+  bar: []
+""")
+
+        val transition = reducer.applyStructural(
+            notation,
+            RemoveInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.0"),
+                false))
+
+        val newObjectNotation =
+                transition.graphNotation.coalesce.map[location("Foo")]!!
+        val emptyList =
+                newObjectNotation.attributes.map[AttributeName("hello")] as ListAttributeNotation
+
+        assertTrue(emptyList.values.isEmpty())
+
+        assertEquals("""
+Foo:
+  hello: []
+  bar: []
+""".trim(), unparseDocument(transition.graphNotation))
+    }
+
+
+    @Test
+    fun `Remove last remaining in map`() {
+        val notation = parseGraph("""
+            Foo:
+              hello:
+                foo: 1
+              bar: {}
+            """.trimIndent())
+
+        val transition = reducer.applyStructural(
+            notation,
+            RemoveInAttributeCommand(
+                location("Foo"),
+                AttributePath.parse("hello.foo"),
+                false))
+
+        val newObjectNotation =
+                transition.graphNotation.coalesce.map[location("Foo")]!!
+        val emptyMap =
+                newObjectNotation.attributes.map[AttributeName("hello")] as MapAttributeNotation
+
+        assertTrue(emptyMap.map.isEmpty())
+
+        assertEquals("""
+            Foo:
+              hello: {}
+              bar: {}
+            """.trimIndent(), unparseDocument(transition.graphNotation))
+    }
+}

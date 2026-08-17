@@ -46,6 +46,10 @@ kotlin {
         commonTest {
             dependencies {
                 implementation(kotlin("test"))
+
+                // runTest: the multiplatform equivalent of runBlocking, so suspend-entry-point tests
+                // (DirectGraphStore) run on JS as well as JVM
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:$coroutinesVersion")
             }
         }
 
