@@ -891,6 +891,9 @@ class RunEngine(
                 Outcome.Failed(e.message ?: "failure", e.at ?: stableId)
             }
             catch (e: Throwable) {
+                // The outcome keeps only the formatted message, so this is the one place the stack still exists
+                // — without it a failed node is undiagnosable beyond its one-line message.
+                logger.warn("Node failed: $nodeId", e)
                 Outcome.Failed(ExceptionUtils.message(e), stableId)
             }
         settleNode(nodeId, outcome)
