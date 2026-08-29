@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.exec.engine
 
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
 
@@ -10,7 +10,7 @@ import tech.kzen.lib.common.service.store.normal.ObjectStableId
  * not a returned outcome.
  */
 sealed interface Outcome {
-    data class Success(val value: TupleValue): Outcome
+    data class Success(val value: DataBindings): Outcome
 
     /**
      * A failed execution. [at] is the stable id of the element the failure ORIGINATED at — the engine stamps

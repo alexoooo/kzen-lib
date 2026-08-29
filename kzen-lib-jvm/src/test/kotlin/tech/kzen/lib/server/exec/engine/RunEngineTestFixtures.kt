@@ -5,7 +5,14 @@ import tech.kzen.lib.common.exec.engine.Address
 import tech.kzen.lib.common.exec.engine.Execution
 import tech.kzen.lib.common.exec.engine.Logic
 import tech.kzen.lib.common.exec.engine.LogicSignature
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.BindingDefinition
+import tech.kzen.lib.common.exec.data.binding.BindingName
+import tech.kzen.lib.common.exec.data.binding.BindingSchema
+import tech.kzen.lib.common.exec.data.binding.DataBindings
+import tech.kzen.lib.common.exec.data.type.DataContract
+import tech.kzen.lib.common.exec.data.type.DataType
+import tech.kzen.lib.common.exec.data.value.LiteralDataValues
+import tech.kzen.lib.common.exec.data.value.materializeJvm
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
 
@@ -13,11 +20,27 @@ import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
 
 internal val rootId = ObjectStableId("root")
+internal val mainBindingName = BindingName("main")
+internal val mainBindingSchema = BindingSchema.of(BindingDefinition(
+    mainBindingName,
+    DataContract(DataType.Dynamic(nullable = true))))
+internal val mainSignature = LogicSignature(BindingSchema.empty, mainBindingSchema)
 
 
-internal fun logicOf(block: suspend (Execution) -> TupleValue): Logic =
+internal fun bindingsOfMain(value: Any?): DataBindings =
+    DataBindings.bind(mainBindingSchema, mainBindingName to LiteralDataValues.lift(value))
+
+
+internal fun emptyBindings(): DataBindings = DataBindings.bind(BindingSchema.empty)
+
+
+internal fun DataBindings.mainComponentValue(): Any? =
+    requireValue(mainBindingName).materializeJvm()
+
+
+internal fun logicOf(block: suspend (Execution) -> DataBindings): Logic =
     object: Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
         override suspend fun run(execution: Execution) = block(execution)
     }
 
@@ -33,15 +56,15 @@ internal suspend fun parkForever(execution: Execution): Nothing {
 
 /** Emits i = 1..n, with a checkpoint *before* each emit (so a fresh pause sits before any value). */
 internal class StepsLogic(private val n: Int): Logic {
-    override fun signature() = LogicSignature.empty
+    override fun signature() = mainSignature
 
-    override suspend fun run(execution: Execution): TupleValue {
+    override suspend fun run(execution: Execution): DataBindings {
         for (i in 1 .. n) {
             execution.checkpoint()
             execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
             execution.log(ExecutionValue.of("i=$i"))
         }
-        return TupleValue.ofMain(n)
+        return bindingsOfMain(n)
     }
 }
 
@@ -53,7 +76,7 @@ internal fun namedStepsLogic(n: Int, idPrefix: String = "step"): Logic =
             execution.checkpoint(ObjectStableId("$idPrefix-$i"))
             execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
         }
-        TupleValue.ofMain(n)
+        bindingsOfMain(n)
     }
 
 

@@ -8,7 +8,7 @@ package tech.kzen.lib.common.exec.engine
  * tech.kzen.lib.common.exec.logic.trace.model.LogicTracePath.nodeOutcome]) and the client (the Job UI's
  * per-Worker outcome chip), so the key names can't drift.
  *
- * [Outcome.Success]'s `TupleValue` is deliberately dropped — the chip needs only the kind (and, for a
+ * [Outcome.Success]'s bindings are deliberately dropped — the chip needs only the kind (and, for a
  * failure, the message + origin [Outcome.Failed.at], carried as its stable-id string for the client to
  * resolve).
  */

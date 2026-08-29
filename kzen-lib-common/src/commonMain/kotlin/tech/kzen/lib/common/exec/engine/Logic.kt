@@ -1,6 +1,6 @@
 package tech.kzen.lib.common.exec.engine
 
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 
 
 /**
@@ -13,7 +13,7 @@ import tech.kzen.lib.common.exec.tuple.TupleValue
  * position persistence; the engine owns the execution tree and drives pause/step/cancel centrally.
  *
  * Outcomes:
- * - **success** — return the output [TupleValue].
+ * - **success** — return the output [DataBindings].
  * - **failed** — throw [LogicFailure] (recoverable; surfaced as [Outcome.Failed]). Any other throwable is
  *   also treated as a failure.
  * - **cancelled** — cooperative: a [Execution.checkpoint] throws [kotlin.coroutines.cancellation.CancellationException]
@@ -28,5 +28,5 @@ import tech.kzen.lib.common.exec.tuple.TupleValue
 interface Logic {
     fun signature(): LogicSignature
 
-    suspend fun run(execution: Execution): TupleValue
+    suspend fun run(execution: Execution): DataBindings
 }

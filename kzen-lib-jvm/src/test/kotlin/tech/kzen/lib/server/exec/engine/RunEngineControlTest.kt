@@ -16,7 +16,7 @@ import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
 import tech.kzen.lib.common.exec.engine.StepMode
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
@@ -44,9 +44,9 @@ class RunEngineControlTest {
      * depth 1, the way a Job Worker awaits more input. Mirrors a `RunWorker` hosting its instructions Script.
      */
     private class RunHostLogic(private val childSteps: Int): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             execution.checkpoint()
             execution.host(ObjectStableId("child"), StepsLogic(childSteps))
             while (true) {
@@ -63,14 +63,14 @@ class RunEngineControlTest {
      * that Step Over must run free instead of descending into.
      */
     private class JobShapedLogic(private val backgroundSteps: Int, private val childSteps: Int): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             coroutineScope {
                 async { execution.host(ObjectStableId("background"), StepsLogic(backgroundSteps)) }
                 async { execution.host(ObjectStableId("run"), RunHostLogic(childSteps)) }
             }
-            return TupleValue.ofMain("done")
+            return bindingsOfMain("done")
         }
     }
 
@@ -85,15 +85,15 @@ class RunEngineControlTest {
         private val attempts: java.util.concurrent.atomic.AtomicInteger,
         private val renderedErrors: MutableList<String>
     ): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             return execution.recoverable({ t -> renderedErrors.add(t.message ?: "?") }) {
                 val attempt = attempts.incrementAndGet()
                 if (attempt <= failBefore) {
                     throw RuntimeException("boom $attempt")
                 }
-                TupleValue.ofMain(attempt.toLong())
+                bindingsOfMain(attempt.toLong())
             }
         }
     }
@@ -108,7 +108,7 @@ class RunEngineControlTest {
             val outcome = engine.await()
 
             val success = assertIs<Outcome.Success>(outcome)
-            assertEquals(3, success.value.mainComponentValue())
+            assertEquals(3L, success.value.mainComponentValue())
 
             val snapshot = engine.snapshot()
             assertEquals(ExecutionValue.of(3L), snapshot.root.live[Address.of("i")])
@@ -160,14 +160,14 @@ class RunEngineControlTest {
         // Named boundaries before each element, plus an anonymous mid-element checkpoint that must NOT
         // blank the recorded position (a step's internal pausability checkpoint).
         val logic = object: Logic {
-            override fun signature() = LogicSignature.empty
-            override suspend fun run(execution: Execution): TupleValue {
+            override fun signature() = mainSignature
+            override suspend fun run(execution: Execution): DataBindings {
                 for (i in 1 .. 2) {
                     execution.checkpoint(ObjectStableId("step-$i"))
                     execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
                     execution.checkpoint()
                 }
-                return TupleValue.ofMain(2)
+                return bindingsOfMain(2)
             }
         }
 
@@ -208,13 +208,13 @@ class RunEngineControlTest {
     @Test
     fun nestedHostRunsChildAsConfinedNode() = runBlocking {
         val hosting = object: Logic {
-            override fun signature() = LogicSignature.empty
-            override suspend fun run(execution: Execution): TupleValue {
+            override fun signature() = mainSignature
+            override suspend fun run(execution: Execution): DataBindings {
                 execution.checkpoint()
                 val childOutput = execution.host(ObjectStableId("child"), StepsLogic(2))
-                val childValue = (childOutput.mainComponentValue() as Int).toLong()
+                val childValue = (childOutput.mainComponentValue() as Number).toLong()
                 execution.emit(Address.of("childResult"), ExecutionValue.of(childValue))
-                return TupleValue.ofMain("done")
+                return bindingsOfMain("done")
             }
         }
 
@@ -241,8 +241,8 @@ class RunEngineControlTest {
     fun cancelSettlesCancelledAndDisposesResources() = runBlocking {
         var disposed = false
         val logic = object: Logic {
-            override fun signature() = LogicSignature.empty
-            override suspend fun run(execution: Execution): TupleValue {
+            override fun signature() = mainSignature
+            override suspend fun run(execution: Execution): DataBindings {
                 execution.resource("r", ClosePolicy.Auto) { disposed = true }
                 while (true) {
                     execution.checkpoint()
@@ -274,15 +274,15 @@ class RunEngineControlTest {
     @Test
     fun parallelChildrenRunConcurrentlyAndQuiesce() = runBlocking {
         val parent = object: Logic {
-            override fun signature() = LogicSignature.empty
-            override suspend fun run(execution: Execution): TupleValue {
+            override fun signature() = mainSignature
+            override suspend fun run(execution: Execution): DataBindings {
                 coroutineScope {
                     val a = async { execution.host(ObjectStableId("a"), StepsLogic(3)) }
                     val b = async { execution.host(ObjectStableId("b"), StepsLogic(3)) }
                     a.await()
                     b.await()
                 }
-                return TupleValue.ofMain("done")
+                return bindingsOfMain("done")
             }
         }
 
@@ -437,9 +437,9 @@ class RunEngineControlTest {
         private val reached: CountDownLatch,
         private val gate: CountDownLatch
     ): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             for (i in 1 .. total) {
                 execution.checkpoint()
                 execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
@@ -448,7 +448,7 @@ class RunEngineControlTest {
                     gate.await()
                 }
             }
-            return TupleValue.ofMain(total)
+            return bindingsOfMain(total)
         }
     }
 
@@ -464,7 +464,7 @@ class RunEngineControlTest {
         val hosting = logicOf { execution ->
             execution.checkpoint()
             execution.host(ObjectStableId("child"), GatedLoopLogic(10_000, 5, reached, gate))
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(hosting, rootId, threads = 4)
@@ -509,7 +509,7 @@ class RunEngineControlTest {
             for (i in 1 .. count) {
                 execution.host(ObjectStableId("el-$i"), StepsLogic(1), retainTrace = false)
             }
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(streaming, rootId)
@@ -553,7 +553,7 @@ class RunEngineControlTest {
             for (i in 1 .. children) {
                 execution.host(ObjectStableId("c$i"), StepsLogic(stepsPerChild))
             }
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(hosting, rootId)
@@ -640,7 +640,7 @@ class RunEngineControlTest {
         val hosting = logicOf { execution ->
             execution.checkpoint()
             execution.host(ObjectStableId("child"), namedStepsLogic(10, "c"))
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(hosting, rootId, threads = 4)
@@ -684,14 +684,14 @@ class RunEngineControlTest {
                 execution.checkpoint()
                 execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
             }
-            TupleValue.ofMain(10)
+            bindingsOfMain(10)
         }
         val concurrent = logicOf { execution ->
             coroutineScope {
                 async { execution.host(ObjectStableId("named"), namedStepsLogic(5, "a")) }
                 async { execution.host(ObjectStableId("gated"), gatedChild) }
             }
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(concurrent, rootId, threads = 4)
@@ -741,7 +741,7 @@ class RunEngineControlTest {
                 execution.checkpoint(ObjectStableId("loop-step"))
                 execution.emit(Address.of("i"), ExecutionValue.of(i.toLong()))
             }
-            TupleValue.ofMain(3)
+            bindingsOfMain(3)
         }
 
         val engine = RunEngine(logic, rootId)
@@ -783,7 +783,7 @@ class RunEngineControlTest {
                 entered.countDown()
                 gate.await()
             }
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -831,7 +831,7 @@ class RunEngineControlTest {
                     throw e
                 }
             }
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -858,7 +858,7 @@ class RunEngineControlTest {
         val logic = logicOf { execution ->
             entered.countDown()
             delay(30_000)
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -901,7 +901,7 @@ class RunEngineControlTest {
         }
         val parent = logicOf { execution ->
             execution.host(childStableId, child)
-            TupleValue.ofMain("unreached")
+            bindingsOfMain("unreached")
         }
 
         val engine = RunEngine(parent, rootId)

@@ -16,6 +16,11 @@ import tech.kzen.lib.common.exec.ExecutionFailure
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
 import tech.kzen.lib.common.exec.ExecutionValue
+import tech.kzen.lib.common.exec.data.binding.BindingSchema
+import tech.kzen.lib.common.exec.data.binding.BindingState
+import tech.kzen.lib.common.exec.data.binding.DataBindings
+import tech.kzen.lib.common.exec.data.binding.DataPresence
+import tech.kzen.lib.common.exec.data.binding.ProducedBindingsBuilder
 import tech.kzen.lib.common.exec.engine.Address
 import tech.kzen.lib.common.exec.engine.ClosePolicy
 import tech.kzen.lib.common.exec.engine.Execution
@@ -40,7 +45,6 @@ import tech.kzen.lib.common.exec.engine.RunState
 import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.engine.TraceEvent
 import tech.kzen.lib.common.exec.engine.TraceReset
-import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import tech.kzen.lib.common.util.ExceptionUtils
 
@@ -64,14 +68,13 @@ import tech.kzen.lib.common.util.ExceptionUtils
 class RunEngine(
     rootLogic: Logic,
     private val rootStableId: ObjectStableId,
-    private val rootInputs: TupleValue = TupleValue.empty,
+    rootInputs: DataBindings = DataBindings.bind(rootLogic.signature().inputs),
     threads: Int = (Runtime.getRuntime().availableProcessors() - 1).coerceAtLeast(2)
 ): Run, AutoCloseable {
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         private val logger = LoggerFactory.getLogger(RunEngine::class.java)
     }
-
 
     //-----------------------------------------------------------------------------------------------------------------
     private sealed interface Command {
@@ -134,7 +137,7 @@ class RunEngine(
         // re-attached to the rebuilt node that shares its host's stable id (see [adoptRetiredFrames]) — a
         // stale id here would break the next barrier's parent-stable-id lookup.
         var parentId: NodeId?,
-        val inputs: TupleValue,
+        val inputs: DataBindings,
         // The element that hosted this node (a RunStep / Job worker), carried to [Node.callerStableId] for
         // trace attribution; null for the root and for a host that named no distinct caller.
         val callerStableId: ObjectStableId? = null,
@@ -193,6 +196,7 @@ class RunEngine(
 
     //-----------------------------------------------------------------------------------------------------------------
     private val lock = Any()
+    private val rootInputs = normalizeInputs(rootLogic, rootInputs)
     private val dispatcher = CountingDispatcher(threads)
     // Elastic pool for [Execution.blocking]: blocking third-party calls run here (via runInterruptible) rather
     // than holding one of the fixed [dispatcher] threads, while the [CountingDispatcher] in-flight hold keeps
@@ -300,6 +304,7 @@ class RunEngine(
     private var cancelling = false
     private var migrating = false
     private var pauseOnError = false
+    private var dataAdaptersClosed = false
 
     private val rootId = NodeId("n0")
     private var liveRootLogic: Logic = rootLogic
@@ -537,6 +542,7 @@ class RunEngine(
     fun shutdown() {
         dispatcher.close()
         elasticDispatcher.close()
+        closeDataAdapters()
     }
 
 
@@ -549,11 +555,25 @@ class RunEngine(
         sweepOrphans()
         dispatcher.close()
         elasticDispatcher.close()
+        closeDataAdapters()
     }
 
 
     override fun close() {
         dispose()
+    }
+
+
+    private fun closeDataAdapters() {
+        val close = synchronized(lock) {
+            if (dataAdaptersClosed) false
+            else {
+                dataAdaptersClosed = true
+                true
+            }
+        }
+        if (close) {
+        }
     }
 
 
@@ -645,7 +665,7 @@ class RunEngine(
             migrating = true
             for (runtime in nodes.values) {
                 // Borrows are dropped rather than lifted — see [Binding.bootstrap].
-                val owned = LinkedHashMap(runtime.bindings.filterValues { ! it.bootstrap })
+                val owned = LinkedHashMap(runtime.bindings.filterValues { !it.bootstrap })
                 if (owned.isNotEmpty() || runtime.settleDisposals.isNotEmpty()) {
                     migrationResources[runtime.stableId] =
                         LiftedRegistrations(owned, ArrayList(runtime.settleDisposals))
@@ -680,7 +700,12 @@ class RunEngine(
             breakpoints = breakpoints - removedStableIds
 
             liveRootLogic = newRoot
-            val rootRuntime = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
+            val rootRuntime = NodeRuntime(
+                rootId,
+                rootStableId,
+                depth = 0,
+                parentId = null,
+                inputs = normalizeInputs(liveRootLogic, rootInputs))
             // The whole path starts here, so the root holds it in full: empty addresses the root itself, and
             // null (no request) leaves the root unaddressed rather than making it the target's frame.
             rootRuntime.moveSuffix = moveTarget?.callSitePath
@@ -872,32 +897,48 @@ class RunEngine(
     }
 
 
-    private suspend fun runNode(nodeId: NodeId): Outcome {
+    private sealed interface NodeRunResult {
+        data class Success(val bindings: DataBindings): NodeRunResult
+        data class Failed(val outcome: Outcome.Failed): NodeRunResult
+        data object Cancelled: NodeRunResult
+    }
+
+
+    private suspend fun runNode(nodeId: NodeId): NodeRunResult {
         val execution = ExecutionImpl(nodeId)
         // Immutable per node; captured once so a failure catch can stamp [Outcome.Failed.at] with this node's id.
         val stableId = synchronized(lock) { nodes.getValue(nodeId).stableId }
-        val outcome =
+        val result =
             try {
-                Outcome.Success(rootOrChildLogic(nodeId).run(execution))
+                val logic = rootOrChildLogic(nodeId)
+                val signature = logic.signature()
+                val outputSchema = signature.outputs
+                val returned = logic.run(execution)
+                NodeRunResult.Success(settleOutputs(outputSchema, returned))
             }
             catch (_: CancellationException) {
                 // Engine-driven cooperative cancel surfaced from a checkpoint.
                 settleNode(nodeId, Outcome.Cancelled)
-                return Outcome.Cancelled
+                return NodeRunResult.Cancelled
             }
             catch (e: LogicFailure) {
                 // A FRESH failure gets this node's id; a child failure re-thrown through [host] already carries
                 // the originating child's id, which we preserve unchanged (spec §4 pause-reason propagation).
-                Outcome.Failed(e.message ?: "failure", e.at ?: stableId)
+                NodeRunResult.Failed(Outcome.Failed(e.message ?: "failure", e.at ?: stableId))
             }
             catch (e: Throwable) {
                 // The outcome keeps only the formatted message, so this is the one place the stack still exists
                 // — without it a failed node is undiagnosable beyond its one-line message.
                 logger.warn("Node failed: $nodeId", e)
-                Outcome.Failed(ExceptionUtils.message(e), stableId)
+                NodeRunResult.Failed(Outcome.Failed(ExceptionUtils.message(e), stableId))
             }
+        val outcome = when (result) {
+            is NodeRunResult.Success -> Outcome.Success(result.bindings)
+            is NodeRunResult.Failed -> result.outcome
+            NodeRunResult.Cancelled -> Outcome.Cancelled
+        }
         settleNode(nodeId, outcome)
-        return outcome
+        return result
     }
 
 
@@ -908,21 +949,65 @@ class RunEngine(
     }
 
 
-    private suspend fun host(
+    private fun normalizeInputs(logic: Logic, inputs: DataBindings): DataBindings {
+        val target = logic.signature().inputs
+        if (inputs.schema === target) {
+            for ((definition, state) in inputs.entries()) {
+                if (definition.presence == DataPresence.Required && state == BindingState.Unbound) {
+                    throw LogicFailure("Required binding '${definition.name}' is unbound")
+                }
+            }
+            return inputs
+        }
+        val supplied = inputs.entries().mapNotNull { (definition, state) ->
+            if (target.find(definition.name) == null) {
+                throw LogicFailure("Unknown supplied binding: '${definition.name}'")
+            }
+            val bound = state as? BindingState.Bound ?: return@mapNotNull null
+            definition.name to bound.value
+        }
+        return DataBindings.bind(target, supplied)
+    }
+
+
+    private fun settleOutputs(schema: BindingSchema, returned: DataBindings): DataBindings {
+        val produced = ProducedBindingsBuilder(schema)
+        for ((definition, state) in returned.entries()) {
+            if (schema.find(definition.name) == null) {
+                throw LogicFailure("Unknown produced binding: '${definition.name}'")
+            }
+            val bound = state as? BindingState.Bound ?: continue
+            produced.set(definition.name, bound.value)
+        }
+        return produced.settle()
+    }
+
+
+    private suspend fun hostChild(
         parentNodeId: NodeId,
         stableId: ObjectStableId,
         child: Logic,
-        inputs: TupleValue,
+        inputs: DataBindings,
         callerStableId: ObjectStableId?,
         retainTrace: Boolean,
         initialBindings: List<InitialBinding>,
         contextBarrier: Boolean
-    ): TupleValue {
+    ): DataBindings {
+        val normalizedInputs = try {
+            normalizeInputs(child, inputs)
+        }
+        catch (e: LogicFailure) {
+            throw LogicFailure(e.message ?: "Invalid hosted inputs", e.at ?: stableId)
+        }
+        catch (e: Throwable) {
+            throw LogicFailure(ExceptionUtils.message(e), stableId)
+        }
         val childId = synchronized(lock) {
             val parent = nodes.getValue(parentNodeId)
             val id = NodeId("n${nodeCounter++}")
             val runtime = NodeRuntime(
-                id, stableId, parent.depth + 1, parentNodeId, inputs, callerStableId, retainTrace, contextBarrier)
+                id, stableId, parent.depth + 1, parentNodeId, normalizedInputs,
+                callerStableId, retainTrace, contextBarrier)
             runtime.moveSuffix = inheritMoveSuffix(parent, callerStableId)
             if (runtime.moveSuffix != null && callerStableId != null) {
                 // This hosting CLAIMED a descent hop, which means the transit frame ran to [callerStableId] with
@@ -957,9 +1042,9 @@ class RunEngine(
         val outcome = runNode(childId)
 
         return when (outcome) {
-            is Outcome.Success -> outcome.value
-            is Outcome.Failed -> throw LogicFailure(outcome.message, outcome.at)
-            Outcome.Cancelled -> throw CancellationException("Child cancelled")
+            is NodeRunResult.Success -> outcome.bindings
+            is NodeRunResult.Failed -> throw LogicFailure(outcome.outcome.message, outcome.outcome.at)
+            NodeRunResult.Cancelled -> throw CancellationException("Child cancelled")
         }
     }
 
@@ -1211,7 +1296,7 @@ class RunEngine(
                     ClosePolicy.Manual ->
                         // A barrier frame retains instead of handing up, exactly like the root — see
                         // [NodeRuntime.contextBarrier].
-                        if (parent != null && ! runtime.contextBarrier) {
+                        if (parent != null && !runtime.contextBarrier) {
                             parent.bindings.putIfAbsent(key, binding)
                         }
                         else {
@@ -1320,7 +1405,7 @@ class RunEngine(
             val runtime = nodes.getValue(nodeId)
 
             // Refusal rather than silent no-op — see [NodeRuntime.contextBarrier].
-            check(! runtime.contextBarrier) {
+            check(!runtime.contextBarrier) {
                 "Context barrier frame cannot declare an export (hosted concurrently, so an upward binding " +
                         "would race its siblings): ${runtime.stableId.value} - $selector"
             }
@@ -1635,7 +1720,7 @@ class RunEngine(
     }
 
 
-    private fun nodeInputs(nodeId: NodeId): TupleValue {
+    private fun nodeInputs(nodeId: NodeId): DataBindings {
         return synchronized(lock) { nodes.getValue(nodeId).inputs }
     }
 
@@ -1680,7 +1765,7 @@ class RunEngine(
         // Immutable per node — captured once so the checkpoint / inputs hot paths take no lock.
         private val depth = depthOf(nodeId)
 
-        override val inputs: TupleValue = nodeInputs(nodeId)
+        override val inputs: DataBindings = nodeInputs(nodeId)
 
         override suspend fun checkpoint(at: ObjectStableId?) =
             this@RunEngine.checkpoint(nodeId, depth, at)
@@ -1706,13 +1791,13 @@ class RunEngine(
         override suspend fun host(
             stableId: ObjectStableId,
             child: Logic,
-            inputs: TupleValue,
+            inputs: DataBindings,
             callerStableId: ObjectStableId?,
             retainTrace: Boolean,
             initialBindings: List<InitialBinding>,
             contextBarrier: Boolean
-        ): TupleValue =
-            this@RunEngine.host(
+        ): DataBindings =
+            this@RunEngine.hostChild(
                 nodeId, stableId, child, inputs, callerStableId, retainTrace, initialBindings, contextBarrier)
 
         override fun declareExport(selector: ExportSelector) =

@@ -157,7 +157,7 @@ re-inventing it.
 
 ## 3. Typed inputs and outputs
 
-- A Logic declares a **typed signature**: inputs and outputs are each a **named, typed tuple** (not
+- A Logic declares a **typed signature**: inputs and outputs are each a **named, typed binding schema** (not
   positional parameters).
 - An invocation accepts **zero or more** input components and produces:
   - **void** (zero output components),
@@ -165,11 +165,10 @@ re-inventing it.
   - **several named** output components.
 - Auxiliary/observational output (a rich value for the UI) must be expressible **distinctly from the
   primary `main` result**, so a consumer can show it without mistaking it for the computation's value.
-  A conventional **`detail`** component name is reserved in the tuple model for this.
+  A conventional **`detail`** binding name can represent this when a caller needs it.
 
-  > *As built:* the tuple-level `detail` component is **reserved but unadopted** — `TupleComponentName.detail`
-  > and its `ofDetail` / `ofVoidWithDetail` / `detailComponentValue` helpers exist in `kzen-lib` with no
-  > consumer. The requirement is met today at the **trace** level instead: a Script step attaches a rich
+  > *As built:* no Logic flavour declares a `detail` result binding. The requirement is met at the
+  > **trace** level instead: a Script step attaches a rich
   > value (a screenshot) to its own element's live trace value (`StepExecution.traceDetail` → the
   > `StepTrace.detail` field), which is where the UI reads it. Either surface satisfies the requirement;
   > only one is currently wired.
@@ -1151,12 +1150,12 @@ migration, identity — is now **core**. (The removed pre-rewrite layer — `Log
 
 | Requirement area | Current types | Where |
 |---|---|---|
-| Logic unit | `Logic` (`run(execution): TupleValue`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
+| Logic unit | `Logic` (`run(execution): DataBindings`, `signature()`), `LogicSignature`, `LogicDefinition` | kzen-lib-common `exec/engine/`, `exec/logic/model/` |
 | Execution context (the whole surface a Logic touches) | `Execution` — `inputs`; `checkpoint(at:)` (optionally names the boundary's element → `Node.position`); `emit(address, value, retain = true)` (`retain = false` = transient live-only write, absent from history), `log`, `resetEmitted(addresses, callSites)` (live-view reset of a re-running scope, §7); `pauseHere`, `recoverable`, `blocking` (off-dispatcher yet counted busy, §2); `host(stableId, child, inputs, callerStableId, retainTrace, initialBindings)` (the last being the call site's `InitialBinding` bootstrap of the child frame, §6); `declareExport(ExportSelector)` (this node exports a family or one exact member upward, offering ownership to whoever hosts it, §6) / `bind(ContextKey, value, FrameDisposal?)` / `binding` (ancestor-chain read, `Present`/`Missing`) / `hasBinding` / `hasBindingInFamily` / `releaseBinding` / `onSettle(SettleDisposalPolicy, closer)` (anonymous, frame-local); `onRequest`; `onCapture` / `restored` (+ the `restoredAs<T>()` helper) / `discardCaptured` / `moveTarget` / `moveDescendCallSite` (the addressed frame's target and a transit frame's descent obligation for a one-shot repositioning request, §4) | kzen-lib-common `exec/engine/` |
 | Engine (**now: core**) | `RunEngine` (single-writer; owns node tree, event log, identity, resources, migration; `awaitQuiescent`, `migrate`, `setBreakpoints`; lazy dirty-flag snapshot, settled-frame compaction; `shutdown` stops the pools while keeping a settled run readable for post-run trace review, `dispose` fully tears down) + `CountingDispatcher` (the quiescence primitive: counts dispatch tasks, and counts a pending `delay` / an `Execution.blocking` region as in-flight so neither reads as idle). Available but unconsumed: `observeFrames` (frame-close signal), `observeResets` / `TraceReset` (synchronous pre-return reset signal) — both left from the retired trace-store bridge | kzen-lib-jvm `server/exec/engine/` |
 | Execution tree & state | `Node` (id + stableId + status + live (+ `liveSequence`) + children + **callerStableId** + **retainTrace** + **position** — frame *and* execution tree; `retainTrace` governs frame-close compaction + trace eviction, §7; `position` is the last named boundary, §4), `NodeId`, `NodeStatus` (Running / Suspended(reason) / Terminal(outcome)), `RunState` | kzen-lib-common `exec/engine/` |
 | Run-control handle | `Run` (snapshot / observe / resume / pause / cancel / step(mode) / pauseOnError / setBreakpoints / request / history / await; `observe` is a payload-free coalescing change signal — pull `snapshot` / `history` for state) | kzen-lib-common `exec/engine/` |
-| Typed I/O | `TupleDefinition` / `TupleValue` / `TupleComponentDefinition` / `TupleComponentValue`, `TupleComponentName.main` (`.detail` is reserved but unconsumed — §3), `LogicType` | kzen-lib-common `exec/tuple/`, `exec/logic/model/` |
+| Typed I/O | `DataType` / `DataContract`, `DataValue` / `ValueAccess`, `BindingDefinition` / `BindingSchema`, `DataBindings` / `BindingState`, `BindingName("main")`, `LogicType` | kzen-lib-common `exec/data/`, `exec/logic/model/` |
 | Declared inputs / outputs (flavour-neutral, §3) | notation contract `LogicConventions.parametersAttributePath` / `resultsAttributePath`, parsed by `ParameterDefaultDefiner` / `ResultSignatureDefiner`; compiled to `LogicParameter` (stableId + name + typed default, `resolve(inputs)`), surfaced by `LogicParameterTrace` as a transient per-parameter display emit at run (re)start. Consumed by `ScriptLogicCompiler` / `ScriptLogic` and `JobLogicCompiler` / `JobParameters` / `EngineJobControl.parameter` | kzen-auto-jvm `server/exec/`; kzen-auto-common `paradigm/logic/`, `objects/document/logic/` |
 | Stepping, pause reasons, outcomes | `StepMode` (Into / Over / Out), `PauseReason` (Boundary / Explicit / Error), `Outcome` (Success / `Failed(message, at)` — `at` = origin stable id, propagated unchanged through `host` / Cancelled); `OutcomeTrace` (the `{kind, message, at}` wire shape shared by the server projection and the client) | kzen-lib-common `exec/engine/` |
 | Run controller (REST bridge onto the engine) | `LogicController` (start / status / request / cancel / pause / continueOrStart / step / stepOver / stepOut) + `ServerLogicController` extras (`startStep`, `setPauseOnError`, `setBreakpoints`, `moveTo` — refusable, returning `LogicRunResponse.Rejected`; `observeStatus`, `retainedTraceAccess`, `clearRetainedTrace`); the impl drives the engine on **one single-thread executor** (each release blocks in `RunEngine.awaitQuiescent` until the run settles, then reflects that back into the status flags; signal-only verbs — pause / cancel / setPauseOnError — call the engine directly so they reach an in-flight run instead of queueing behind it. E6 would need one executor **per run**, since a shared one would serialize unrelated runs), **retains the settled run** for post-run trace queries (disposed on the next `start` / a global clear) while reporting it as no-active-run, and detects live edits. REST surface: `LogicHandler` (+ the `/logic/events` SSE stream and the `/logic/trace-binary` blob route) | iface kzen-lib-common `exec/logic/run/`; impl kzen-auto-jvm `server/service/impl/`, `server/api/handler/` |

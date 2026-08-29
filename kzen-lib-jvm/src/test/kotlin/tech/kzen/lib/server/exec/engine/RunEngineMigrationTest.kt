@@ -13,7 +13,7 @@ import tech.kzen.lib.common.exec.engine.LogicSignature
 import tech.kzen.lib.common.exec.engine.MoveTarget
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -42,9 +42,9 @@ class RunEngineMigrationTest {
      * fresh [CountUpLogic] must therefore CONTINUE from the captured count, not restart from zero.
      */
     private class CountUpLogic(private val target: Long): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             var count = execution.restored as? Long ?: 0L
             execution.onCapture { count }
             while (count < target) {
@@ -52,7 +52,7 @@ class RunEngineMigrationTest {
                 count += 1
                 execution.emit(Address.of("count"), ExecutionValue.of(count))
             }
-            return TupleValue.ofMain(count)
+            return bindingsOfMain(count)
         }
     }
 
@@ -67,9 +67,9 @@ class RunEngineMigrationTest {
         private val target: Long,
         private val registry: MutableMap<String, CloseableCounter>
     ): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             val state = execution.restored as? CloseableCounter ?: CloseableCounter(0)
             registry[id] = state
             execution.onCapture { state }
@@ -78,22 +78,22 @@ class RunEngineMigrationTest {
                 state.count += 1
                 execution.emit(Address.of("c"), ExecutionValue.of(state.count))
             }
-            return TupleValue.ofMain(state.count)
+            return bindingsOfMain(state.count)
         }
     }
 
 
     /** Hosts a fixed set of (stable id, child) concurrently — the parallel-children shape a migration rebuilds. */
     private class HostingLogic(private val children: List<Pair<String, Logic>>): Logic {
-        override fun signature() = LogicSignature.empty
+        override fun signature() = mainSignature
 
-        override suspend fun run(execution: Execution): TupleValue {
+        override suspend fun run(execution: Execution): DataBindings {
             coroutineScope {
                 children
                     .map { (id, logic) -> async { execution.host(ObjectStableId(id), logic) } }
                     .awaitAll()
             }
-            return TupleValue.ofMain("done")
+            return bindingsOfMain("done")
         }
     }
 
@@ -241,7 +241,7 @@ class RunEngineMigrationTest {
                     ObjectStableId("child"),
                     logicOf { child ->
                         seen.add(moveSurfacesOf(child))
-                        TupleValue.ofMain("ok")
+                        bindingsOfMain("ok")
                     },
                     callerStableId = site)
                 parkForever(execution)
@@ -321,14 +321,14 @@ class RunEngineMigrationTest {
                     ObjectStableId("child"),
                     logicOf { child ->
                         seen.add(moveSurfacesOf(child))
-                        TupleValue.ofMain("other")
+                        bindingsOfMain("other")
                     },
                     callerStableId = otherSite)
                 execution.host(
                     ObjectStableId("child"),
                     logicOf { child ->
                         seen.add(moveSurfacesOf(child))
-                        TupleValue.ofMain("addressed")
+                        bindingsOfMain("addressed")
                     },
                     callerStableId = addressedSite)
                 parkForever(execution)
@@ -354,7 +354,7 @@ class RunEngineMigrationTest {
             rebuilt = logicOf { execution ->
                 val child = logicOf { hosted ->
                     seen.add(moveSurfacesOf(hosted))
-                    TupleValue.ofMain("ok")
+                    bindingsOfMain("ok")
                 }
                 execution.host(ObjectStableId("child"), child, callerStableId = site)
                 execution.host(ObjectStableId("child"), child, callerStableId = site)
@@ -384,13 +384,13 @@ class RunEngineMigrationTest {
                     ObjectStableId("anonymous"),
                     logicOf { child ->
                         seen.add(moveSurfacesOf(child))
-                        TupleValue.ofMain("anonymous")
+                        bindingsOfMain("anonymous")
                     })
                 execution.host(
                     ObjectStableId("named"),
                     logicOf { child ->
                         seen.add(moveSurfacesOf(child))
-                        TupleValue.ofMain("named")
+                        bindingsOfMain("named")
                     },
                     callerStableId = site)
                 parkForever(execution)
@@ -538,7 +538,7 @@ class RunEngineMigrationTest {
         val site = ObjectStableId("call-site")
         val child = logicOf { c ->
             c.emit(Address.of("v"), ExecutionValue.of(42L))
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
 
         val engine = RunEngine(replayAdoptingCaller(hosted, site, child), rootId)
@@ -575,7 +575,7 @@ class RunEngineMigrationTest {
         // otherwise the deleted RunStep's sub-document lingers as navigable state with no way back to it.
         val hosted = AtomicBoolean(false)
         val site = ObjectStableId("call-site")
-        val child = logicOf { TupleValue.ofMain("child") }
+        val child = logicOf { bindingsOfMain("child") }
 
         val engine = RunEngine(replayAdoptingCaller(hosted, site, child), rootId)
         try {
@@ -609,7 +609,7 @@ class RunEngineMigrationTest {
         fun caller() = logicOf { execution ->
             execution.host(
                 ObjectStableId("w"),
-                logicOf { TupleValue.ofMain("ok") },
+                logicOf { bindingsOfMain("ok") },
                 callerStableId = site)
             parkForever(execution)
         }
@@ -688,7 +688,7 @@ class RunEngineMigrationTest {
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("a"), opener)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -697,7 +697,7 @@ class RunEngineMigrationTest {
             engine.awaitQuiescent()
             assertFalse(disposed)
 
-            engine.migrate(logicOf { TupleValue.ofMain("edited") }, paused = false)
+            engine.migrate(logicOf { bindingsOfMain("edited") }, paused = false)
             assertIs<Outcome.Success>(engine.await())
 
             assertFalse(disposed, "a removed owner's resource lingers until the next sweep, not disposed eagerly")
@@ -721,11 +721,11 @@ class RunEngineMigrationTest {
         }
         val releaser = logicOf { execution ->
             execution.releaseResource("r")
-            TupleValue.ofMain("released")
+            bindingsOfMain("released")
         }
         val rebuilt = logicOf { execution ->
             execution.host(ObjectStableId("releaser"), releaser)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(opener, rootId)

@@ -3,6 +3,8 @@ package tech.kzen.lib.common.exec.engine
 import tech.kzen.lib.common.exec.ExecutionRequest
 import tech.kzen.lib.common.exec.ExecutionResult
 import tech.kzen.lib.common.exec.ExecutionValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
+import tech.kzen.lib.common.exec.data.binding.BindingSchema
 import tech.kzen.lib.common.exec.engine.context.BindingLookup
 import tech.kzen.lib.common.exec.engine.context.ContextFamily
 import tech.kzen.lib.common.exec.engine.context.ContextKey
@@ -10,7 +12,6 @@ import tech.kzen.lib.common.exec.engine.context.ExportSelector
 import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
-import tech.kzen.lib.common.exec.tuple.TupleValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
 
@@ -22,7 +23,7 @@ import tech.kzen.lib.common.service.store.normal.ObjectStableId
  */
 interface Execution {
     /** This invocation's typed inputs. */
-    val inputs: TupleValue
+    val inputs: DataBindings
 
     /**
      * Settle at a boundary — a coherent, observable, pausable point. Suspends while the run is paused or
@@ -144,12 +145,12 @@ interface Execution {
     suspend fun host(
         stableId: ObjectStableId,
         child: Logic,
-        inputs: TupleValue = TupleValue.empty,
+        inputs: DataBindings = DataBindings.bind(BindingSchema.empty),
         callerStableId: ObjectStableId? = null,
         retainTrace: Boolean = true,
         initialBindings: List<InitialBinding> = listOf(),
         contextBarrier: Boolean = false
-    ): TupleValue
+    ): DataBindings
 
     //----------------------------------------------------------------------------------- resources & exports (§6)
     /**

@@ -1,16 +1,16 @@
 package tech.kzen.lib.common.exec.engine
 
-import tech.kzen.lib.common.exec.tuple.TupleDefinition
+import tech.kzen.lib.common.exec.data.binding.BindingSchema
 
 
 /**
- * A Logic's typed signature: named, typed input and output tuples (§3 of logic-spec).
+ * A Logic's typed input and output bindings (§3 of logic-spec).
  */
 data class LogicSignature(
-    val inputs: TupleDefinition,
-    val outputs: TupleDefinition
+    val inputs: BindingSchema,
+    val outputs: BindingSchema
 ) {
     companion object {
-        val empty = LogicSignature(TupleDefinition.empty, TupleDefinition.empty)
+        val empty = LogicSignature(BindingSchema.empty, BindingSchema.empty)
     }
 }

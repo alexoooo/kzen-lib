@@ -11,7 +11,7 @@ import tech.kzen.lib.common.exec.engine.LogicSignature
 import tech.kzen.lib.common.exec.engine.Node
 import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
@@ -36,13 +36,13 @@ class RunEngineTraceTest {
         // consumer can evict its buffer. The default host retains: a retained child stays in the snapshot after
         // settling (post-run review). Proves the engine threads retainTrace to Node.retainTrace and acts on it.
         val hosting = object: Logic {
-            override fun signature() = LogicSignature.empty
-            override suspend fun run(execution: Execution): TupleValue {
+            override fun signature() = mainSignature
+            override suspend fun run(execution: Execution): DataBindings {
                 coroutineScope {
                     async { execution.host(ObjectStableId("kept"), StepsLogic(1)) }
                     async { execution.host(ObjectStableId("streamed"), StepsLogic(1), retainTrace = false) }
                 }
-                return TupleValue.ofMain("done")
+                return bindingsOfMain("done")
             }
         }
 
@@ -83,7 +83,7 @@ class RunEngineTraceTest {
                 execution.emit(Address.of("b"), ExecutionValue.of(2L))
                 execution.log(ExecutionValue.of("pass-1"))
                 execution.resetEmitted(listOf(Address.of("a")))
-                TupleValue.ofMain("ok")
+                bindingsOfMain("ok")
             },
             rootId)
         try {
@@ -123,20 +123,20 @@ class RunEngineTraceTest {
                             ObjectStableId("g"),
                             logicOf { g ->
                                 g.emit(Address.of("y"), ExecutionValue.of(2L))
-                                TupleValue.ofMain("g")
+                                bindingsOfMain("g")
                             })
-                        TupleValue.ofMain("c1")
+                        bindingsOfMain("c1")
                     },
                     callerStableId = siteA)
                 execution.host(
                     ObjectStableId("c2"),
                     logicOf { c ->
                         c.emit(Address.of("z"), ExecutionValue.of(3L))
-                        TupleValue.ofMain("c2")
+                        bindingsOfMain("c2")
                     },
                     callerStableId = siteB)
                 execution.resetEmitted(emptyList(), listOf(siteA))
-                TupleValue.ofMain("ok")
+                bindingsOfMain("ok")
             },
             rootId)
         try {
@@ -170,7 +170,7 @@ class RunEngineTraceTest {
             logicOf { execution ->
                 execution.emit(Address.of("p"), ExecutionValue.of(1L), retain = false)
                 execution.emit(Address.of("q"), ExecutionValue.of(2L))
-                TupleValue.ofMain("ok")
+                bindingsOfMain("ok")
             },
             rootId)
         try {
@@ -215,7 +215,7 @@ class RunEngineTraceTest {
                 firedBeforeReturn = resets.isNotEmpty()
                 subscription.close()
                 execution.resetEmitted(listOf(Address.of("a")))
-                TupleValue.ofMain("ok")
+                bindingsOfMain("ok")
             },
             rootId)
         try {
@@ -246,7 +246,7 @@ class RunEngineTraceTest {
         val engine = RunEngine(
             logicOf { execution ->
                 execution.resetEmitted(emptyList())
-                TupleValue.ofMain("ok")
+                bindingsOfMain("ok")
             },
             rootId)
         try {

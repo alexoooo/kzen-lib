@@ -13,7 +13,7 @@ import tech.kzen.lib.common.exec.engine.context.ExportSelector
 import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,7 +45,7 @@ class RunEngineContextTest {
                 logicOf { child ->
                     seen.add(child.restored)
                     child.onCapture { "done-state" }
-                    TupleValue.ofMain("ok")
+                    bindingsOfMain("ok")
                 },
                 callerStableId = site)
             parkForever(execution)
@@ -91,7 +91,7 @@ class RunEngineContextTest {
                 ObjectStableId("c"),
                 logicOf { child ->
                     child.onCapture { "settled-state" }
-                    TupleValue.ofMain("first")
+                    bindingsOfMain("first")
                 },
                 callerStableId = site)
             execution.host(
@@ -113,7 +113,7 @@ class RunEngineContextTest {
                     ObjectStableId("c"),
                     logicOf { child ->
                         seen.add(child.restored)
-                        TupleValue.ofMain("resumed")
+                        bindingsOfMain("resumed")
                     },
                     callerStableId = site)
             }
@@ -168,7 +168,7 @@ class RunEngineContextTest {
                     ObjectStableId("c"),
                     logicOf { c ->
                         seen.add(c.restored)
-                        TupleValue.ofMain("fresh")
+                        bindingsOfMain("fresh")
                     },
                     callerStableId = site)
             }
@@ -214,14 +214,14 @@ class RunEngineContextTest {
                     ObjectStableId("c"),
                     logicOf { c ->
                         seen.add(c.restored)
-                        TupleValue.ofMain("b")
+                        bindingsOfMain("b")
                     },
                     callerStableId = siteB)
                 execution.host(
                     ObjectStableId("c"),
                     logicOf { c ->
                         seen.add(c.restored)
-                        TupleValue.ofMain("a")
+                        bindingsOfMain("a")
                     },
                     callerStableId = siteA)
             }
@@ -265,7 +265,7 @@ class RunEngineContextTest {
                     logicOf { c ->
                         seen.add(c.restored)
                         seen.add(c.removedStableIds)
-                        TupleValue.ofMain("fresh")
+                        bindingsOfMain("fresh")
                     })
             }
             engine.migrate(edited, paused = false, removedStableIds = setOf(ObjectStableId("c")))
@@ -295,12 +295,12 @@ class RunEngineContextTest {
         val child = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto) { disposed = true }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -329,18 +329,18 @@ class RunEngineContextTest {
         val grandchild = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto) { disposed = true }
-            TupleValue.ofMain("grandchild")
+            bindingsOfMain("grandchild")
         }
         val child = logicOf { execution ->
             execution.declareExport("r")
             execution.host(ObjectStableId("grandchild"), grandchild)
             disposedWhenGrandchildReturned = disposed
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val root = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -371,18 +371,18 @@ class RunEngineContextTest {
         val grandchild = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto) { disposed = true }
-            TupleValue.ofMain("grandchild")
+            bindingsOfMain("grandchild")
         }
         val child = logicOf { execution ->
             execution.host(ObjectStableId("grandchild"), grandchild)
             disposedWhenGrandchildReturned = disposed
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val root = logicOf { execution ->
             execution.declareExport("r")
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -411,12 +411,12 @@ class RunEngineContextTest {
 
         val child = logicOf { execution ->
             execution.resource("r", ClosePolicy.Auto) { disposed = true }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -445,13 +445,13 @@ class RunEngineContextTest {
             execution.declareExport("sut")
             execution.resource("sut:a", ClosePolicy.Auto, value = "handle-a") { disposed.add("a") }
             execution.resource("sut:b", ClosePolicy.Auto, value = "handle-b") { disposed.add("b") }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             readA = execution.resourceValue("sut:a")
             readB = execution.resourceValue("sut:b")
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -484,14 +484,14 @@ class RunEngineContextTest {
             qualifiedFamily = execution.hasResourceInFamily("sut")
             otherFamily = execution.hasResourceInFamily("browser")
             exactPlainKey = execution.hasResourceInFamily("scratch")
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             plainBefore = execution.hasResourceInFamily("sut")
             execution.resource("sut:a", ClosePolicy.Auto, value = "handle") {}
             execution.resource("scratch", ClosePolicy.Auto, value = "plain") {}
             execution.host(ObjectStableId("child"), child)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -525,13 +525,13 @@ class RunEngineContextTest {
             execution.declareExport(ExportSelector.Exact(ContextKey.of("db", "primary")))
             execution.resource("db:primary", ClosePolicy.Auto, value = "primary") { disposed.add("primary") }
             execution.resource("db:reporting", ClosePolicy.Auto, value = "reporting") { disposed.add("reporting") }
-            TupleValue.ofMain("exact")
+            bindingsOfMain("exact")
         }
         val familyChild = logicOf { execution ->
             execution.declareExport(ExportSelector.Family(ContextFamily("other")))
             execution.resource("other:a", ClosePolicy.Auto, value = "a") { disposed.add("a") }
             execution.resource("other:b", ClosePolicy.Auto, value = "b") { disposed.add("b") }
-            TupleValue.ofMain("family")
+            bindingsOfMain("family")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("exact"), exactChild)
@@ -540,7 +540,7 @@ class RunEngineContextTest {
             reporting = execution.binding(ContextKey.of("db", "reporting"))
             otherA = execution.binding(ContextKey.of("other", "a"))
             otherB = execution.binding(ContextKey.of("other", "b"))
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -580,7 +580,7 @@ class RunEngineContextTest {
             absent = execution.binding(ContextKey.of("absent"))
             lossyBound = execution.resourceValue("nullable")
             lossyAbsent = execution.resourceValue("absent")
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -613,7 +613,7 @@ class RunEngineContextTest {
             exactSibling = execution.hasBinding(ContextKey.of("sut", "other"))
             familyOpen = execution.hasBindingInFamily(ContextFamily("sut"))
             otherFamily = execution.hasBindingInFamily(ContextFamily("browser"))
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -640,7 +640,7 @@ class RunEngineContextTest {
         val child = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.KeepOnFailure) { disposed = true }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
@@ -665,11 +665,11 @@ class RunEngineContextTest {
         val child = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.KeepOnFailure) { disposed = true }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -694,12 +694,12 @@ class RunEngineContextTest {
             execution.declareExport("r")
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto) { disposed = true }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -727,7 +727,7 @@ class RunEngineContextTest {
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto, value = "handle") { disposed = true }
             readBack = execution.resourceValue("r")
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -757,12 +757,12 @@ class RunEngineContextTest {
             execution.resource("r", ClosePolicy.Auto, value = "private") { disposed.add("private") }
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto, value = "exported") { disposed.add("exported") }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed.toList()
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -800,17 +800,17 @@ class RunEngineContextTest {
         val provider = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto, value = "exported") { disposedExported = true }
-            TupleValue.ofMain("provider")
+            bindingsOfMain("provider")
         }
         val grandchild = logicOf { execution ->
             grandchildRead = execution.resourceValue("r")
-            TupleValue.ofMain("grandchild")
+            bindingsOfMain("grandchild")
         }
         val shadow = logicOf { execution ->
             execution.resource("r", ClosePolicy.Auto, value = "private") { disposedPrivate = true }
             shadowRead = execution.resourceValue("r")
             execution.host(ObjectStableId("grandchild"), grandchild)
-            TupleValue.ofMain("shadow")
+            bindingsOfMain("shadow")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("provider"), provider)
@@ -818,7 +818,7 @@ class RunEngineContextTest {
             disposedPrivateWhenShadowReturned = disposedPrivate
             disposedExportedWhenShadowReturned = disposedExported
             parentReadAfterShadow = execution.resourceValue("r")
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -855,7 +855,7 @@ class RunEngineContextTest {
             execution.resource("r", ClosePolicy.Auto, value = "first") { disposed.add("first") }
             execution.resource("r", ClosePolicy.Auto, value = "second") { disposed.add("second") }
             handleWhileSecondLive = execution.resourceValue("r")
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -890,13 +890,13 @@ class RunEngineContextTest {
             val iteration = registered++
             execution.resource("r", ClosePolicy.Auto, value = iteration) { disposed.add(iteration) }
             peakLive = maxOf(peakLive, registered - disposed.size)
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val root = logicOf { execution ->
             repeat(iterations) {
                 execution.host(ObjectStableId("child"), child)
             }
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -922,12 +922,12 @@ class RunEngineContextTest {
         val child = logicOf { execution ->
             childRead = execution.resourceValue("r")
             childMissing = execution.resourceValue("absent")
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.resource("r", ClosePolicy.Auto, value = "handle") {}
             execution.host(ObjectStableId("child"), child)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -953,18 +953,18 @@ class RunEngineContextTest {
         var disposed = false
         val opener = logicOf { execution ->
             execution.resource("r", ClosePolicy.Manual, value = "handle") { disposed = true }
-            TupleValue.ofMain("opened")
+            bindingsOfMain("opened")
         }
         var siblingRead: Any? = null
         val releaser = logicOf { execution ->
             siblingRead = execution.resourceValue("r")
             execution.releaseResource("r")
-            TupleValue.ofMain("released")
+            bindingsOfMain("released")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("opener"), opener)
             execution.host(ObjectStableId("releaser"), releaser)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -994,17 +994,17 @@ class RunEngineContextTest {
         val opener = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Manual, value = "handle") { disposed = true }
-            TupleValue.ofMain("opener")
+            bindingsOfMain("opener")
         }
         val restingFrame = logicOf { execution ->
             execution.host(ObjectStableId("opener"), opener)
-            TupleValue.ofMain("restingFrame")
+            bindingsOfMain("restingFrame")
         }
         val root = logicOf { execution ->
             execution.host(ObjectStableId("restingFrame"), restingFrame)
             rootRead = execution.resourceValue("r")
             execution.releaseResource("r")
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -1030,16 +1030,16 @@ class RunEngineContextTest {
         val opener = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto) { disposed = true }
-            TupleValue.ofMain("opener")
+            bindingsOfMain("opener")
         }
         val releaser = logicOf { execution ->
             execution.releaseResource("r")
-            TupleValue.ofMain("releaser")
+            bindingsOfMain("releaser")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("opener"), opener)
             execution.host(ObjectStableId("releaser"), releaser)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -1067,23 +1067,23 @@ class RunEngineContextTest {
         val opener = logicOf { execution ->
             execution.declareExport("r")
             execution.resource("r", ClosePolicy.Auto, value = "handle") { disposed = true }
-            TupleValue.ofMain("opener")
+            bindingsOfMain("opener")
         }
         val mid = logicOf { execution ->
             execution.declareExport("r")
             execution.host(ObjectStableId("opener"), opener)
-            TupleValue.ofMain("mid")
+            bindingsOfMain("mid")
         }
         val releaser = logicOf { execution ->
             releaserRead = execution.resourceValue("r")
             execution.releaseResource("r")
-            TupleValue.ofMain("releaser")
+            bindingsOfMain("releaser")
         }
         val root = logicOf { execution ->
             execution.host(ObjectStableId("mid"), mid)
             disposedWhenMidReturned = disposed
             execution.host(ObjectStableId("releaser"), releaser)
-            TupleValue.ofMain("root")
+            bindingsOfMain("root")
         }
 
         val engine = RunEngine(root, rootId)
@@ -1134,12 +1134,12 @@ class RunEngineContextTest {
             execution.releaseBinding(baseKey)
             childAfterRelease = execution.binding(baseKey)
             execution.bind(baseKey, "C:/work/inbox")
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             parentRead = execution.binding(baseKey)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -1175,7 +1175,7 @@ class RunEngineContextTest {
             afterRelease = execution.binding(key)
             execution.releaseBinding(key)
             execution.bind(key, "third", FrameDisposal(ClosePolicy.Auto) { disposed.add("third") })
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -1203,7 +1203,7 @@ class RunEngineContextTest {
             execution.releaseBinding(autoKey)
             execution.releaseBinding(manualKey)
             execution.releaseBinding(keepKey)
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -1229,13 +1229,13 @@ class RunEngineContextTest {
 
         val child = logicOf { execution ->
             execution.bindAllPolicies(disposed)
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             disposedWhenChildReturned = disposed.toSet()
             promotedReadInParent = execution.binding(manualKey)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -1267,7 +1267,7 @@ class RunEngineContextTest {
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -1292,7 +1292,7 @@ class RunEngineContextTest {
 
         val logic = logicOf { execution ->
             execution.bindAllPolicies(disposed)
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -1368,7 +1368,7 @@ class RunEngineContextTest {
 
         val logic = logicOf { execution ->
             execution.bind(manualKey, "handle", FrameDisposal(ClosePolicy.Manual) { disposals += 1 })
-            TupleValue.ofMain("done")
+            bindingsOfMain("done")
         }
 
         val engine = RunEngine(logic, rootId)
@@ -1405,12 +1405,12 @@ class RunEngineContextTest {
             execution.bind(
                 ContextKey.of("r"), "handle", FrameDisposal(ClosePolicy.Auto) { order.add("binding") })
             execution.onSettle(SettleDisposalPolicy.Auto) { order.add("anonymous") }
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child)
             anonymousRanWhenChildReturned = "anonymous" in order
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -1545,7 +1545,7 @@ class RunEngineContextTest {
         val callee = logicOf { execution ->
             val seen = execution.binding(ContextKey.of("sut"))
             reads.add(seen)
-            TupleValue.ofMain(seen.valueOrNull())
+            bindingsOfMain(seen.valueOrNull())
         }
         val caller = logicOf { execution ->
             firstOutput = execution
@@ -1558,7 +1558,7 @@ class RunEngineContextTest {
                     ObjectStableId("second"), callee,
                     initialBindings = listOf(InitialBinding(ContextKey.of("sut"), "handleB")))
                 .mainComponentValue()
-            TupleValue.ofMain("caller")
+            bindingsOfMain("caller")
         }
 
         val engine = RunEngine(caller, rootId)
@@ -1596,7 +1596,7 @@ class RunEngineContextTest {
             disposedInsideCallee = disposed.toList()
             readAfterReleasingABorrowOnlyName = execution.binding(ContextKey.of("aux"))
             readAfterReleasingTheBorrowedName = execution.binding(ContextKey.of("sut"))
-            TupleValue.ofMain("callee")
+            bindingsOfMain("callee")
         }
         val caller = logicOf { execution ->
             execution.bind(
@@ -1607,7 +1607,7 @@ class RunEngineContextTest {
                     InitialBinding(ContextKey.of("sut"), "handle"),
                     InitialBinding(ContextKey.of("aux"), "aux-handle")))
             callerReadAfterCallee = execution.binding(ContextKey.of("sut"))
-            TupleValue.ofMain("caller")
+            bindingsOfMain("caller")
         }
 
         val engine = RunEngine(caller, rootId)
@@ -1652,7 +1652,7 @@ class RunEngineContextTest {
             readBeforeOwnBind = execution.binding(ContextKey.of("sut"))
             execution.bind(ContextKey.of("sut"), "own")
             readAfterOwnBind = execution.binding(ContextKey.of("sut"))
-            TupleValue.ofMain("callee")
+            bindingsOfMain("callee")
         }
         val caller = logicOf { execution ->
             execution.bind(ContextKey.of("sut"), "callerOwned")
@@ -1660,7 +1660,7 @@ class RunEngineContextTest {
                 ObjectStableId("callee"), callee,
                 initialBindings = listOf(InitialBinding(ContextKey.of("sut"), "borrowed")))
             callerReadAfterCallee = execution.binding(ContextKey.of("sut"))
-            TupleValue.ofMain("caller")
+            bindingsOfMain("caller")
         }
 
         val engine = RunEngine(caller, rootId)
@@ -1797,7 +1797,7 @@ class RunEngineContextTest {
 
         val callee = logicOf { execution ->
             read = execution.binding(ContextKey.of("sut"))
-            TupleValue.ofMain("callee")
+            bindingsOfMain("callee")
         }
         val caller = logicOf { execution ->
             execution.host(
@@ -1805,7 +1805,7 @@ class RunEngineContextTest {
                 initialBindings = listOf(
                     InitialBinding(ContextKey.of("sut"), "base"),
                     InitialBinding(ContextKey.of("sut"), "override")))
-            TupleValue.ofMain("caller")
+            bindingsOfMain("caller")
         }
 
         val engine = RunEngine(caller, rootId)

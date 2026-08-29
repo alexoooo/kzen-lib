@@ -16,7 +16,7 @@ import tech.kzen.lib.common.exec.engine.context.ContextKey
 import tech.kzen.lib.common.exec.engine.context.ExportSelector
 import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
-import tech.kzen.lib.common.exec.tuple.TupleValue
+import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
@@ -105,7 +105,7 @@ class RunEngineParallelBindingTest {
                 other.await()
                 if (name == "a") { readInA = execution.binding(sut) } else { readInB = execution.binding(sut) }
                 bothBound.complete(Unit)
-                TupleValue.ofMain(name)
+                bindingsOfMain(name)
             }
 
         val aBound = CompletableDeferred<Unit>()
@@ -113,7 +113,7 @@ class RunEngineParallelBindingTest {
         val parent = logicOf { execution ->
             hostBoth(execution, worker("a", bBound, aBound), worker("b", aBound, bBound))
             readInParent = execution.binding(sut)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -168,19 +168,19 @@ class RunEngineParallelBindingTest {
             bBound.await()
             disposedWhenAResumed = disposed.toList()
             readInAAfterSiblingBound = execution.binding(sut)
-            TupleValue.ofMain("a")
+            bindingsOfMain("a")
         }
         val childB = logicOf { execution ->
             execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
             aBound.await()
             execution.bind(sut, "browserB", FrameDisposal(ClosePolicy.Auto) { disposed.add("browserB") })
             bBound.complete(Unit)
-            TupleValue.ofMain("b")
+            bindingsOfMain("b")
         }
         val parent = logicOf { execution ->
             hostBoth(execution, childA, childB)
             readInParent = execution.binding(sut)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -232,19 +232,19 @@ class RunEngineParallelBindingTest {
             bReleased.await()
             disposedWhenAResumed = disposed.toList()
             readInAAfter = execution.binding(sut)
-            TupleValue.ofMain("a")
+            bindingsOfMain("a")
         }
         val childB = logicOf { execution ->
             aReady.await()
             execution.releaseBinding(sut)
             bReleased.complete(Unit)
-            TupleValue.ofMain("b")
+            bindingsOfMain("b")
         }
         val parent = logicOf { execution ->
             execution.bind(sut, "shared", FrameDisposal(ClosePolicy.Auto) { disposed.add("shared") })
             hostBoth(execution, childA, childB)
             readInParent = execution.binding(sut)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -302,7 +302,7 @@ class RunEngineParallelBindingTest {
             readInCalleeBeforeOwnBind = execution.binding(sut)
             execution.bind(sut, "own", FrameDisposal(ClosePolicy.Auto) { disposed.add("own") })
             readInCalleeAfterOwnBind = execution.binding(sut)
-            TupleValue.ofMain("callee")
+            bindingsOfMain("callee")
         }
         val caller = logicOf { execution ->
             execution.host(
@@ -310,7 +310,7 @@ class RunEngineParallelBindingTest {
                 initialBindings = listOf(InitialBinding(sut, "borrowed")))
             disposedWhenCallerResumed = disposed.toList()
             readInCallerAfterCallee = execution.binding(sut)
-            TupleValue.ofMain("caller")
+            bindingsOfMain("caller")
         }
 
         val engine = RunEngine(caller, rootId)
@@ -360,20 +360,20 @@ class RunEngineParallelBindingTest {
             execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
             execution.bind(sut, "own", FrameDisposal(ClosePolicy.Auto) { disposed.add("own") })
             readInInnerAfterOwnBind = execution.binding(sut)
-            TupleValue.ofMain("inner")
+            bindingsOfMain("inner")
         }
         val middle = logicOf { execution ->
             execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
             execution.host(ObjectStableId("inner"), inner)
             readInMiddleAfterInner = execution.binding(sut)
-            TupleValue.ofMain("middle")
+            bindingsOfMain("middle")
         }
         val caller = logicOf { execution ->
             execution.host(
                 ObjectStableId("middle"), middle,
                 initialBindings = listOf(InitialBinding(sut, "borrowed")))
             readInCallerAfterMiddle = execution.binding(sut)
-            TupleValue.ofMain("caller")
+            bindingsOfMain("caller")
         }
 
         val engine = RunEngine(caller, rootId)
@@ -421,23 +421,23 @@ class RunEngineParallelBindingTest {
         fun nested(value: String) = logicOf { execution ->
             execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
             execution.bind(sut, value, FrameDisposal(ClosePolicy.Auto) { disposed.add(value) })
-            TupleValue.ofMain(value)
+            bindingsOfMain(value)
         }
 
         val childA = logicOf { execution ->
             execution.host(ObjectStableId("nestedA"), nested("browserA"))
             readInA = execution.binding(sut)
-            TupleValue.ofMain("a")
+            bindingsOfMain("a")
         }
         val childB = logicOf { execution ->
             execution.host(ObjectStableId("nestedB"), nested("browserB"))
             readInB = execution.binding(sut)
-            TupleValue.ofMain("b")
+            bindingsOfMain("b")
         }
         val parent = logicOf { execution ->
             hostBothBarriered(execution, childA, childB)
             readInParent = execution.binding(sut)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -474,11 +474,11 @@ class RunEngineParallelBindingTest {
         // provided. The author is asking for precisely the semantics the barrier exists to withhold.
         val child = logicOf { execution ->
             execution.declareExport(ExportSelector.Family(ContextFamily("sut")))
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.host(ObjectStableId("child"), child, contextBarrier = true)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -520,19 +520,19 @@ class RunEngineParallelBindingTest {
             bReleased.await()
             disposedWhenAResumed = disposed.toList()
             readInAAfter = execution.binding(sut)
-            TupleValue.ofMain("a")
+            bindingsOfMain("a")
         }
         val childB = logicOf { execution ->
             aReady.await()
             execution.releaseBinding(sut)
             bReleased.complete(Unit)
-            TupleValue.ofMain("b")
+            bindingsOfMain("b")
         }
         val parent = logicOf { execution ->
             execution.bind(sut, "shared", FrameDisposal(ClosePolicy.Auto) { disposed.add("shared") })
             hostBothBarriered(execution, childA, childB)
             readInParent = execution.binding(sut)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -572,7 +572,7 @@ class RunEngineParallelBindingTest {
         val child = logicOf { execution ->
             readOwnAncestorBinding = execution.binding(sut)
             readCallSiteBorrow = execution.binding(borrowed)
-            TupleValue.ofMain("child")
+            bindingsOfMain("child")
         }
         val parent = logicOf { execution ->
             execution.bind(sut, "shared")
@@ -580,7 +580,7 @@ class RunEngineParallelBindingTest {
                 ObjectStableId("child"), child,
                 initialBindings = listOf(InitialBinding(borrowed, "fromCallSite")),
                 contextBarrier = true)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)
@@ -619,7 +619,7 @@ class RunEngineParallelBindingTest {
 
         fun binder(key: ContextKey, value: String) = logicOf { execution ->
             execution.bind(key, value, FrameDisposal(ClosePolicy.Manual) { disposed.add(value) })
-            TupleValue.ofMain(value)
+            bindingsOfMain(value)
         }
 
         val parent = logicOf { execution ->
@@ -629,7 +629,7 @@ class RunEngineParallelBindingTest {
                 ObjectStableId("promoted"), binder(promoted, "handedUp"))
             readBarrieredInParent = execution.binding(barriered)
             readPromotedInParent = execution.binding(promoted)
-            TupleValue.ofMain("parent")
+            bindingsOfMain("parent")
         }
 
         val engine = RunEngine(parent, rootId)

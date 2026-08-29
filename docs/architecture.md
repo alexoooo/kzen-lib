@@ -231,12 +231,12 @@ On the JVM that fallback is `ReflectiveClassMirror` (kzen-lib-jvm `server/reflec
 
 | Concept | What it is | Key types |
 |---------|-----------|-----------|
-| **Logic** | The unit of interactive computation: a suspendable `run(execution): TupleValue`. Position lives on the coroutine stack — a sequence is statements, a loop is a `for` — so there is no re-entrant "continue-or-start" and no manual position persistence. Outcomes are return / throw / cooperative cancel; *paused* is not a return value but a suspension. | `Logic`, `LogicSignature`, `LogicFailure`, `Repositionable` |
+| **Logic** | The unit of interactive computation: a suspendable `run(execution): DataBindings`. Position lives on the coroutine stack — a sequence is statements, a loop is a `for` — so there is no re-entrant "continue-or-start" and no manual position persistence. Outcomes are return / throw / cooperative cancel; *paused* is not a return value but a suspension. | `Logic`, `LogicSignature`, `LogicFailure`, `Repositionable` |
 | **Execution** | The entire surface a Logic touches, handed to it by the engine. Boundaries (`checkpoint`), tracing (`emit` / `log` / `resetEmitted`), composition (`host`, which also bootstraps the child frame with call-site-supplied bindings and, via `contextBarrier`, walls a CONCURRENTLY-hosted child's context writes off from its siblings — see spec §6), ambient context and disposal (`declareExport(selector)` / `bind` / `binding` / `hasBinding` / `hasBindingInFamily` / `releaseBinding` / `onSettle`, over a supported raw-string interop layer of `resource` / `resourceValue` / `releaseResource`), interaction (`onRequest`), and live-edit state (`onCapture` / `restored` / `moveTarget` / `moveDescendCallSite`). | `Execution`, `Address`, `PauseReason`, `ContextKey`, `ExportSelector`, `FrameDisposal`, `InitialBinding`, `ClosePolicy` |
 | **Engine** | The single-writer core that owns everything mutable for one run: the node tree, the append-only event log, each node's live per-address value map, identity, resources, and the live-edit migration barrier. One per run — no singleton. Quiescence (the coherent wavefront that pause / step / edit act on) is counted, not guessed. | `RunEngine`, `CountingDispatcher`, `Run`, `RunState`, `Node`, `NodeStatus`, `Outcome`, `StepMode`, `TraceEvent` |
 | **Trace** | The values a run records — latest-per-address plus an append-only history. A **projection of the retained engine**, not a store. | `LogicTrace`, `LogicTracePath`, `LogicTraceQuery`, `LogicTraceSnapshot`, `LogicTraceEntry`, `LogicTraceEvent`; run models `LogicRunId` / `LogicExecutionId` / `LogicStatus` / `LogicRunState` |
 | **Task** | A one-shot async unit of work tracked to completion. Unrelated to Logic — no pause, step, or trace. | `ManagedTask`, `TaskHandle`, `TaskRepository`, `TaskModel`, `TaskState` |
-| **Tuple** | The named-component value/definition model for Logic inputs and outputs. | `TupleDefinition`, `TupleValue`, `TupleComponent*` |
+| **Data model** | Structural and JVM-native contracts, backing-independent values, bounded snapshots, and named Logic bindings. `BindingState.Unbound` is distinct from a bound null value; defaults are applied once when executable inputs are bound. | `DataType`, `DataContract`, `DataValue`, `DataSnapshot`, `BindingSchema`, `DataBindings` |
 
 Interfaces and pure-data models live in `kzen-lib-common/commonMain` (`exec/engine/` for the core, `exec/logic/` for the run-control and trace *wire* models). Server-side execution is `kzen-lib-jvm` `server/exec/engine/` — `RunEngine` + `CountingDispatcher`, the only two JVM-side files. **There is no separate trace store** — the former `LogicTraceStore` was retired; the `LogicTrace` wire contract is served by projecting the retained engine at query time (kzen-auto's `RunEngineLogicTrace`, see [`../../kzen-auto/docs/architecture.md`](../../kzen-auto/docs/architecture.md) §3).
 
@@ -276,8 +276,12 @@ exec/        — execution-layer abstractions (Logic/Task/Trace; relocated from 
                      LogicRunState/Info/Response, LogicRunExecutionInfo, LogicRunFrameInfo);
                trace/ (LogicTrace, LogicTraceHandle, model/LogicTracePath/Query/Snapshot/Entry/Event);
                model/ (LogicDefinition, LogicType); ResourceClosePolicy
+  data/      — unified data contracts and values:
+    type/    — DataType/DataContract algebra, paths, fields, variants, JVM native resolution
+    value/   — DataValue/ValueAccess, adapters, literals, snapshots, validation/materialization
+    binding/ — BindingSchema/DataBindings and strict concurrent output settlement
+    shape/   — observed DataShape envelope, provenance, coverage, stability, diagnostics
   task/      — ManagedTask, TaskHandle, TaskRepository, TaskRun; model/ (TaskId/Model/Progress/State)
-  tuple/     — TupleDefinition/Value, TupleComponentDefinition/Name/Value
   (root)     — ExecutionRequest, ExecutionResult, ExecutionValue, RequestParams
 model/
   attribute/ — AttributeName, AttributePath, AttributeNesting, AttributeSegment, AttributeNameMap

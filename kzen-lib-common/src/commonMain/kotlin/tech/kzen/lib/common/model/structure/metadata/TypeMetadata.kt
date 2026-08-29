@@ -10,13 +10,15 @@ import tech.kzen.lib.platform.ClassNames
 import tech.kzen.lib.platform.ClassNames.simple
 
 
-data class TypeMetadata(
+class TypeMetadata(
     val className: ClassName,
-    val generics: List<TypeMetadata>,
+    generics: List<TypeMetadata>,
     val nullable: Boolean
 ):
     Digestible
 {
+    val generics: List<TypeMetadata> = generics.toList()
+
     //-----------------------------------------------------------------------------------------------------------------
     companion object {
         private const val classNameKey = "class"
@@ -112,4 +114,27 @@ data class TypeMetadata(
     fun classNames(): Set<ClassName> {
         return setOf(className) + generics.flatMap { it.classNames() }
     }
+
+
+    //-----------------------------------------------------------------------------------------------------------------
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is TypeMetadata) return false
+
+        return className == other.className &&
+                generics == other.generics &&
+                nullable == other.nullable
+    }
+
+
+    override fun hashCode(): Int {
+        var result = className.hashCode()
+        result = 31 * result + generics.hashCode()
+        result = 31 * result + nullable.hashCode()
+        return result
+    }
+
+
+    override fun toString(): String =
+        "TypeMetadata(className=$className, generics=$generics, nullable=$nullable)"
 }
