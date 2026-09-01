@@ -359,8 +359,7 @@ sealed class ExecutionValue
 
             is MapExecutionValue -> {
                 sink.addInt(7)
-                sink.addInt(values.size)
-                sink.addCollection(values.entries) {
+                sink.addUnorderedCollection(values.entries) {
                     addUtf8(it.key)
                     addDigestible(it.value)
                 }
@@ -521,6 +520,14 @@ data class ListExecutionValue(
 }
 
 
+/**
+ * String-keyed structured value whose entry order has no semantic meaning.
+ *
+ * Equality and [digest] ignore iteration order. The supplied [values] map may retain an order for serialization or
+ * display, but consumers must not interpret that order as data. Represent semantically ordered entries with
+ * [ListExecutionValue]; a use case requiring both keyed lookup and semantic entry order needs a distinct ordered-map
+ * execution value.
+ */
 data class MapExecutionValue(
     val values: Map<String, ExecutionValue>
 ): StructuredExecutionValue() {
