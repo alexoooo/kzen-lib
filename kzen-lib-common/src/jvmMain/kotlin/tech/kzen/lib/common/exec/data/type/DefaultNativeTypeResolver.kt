@@ -6,6 +6,7 @@ import tech.kzen.lib.common.exec.data.value.DataAccessException
 import tech.kzen.lib.common.exec.data.value.DataNode
 import tech.kzen.lib.common.exec.data.value.DataState
 import tech.kzen.lib.common.exec.data.value.DataValue
+import tech.kzen.lib.common.exec.data.value.LiteralDataValues
 import tech.kzen.lib.common.exec.data.value.JvmNativeValueAccess
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.platform.ClassName
@@ -563,6 +564,8 @@ class DefaultNativeTypeResolver(
                     }
                 }.toFloat()
                 Double::class -> actual.access.readDouble(actual.root)
+                BigDecimal::class -> BigDecimal(
+                    LiteralDataValues.canonicalNumberText(actual.access.scalar(actual.root)))
                 String::class -> actual.access.readText(actual.root)
                 ByteArray::class -> actual.access.readBinary(actual.root)
                 else -> return TypeAcceptance.Rejected(DataProblem(

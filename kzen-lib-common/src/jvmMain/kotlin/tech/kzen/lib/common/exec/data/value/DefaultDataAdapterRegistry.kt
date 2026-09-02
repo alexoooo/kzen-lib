@@ -8,8 +8,10 @@ import tech.kzen.lib.common.exec.data.type.DataType
 import tech.kzen.lib.common.exec.data.type.DataTypePath
 import tech.kzen.lib.common.exec.data.type.DataTypeAlgebra
 import tech.kzen.lib.common.exec.data.type.DefaultNativeTypeResolver
+import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.TypeAcceptance
 import tech.kzen.lib.common.exec.data.type.VariantSelection
+import java.math.BigDecimal
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.starProjectedType
@@ -89,8 +91,9 @@ class DefaultDataAdapterRegistry(
             throw refused(classifier)
         }
         if (isBuiltInValue(value)) {
-            val contract = runtimeContract(value, expected.takeUnless { it?.structural is DataType.Union })
-            val lifted = NativeObjectValueAccess.value(value, contract, this)
+            val adapted = adaptExpectedScalar(value, expected)
+            val contract = runtimeContract(adapted, expected.takeUnless { it?.structural is DataType.Union })
+            val lifted = NativeObjectValueAccess.value(adapted, contract, this)
             return conformExpected(expected, lifted)
         }
         fallback(classifier)?.let { adapter ->
@@ -101,6 +104,14 @@ class DefaultDataAdapterRegistry(
         val lifted = NativeObjectValueAccess.value(value, contract, this)
         return conformExpected(expected, lifted)
     }
+
+
+    private fun adaptExpectedScalar(value: Any, expected: DataContract?): Any =
+        when ((expected?.structural as? DataType.Scalar)?.kind) {
+            ScalarKind.Decimal ->
+                if (value is String) BigDecimal(value) else value
+            else -> value
+        }
 
 
     internal fun childValue(value: Any?, expected: DataContract?): Pair<Any?, DataContract> {

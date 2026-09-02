@@ -351,7 +351,9 @@ private fun scalarValue(value: Any, type: DataType.Scalar): ScalarExecutionValue
             is UInt -> LongExecutionValue(value.toLong())
             else -> TextExecutionValue(value.toString())
         }
-        ScalarKind.Decimal -> TextExecutionValue((value as BigDecimal).toPlainString())
+        ScalarKind.Decimal -> TextExecutionValue((value as BigDecimal).stripTrailingZeros().let {
+            if (it.signum() == 0) "0" else it.toString()
+        })
         is ScalarKind.Floating -> NumberExecutionValue((value as Number).toDouble())
         ScalarKind.Text -> TextExecutionValue(value as String)
         ScalarKind.Binary -> BinaryExecutionValue((value as ByteArray).copyOf())

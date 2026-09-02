@@ -178,6 +178,17 @@ object LiteralDataValues {
         }
 
 
+    internal fun canonicalNumberText(value: ScalarExecutionValue): String =
+        when (value) {
+            is TextExecutionValue -> value.value
+            is LongExecutionValue -> value.value.toString()
+            is NumberExecutionValue -> value.value.toString()
+            else -> throw DataAccessException(DataProblem(
+                DataProblem.invalidOperation,
+                "Numeric scalar must use a canonical numeric execution value"))
+        }
+
+
     private class LiteralValueAccess: ValueAccess {
         private val nodes = mutableListOf<NodeData>()
 

@@ -13,6 +13,7 @@ import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.VariantId
 import tech.kzen.lib.common.exec.data.type.toDataContract
+import java.math.BigDecimal
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 import kotlin.test.Test
@@ -79,6 +80,39 @@ class DefaultDataAdapterRegistryTest {
             assertEquals(TextExecutionValue("a"), mapping.access.keyAt(mapping.root, 0))
             assertEquals(9L, mapping.access.readLong(
                 mapping.access.entry(mapping.root, TextExecutionValue("b"))))
+        }
+    }
+
+
+    @Test
+    fun decimalLiftIsExactAndExpectedDecimalAcceptsCanonicalText() {
+        val text = "12345678901234567890.1234567890123456789"
+        val expected = DataContract(DataType.Scalar(ScalarKind.Decimal))
+        DefaultDataAdapterRegistry().use { registry ->
+            val decimal = BigDecimal(text)
+            val direct = registry.lift(decimal, expected)
+            assertEquals(expected.structural, direct.type)
+            assertSame(decimal, direct.access.native(direct.root))
+            assertEquals(TextExecutionValue(text), direct.access.scalar(direct.root))
+
+            val guided = registry.lift(text, expected)
+            assertEquals(expected.structural, guided.type)
+            assertEquals(decimal, guided.access.native(guided.root))
+            assertEquals(TextExecutionValue(text), guided.access.scalar(guided.root))
+
+            val plainText = registry.lift(text)
+            assertEquals(DataType.Scalar(ScalarKind.Text), plainText.type)
+            assertEquals(text, plainText.access.readText(plainText.root))
+        }
+    }
+
+
+    @Test
+    fun decimalScalarTextKeepsExtremeExponentBounded() {
+        val expected = DataContract(DataType.Scalar(ScalarKind.Decimal))
+        DefaultDataAdapterRegistry().use { registry ->
+            val value = registry.lift(BigDecimal("1E-1000000"), expected)
+            assertEquals(TextExecutionValue("1E-1000000"), value.access.scalar(value.root))
         }
     }
 

@@ -7,6 +7,7 @@ import tech.kzen.lib.common.exec.TextExecutionValue
 import tech.kzen.lib.common.exec.data.type.DataType
 import tech.kzen.lib.common.exec.data.type.DataTypePath
 import tech.kzen.lib.common.exec.data.type.ScalarKind
+import java.math.BigDecimal
 
 
 /** Projects a JVM-backed value to its native or canonical structural representation. */
@@ -64,7 +65,7 @@ private fun DataValue.materializeScalar(node: DataNode, kind: ScalarKind): Any =
     when (kind) {
         ScalarKind.Boolean -> access.readBoolean(node)
         is ScalarKind.Integer -> access.readLong(node)
-        ScalarKind.Decimal -> access.scalar(node).asJvmScalar()
+        ScalarKind.Decimal -> BigDecimal(LiteralDataValues.canonicalNumberText(access.scalar(node)))
         is ScalarKind.Floating -> access.readDouble(node)
         ScalarKind.Text,
         ScalarKind.Date,

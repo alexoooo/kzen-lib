@@ -8,6 +8,7 @@ import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.TypeAcceptance
 import tech.kzen.lib.common.exec.data.type.FieldId
 import java.lang.management.ManagementFactory
+import java.math.BigDecimal
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -50,6 +51,23 @@ class DataValueJvmTest {
 
             assertEquals(TypeAcceptance.Accepted, resolver.isAssignable(expected, exact))
             assertIs<TypeAcceptance.Rejected>(resolver.isAssignable(expected, overflow))
+        }
+    }
+
+
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun decimalMaterializationAndNativeProjectionRemainExact() {
+        val text = "12345678901234567890.1234567890123456789"
+        val decimal = LiteralDataValues.lift(
+            text,
+            DataContract(DataType.Scalar(ScalarKind.Decimal)))
+
+        assertEquals(BigDecimal(text), decimal.materializeJvm())
+        DefaultNativeTypeResolver().use { resolver ->
+            assertEquals(
+                TypeAcceptance.Accepted,
+                resolver.isAssignable(resolver.describe(typeOf<BigDecimal>()), decimal))
         }
     }
 }
