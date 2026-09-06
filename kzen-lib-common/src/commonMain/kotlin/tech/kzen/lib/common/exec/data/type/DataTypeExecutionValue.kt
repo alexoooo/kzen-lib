@@ -53,6 +53,11 @@ fun DataType.asExecutionValue(): MapExecutionValue =
         is DataType.Dynamic -> typeValue(
             "dynamic",
             "nullable" to BooleanExecutionValue.of(nullable))
+
+        is DataType.Reference -> typeValue(
+            "reference",
+            "id" to TextExecutionValue(id.value),
+            "nullable" to BooleanExecutionValue.of(nullable))
     }
 
 
@@ -85,6 +90,7 @@ object DataTypeExecutionValue {
                 }, nullable)
                 "opaque" -> DataType.Opaque(nullable)
                 "dynamic" -> DataType.Dynamic(nullable)
+                "reference" -> DataType.Reference(DefinitionId(map.text("id")), nullable)
                 else -> invalidEncoding("Unknown data type case '$case'")
             }
         }

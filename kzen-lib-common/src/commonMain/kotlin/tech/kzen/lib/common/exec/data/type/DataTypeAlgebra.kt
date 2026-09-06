@@ -4,8 +4,9 @@ import tech.kzen.lib.common.exec.data.problem.DataProblem
 
 
 object DataTypeAlgebra {
+    /** Structural assignability; a [DataType.Reference] on either side is nominal here (see the contract overload). */
     fun isAssignable(expected: DataType, actual: DataType): TypeAcceptance =
-        if (accepts(expected, actual)) {
+        if (accepts(expected, actual, Definitions.none, mutableSetOf())) {
             TypeAcceptance.Accepted
         }
         else {
@@ -13,6 +14,38 @@ object DataTypeAlgebra {
                 DataProblem.incompatibleType,
                 "Actual type $actual is not assignable to expected type $expected"))
         }
+
+
+    /**
+     * Assignability between contracts: a reference on either side is expanded through its own contract's
+     * definitions, and a pair of references already under comparison is assumed compatible (the coinductive
+     * rule that keeps recursive shapes finite), so a run-time value whose element is a full record satisfies a
+     * design-time contract whose element is the reference to that record.
+     */
+    fun isAssignable(expected: DataContract, actual: DataContract): TypeAcceptance =
+        if (accepts(expected.structural, actual.structural,
+                Definitions(expected.definitions, actual.definitions, opaqueForOpaque = true), mutableSetOf())) {
+            TypeAcceptance.Accepted
+        }
+        else {
+            TypeAcceptance.Rejected(DataProblem(
+                DataProblem.incompatibleType,
+                "Actual type ${actual.structural} is not assignable to expected type ${expected.structural}"))
+        }
+
+
+    // Contract-level comparisons carry native metadata beside the shapes, so an opaque expected member accepts
+    // an opaque actual one — the native identity behind it is the resolver's (token) check. A bare type
+    // comparison has no such metadata and keeps rejecting opaque for opaque.
+    private class Definitions(
+        val expected: Map<DefinitionId, DataType>,
+        val actual: Map<DefinitionId, DataType>,
+        val opaqueForOpaque: Boolean = false
+    ) {
+        companion object {
+            val none = Definitions(emptyMap(), emptyMap())
+        }
+    }
 
     fun join(left: DataType, right: DataType): DataType {
         if (left == right) {
@@ -36,7 +69,7 @@ object DataTypeAlgebra {
         }
 
         val candidates = union.variants
-            .filter { accepts(it.type, actual) }
+            .filter { accepts(it.type, actual, Definitions.none, mutableSetOf()) }
             .map { it.id }
 
         return when (candidates.size) {
@@ -59,12 +92,17 @@ object DataTypeAlgebra {
         return isAssignable(selected.type, actual)
     }
 
-    private fun accepts(expected: DataType, actual: DataType): Boolean {
+    private fun accepts(
+        expected: DataType,
+        actual: DataType,
+        definitions: Definitions,
+        assumed: MutableSet<Pair<DefinitionId, DefinitionId>>
+    ): Boolean {
         if (!expected.nullable && actual.nullable) {
             return false
         }
         if (expected.nullable || actual.nullable) {
-            return accepts(expected.withNullability(false), actual.withNullability(false))
+            return accepts(expected.withNullability(false), actual.withNullability(false), definitions, assumed)
         }
         if (expected is DataType.Dynamic) {
             return true
@@ -73,23 +111,45 @@ object DataTypeAlgebra {
             return false
         }
         if (expected is DataType.Opaque) {
-            return false
+            return definitions.opaqueForOpaque && actual is DataType.Opaque
+        }
+
+        if (expected is DataType.Reference && actual is DataType.Reference) {
+            if (expected.id to actual.id in assumed) {
+                return true
+            }
+            val expectedDefinition = definitions.expected[expected.id]
+            val actualDefinition = definitions.actual[actual.id]
+            if (expectedDefinition == null || actualDefinition == null) {
+                // Without both definitions the comparison is nominal
+                return expected.id == actual.id
+            }
+            assumed += expected.id to actual.id
+            return accepts(expectedDefinition, actualDefinition, definitions, assumed)
+        }
+        if (expected is DataType.Reference) {
+            val definition = definitions.expected[expected.id] ?: return false
+            return accepts(definition, actual, definitions, assumed)
+        }
+        if (actual is DataType.Reference) {
+            val definition = definitions.actual[actual.id] ?: return false
+            return accepts(expected, definition, definitions, assumed)
         }
 
         if (expected is DataType.Union) {
             return if (actual is DataType.Union) {
                 actual.variants.all { actualVariant ->
                     expected.variants.any { expectedVariant ->
-                        accepts(expectedVariant.type, actualVariant.type)
+                        accepts(expectedVariant.type, actualVariant.type, definitions, assumed)
                     }
                 }
             }
             else {
-                expected.variants.any { accepts(it.type, actual) }
+                expected.variants.any { accepts(it.type, actual, definitions, assumed) }
             }
         }
         if (actual is DataType.Union) {
-            return actual.variants.all { accepts(expected, it.type) }
+            return actual.variants.all { accepts(expected, it.type, definitions, assumed) }
         }
 
         return when {
@@ -97,19 +157,24 @@ object DataTypeAlgebra {
                 acceptsScalar(expected.kind, actual.kind)
 
             expected is DataType.Record && actual is DataType.Record ->
-                acceptsRecord(expected, actual)
+                acceptsRecord(expected, actual, definitions, assumed)
 
             expected is DataType.Listing && actual is DataType.Listing ->
-                accepts(expected.element, actual.element)
+                accepts(expected.element, actual.element, definitions, assumed)
 
             expected is DataType.Mapping && actual is DataType.Mapping ->
-                expected.key == actual.key && accepts(expected.value, actual.value)
+                expected.key == actual.key && accepts(expected.value, actual.value, definitions, assumed)
 
             else -> false
         }
     }
 
-    private fun acceptsRecord(expected: DataType.Record, actual: DataType.Record): Boolean {
+    private fun acceptsRecord(
+        expected: DataType.Record,
+        actual: DataType.Record,
+        definitions: Definitions,
+        assumed: MutableSet<Pair<DefinitionId, DefinitionId>>
+    ): Boolean {
         var actualIndex = 0
         for (expectedField in expected.fields) {
             while (actualIndex < actual.fields.size && actual.fields[actualIndex].id != expectedField.id) {
@@ -123,7 +188,7 @@ object DataTypeAlgebra {
             if (!expectedField.optional && actualField.optional) {
                 return false
             }
-            if (!accepts(expectedField.type, actualField.type)) {
+            if (!accepts(expectedField.type, actualField.type, definitions, assumed)) {
                 return false
             }
             actualIndex++
@@ -183,6 +248,9 @@ object DataTypeAlgebra {
 
             left is DataType.Mapping && right is DataType.Mapping && left.key == right.key ->
                 DataType.Mapping(left.key, join(left.value, right.value))
+
+            left is DataType.Reference && right is DataType.Reference && left.id == right.id ->
+                DataType.Reference(left.id)
 
             else -> DataType.Dynamic(false)
         }

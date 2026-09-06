@@ -53,7 +53,7 @@ internal class NativeObjectValueAccess private constructor(
         rootContract,
         rootValue,
         emptyList(),
-        nativeToken(rootValue)))
+        NativeTypeTokens.of(rootValue)))
 
 
     override fun contract(node: DataNode): DataContract = get(node).contract
@@ -79,6 +79,10 @@ internal class NativeObjectValueAccess private constructor(
             val reader = NativePropertyPlans.reader(entry.value!!::class, field)
             val childValue = try {
                 reader(entry.value)
+            }
+            catch (e: DataAccessException) {
+                throw DataAccessException(DataProblem(
+                    e.problem.code, e.problem.message, entry.path + DataPathSegment.Field(field)))
             }
             catch (e: ReflectiveOperationException) {
                 throw DataAccessException(DataProblem(
@@ -117,7 +121,7 @@ internal class NativeObjectValueAccess private constructor(
         val size = sequenceSize(parent.value!!)
         if (index !in 0 until size) invalid(node, "Listing index out of bounds: $index")
         return parent.elements.getOrPut(index) {
-            val childValue = sequenceElement(parent.value, index)
+            val childValue = sequenceElement(parent.orderedValue(), index)
             val expected = parent.contract.child(DataPathSegment.ListingElement)
             add(childValue, actualChildContract(childValue, expected),
                 parent.path + DataPathSegment.Element(index))
@@ -199,8 +203,11 @@ internal class NativeObjectValueAccess private constructor(
 
 
     override fun readText(node: DataNode): String =
-        present(node, "readText").value as? String
-            ?: invalid(node, "Text scalar required")
+        when (val value = present(node, "readText").value) {
+            is String -> value
+            is Enum<*> -> value.name
+            else -> invalid(node, "Text scalar required")
+        }
 
 
     override fun readBinary(node: DataNode): ByteArray =
@@ -234,7 +241,7 @@ internal class NativeObjectValueAccess private constructor(
 
 
     private fun add(value: Any?, contract: DataContract, path: List<DataPathSegment>): DataNode {
-        nodes += NodeEntry(contract, value, path, nativeToken(value))
+        nodes += NodeEntry(contract, value, path, NativeTypeTokens.of(value))
         return DataNode(nodes.lastIndex.toLong())
     }
 
@@ -257,6 +264,8 @@ internal class NativeObjectValueAccess private constructor(
                 "$operation requires a present value",
                 entry.path))
         }
+        // A closed native fails by name here, on the next read, rather than being read silently
+        registry.checkLive(entry.value)
         return entry
     }
 
@@ -277,15 +286,22 @@ private class NodeEntry(
     val fields = mutableMapOf<FieldId, DataNode>()
     val elements = mutableMapOf<Int, DataNode>()
     val entries = mutableMapOf<ScalarExecutionValue, DataNode>()
+
+    // A Set's iteration order is unstable across instances; one snapshot per node keeps indexes consistent
+    private val setSnapshot: List<Any?>? by lazy { (value as? Set<*>)?.toList() }
+
+    fun orderedValue(): Any = setSnapshot ?: value!!
 }
 
 
+/** Field readers per class identity: records and data classes by component, ordinary classes by [BeanShape]. */
 private object NativePropertyPlans {
-    private val plans = mutableMapOf<KClass<*>, Map<FieldId, (Any) -> Any?>>()
+    private val plans = object: ClassValue<Map<FieldId, (Any) -> Any?>>() {
+        override fun computeValue(type: Class<*>): Map<FieldId, (Any) -> Any?> = create(type.kotlin)
+    }
 
-    @Synchronized
     fun reader(type: KClass<*>, field: FieldId): (Any) -> Any? =
-        plans.getOrPut(type) { create(type) }[field]
+        plans.get(type.java)[field]
             ?: throw DataAccessException(DataProblem(
                 DataProblem.invalidValue,
                 "Native type ${type.qualifiedName} has no planned field '$field'"))
@@ -310,24 +326,35 @@ private object NativePropertyPlans {
                 FieldId(name) to { instance: Any -> reader.get(instance) }
             }
         }
-        throw DataAccessException(DataProblem(
-            DataProblem.invalidValue,
-            "Native record access is limited to Kotlin data classes and Java records: ${type.qualifiedName}"))
+        val shape = BeanShape.of(type.java)
+            ?: throw DataAccessException(DataProblem(
+                DataProblem.invalidValue,
+                "Native record access needs a Kotlin data class, a Java record or a class with bean properties: " +
+                        type.qualifiedName))
+        return shape.properties.associate { property ->
+            FieldId(property.name) to { instance: Any -> property.read(instance) }
+        }
     }
 }
 
 
-private fun nativeToken(value: Any?): NativeTypeToken? =
-    value?.let { NativeTypeToken(it::class.starProjectedType) }
+/** Native type tokens cached per `Class` identity (E7 item 4): loader-local, computed once per class. */
+private object NativeTypeTokens {
+    private val byClass = object: ClassValue<NativeTypeToken>() {
+        override fun computeValue(type: Class<*>): NativeTypeToken = NativeTypeToken(type.kotlin.starProjectedType)
+    }
+
+    fun of(value: Any?): NativeTypeToken? = value?.let { byClass.get(it.javaClass) }
+}
 
 
 private fun sequenceSize(value: Any): Int =
     when (value) {
-        is List<*> -> value.size
+        is Collection<*> -> value.size
         else -> if (value.javaClass.isArray) ReflectArray.getLength(value)
             else throw DataAccessException(DataProblem(
                 DataProblem.invalidValue,
-                "Native listing node no longer contains a List or array"))
+                "Native listing node no longer contains a List, Set or array"))
     }
 
 
@@ -355,7 +382,7 @@ private fun scalarValue(value: Any, type: DataType.Scalar): ScalarExecutionValue
             if (it.signum() == 0) "0" else it.toString()
         })
         is ScalarKind.Floating -> NumberExecutionValue((value as Number).toDouble())
-        ScalarKind.Text -> TextExecutionValue(value as String)
+        ScalarKind.Text -> TextExecutionValue(if (value is Enum<*>) value.name else value as String)
         ScalarKind.Binary -> BinaryExecutionValue((value as ByteArray).copyOf())
         ScalarKind.Date -> TextExecutionValue((value as LocalDate).toString())
         ScalarKind.Time -> TextExecutionValue((value as LocalTime).toString())

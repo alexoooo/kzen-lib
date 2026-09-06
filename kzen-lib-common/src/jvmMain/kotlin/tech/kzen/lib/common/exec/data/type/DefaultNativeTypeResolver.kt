@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.data.type
 
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
+import tech.kzen.lib.common.exec.data.value.BeanShape
 import tech.kzen.lib.common.exec.data.value.DataAccessException
 import tech.kzen.lib.common.exec.data.value.DataNode
 import tech.kzen.lib.common.exec.data.value.DataState
@@ -49,8 +50,31 @@ class DefaultNativeTypeResolver(
     override fun describe(native: KType): ResolvedDataContract {
         ensureOpen()
         return descriptionCache.getOrPut(native) {
-            describe(native, emptySet())
+            val session = DescribeSession()
+            val described = describe(native, emptySet(), session)
+            if (session.definitions.isEmpty()) {
+                described
+            }
+            else {
+                ResolvedDataContract(
+                    DataContract(
+                        described.contract.structural, described.contract.nativeByPath,
+                        session.definitions, session.definitionNatives),
+                    described.tokenByPath)
+            }
         }
+    }
+
+
+    /**
+     * One top-level description: the classes a recursive occurrence referenced, and the definition each such
+     * class resolved to once its own description closed — the root contract carries them (E7 item 5).
+     */
+    private class DescribeSession {
+        val referenced = mutableSetOf<KClass<*>>()
+        val definitions = mutableMapOf<DefinitionId, DataType>()
+        // Members' metadata per definition, relative to the definition's root (the root entry is the occurrence's)
+        val definitionNatives = mutableMapOf<DefinitionId, Map<DataTypePath, TypeMetadata>>()
     }
 
     override fun describe(value: DataValue): ResolvedDataContract {
@@ -99,9 +123,7 @@ class DefaultNativeTypeResolver(
         actual: DataValue
     ): TypeAcceptance {
         ensureOpen()
-        val structural = DataTypeAlgebra.isAssignable(
-            expected.contract.structural,
-            actual.contract.structural)
+        val structural = DataTypeAlgebra.isAssignable(expected.contract, actual.contract)
         if (structural is TypeAcceptance.Rejected) {
             return structural
         }
@@ -176,10 +198,16 @@ class DefaultNativeTypeResolver(
 
     private fun describe(
         native: KType,
-        openClasses: Set<KClass<*>>
+        openClasses: Set<KClass<*>>,
+        session: DescribeSession
     ): ResolvedDataContract {
         val classifier = native.classifier as? KClass<*>
             ?: return unresolvedKType(native)
+
+        // `Any` is the dynamic contract, as the transport already treats it (TypeMetadata.toDataContract)
+        if (classifier == Any::class) {
+            return dynamicResolved(native.isMarkedNullable)
+        }
 
         val custom = describerByClass[classifier]?.describe(native)
         if (custom != null) {
@@ -193,6 +221,14 @@ class DefaultNativeTypeResolver(
                 emptyList())
         }
 
+        // An enum is its constant name (E7 item 2); a constant with a body is an anonymous subclass
+        if (isEnum(classifier)) {
+            return describedNode(
+                DataType.Scalar(ScalarKind.Text, native.isMarkedNullable),
+                native,
+                emptyList())
+        }
+
         primitiveArrayElement(classifier)?.let { element ->
             return describedNode(
                 DataType.Listing(DataType.Scalar(element), native.isMarkedNullable),
@@ -200,9 +236,10 @@ class DefaultNativeTypeResolver(
                 emptyList())
         }
 
-        if (isListOrArray(classifier)) {
+        // A Set is an unordered Listing (iteration order, unstable); Sequence and Iterator stay streaming-only
+        if (isListOrArray(classifier) || isSet(classifier)) {
             val element = native.arguments.singleOrNull()?.type
-                ?.let { describe(it, openClasses) }
+                ?.let { describe(it, openClasses, session) }
                 ?: dynamicResolved()
             return describedNode(
                 DataType.Listing(element.contract.structural, native.isMarkedNullable),
@@ -212,10 +249,10 @@ class DefaultNativeTypeResolver(
 
         if (isMap(classifier)) {
             val key = native.arguments.getOrNull(0)?.type
-                ?.let { describe(it, openClasses) }
+                ?.let { describe(it, openClasses, session) }
                 ?: dynamicResolved(nullable = false)
             val value = native.arguments.getOrNull(1)?.type
-                ?.let { describe(it, openClasses) }
+                ?.let { describe(it, openClasses, session) }
                 ?: dynamicResolved()
             val keyType = key.contract.structural
             if (keyType !is DataType.Scalar || keyType.nullable) {
@@ -228,21 +265,57 @@ class DefaultNativeTypeResolver(
         }
 
         if (classifier in openClasses) {
-            return opaque(native)
+            // A recursive occurrence: a finite named reference, defined once the enclosing description closes
+            session.referenced += classifier
+            return describedNode(
+                DataType.Reference(definitionId(classifier), native.isMarkedNullable),
+                native,
+                emptyList())
         }
-        if (classifier.isData) {
-            return describeDataClass(native, classifier, openClasses + classifier)
+        val described = when {
+            classifier.isData -> describeDataClass(native, classifier, openClasses + classifier, session)
+            classifier.java.isRecord -> describeJavaRecord(native, classifier, openClasses + classifier, session)
+            BeanShape.isCandidate(classifier.java) -> BeanShape.of(classifier.java)?.let { shape ->
+                describeBean(native, shape, openClasses + classifier, session)
+            }
+            else -> null
+        } ?: return opaque(native)
+        if (classifier in session.referenced) {
+            val id = definitionId(classifier)
+            session.definitions.putIfAbsent(id, described.contract.structural.withNullability(false))
+            session.definitionNatives.putIfAbsent(
+                id, described.contract.nativeByPath.filterKeys { it != DataTypePath.root })
         }
-        if (classifier.java.isRecord) {
-            return describeJavaRecord(native, classifier, openClasses + classifier)
+        return described
+    }
+
+
+    private fun definitionId(classifier: KClass<*>): DefinitionId =
+        DefinitionId(classifier.qualifiedName ?: classifier.java.name)
+
+
+    /** An ordinary class by the fixed convention ([BeanShape]): lexical property order, per-property nullability. */
+    private fun describeBean(
+        native: KType,
+        shape: BeanShape,
+        openClasses: Set<KClass<*>>,
+        session: DescribeSession
+    ): ResolvedDataContract {
+        val children = shape.properties.map { property ->
+            val child = describe(property.type, openClasses, session)
+            DataField(FieldId(property.name), child.contract.structural) to child
         }
-        return opaque(native)
+        return describedNode(
+            DataType.Record(children.map { it.first }, native.isMarkedNullable),
+            native,
+            children.map { (field, child) -> DataPathSegment.Field(field.id) to child })
     }
 
     private fun describeDataClass(
         native: KType,
         classifier: KClass<*>,
-        openClasses: Set<KClass<*>>
+        openClasses: Set<KClass<*>>,
+        session: DescribeSession
     ): ResolvedDataContract {
         val propertyByName = classifier.memberProperties.associateBy { it.name }
         val parameters = classifier.primaryConstructor?.parameters.orEmpty()
@@ -255,7 +328,7 @@ class DefaultNativeTypeResolver(
                 ?: throw DataException(DataProblem(
                     DataProblem.nativeTypeUnresolved,
                     "Data-class property '$name' not found on $native"))
-            val child = describe(property.returnType, openClasses)
+            val child = describe(property.returnType, openClasses, session)
             DataField(FieldId(name), child.contract.structural) to child
         }
         return describedNode(
@@ -267,12 +340,13 @@ class DefaultNativeTypeResolver(
     private fun describeJavaRecord(
         native: KType,
         classifier: KClass<*>,
-        openClasses: Set<KClass<*>>
+        openClasses: Set<KClass<*>>,
+        session: DescribeSession
     ): ResolvedDataContract {
         val children = classifier.java.recordComponents.map { component ->
             val returnType = component.accessor.kotlinFunction?.returnType
                 ?: component.type.kotlin.createType()
-            val child = describe(returnType, openClasses)
+            val child = describe(returnType, openClasses, session)
             DataField(FieldId(component.name), child.contract.structural) to child
         }
         return describedNode(
@@ -367,7 +441,18 @@ class DefaultNativeTypeResolver(
 
         val structuralExpected = replaceOpaque(expectedType, actualType)
             ?: return rejected(expectedType, actualType)
-        if (DataTypeAlgebra.isAssignable(structuralExpected, actualType) != TypeAcceptance.Accepted) {
+        // A definition reached through a reference gets the same opaque-for-opaque relaxation as the root: the
+        // native identity behind an opaque member is checked by token, not by structure
+        val definitionsExpected = expected.contract.definitions.mapValues { (id, type) ->
+            actual.contract.definitions[id]?.let { replaceOpaque(type, it) } ?: type
+        }
+        val structuralAcceptance = DataTypeAlgebra.isAssignable(
+            DataContract(
+                structuralExpected,
+                definitions = definitionsExpected,
+                definitionNatives = expected.contract.definitionNatives),
+            actual.contract)
+        if (structuralAcceptance != TypeAcceptance.Accepted) {
             return rejected(expectedType, actualType)
         }
 
@@ -393,6 +478,9 @@ class DefaultNativeTypeResolver(
     }
 
     private fun replaceOpaque(expected: DataType, actual: DataType): DataType? {
+        if (expected is DataType.Reference || actual is DataType.Reference) {
+            return expected
+        }
         if (expected is DataType.Opaque) {
             if (!expected.nullable && actual.nullable) {
                 return null
@@ -629,6 +717,14 @@ private fun isMap(classifier: KClass<*>): Boolean =
     classifier == Map::class || classifier == MutableMap::class
 
 
+private fun isSet(classifier: KClass<*>): Boolean =
+    classifier == Set::class || classifier == MutableSet::class
+
+
+private fun isEnum(classifier: KClass<*>): Boolean =
+    classifier.java.isEnum || classifier.java.superclass?.isEnum == true
+
+
 private fun scalarType(classifier: KClass<*>): ScalarKind? =
     when (classifier) {
         Boolean::class -> ScalarKind.Boolean
@@ -691,6 +787,8 @@ private fun builtInClass(name: String): KClass<*>? =
         "kotlin.collections.Iterable" -> Iterable::class
         "kotlin.collections.Iterator" -> Iterator::class
         "kotlin.sequences.Sequence" -> Sequence::class
+        "kotlin.collections.Set",
+        "kotlin.collections.MutableSet" -> Set::class
         "kotlin.collections.Map",
         "kotlin.collections.MutableMap" -> Map::class
         "java.math.BigInteger" -> BigInteger::class

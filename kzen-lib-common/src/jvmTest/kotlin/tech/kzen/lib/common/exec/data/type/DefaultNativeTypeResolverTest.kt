@@ -95,8 +95,10 @@ class DefaultNativeTypeResolverTest {
 
             val recursive = scope.resolver.describe(typeOf<RecursiveNode>())
             val nextPath = DataTypePath(listOf(DataPathSegment.Field(FieldId("next"))))
-            assertIs<DataType.Opaque>(recursive.contract.child(
-                DataPathSegment.Field(FieldId("next"))).structural)
+            assertIs<DataType.Reference>((recursive.contract.structural as DataType.Record)
+                .fields.single { it.id.name == "next" }.type)
+            assertIs<DataType.Record>(recursive.contract.child(
+                DataPathSegment.Field(FieldId("next"))).structural, "the reference expands on navigation")
             assertEquals(typeOf<RecursiveNode?>(), recursive.tokenByPath[nextPath]?.type)
         }
     }

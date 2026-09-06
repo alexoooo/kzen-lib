@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.data.value
 
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
+import kotlin.jvm.JvmStatic
 
 
 data class RecordLiteralField(
@@ -11,6 +12,13 @@ data class RecordLiteralField(
 
 
 class RecordLiteral internal constructor(fields: List<RecordLiteralField>) {
+    companion object {
+        /** Java-facing factory: one field per entry, in the map's iteration order (a [recordOf] for callers without pairs). */
+        @JvmStatic
+        fun of(fields: Map<String, Any?>): RecordLiteral =
+            recordOf(*fields.map { (name, value) -> name to value }.toTypedArray())
+    }
+
     val fields: List<RecordLiteralField> = fields.toList()
 }
 

@@ -17,13 +17,13 @@ import tech.kzen.lib.common.exec.data.type.TypeAcceptance
 object DataValueAlgebra {
     /** Explicit linear validation. Merely constructing or passing [DataValue] never calls this walk. */
     fun validate(expected: DataContract, value: DataValue): List<DataProblem> {
-        when (val acceptance = DataTypeAlgebra.isAssignable(expected.structural, value.type)) {
+        when (val acceptance = DataTypeAlgebra.isAssignable(expected, value.contract)) {
             TypeAcceptance.Accepted -> Unit
             is TypeAcceptance.Rejected -> return listOf(acceptance.problem)
         }
 
         val problems = mutableListOf<DataProblem>()
-        validateNode(value.access, value.root, value.type, emptyList(), required = true, problems)
+        validateNode(value.access, value.root, value.contract, emptyList(), required = true, problems)
         return problems
     }
 
@@ -31,12 +31,14 @@ object DataValueAlgebra {
     private fun validateNode(
         access: ValueAccess,
         node: DataNode,
-        expected: DataType,
+        expectedContract: DataContract,
         path: List<DataPathSegment>,
         required: Boolean,
         problems: MutableList<DataProblem>
     ) {
         try {
+            // The contract's own expansion: a reference at this position is its definition, one level
+            val expected = expectedContract.expanded().structural
             val state = access.state(node)
             if (state == DataState.Absent) {
                 if (required) problems += problem(
@@ -49,11 +51,11 @@ object DataValueAlgebra {
                 return
             }
 
-            val actual = access.contract(node).structural
-            if (DataTypeAlgebra.isAssignable(expected, actual) is TypeAcceptance.Rejected) {
+            val actual = access.contract(node)
+            if (DataTypeAlgebra.isAssignable(expectedContract, actual) is TypeAcceptance.Rejected) {
                 problems += problem(
                     DataProblem.incompatibleType,
-                    "Node type $actual is not assignable to $expected",
+                    "Node type ${actual.structural} is not assignable to $expected",
                     path)
                 return
             }
@@ -65,7 +67,7 @@ object DataValueAlgebra {
                     validateNode(
                         access,
                         access.field(node, field.id),
-                        field.type,
+                        expectedContract.child(segment),
                         path + segment,
                         required = !field.optional,
                         problems)
@@ -75,7 +77,7 @@ object DataValueAlgebra {
                     for (index in 0 until size) {
                         val segment = DataPathSegment.Element(index)
                         validateNode(
-                            access, access.element(node, index), expected.element,
+                            access, access.element(node, index), expectedContract.child(DataPathSegment.ListingElement),
                             path + segment, required = true, problems)
                     }
                 }
@@ -88,7 +90,7 @@ object DataValueAlgebra {
                         val segment = keyType?.let { DataPathSegment.Entry(it.kind, key) }
                             ?: DataPathSegment.Element(index)
                         validateNode(
-                            access, access.entry(node, key), expected.value,
+                            access, access.entry(node, key), expectedContract.child(DataPathSegment.MappingValue),
                             path + segment, required = true, problems)
                     }
                 }
@@ -104,12 +106,16 @@ object DataValueAlgebra {
                     else {
                         val segment = DataPathSegment.Variant(active)
                         validateNode(
-                            access, access.selected(node), variant.type,
+                            access, access.selected(node), expectedContract.child(segment),
                             path + segment, required = true, problems)
                     }
                 }
                 is DataType.Opaque -> access.native(node)
                 is DataType.Dynamic -> Unit
+                is DataType.Reference -> problems += problem(
+                    DataProblem.unresolvedReference,
+                    "Type reference '${expected.id}' was not expanded",
+                    path)
             }
         }
         catch (e: DataAccessException) {

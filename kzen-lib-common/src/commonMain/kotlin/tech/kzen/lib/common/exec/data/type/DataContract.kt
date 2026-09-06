@@ -8,21 +8,53 @@ import tech.kzen.lib.common.exec.data.problem.DataProblem
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
+import kotlin.jvm.JvmOverloads
 
 
-class DataContract(
+/**
+ * A structural type with its native metadata and, for recursive shapes, the named [definitions] its
+ * [DataType.Reference] leaves point at. References are expanded one level at a time, on navigation ([child])
+ * or on request ([expanded]) — never eagerly — so a recursive contract is finite to walk, digest and serialize
+ * while a value of it can be navigated as deep as the data goes. An unresolved reference is a named failure
+ * at expansion (and listed by [unresolvedReferences]), not a construction failure: intermediate contracts a
+ * resolver builds bottom-up legitimately carry references whose definitions only the root holds.
+ */
+class DataContract @JvmOverloads constructor(
     val structural: DataType,
-    nativeByPath: Map<DataTypePath, TypeMetadata> = emptyMap()
+    nativeByPath: Map<DataTypePath, TypeMetadata> = emptyMap(),
+    definitions: Map<DefinitionId, DataType> = emptyMap(),
+    definitionNatives: Map<DefinitionId, Map<DataTypePath, TypeMetadata>> = emptyMap()
 ): Digestible {
     companion object {
+        private const val definitionsKey = "definitions"
+        private const val nativeKey = "native"
+
         fun ofExecutionValue(executionValue: tech.kzen.lib.common.exec.ExecutionValue): DataContract {
             val map = executionValue as? MapExecutionValue
                 ?: invalidEncoding("Data contract must be a map")
             val structural = DataType.ofExecutionValue(
                 map.values["structural"] ?: invalidEncoding("Data contract is missing 'structural'"))
-            val native = map.values["native"] as? ListExecutionValue
+            val definitions = LinkedHashMap<DefinitionId, DataType>()
+            val definitionNatives = LinkedHashMap<DefinitionId, Map<DataTypePath, TypeMetadata>>()
+            (map.values[definitionsKey] as? ListExecutionValue)?.values?.forEach { encoded ->
+                val entry = encoded as? MapExecutionValue
+                    ?: invalidEncoding("Definition entry must be a map")
+                val id = (entry.values["id"] as? TextExecutionValue)?.value
+                    ?: invalidEncoding("Definition entry is missing text 'id'")
+                definitions[DefinitionId(id)] = DataType.ofExecutionValue(
+                    entry.values["type"] ?: invalidEncoding("Definition entry is missing 'type'"))
+                (entry.values[nativeKey] as? ListExecutionValue)?.let { natives ->
+                    definitionNatives[DefinitionId(id)] = decodeNatives(natives)
+                }
+            }
+            val native = map.values[nativeKey] as? ListExecutionValue
                 ?: invalidEncoding("Data contract is missing native metadata list")
-            val nativeByPath = native.values.associate { encodedEntry ->
+            return DataContract(structural, decodeNatives(native), definitions, definitionNatives)
+        }
+
+
+        private fun decodeNatives(native: ListExecutionValue): Map<DataTypePath, TypeMetadata> =
+            native.values.associate { encodedEntry ->
                 val entry = encodedEntry as? MapExecutionValue
                     ?: invalidEncoding("Native metadata entry must be a map")
                 val path = decodePath(
@@ -31,23 +63,43 @@ class DataContract(
                     ?: invalidEncoding("Native metadata entry is missing metadata map")
                 path to TypeMetadata.ofExecutionValue(metadata)
             }
-            return DataContract(structural, nativeByPath)
-        }
+
+
+        private fun encodeNatives(natives: Map<DataTypePath, TypeMetadata>): ListExecutionValue =
+            ListExecutionValue(natives.entries
+                .sortedBy { it.key.toString() }
+                .map { (path, metadata) ->
+                    MapExecutionValue(mapOf(
+                        "path" to path.asExecutionValue(),
+                        "metadata" to metadata.asExecutionValue()))
+                })
     }
 
     val nativeByPath: Map<DataTypePath, TypeMetadata> = nativeByPath.toMap()
 
+    /** Named types the references in [structural] (and in one another) point at; empty for non-recursive shapes. */
+    val definitions: Map<DefinitionId, DataType> = definitions.toMap()
+
+    /**
+     * Each definition's members' native metadata, relative to the definition's root (the root itself is the
+     * referencing occurrence's): what an expanded reference carries so its opaque and native members keep
+     * their metadata as far as navigation goes.
+     */
+    val definitionNatives: Map<DefinitionId, Map<DataTypePath, TypeMetadata>> =
+        definitionNatives.mapValues { it.value.toMap() }
+
     private val childCache: Map<DataPathSegment, DataContract> by lazy {
-        structural.schemaChildren().associate { (segment, childType) ->
+        expanded().structural.schemaChildren().associate { (segment, childType) ->
             val prefix = DataTypePath(listOf(segment))
             val rebased = nativeByPath.entries
                 .filter { it.key.startsWith(prefix) }
                 .associate { it.key.removePrefix(prefix) to it.value }
-            segment to DataContract(childType, rebased)
+            segment to DataContract(expand(childType), nativesOf(childType) + rebased, this.definitions, this.definitionNatives)
         }
     }
 
     init {
+        validateDefinitions()
         validateNativeMetadata()
     }
 
@@ -59,8 +111,42 @@ class DataContract(
         asExecutionValue().digest()
     }
 
+    /** The child contract at [segment], with a referenced child expanded one level (its own children stay references). */
     fun child(segment: DataPathSegment): DataContract =
         childCache[segment] ?: throw invalidPath(DataTypePath(listOf(segment)))
+
+
+    /** This contract with a root reference replaced by its definition (one level); this when the root is not a reference. */
+    fun expanded(): DataContract {
+        val root = structural as? DataType.Reference
+            ?: return this
+        return DataContract(expand(root), nativesOf(root) + nativeByPath, definitions, definitionNatives)
+    }
+
+
+    // The definition's members' metadata when [type] is a reference (the occurrence's own entries win)
+    private fun nativesOf(type: DataType): Map<DataTypePath, TypeMetadata> =
+        (type as? DataType.Reference)?.let { definitionNatives[it.id] } ?: emptyMap()
+
+
+    /** References in [structural] or in any definition that no definition names; empty for a well-formed root. */
+    fun unresolvedReferences(): Set<DefinitionId> {
+        val referenced = structural.references() + definitions.values.flatMap { it.references() }
+        return referenced.filter { it !in definitions }.toSet()
+    }
+
+
+    private fun expand(type: DataType): DataType {
+        val reference = type as? DataType.Reference
+            ?: return type
+        val definition = definitions[reference.id]
+            ?: throw DataException(DataProblem(
+                DataProblem.unresolvedReference,
+                "Type reference '${reference.id}' has no definition in this contract " +
+                        "(defined: ${definitions.keys.sortedBy { it.value }})"))
+        return definition.withNullability(reference.nullable)
+    }
+
 
     fun asExecutionValue(): MapExecutionValue {
         val metadataEntries = nativeByPath.entries
@@ -70,10 +156,23 @@ class DataContract(
                     "path" to path.asExecutionValue(),
                     "metadata" to metadata.asExecutionValue()))
             }
+        val definitionEntries = definitions.entries
+            .sortedBy { it.key.value }
+            .map { (id, type) ->
+                val entry = linkedMapOf<String, tech.kzen.lib.common.exec.ExecutionValue>(
+                    "id" to TextExecutionValue(id.value),
+                    "type" to type.asExecutionValue())
+                definitionNatives[id]?.takeIf { it.isNotEmpty() }?.let { entry[nativeKey] = encodeNatives(it) }
+                MapExecutionValue(entry)
+            }
 
-        return MapExecutionValue(mapOf(
+        val encoded = mutableMapOf(
             "structural" to structural.asExecutionValue(),
-            "native" to ListExecutionValue(metadataEntries)))
+            nativeKey to ListExecutionValue(metadataEntries))
+        if (definitionEntries.isNotEmpty()) {
+            encoded[definitionsKey] = ListExecutionValue(definitionEntries)
+        }
+        return MapExecutionValue(encoded)
     }
 
     override fun digest(sink: Digest.Sink) {
@@ -82,12 +181,26 @@ class DataContract(
 
     override fun equals(other: Any?): Boolean =
         this === other || other is DataContract &&
-                structural == other.structural && nativeByPath == other.nativeByPath
+                structural == other.structural && nativeByPath == other.nativeByPath &&
+                definitions == other.definitions && definitionNatives == other.definitionNatives
 
-    override fun hashCode(): Int = 31 * structural.hashCode() + nativeByPath.hashCode()
+    override fun hashCode(): Int =
+        31 * (31 * (31 * structural.hashCode() + nativeByPath.hashCode()) + definitions.hashCode()) +
+                definitionNatives.hashCode()
 
     override fun toString(): String =
-        "DataContract(structural=$structural, nativeByPath=$nativeByPath)"
+        if (definitions.isEmpty()) "DataContract(structural=$structural, nativeByPath=$nativeByPath)"
+        else "DataContract(structural=$structural, nativeByPath=$nativeByPath, definitions=$definitions)"
+
+    private fun validateDefinitions() {
+        for ((id, type) in definitions) {
+            if (type is DataType.Reference) {
+                throw DataException(DataProblem(
+                    DataProblem.invalidContract,
+                    "Definition '$id' must not be a bare reference (to '${type.id}')"))
+            }
+        }
+    }
 
     private fun validateNativeMetadata() {
         for ((path, metadata) in nativeByPath) {
@@ -164,7 +277,22 @@ private fun DataType.schemaChildren(): List<Pair<DataPathSegment, DataType>> =
         is DataType.Union -> variants.map { DataPathSegment.Variant(it.id) to it.type }
         is DataType.Dynamic,
         is DataType.Opaque,
+        is DataType.Reference,
         is DataType.Scalar -> emptyList()
+    }
+
+
+/** The reference ids this type names, without expanding any (finite). */
+internal fun DataType.references(): Set<DefinitionId> =
+    when (this) {
+        is DataType.Reference -> setOf(id)
+        is DataType.Record -> fields.flatMap { it.type.references() }.toSet()
+        is DataType.Mapping -> key.references() + value.references()
+        is DataType.Listing -> element.references()
+        is DataType.Union -> variants.flatMap { it.type.references() }.toSet()
+        is DataType.Dynamic,
+        is DataType.Opaque,
+        is DataType.Scalar -> emptySet()
     }
 
 
@@ -198,6 +326,7 @@ private fun DataType.walk(
 
         is DataType.Dynamic,
         is DataType.Opaque,
+        is DataType.Reference,
         is DataType.Scalar ->
             emptyList()
     }

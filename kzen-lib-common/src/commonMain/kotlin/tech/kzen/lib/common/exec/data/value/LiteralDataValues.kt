@@ -218,6 +218,7 @@ object LiteralDataValues {
                     val inferred = inferType(value, mutableListOf())
                     build(value, inferredContract(inferred), path)
                 }
+                is DataType.Reference -> build(value, contract.expanded(), path)
             }
         }
 
@@ -457,6 +458,7 @@ object LiteralDataValues {
             }.associate { it.toPair() }
 
             is DataType.Dynamic,
+            is DataType.Reference,
             is DataType.Scalar -> emptyMap()
         }
 
@@ -481,6 +483,7 @@ object LiteralDataValues {
                 is DataType.Dynamic -> fail(
                     DataProblem.invalidValue, "Dynamic snapshot values require a concrete type", path)
                 is DataType.Opaque -> fail(DataProblem.snapshotOpaque, "Opaque snapshot values are forbidden", path)
+                is DataType.Reference -> decode(value, contract.expanded(), path)
             }
         }
 

@@ -128,7 +128,19 @@ object AttributeObjectDefiner: ObjectDefiner
         // @Service constructor parameters are not declared in notation; route each to the
         // ServiceAttributeCreator, which resolves it from the GraphEnvironment at creation time.
         // A notation-declared attribute of the same name wins (service entry skipped).
-        for ((argumentName, serviceClassName) in GlobalMirror.serviceArguments(className)) {
+        // A class the mirror cannot serve (absent, malformed, defined by several plugin scopes) is this
+        // object's named definition failure, never a thrown exception that would take the whole graph down.
+        val serviceArguments = try {
+            GlobalMirror.serviceArguments(className)
+        }
+        catch (e: IllegalArgumentException) {
+            return ObjectDefinitionAttempt.failure(
+                "Class cannot be served: ${e.message}",
+                attributeErrors,
+                partialDefinition(),
+                attributeFailures)
+        }
+        for ((argumentName, serviceClassName) in serviceArguments) {
             val attributeName = AttributeName(argumentName)
             if (attributeName in attributeDefinitions) {
                 continue

@@ -141,6 +141,16 @@ private class SnapshotWriter(
         if (type is DataType.Opaque) {
             return reject(DataProblem.snapshotOpaque, "Opaque value cannot be snapshotted", path)
         }
+        if (type is DataType.Reference) {
+            // The parent's field type is a reference; the node itself carries the expanded contract
+            val expanded = value.access.contract(node).structural
+            return if (expanded is DataType.Reference) {
+                reject(DataProblem.unresolvedReference, "Type reference '${type.id}' was not expanded", path)
+            }
+            else {
+                writePresent(node, expanded, path, depth)
+            }
+        }
         val identity = containerIdentity(node, type)
         if (identity != null) {
             if (seenIdentities.any { it === identity }) {
@@ -160,7 +170,8 @@ private class SnapshotWriter(
                     DataProblem.snapshotRejected,
                     "A Dynamic live node must expose a concrete runtime contract before snapshot",
                     path)
-                is DataType.Opaque -> error("handled")
+                is DataType.Opaque,
+                is DataType.Reference -> error("handled")
             }
         }
         finally {

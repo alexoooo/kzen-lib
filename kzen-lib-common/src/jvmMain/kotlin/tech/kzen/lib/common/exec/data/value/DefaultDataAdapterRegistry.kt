@@ -20,7 +20,8 @@ import kotlin.reflect.full.starProjectedType
 class DefaultDataAdapterRegistry(
     exact: List<ExactDataAdapter> = emptyList(),
     private val fallbacks: List<CapabilityDataAdapter> = emptyList(),
-    private val nativeTypeResolver: DefaultNativeTypeResolver = DefaultNativeTypeResolver()
+    private val nativeTypeResolver: DefaultNativeTypeResolver = DefaultNativeTypeResolver(),
+    private val livenessGuard: NativeLivenessGuard = NativeLivenessGuard.none
 ): DataAdapterRegistry, AutoCloseable {
     private val exactByClass: Map<KClass<*>, DataAdapter>
 
@@ -114,6 +115,12 @@ class DefaultDataAdapterRegistry(
         }
 
 
+    /** The host's liveness check for a present native object a value view is about to read through. */
+    internal fun checkLive(native: Any) {
+        livenessGuard.checkLive(native)
+    }
+
+
     internal fun childValue(value: Any?, expected: DataContract?): Pair<Any?, DataContract> {
         if (value == null) {
             val contract = expected ?: DataContract(DataType.Dynamic(true))
@@ -131,7 +138,8 @@ class DefaultDataAdapterRegistry(
 
     private fun runtimeContract(value: Any, expected: DataContract?): DataContract =
         when (value) {
-            is List<*> -> {
+            is List<*>, is Set<*> -> {
+                value as Collection<*>
                 val expectedElement = (expected?.structural as? DataType.Listing)?.let {
                     expected.child(tech.kzen.lib.common.exec.data.type.DataPathSegment.ListingElement)
                 }
@@ -147,7 +155,8 @@ class DefaultDataAdapterRegistry(
                 DataContract(
                     structural,
                     native +
-                            requiredNativeMetadata(element).prefixed(DataPathSegment.ListingElement))
+                            requiredNativeMetadata(element).prefixed(DataPathSegment.ListingElement),
+                    element.definitions + expected?.definitions.orEmpty())
             }
             is Map<*, *> -> runtimeMappingContract(value, expected)
             else -> nativeTypeResolver.describe(value::class.starProjectedType).contract
@@ -198,7 +207,8 @@ class DefaultDataAdapterRegistry(
         return DataContract(
             structural,
             native +
-                    requiredNativeMetadata(valueContract).prefixed(DataPathSegment.MappingValue))
+                    requiredNativeMetadata(valueContract).prefixed(DataPathSegment.MappingValue),
+            valueContract.definitions + expected?.definitions.orEmpty())
     }
 
 
@@ -250,6 +260,10 @@ class DefaultDataAdapterRegistry(
     ): DataContract {
         var joined: DataType? = null
         var native: Map<DataTypePath, tech.kzen.lib.common.model.structure.metadata.TypeMetadata>? = null
+        val definitions = mutableMapOf<tech.kzen.lib.common.exec.data.type.DefinitionId, DataType>()
+        val definitionNatives = mutableMapOf<
+            tech.kzen.lib.common.exec.data.type.DefinitionId,
+            Map<DataTypePath, tech.kzen.lib.common.model.structure.metadata.TypeMetadata>>()
         for (item in values) {
             val contract = if (item == null) {
                 expected ?: DataContract(DataType.Dynamic(nullable = true))
@@ -258,6 +272,8 @@ class DefaultDataAdapterRegistry(
                 lift(item, expected).contract
             }
             joined = joined?.let { DataTypeAlgebra.join(it, contract.structural) } ?: contract.structural
+            definitions.putAll(contract.definitions)
+            definitionNatives.putAll(contract.definitionNatives)
             native = when {
                 native == null -> contract.nativeByPath
                 native == contract.nativeByPath -> native
@@ -266,7 +282,9 @@ class DefaultDataAdapterRegistry(
         }
         return DataContract(
             joined ?: expected?.structural ?: DataType.Dynamic(),
-            native ?: expected?.nativeByPath.orEmpty())
+            native ?: expected?.nativeByPath.orEmpty(),
+            definitions + expected?.definitions.orEmpty(),
+            definitionNatives + expected?.definitionNatives.orEmpty())
     }
 
 
@@ -314,7 +332,7 @@ class DefaultDataAdapterRegistry(
                     "Value ${actual.type} matches multiple expected variants: ${selection.candidates}"))
             }
         }
-        val acceptance = DataTypeAlgebra.isAssignable(expected.structural, actual.type)
+        val acceptance = DataTypeAlgebra.isAssignable(expected, actual.contract)
         if (acceptance is TypeAcceptance.Rejected) {
             throw DataException(acceptance.problem)
         }
@@ -342,28 +360,32 @@ private fun isBuiltIn(classifier: KClass<*>): Boolean =
     isScalarClass(classifier) ||
             classifier == List::class ||
             classifier == MutableList::class ||
+            classifier == Set::class ||
+            classifier == MutableSet::class ||
             classifier.java.isArray ||
             classifier == Map::class ||
             classifier == MutableMap::class ||
             classifier.isData ||
-            classifier.java.isRecord
+            classifier.java.isRecord ||
+            Enum::class.java.isAssignableFrom(classifier.java)
 
 
 private fun isBuiltInValue(value: Any): Boolean =
-    isScalarValue(value) || value is List<*> || value.javaClass.isArray || value is Map<*, *> ||
-            value::class.isData || value.javaClass.isRecord
+    isScalarValue(value) || value is List<*> || value is Set<*> || value.javaClass.isArray ||
+            value is Map<*, *> || value::class.isData || value.javaClass.isRecord || value is Enum<*>
 
 
+// Set is an unordered Listing (E7 item 3); Sequence, Iterator and other Iterables stay streaming-only
 private fun isRefusedAutomaticType(classifier: KClass<*>): Boolean =
-    classifier == Set::class || classifier == MutableSet::class ||
-            classifier == Sequence::class || classifier == Iterator::class ||
+    classifier == Sequence::class || classifier == Iterator::class ||
             Iterable::class.java.isAssignableFrom(classifier.java) &&
-            !List::class.java.isAssignableFrom(classifier.java)
+            !List::class.java.isAssignableFrom(classifier.java) &&
+            !Set::class.java.isAssignableFrom(classifier.java)
 
 
 private fun isRefusedAutomaticValue(value: Any): Boolean =
-    value is Set<*> || value is Sequence<*> || value is Iterator<*> ||
-            value is Iterable<*> && value !is List<*>
+    value is Sequence<*> || value is Iterator<*> ||
+            value is Iterable<*> && value !is List<*> && value !is Set<*>
 
 
 private fun isScalarValue(value: Any): Boolean = isScalarClass(value::class)

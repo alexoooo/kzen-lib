@@ -103,6 +103,17 @@ sealed interface DataType: Digestible {
     data class Dynamic(
         override val nullable: Boolean = true
     ): DataType
+
+    /**
+     * A named reference to a type in the owning [DataContract.definitions] — how a recursive shape stays
+     * finite: the recursive occurrence is this leaf, expanded on demand by [DataContract.child] /
+     * [DataContract.expanded], never eagerly. Structural identity is the name; loader-local native identity
+     * lives in the contract's native tokens, not here.
+     */
+    data class Reference(
+        val id: DefinitionId,
+        override val nullable: Boolean = false
+    ): DataType
 }
 
 
@@ -143,4 +154,5 @@ internal fun DataType.withNullability(nullable: Boolean): DataType =
         is DataType.Union -> DataType.Union(variants, nullable)
         is DataType.Opaque -> copy(nullable = nullable)
         is DataType.Dynamic -> copy(nullable = nullable)
+        is DataType.Reference -> copy(nullable = nullable)
     }

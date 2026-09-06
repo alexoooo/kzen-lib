@@ -33,6 +33,8 @@ class DataProblem(
         const val nativeTypeMissing = "data.native-type-missing"
         const val nativeTypeIncompatible = "data.native-type-incompatible"
         const val nativeResolverReleased = "data.native-resolver-released"
+        const val nativeShapeConflict = "data.native-shape-conflict"
+        const val unresolvedReference = "data.unresolved-reference"
         const val invalidValue = "data.invalid-value"
         const val invalidOperation = "data.invalid-operation"
         const val invalidState = "data.invalid-state"

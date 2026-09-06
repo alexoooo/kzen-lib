@@ -224,9 +224,9 @@ class DefaultDataAdapterRegistryTest {
 
 
     @Test
-    fun iterableSequenceIteratorAndSetNeedExplicitAdapters() {
+    fun iterableSequenceAndIteratorNeedExplicitAdapters() {
         DefaultDataAdapterRegistry().use { registry ->
-            listOf<Any>(setOf(1), sequenceOf(1), listOf(1).iterator(), object: Iterable<Int> {
+            listOf<Any>(sequenceOf(1), listOf(1).iterator(), object: Iterable<Int> {
                 override fun iterator(): Iterator<Int> = listOf(1).iterator()
             }).forEach { refused ->
                 val error = assertFailsWith<DataException> { registry.lift(refused) }
@@ -255,11 +255,11 @@ class DefaultDataAdapterRegistryTest {
 
     @OptIn(ExperimentalStdlibApi::class)
     @Test
-    fun recursiveDescriptionStopsAtOpaqueAndSnapshotRejectsWithoutRenderingObject() {
+    fun recursiveDescriptionIsAReferenceAndSnapshotRejectsWithoutRenderingObject() {
         DefaultDataAdapterRegistry().use { registry ->
             val described = registry.describe(typeOf<Recursive>())
             val root = described.structural as DataType.Record
-            assertIs<DataType.Opaque>(root.fields.single { it.id.name == "next" }.type)
+            assertIs<DataType.Reference>(root.fields.single { it.id.name == "next" }.type)
 
             val recursive = Recursive("root", null)
             recursive.next = recursive

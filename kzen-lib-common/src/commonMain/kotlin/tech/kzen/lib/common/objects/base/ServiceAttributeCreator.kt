@@ -34,6 +34,14 @@ object ServiceAttributeCreator: AttributeCreator {
             "Service attribute expected: $objectLocation - $attributeName - $attributeDefinition"
         }
 
-        return environment.resolve(attributeDefinition.serviceClassName)
+        val serviceClassName = attributeDefinition.serviceClassName
+        if (!environment.contains(serviceClassName)) {
+            // Named at the boundary that knows the consumer: a plugin class whose @Service this workspace does not
+            // provide is reported as unavailable here, not as a deep missing-service failure from the environment
+            throw IllegalStateException(
+                "${objectDefinition.className.asString()} ($objectLocation) is unavailable in this workspace: " +
+                    "it needs @Service ${serviceClassName.asString()}, which the environment does not provide")
+        }
+        return environment.resolve(serviceClassName)
     }
 }

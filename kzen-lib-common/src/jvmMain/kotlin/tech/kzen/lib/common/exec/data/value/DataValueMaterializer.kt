@@ -19,7 +19,7 @@ private fun DataValue.materializeNode(node: DataNode): Any? {
         DataState.Absent -> error("Cannot materialize an absent data node")
         DataState.Null -> null
         DataState.Present -> {
-            val contract = access.contract(node)
+            val contract = access.contract(node).expanded()
             if (contract.nativeByPath[DataTypePath.root] != null || contract.structural is DataType.Opaque) {
                 return access.native(node)
             }
@@ -48,6 +48,7 @@ private fun DataValue.materializeNode(node: DataNode): Any? {
                 is DataType.Scalar -> materializeScalar(node, type.kind)
                 is DataType.Union -> materializeNode(access.selected(node))
                 is DataType.Opaque -> error("Opaque values must expose a native root")
+                is DataType.Reference -> error("References are expanded before materialization")
             }
         }
     }

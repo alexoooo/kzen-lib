@@ -120,6 +120,10 @@ class ReflectiveClassMirror(
             try {
                 Class.forName(className.get(), false, classLoader)
             }
+            catch (e: AmbiguousClassException) {
+                // Defined by several plugin scopes: served by name as a failure, never as an absent class
+                return Entry.Malformed(e.message!!)
+            }
             catch (_: ClassNotFoundException) {
                 return Entry.NotServed
             }

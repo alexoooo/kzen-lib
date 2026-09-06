@@ -28,6 +28,20 @@ object GlobalMirror: ClassMirror {
     }
 
 
+    /**
+     * Insert a generated-registration delegate directly after [ReflectionRegistry.global], ahead of every
+     * fallback registered so far or later: a plugin scope's own KSP registry must win over a reflective
+     * mirror for the same class name whichever bootstrap registered the mirror first. Same-instance no-op.
+     */
+    fun registerAfterGlobalRegistry(delegate: ClassMirror) {
+        platformSynchronized(delegates) {
+            if (delegates.none { it === delegate }) {
+                delegates.add(1, delegate)
+            }
+        }
+    }
+
+
     // Snapshot then iterate outside the monitor: delegate calls may run user constructor code.
     private fun delegateSnapshot(): List<ClassMirror> {
         return platformSynchronized(delegates) {
