@@ -78,6 +78,21 @@ data class ObjectPath(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    // Cached: a hot map key over immutable parts, whose generated hash re-walked its segment lists per lookup.
+    // Racy but safe: an Int write can't tear, and a lost race recomputes the same value.
+    private var hash = 0
+
+
+    override fun hashCode(): Int {
+        var result = hash
+        if (result == 0) {
+            result = 31 * name.hashCode() + nesting.hashCode()
+            hash = result
+        }
+        return result
+    }
+
+
     override fun digest(sink: Digest.Sink) {
         name.digest(sink)
         nesting.digest(sink)

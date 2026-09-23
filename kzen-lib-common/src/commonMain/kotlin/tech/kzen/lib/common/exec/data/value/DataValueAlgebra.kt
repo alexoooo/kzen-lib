@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.data.value
 
 import tech.kzen.lib.common.exec.BinaryExecutionValue
 import tech.kzen.lib.common.exec.BooleanExecutionValue
+import tech.kzen.lib.common.exec.LongExecutionValue
 import tech.kzen.lib.common.exec.NumberExecutionValue
 import tech.kzen.lib.common.exec.ScalarExecutionValue
 import tech.kzen.lib.common.exec.TextExecutionValue
@@ -162,8 +163,9 @@ object DataValueAlgebra {
     ) {
         val valid = when (kind) {
             ScalarKind.Boolean -> value is BooleanExecutionValue
+            // Canonical text, or a primitive long as native access yields one (the snapshot normalizes it to text)
             is ScalarKind.Integer,
-            ScalarKind.Decimal,
+            ScalarKind.Decimal -> value is TextExecutionValue || value is LongExecutionValue
             ScalarKind.Text,
             ScalarKind.Date,
             ScalarKind.Time,

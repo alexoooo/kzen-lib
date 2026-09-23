@@ -62,6 +62,21 @@ data class AttributeNesting(
 
 
     //-----------------------------------------------------------------------------------------------------------------
+    // Cached: a hot map key over immutable parts, whose generated hash re-walked its segment lists per lookup.
+    // Racy but safe: an Int write can't tear, and a lost race recomputes the same value.
+    private var hash = 0
+
+
+    override fun hashCode(): Int {
+        var result = hash
+        if (result == 0) {
+            result = segments.hashCode()
+            hash = result
+        }
+        return result
+    }
+
+
     override fun digest(sink: Digest.Sink) {
         sink.addDigestibleList(segments)
     }

@@ -184,6 +184,7 @@ class PlainObjectShapeTest {
             assertEquals(listOf(side), employee.constraintsByPath[sidePath])
             val lifted = registry.lift(BeanFixtures.Employee("bob", 40, "ops"))
             assertEquals(employee.constraintsByPath, lifted.contract.constraintsByPath)
+            assertEquals(emptyList(), DataValueAlgebra.validate(employee, lifted), "native Int fields are valid integers")
 
             val hands = registry.describe(typeOf<Map<Suit, List<Suit>>>())
             val keyPath = DataTypePath(listOf(DataPathSegment.MappingKey))
