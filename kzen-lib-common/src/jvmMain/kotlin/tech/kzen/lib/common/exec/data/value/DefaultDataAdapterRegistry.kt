@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.data.value
 
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
+import tech.kzen.lib.common.exec.data.type.DataConstraint
 import tech.kzen.lib.common.exec.data.type.DataContract
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
 import tech.kzen.lib.common.exec.data.type.DataType
@@ -156,7 +157,8 @@ class DefaultDataAdapterRegistry(
                     structural,
                     native +
                             requiredNativeMetadata(element).prefixed(DataPathSegment.ListingElement),
-                    element.definitions + expected?.definitions.orEmpty())
+                    element.definitions + expected?.definitions.orEmpty(),
+                    constraintsByPath = element.constraintsByPath.prefixed(DataPathSegment.ListingElement))
             }
             is Map<*, *> -> runtimeMappingContract(value, expected)
             else -> nativeTypeResolver.describe(value::class.starProjectedType).contract
@@ -171,7 +173,8 @@ class DefaultDataAdapterRegistry(
                 DataType.Dynamic()))
         }
         val keyTypes = value.keys.map { key ->
-            if (key == null || !isScalarValue(key)) {
+            // An enum key is text, as the design-time Map<E, V> describes it
+            if (key == null || !isScalarValue(key) && key !is Enum<*>) {
                 return nativeTypeResolver.describe(value::class.starProjectedType).contract
             }
             structuralOf(key, null)
@@ -181,8 +184,10 @@ class DefaultDataAdapterRegistry(
             return nativeTypeResolver.describe(value::class.starProjectedType).contract
         }
         val canonicalKeys = mutableSetOf<String>()
+        val keyConstraints = mutableSetOf<Map<DataTypePath, List<DataConstraint>>>()
         for (key in value.keys) {
             val liftedKey = lift(key)
+            keyConstraints += liftedKey.contract.constraintsByPath
             val canonical = LiteralDataValues.canonicalText(liftedKey.access.scalar(liftedKey.root))
             if (!canonicalKeys.add(canonical)) {
                 throw DataException(DataProblem(
@@ -204,11 +209,15 @@ class DefaultDataAdapterRegistry(
                     tech.kzen.lib.common.model.structure.metadata.TypeMetadata.any,
                     tech.kzen.lib.common.model.structure.metadata.TypeMetadata.anyNullable),
                 false))
+        // Keys that disagree on their constraints (as values do on natives) keep none
         return DataContract(
             structural,
             native +
                     requiredNativeMetadata(valueContract).prefixed(DataPathSegment.MappingValue),
-            valueContract.definitions + expected?.definitions.orEmpty())
+            valueContract.definitions + expected?.definitions.orEmpty(),
+            constraintsByPath =
+                keyConstraints.singleOrNull().orEmpty().prefixed(DataPathSegment.MappingKey) +
+                    valueContract.constraintsByPath.prefixed(DataPathSegment.MappingValue))
     }
 
 
@@ -260,6 +269,7 @@ class DefaultDataAdapterRegistry(
     ): DataContract {
         var joined: DataType? = null
         var native: Map<DataTypePath, tech.kzen.lib.common.model.structure.metadata.TypeMetadata>? = null
+        var constraints: Map<DataTypePath, List<DataConstraint>>? = null
         val definitions = mutableMapOf<tech.kzen.lib.common.exec.data.type.DefinitionId, DataType>()
         val definitionNatives = mutableMapOf<
             tech.kzen.lib.common.exec.data.type.DefinitionId,
@@ -279,12 +289,18 @@ class DefaultDataAdapterRegistry(
                 native == contract.nativeByPath -> native
                 else -> emptyMap()
             }
+            constraints = when {
+                constraints == null -> contract.constraintsByPath
+                constraints == contract.constraintsByPath -> constraints
+                else -> emptyMap()
+            }
         }
         return DataContract(
             joined ?: expected?.structural ?: DataType.Dynamic(),
             native ?: expected?.nativeByPath.orEmpty(),
             definitions + expected?.definitions.orEmpty(),
-            definitionNatives + expected?.definitionNatives.orEmpty())
+            definitionNatives + expected?.definitionNatives.orEmpty(),
+            constraints ?: expected?.constraintsByPath.orEmpty())
     }
 
 

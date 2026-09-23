@@ -9,6 +9,7 @@ import tech.kzen.lib.common.exec.ScalarExecutionValue
 import tech.kzen.lib.common.exec.TextExecutionValue
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
+import tech.kzen.lib.common.exec.data.type.DataConstraint
 import tech.kzen.lib.common.exec.data.type.DataContract
 import tech.kzen.lib.common.exec.data.type.DataField
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
@@ -33,7 +34,8 @@ object LiteralDataValues {
         }
         val inferred = inferType(value, mutableListOf())
         val target = expected?.structural ?: inferred
-        val targetContract = inferredContract(target)
+        // Constraints are declared on the structure the literal adopts, so they travel with it
+        val targetContract = inferredContract(target, expected?.constraintsByPath.orEmpty())
         val access = LiteralValueAccess()
         val root = access.build(value, targetContract, emptyList())
         return DataValue(access, root)
@@ -422,8 +424,11 @@ object LiteralDataValues {
     }
 
 
-    private fun inferredContract(type: DataType): DataContract =
-        DataContract(type, opaqueMetadata(type))
+    private fun inferredContract(
+        type: DataType,
+        constraints: Map<DataTypePath, List<DataConstraint>> = emptyMap()
+    ): DataContract =
+        DataContract(type, opaqueMetadata(type), constraintsByPath = constraints)
 
 
     private fun opaqueMetadata(

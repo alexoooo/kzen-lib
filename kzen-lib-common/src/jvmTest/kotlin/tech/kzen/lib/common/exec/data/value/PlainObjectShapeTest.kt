@@ -3,8 +3,10 @@ package tech.kzen.lib.common.exec.data.value
 import tech.kzen.lib.common.exec.TextExecutionValue
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
+import tech.kzen.lib.common.exec.data.type.DataConstraint
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
 import tech.kzen.lib.common.exec.data.type.DataType
+import tech.kzen.lib.common.exec.data.type.DataTypePath
 import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.value.fixture.BeanFixtures
@@ -167,6 +169,46 @@ class PlainObjectShapeTest {
 
 
     @Test
+    fun enumsDeclareTheirConstantsAsASymbolSetThatTheLiftKeeps() {
+        DefaultDataAdapterRegistry().use { registry ->
+            val suits = DataConstraint.SymbolSet(listOf("HEARTS", "SPADES"))
+            val suit = registry.describe(typeOf<Suit>())
+            assertEquals(mapOf(DataTypePath.root to listOf(suits)), suit.constraintsByPath, "constants with bodies")
+            val spades = registry.lift(Suit.SPADES)
+            assertEquals(suit.constraintsByPath, spades.contract.constraintsByPath)
+            assertEquals(emptyList(), DataValueAlgebra.validate(suit, spades))
+
+            val side = DataConstraint.SymbolSet(listOf("BUY", "SELL"))
+            val sidePath = DataTypePath(listOf(DataPathSegment.Field(FieldId("side"))))
+            val employee = registry.describe(typeOf<BeanFixtures.Employee>())
+            assertEquals(listOf(side), employee.constraintsByPath[sidePath])
+            val lifted = registry.lift(BeanFixtures.Employee("bob", 40, "ops"))
+            assertEquals(employee.constraintsByPath, lifted.contract.constraintsByPath)
+
+            val hands = registry.describe(typeOf<Map<Suit, List<Suit>>>())
+            val keyPath = DataTypePath(listOf(DataPathSegment.MappingKey))
+            val elementPath = DataTypePath(listOf(DataPathSegment.MappingValue, DataPathSegment.ListingElement))
+            assertEquals(mapOf(keyPath to listOf(suits), elementPath to listOf(suits)), hands.constraintsByPath)
+            val hand = registry.lift(mapOf(Suit.HEARTS to listOf(Suit.SPADES, Suit.HEARTS)))
+            assertEquals(hands.constraintsByPath, hand.contract.constraintsByPath)
+        }
+    }
+
+
+    @Test
+    fun anEnumBehindARecursiveReferenceIsNotConstrained() {
+        DefaultDataAdapterRegistry().use { registry ->
+            val contract = registry.describe(typeOf<SuitChain>())
+            assertEquals(
+                setOf(DataTypePath(listOf(DataPathSegment.Field(FieldId("suit"))))),
+                contract.constraintsByPath.keys,
+                "the root occurrence is expanded, the definition behind 'next' is not")
+            assertTrue(contract.child(DataPathSegment.Field(FieldId("next"))).constraintsByPath.isEmpty())
+        }
+    }
+
+
+    @Test
     fun nativeTokensAreCachedPerClassIdentityAndStayLoaderLocal() {
         val compiled = compileClasses(mapOf(
             "fixture.Twin" to "package fixture; public class Twin { public String getLabel() { return \"twin\"; } }"))
@@ -199,6 +241,8 @@ class PlainObjectShapeTest {
         SPADES { override fun colour() = "black" };
         abstract fun colour(): String
     }
+
+    data class SuitChain(val suit: Suit, val next: SuitChain?)
 
 
     private fun readText(value: DataValue, field: String): String =

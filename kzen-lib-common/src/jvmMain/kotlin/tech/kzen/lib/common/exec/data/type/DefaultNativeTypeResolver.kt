@@ -59,7 +59,7 @@ class DefaultNativeTypeResolver(
                 ResolvedDataContract(
                     DataContract(
                         described.contract.structural, described.contract.nativeByPath,
-                        session.definitions, session.definitionNatives),
+                        session.definitions, session.definitionNatives, described.contract.constraintsByPath),
                     described.tokenByPath)
             }
         }
@@ -221,12 +221,14 @@ class DefaultNativeTypeResolver(
                 emptyList())
         }
 
-        // An enum is its constant name (E7 item 2); a constant with a body is an anonymous subclass
+        // An enum is its constant name (E7 item 2), one of its constants in declaration order; a constant with a
+        // body is an anonymous subclass. Behind a recursive reference the set is dropped, as definitions carry none.
         if (isEnum(classifier)) {
             return describedNode(
                 DataType.Scalar(ScalarKind.Text, native.isMarkedNullable),
                 native,
-                emptyList())
+                emptyList(),
+                mapOf(DataTypePath.root to listOf(DataConstraint.SymbolSet(enumConstantNames(classifier)))))
         }
 
         primitiveArrayElement(classifier)?.let { element ->
@@ -258,10 +260,12 @@ class DefaultNativeTypeResolver(
             if (keyType !is DataType.Scalar || keyType.nullable) {
                 return opaque(native)
             }
+            // A key carries no native metadata, but keeps its constraints (an enum-keyed map's symbols)
             return describedNode(
                 DataType.Mapping(keyType, value.contract.structural, native.isMarkedNullable),
                 native,
-                listOf(DataPathSegment.MappingValue to value))
+                listOf(DataPathSegment.MappingValue to value),
+                key.contract.constraintsByPath.prefixed(DataPathSegment.MappingKey))
         }
 
         if (classifier in openClasses) {
@@ -367,7 +371,7 @@ class DefaultNativeTypeResolver(
         ) {
             metadata[DataTypePath.root] = native.toMetadata()
         }
-        val contract = DataContract(described.structural, metadata)
+        val contract = DataContract(described.structural, metadata, constraintsByPath = described.constraintsByPath)
         val owner = classifier.java.classLoader ?: DefaultNativeTypeResolver::class.java.classLoader
         val resolved = resolve(contract, owner)
         if (DataTypePath.root !in resolved.tokenByPath) {
@@ -381,15 +385,19 @@ class DefaultNativeTypeResolver(
     private fun describedNode(
         structural: DataType,
         native: KType,
-        children: List<Pair<DataPathSegment, ResolvedDataContract>>
+        children: List<Pair<DataPathSegment, ResolvedDataContract>>,
+        constraints: Map<DataTypePath, List<DataConstraint>> = emptyMap()
     ): ResolvedDataContract {
         val metadata = mutableMapOf(DataTypePath.root to native.toMetadata())
         val tokens = mutableMapOf(DataTypePath.root to NativeTypeToken(native))
+        val constraintsByPath = constraints.toMutableMap()
         for ((segment, child) in children) {
             metadata.putAll(child.contract.nativeByPath.prefixed(segment))
             tokens.putAll(child.tokenByPath.prefixed(segment))
+            constraintsByPath.putAll(child.contract.constraintsByPath.prefixed(segment))
         }
-        return ResolvedDataContract(DataContract(structural, metadata), tokens)
+        return ResolvedDataContract(
+            DataContract(structural, metadata, constraintsByPath = constraintsByPath), tokens)
     }
 
     private fun opaque(native: KType): ResolvedDataContract =
@@ -723,6 +731,12 @@ private fun isSet(classifier: KClass<*>): Boolean =
 
 private fun isEnum(classifier: KClass<*>): Boolean =
     classifier.java.isEnum || classifier.java.superclass?.isEnum == true
+
+
+private fun enumConstantNames(classifier: KClass<*>): List<String> {
+    val enumClass = if (classifier.java.isEnum) classifier.java else classifier.java.superclass
+    return enumClass.enumConstants.map { (it as Enum<*>).name }
+}
 
 
 private fun scalarType(classifier: KClass<*>): ScalarKind? =

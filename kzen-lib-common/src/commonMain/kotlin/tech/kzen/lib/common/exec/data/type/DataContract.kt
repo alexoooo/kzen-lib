@@ -18,16 +18,21 @@ import kotlin.jvm.JvmOverloads
  * while a value of it can be navigated as deep as the data goes. An unresolved reference is a named failure
  * at expansion (and listed by [unresolvedReferences]), not a construction failure: intermediate contracts a
  * resolver builds bottom-up legitimately carry references whose definitions only the root holds.
+ *
+ * [constraintsByPath] restricts values without changing their type: it is declaration identity (equality and
+ * [declarationDigest]) but not [structuralDigest], and a path cannot reach into a definition.
  */
 class DataContract @JvmOverloads constructor(
     val structural: DataType,
     nativeByPath: Map<DataTypePath, TypeMetadata> = emptyMap(),
     definitions: Map<DefinitionId, DataType> = emptyMap(),
-    definitionNatives: Map<DefinitionId, Map<DataTypePath, TypeMetadata>> = emptyMap()
+    definitionNatives: Map<DefinitionId, Map<DataTypePath, TypeMetadata>> = emptyMap(),
+    constraintsByPath: Map<DataTypePath, List<DataConstraint>> = emptyMap()
 ): Digestible {
     companion object {
         private const val definitionsKey = "definitions"
         private const val nativeKey = "native"
+        private const val constraintsKey = "constraints"
 
         fun ofExecutionValue(executionValue: tech.kzen.lib.common.exec.ExecutionValue): DataContract {
             val map = executionValue as? MapExecutionValue
@@ -49,8 +54,22 @@ class DataContract @JvmOverloads constructor(
             }
             val native = map.values[nativeKey] as? ListExecutionValue
                 ?: invalidEncoding("Data contract is missing native metadata list")
-            return DataContract(structural, decodeNatives(native), definitions, definitionNatives)
+            val constraints = (map.values[constraintsKey] as? ListExecutionValue)?.let(::decodeConstraints)
+                ?: emptyMap()
+            return DataContract(structural, decodeNatives(native), definitions, definitionNatives, constraints)
         }
+
+
+        private fun decodeConstraints(encoded: ListExecutionValue): Map<DataTypePath, List<DataConstraint>> =
+            encoded.values.associate { encodedEntry ->
+                val entry = encodedEntry as? MapExecutionValue
+                    ?: invalidEncoding("Constraint entry must be a map")
+                val path = decodePath(
+                    entry.values["path"] ?: invalidEncoding("Constraint entry is missing 'path'"))
+                val constraints = entry.values[constraintsKey] as? ListExecutionValue
+                    ?: invalidEncoding("Constraint entry is missing its constraint list")
+                path to constraints.values.map { DataConstraint.ofExecutionValue(it) }
+            }
 
 
         private fun decodeNatives(native: ListExecutionValue): Map<DataTypePath, TypeMetadata> =
@@ -88,19 +107,26 @@ class DataContract @JvmOverloads constructor(
     val definitionNatives: Map<DefinitionId, Map<DataTypePath, TypeMetadata>> =
         definitionNatives.mapValues { it.value.toMap() }
 
+    /** Value restrictions by path, at most one per [DataConstraint.kind] at a path; empty for most contracts. */
+    val constraintsByPath: Map<DataTypePath, List<DataConstraint>> =
+        constraintsByPath.filterValues { it.isNotEmpty() }.mapValues { it.value.toList() }
+
     private val childCache: Map<DataPathSegment, DataContract> by lazy {
         expanded().structural.schemaChildren().associate { (segment, childType) ->
             val prefix = DataTypePath(listOf(segment))
-            val rebased = nativeByPath.entries
-                .filter { it.key.startsWith(prefix) }
-                .associate { it.key.removePrefix(prefix) to it.value }
-            segment to DataContract(expand(childType), nativesOf(childType) + rebased, this.definitions, this.definitionNatives)
+            segment to DataContract(
+                expand(childType),
+                nativesOf(childType) + nativeByPath.rebased(prefix),
+                this.definitions,
+                this.definitionNatives,
+                constraintsByPath.rebased(prefix))
         }
     }
 
     init {
         validateDefinitions()
         validateNativeMetadata()
+        validateConstraints()
     }
 
     val structuralDigest: Digest by lazy {
@@ -116,11 +142,59 @@ class DataContract @JvmOverloads constructor(
         childCache[segment] ?: throw invalidPath(DataTypePath(listOf(segment)))
 
 
+    /** [child], or null when this contract's structure has no [segment] (a narrower or dynamic contract). */
+    fun childOrNull(segment: DataPathSegment): DataContract? =
+        childCache[segment]
+
+
     /** This contract with a root reference replaced by its definition (one level); this when the root is not a reference. */
     fun expanded(): DataContract {
         val root = structural as? DataType.Reference
             ?: return this
-        return DataContract(expand(root), nativesOf(root) + nativeByPath, definitions, definitionNatives)
+        return DataContract(
+            expand(root), nativesOf(root) + nativeByPath, definitions, definitionNatives, constraintsByPath)
+    }
+
+
+    /**
+     * This record with [additions] appended, each field carrying its contract's path-aligned metadata (natives,
+     * constraints) beneath it and contributing its definitions — the one place record composition rebases paths.
+     */
+    fun withFields(additions: List<Pair<DataField, DataContract>>): DataContract {
+        val record = structural as? DataType.Record
+            ?: throw DataException(DataProblem(
+                DataProblem.invalidRecord, "Only a record contract can gain fields, not $structural"))
+        val fields = record.fields.toMutableList()
+        val natives = nativeByPath.toMutableMap()
+        val constraints = constraintsByPath.toMutableMap()
+        val definitions = definitions.toMutableMap()
+        val definitionNatives = definitionNatives.toMutableMap()
+        for ((field, contract) in additions) {
+            if (fields.any { it.id == field.id }) {
+                throw DataException(DataProblem(
+                    DataProblem.invalidRecord, "Output field '${field.id}' collides with an existing field"))
+            }
+            fields += field
+            val prefix = DataPathSegment.Field(field.id)
+            contract.nativeByPath.forEach { (path, metadata) -> natives[path.under(prefix)] = metadata }
+            contract.constraintsByPath.forEach { (path, list) -> constraints[path.under(prefix)] = list }
+            contract.definitions.forEach { (id, type) ->
+                if (id in definitions && definitions[id] != type) {
+                    throw DataException(DataProblem(
+                        DataProblem.invalidContract, "Conflicting carried definition '$id'"))
+                }
+                definitions[id] = type
+            }
+            contract.definitionNatives.forEach { (id, metadata) ->
+                if (id in definitionNatives && definitionNatives[id] != metadata) {
+                    throw DataException(DataProblem(
+                        DataProblem.invalidContract, "Conflicting carried native definition '$id'"))
+                }
+                definitionNatives[id] = metadata
+            }
+        }
+        return DataContract(
+            DataType.Record(fields, record.nullable), natives, definitions, definitionNatives, constraints)
     }
 
 
@@ -172,6 +246,17 @@ class DataContract @JvmOverloads constructor(
         if (definitionEntries.isNotEmpty()) {
             encoded[definitionsKey] = ListExecutionValue(definitionEntries)
         }
+        // Omitted when empty so an unconstrained contract keeps its encoding and declaration digest
+        if (constraintsByPath.isNotEmpty()) {
+            encoded[constraintsKey] = ListExecutionValue(constraintsByPath.entries
+                .sortedBy { it.key.toString() }
+                .map { (path, constraints) ->
+                    MapExecutionValue(mapOf(
+                        "path" to path.asExecutionValue(),
+                        constraintsKey to ListExecutionValue(
+                            constraints.sortedBy { it.kind }.map { it.asExecutionValue() })))
+                })
+        }
         return MapExecutionValue(encoded)
     }
 
@@ -182,15 +267,23 @@ class DataContract @JvmOverloads constructor(
     override fun equals(other: Any?): Boolean =
         this === other || other is DataContract &&
                 structural == other.structural && nativeByPath == other.nativeByPath &&
-                definitions == other.definitions && definitionNatives == other.definitionNatives
+                definitions == other.definitions && definitionNatives == other.definitionNatives &&
+                constraintSets == other.constraintSets
 
     override fun hashCode(): Int =
-        31 * (31 * (31 * structural.hashCode() + nativeByPath.hashCode()) + definitions.hashCode()) +
-                definitionNatives.hashCode()
+        31 * (31 * (31 * (31 * structural.hashCode() + nativeByPath.hashCode()) + definitions.hashCode()) +
+                definitionNatives.hashCode()) + constraintSets.hashCode()
 
-    override fun toString(): String =
-        if (definitions.isEmpty()) "DataContract(structural=$structural, nativeByPath=$nativeByPath)"
-        else "DataContract(structural=$structural, nativeByPath=$nativeByPath, definitions=$definitions)"
+    // Constraints at a path are unordered for identity, as in the encoding
+    private val constraintSets: Map<DataTypePath, Set<DataConstraint>>
+        get() = constraintsByPath.mapValues { it.value.toSet() }
+
+    override fun toString(): String = buildString {
+        append("DataContract(structural=$structural, nativeByPath=$nativeByPath")
+        if (definitions.isNotEmpty()) append(", definitions=$definitions")
+        if (constraintsByPath.isNotEmpty()) append(", constraintsByPath=$constraintsByPath")
+        append(")")
+    }
 
     private fun validateDefinitions() {
         for ((id, type) in definitions) {
@@ -236,12 +329,44 @@ class DataContract @JvmOverloads constructor(
         }
     }
 
+    private fun validateConstraints() {
+        for ((path, constraints) in constraintsByPath) {
+            // Paths stop at a reference, so a definition's members are unreachable here by construction
+            val pathType = structural.typeAt(path)
+                ?: throw DataException(DataProblem(
+                    DataProblem.invalidPath,
+                    "Constraint path does not exist in the structural type: $path",
+                    path.segments))
+            val repeated = constraints.groupBy { it.kind }.filterValues { it.size > 1 }.keys
+            if (repeated.isNotEmpty()) {
+                throw DataException(DataProblem(
+                    DataProblem.invalidConstraint,
+                    "Path $path has more than one constraint of kind $repeated",
+                    path.segments))
+            }
+            constraints.firstOrNull { !it.appliesTo(pathType) }?.let {
+                throw DataException(DataProblem(
+                    DataProblem.invalidConstraint,
+                    "Constraint $it does not apply to $pathType at $path",
+                    path.segments))
+            }
+        }
+    }
+
     private fun invalidPath(path: DataTypePath): DataException =
         DataException(DataProblem(
             DataProblem.invalidPath,
             "Native metadata path does not exist in the structural type: $path",
             path.segments))
 }
+
+
+private fun <T> Map<DataTypePath, T>.rebased(prefix: DataTypePath): Map<DataTypePath, T> =
+    entries.filter { it.key.startsWith(prefix) }.associate { it.key.removePrefix(prefix) to it.value }
+
+
+private fun DataTypePath.under(prefix: DataPathSegment): DataTypePath =
+    DataTypePath(listOf(prefix) + segments)
 
 
 private fun DataType.childType(segment: DataPathSegment): DataType? =

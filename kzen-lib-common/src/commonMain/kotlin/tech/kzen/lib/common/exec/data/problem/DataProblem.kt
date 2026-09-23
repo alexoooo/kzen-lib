@@ -23,6 +23,8 @@ class DataProblem(
         const val invalidUnion = "data.invalid-union"
         const val invalidScalar = "data.invalid-scalar"
         const val invalidContract = "data.invalid-contract"
+        const val invalidConstraint = "data.invalid-constraint"
+        const val constraintViolation = "data.constraint-violation"
         const val incompatibleType = "data.incompatible-type"
         const val unionVariantUnknown = "data.union-variant-unknown"
         const val unionVariantNoMatch = "data.union-variant-no-match"
