@@ -234,7 +234,10 @@ class ReflectSymbolProcessor(
             """.trimMargin()
             else -> {
                 val argsCast = c.arguments.withIndex()
-                    .joinToString(", ") { (i, a) -> "args[$i] as ${a.typeExpr}" }
+                    .joinToString(", ") { (i, a) ->
+                        // `args` is a List<Any?>, so an `Any?` parameter takes its element uncast
+                        if (a.typeExpr == ANY_NULLABLE_TYPE) "args[$i]" else "args[$i] as ${a.typeExpr}"
+                    }
 
                 val serviceArgs = c.arguments.filter { it.serviceTypeQualifiedName != null }
 
@@ -285,5 +288,6 @@ class ReflectSymbolProcessor(
         private const val SERVICE_ANNOTATION_FQN = "tech.kzen.lib.common.reflect.Service"
         private const val MODULE_REFLECTION_FQN = "tech.kzen.lib.common.reflect.ModuleReflection"
         private const val REFLECTION_REGISTRY_FQN = "tech.kzen.lib.common.reflect.ReflectionRegistry"
+        private const val ANY_NULLABLE_TYPE = "kotlin.Any?"
     }
 }
