@@ -21,17 +21,28 @@ object DataTypeAlgebra {
      * definitions, and a pair of references already under comparison is assumed compatible (the coinductive
      * rule that keeps recursive shapes finite), so a run-time value whose element is a full record satisfies a
      * design-time contract whose element is the reference to that record.
+     *
+     * Metadata is checked only where [expected] declares some: a payload-only expectation accepts any metadata,
+     * and a value without metadata offers none.
      */
-    fun isAssignable(expected: DataContract, actual: DataContract): TypeAcceptance =
-        if (accepts(expected.structural, actual.structural,
+    fun isAssignable(expected: DataContract, actual: DataContract): TypeAcceptance {
+        if (!accepts(expected.structural, actual.structural,
                 Definitions(expected.definitions, actual.definitions, opaqueForOpaque = true), mutableSetOf())) {
-            TypeAcceptance.Accepted
-        }
-        else {
-            TypeAcceptance.Rejected(DataProblem(
+            return TypeAcceptance.Rejected(DataProblem(
                 DataProblem.incompatibleType,
                 "Actual type ${actual.structural} is not assignable to expected type ${expected.structural}"))
         }
+        val expectedMetadata = expected.metadata
+            ?: return TypeAcceptance.Accepted
+        val actualMetadata = actual.metadata ?: MetadataContract.empty
+        return when (val metadata = isAssignable(expectedMetadata.contract, actualMetadata.contract)) {
+            TypeAcceptance.Accepted -> TypeAcceptance.Accepted
+            is TypeAcceptance.Rejected -> TypeAcceptance.Rejected(DataProblem(
+                DataProblem.incompatibleType,
+                "Actual metadata ${actualMetadata.structural} is not assignable to expected metadata " +
+                        "${expectedMetadata.structural}: ${metadata.problem.message}"))
+        }
+    }
 
 
     // Contract-level comparisons carry native metadata beside the shapes, so an opaque expected member accepts

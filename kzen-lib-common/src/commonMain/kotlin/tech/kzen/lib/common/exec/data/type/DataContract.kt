@@ -21,18 +21,25 @@ import kotlin.jvm.JvmOverloads
  *
  * [constraintsByPath] restricts values without changing their type: it is declaration identity (equality and
  * [declarationDigest]) but not [structuralDigest], and a path cannot reach into a definition.
+ *
+ * [metadata] is the contract of the value's metadata: typed values that describe the whole value (where it came
+ * from, values computed about it) without being part of its payload, like a message's headers beside its
+ * payload. It belongs to the root only (a [child] never has metadata) and is a [MetadataContract], plain data
+ * that never nests. Everything else in this contract describes the payload.
  */
 class DataContract @JvmOverloads constructor(
     val structural: DataType,
     nativeByPath: Map<DataTypePath, TypeMetadata> = emptyMap(),
     definitions: Map<DefinitionId, DataType> = emptyMap(),
     definitionNatives: Map<DefinitionId, Map<DataTypePath, TypeMetadata>> = emptyMap(),
-    constraintsByPath: Map<DataTypePath, List<DataConstraint>> = emptyMap()
+    constraintsByPath: Map<DataTypePath, List<DataConstraint>> = emptyMap(),
+    val metadata: MetadataContract? = null
 ): Digestible {
     companion object {
         private const val definitionsKey = "definitions"
         private const val nativeKey = "native"
         private const val constraintsKey = "constraints"
+        private const val metadataKey = "metadata"
 
         fun ofExecutionValue(executionValue: tech.kzen.lib.common.exec.ExecutionValue): DataContract {
             val map = executionValue as? MapExecutionValue
@@ -56,7 +63,9 @@ class DataContract @JvmOverloads constructor(
                 ?: invalidEncoding("Data contract is missing native metadata list")
             val constraints = (map.values[constraintsKey] as? ListExecutionValue)?.let(::decodeConstraints)
                 ?: emptyMap()
-            return DataContract(structural, decodeNatives(native), definitions, definitionNatives, constraints)
+            val metadata = map.values[metadataKey]?.let { MetadataContract.ofExecutionValue(it) }
+            return DataContract(
+                structural, decodeNatives(native), definitions, definitionNatives, constraints, metadata)
         }
 
 
@@ -129,8 +138,18 @@ class DataContract @JvmOverloads constructor(
         validateConstraints()
     }
 
+    /** The shape identity: the payload's structure and, when present, its metadata's. */
     val structuralDigest: Digest by lazy {
-        structural.asExecutionValue().digest()
+        val payload = structural.asExecutionValue()
+        if (metadata == null) {
+            payload.digest()
+        }
+        else {
+            MapExecutionValue(mapOf(
+                "structural" to payload,
+                metadataKey to metadata.structural.asExecutionValue()
+            )).digest()
+        }
     }
 
     val declarationDigest: Digest by lazy {
@@ -152,8 +171,23 @@ class DataContract @JvmOverloads constructor(
         val root = structural as? DataType.Reference
             ?: return this
         return DataContract(
-            expand(root), nativesOf(root) + nativeByPath, definitions, definitionNatives, constraintsByPath)
+            expand(root), nativesOf(root) + nativeByPath, definitions, definitionNatives, constraintsByPath,
+            metadata)
     }
+
+
+    /** This payload contract with [metadata] as its metadata, replacing any it had; this when unchanged. */
+    fun withMetadata(metadata: MetadataContract?): DataContract {
+        if (metadata == this.metadata) {
+            return this
+        }
+        return DataContract(structural, nativeByPath, definitions, definitionNatives, constraintsByPath, metadata)
+    }
+
+
+    /** The payload's contract alone: this without [metadata]. */
+    fun payload(): DataContract =
+        withMetadata(null)
 
 
     /**
@@ -194,7 +228,8 @@ class DataContract @JvmOverloads constructor(
             }
         }
         return DataContract(
-            DataType.Record(fields, record.nullable), natives, definitions, definitionNatives, constraints)
+            DataType.Record(fields, record.nullable), natives, definitions, definitionNatives, constraints,
+            metadata)
     }
 
 
@@ -257,6 +292,10 @@ class DataContract @JvmOverloads constructor(
                             constraints.sortedBy { it.kind }.map { it.asExecutionValue() })))
                 })
         }
+        // Omitted when absent, like constraints, so a payload-only contract keeps its encoding
+        if (metadata != null) {
+            encoded[metadataKey] = metadata.asExecutionValue()
+        }
         return MapExecutionValue(encoded)
     }
 
@@ -268,11 +307,11 @@ class DataContract @JvmOverloads constructor(
         this === other || other is DataContract &&
                 structural == other.structural && nativeByPath == other.nativeByPath &&
                 definitions == other.definitions && definitionNatives == other.definitionNatives &&
-                constraintSets == other.constraintSets
+                constraintSets == other.constraintSets && metadata == other.metadata
 
     override fun hashCode(): Int =
-        31 * (31 * (31 * (31 * structural.hashCode() + nativeByPath.hashCode()) + definitions.hashCode()) +
-                definitionNatives.hashCode()) + constraintSets.hashCode()
+        31 * (31 * (31 * (31 * (31 * structural.hashCode() + nativeByPath.hashCode()) + definitions.hashCode()) +
+                definitionNatives.hashCode()) + constraintSets.hashCode()) + (metadata?.hashCode() ?: 0)
 
     // Constraints at a path are unordered for identity, as in the encoding
     private val constraintSets: Map<DataTypePath, Set<DataConstraint>>
@@ -282,6 +321,7 @@ class DataContract @JvmOverloads constructor(
         append("DataContract(structural=$structural, nativeByPath=$nativeByPath")
         if (definitions.isNotEmpty()) append(", definitions=$definitions")
         if (constraintsByPath.isNotEmpty()) append(", constraintsByPath=$constraintsByPath")
+        if (metadata != null) append(", metadata=${metadata.structural}")
         append(")")
     }
 
@@ -430,7 +470,7 @@ private fun DataType.typeAt(path: DataTypePath): DataType? {
 }
 
 
-private fun DataType.walk(
+internal fun DataType.walk(
     path: DataTypePath = DataTypePath.root
 ): List<Pair<DataTypePath, DataType>> {
     val descendants = when (this) {

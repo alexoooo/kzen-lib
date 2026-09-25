@@ -28,8 +28,16 @@ object DataValueAlgebra {
         }
 
         val problems = mutableListOf<DataProblem>()
-        val declared = expected.takeIf { it != value.contract }.constrainedOrNull()
-        validateNode(value.access, value.root, value.contract, declared, emptyList(), required = true, problems)
+        val actual = value.payloadContract
+        val declared = expected.payload().takeIf { it != actual }.constrainedOrNull()
+        validateNode(value.access, value.root, actual, declared, emptyList(), required = true, problems)
+
+        // Metadata is checked where the expectation declares it (assignability already required its presence)
+        val expectedMetadata = expected.metadata
+        val metadata = value.metadata
+        if (expectedMetadata != null && metadata != null) {
+            problems += validate(expectedMetadata.contract, metadata.value)
+        }
         return problems
     }
 

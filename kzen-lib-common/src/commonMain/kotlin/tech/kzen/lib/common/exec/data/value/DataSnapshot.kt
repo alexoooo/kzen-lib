@@ -21,28 +21,43 @@ import tech.kzen.lib.common.util.digest.Digestible
 import kotlin.time.TimeSource
 
 
-/** Immutable detached content. The exposed tree is a defensive copy and never carries native metadata. */
-class DataSnapshot private constructor(
+/**
+ * Immutable detached content. The exposed tree is a defensive copy and never carries native metadata. A value's
+ * [DataValue.metadata] is captured beside its payload as [metadata], a [MetadataSnapshot].
+ */
+class DataSnapshot internal constructor(
     val type: DataType,
-    private val frozenValue: ExecutionValue
+    internal val frozenValue: ExecutionValue,
+    val metadata: MetadataSnapshot? = null
 ): Digestible {
     val value: ExecutionValue
         get() = frozenValue.deepCopy()
 
-    fun asDataValue(): DataValue = LiteralDataValues.decode(type, frozenValue)
+    fun asDataValue(): DataValue =
+        LiteralDataValues.decode(type, frozenValue).withMetadata(metadata?.asMetadata())
 
     override fun digest(sink: Digest.Sink) {
         type.digest(sink)
         frozenValue.digest(sink)
+        if (metadata != null) {
+            metadata.digest(sink)
+        }
     }
 
     override fun equals(other: Any?): Boolean =
         this === other || other is DataSnapshot &&
-                type == other.type && frozenValue == other.frozenValue
+                type == other.type && frozenValue == other.frozenValue && metadata == other.metadata
 
-    override fun hashCode(): Int = 31 * type.hashCode() + frozenValue.hashCode()
+    override fun hashCode(): Int = 31 * (31 * type.hashCode() + frozenValue.hashCode()) + (metadata?.hashCode() ?: 0)
 
-    override fun toString(): String = "DataSnapshot(type=$type, value=$frozenValue)"
+    override fun toString(): String =
+        "DataSnapshot(type=$type, value=$frozenValue" + (metadata?.let { ", metadata=${it.value}" } ?: "") + ")"
+
+
+    /** This payload with [metadata] as its metadata, replacing any it had. */
+    fun withMetadata(metadata: MetadataSnapshot?): DataSnapshot =
+        if (metadata == this.metadata) this
+        else DataSnapshot(type, frozenValue, metadata)
 
     companion object {
         /** Validates under [type] and freezes a pre-existing detached tree. */
@@ -75,13 +90,19 @@ class DataSnapshot private constructor(
                         "Sensitive value snapshot is forbidden")))
                 }
             }
+            val metadata = value.metadata?.let { metadataValue ->
+                when (val captured = capture(metadataValue.value, policy)) {
+                    is SnapshotResult.Complete -> MetadataSnapshot.of(captured.snapshot)
+                    else -> return captured
+                }
+            }
             val writer = SnapshotWriter(value, policy)
             val executionValue = writer.write()
             if (writer.problems.isNotEmpty() || executionValue == null) {
                 return SnapshotResult.Rejected(writer.problems)
             }
             return try {
-                SnapshotResult.Complete(DataSnapshot(value.type, executionValue.deepCopy()))
+                SnapshotResult.Complete(DataSnapshot(value.type, executionValue.deepCopy(), metadata))
             }
             catch (e: RuntimeException) {
                 SnapshotResult.Rejected(listOf(DataProblem(
