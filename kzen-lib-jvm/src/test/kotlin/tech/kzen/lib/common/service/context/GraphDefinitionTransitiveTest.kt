@@ -174,4 +174,17 @@ class GraphDefinitionTransitiveTest {
             definition().transitiveDigest(mainPath),
             definition(main = reordered).transitiveDigest(mainPath))
     }
+
+
+    @Test
+    fun emptyNullableReferenceHasNoTransitiveDependency() {
+        val nullRef = ObjectLocation(DocumentPath.parse("test/kzen-test.yaml"), ObjectPath.parse("StringHolderNullRef"))
+
+        val filtered = definition().filterTransitive(nullRef)
+
+        assertEquals(
+            listOf(nullRef),
+            filtered.objectDefinitions.map.keys.filter { it.documentPath == nullRef.documentPath },
+            "the unset reference leads nowhere (only the base creators are reached)")
+    }
 }

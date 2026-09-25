@@ -74,7 +74,8 @@ data class GraphDefinition(
                 val openObjectDefinition = objectDefinitions[openObjectLocation]!!
                 for (objectDefinitionReference in openObjectDefinition.references()) {
                     val objectReference = objectDefinitionReference.objectReference
-                    if (GraphDefiner.isBootstrap(objectReference)) {
+                    // An empty reference is a nullable attribute left unset: definition already accepted it
+                    if (GraphDefiner.isBootstrap(objectReference) || objectReference.isEmpty()) {
                         continue
                     }
 
