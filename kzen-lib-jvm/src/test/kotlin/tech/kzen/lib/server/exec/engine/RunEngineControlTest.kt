@@ -18,6 +18,8 @@ import tech.kzen.lib.common.exec.engine.PauseReason
 import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import java.io.IOException
+import java.io.InterruptedIOException
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -843,6 +845,59 @@ class RunEngineControlTest {
             val outcome = withTimeout(5000) { engine.await() }
             assertEquals(Outcome.Cancelled, outcome, "cancel interrupts a parked-in-blocking spine → Cancelled")
             assertTrue(interrupted.get(), "the elastic blocking thread was interrupted by cancel")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun cancelReportedByBlockingIoAsAnIoFailureStillSettlesCancelled() = runBlocking {
+        // I/O reports the cancel's interrupt in its own terms — an InterruptedIOException (e.g. a multi-threaded
+        // gzip writer), a ClosedByInterruptException — not as InterruptedException; the node is still Cancelled
+        val entered = CountDownLatch(1)
+        val logic = logicOf { execution ->
+            execution.blocking {
+                entered.countDown()
+                try {
+                    Thread.sleep(30_000)
+                }
+                catch (_: InterruptedException) {
+                    throw InterruptedIOException()
+                }
+            }
+            bindingsOfMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            assertTrue(entered.await(2, TimeUnit.SECONDS), "the blocking region should start")
+
+            engine.cancel()
+            assertEquals(Outcome.Cancelled, withTimeout(5000) { engine.await() })
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun blockingIoFailureWithoutCancelStillFails() = runBlocking {
+        val logic = logicOf { execution ->
+            execution.blocking {
+                throw IOException("disk full")
+            }
+            bindingsOfMain("done")
+        }
+
+        val engine = RunEngine(logic, rootId)
+        try {
+            engine.resume()
+            val outcome = assertIs<Outcome.Failed>(withTimeout(5000) { engine.await() })
+            assertTrue("disk full" in outcome.message, outcome.message)
         }
         finally {
             engine.close()

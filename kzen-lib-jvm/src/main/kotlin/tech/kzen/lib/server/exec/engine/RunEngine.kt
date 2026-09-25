@@ -7,6 +7,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.runInterruptible
@@ -1171,11 +1173,19 @@ class RunEngine(
     // thread is freed for the region's duration; the [CountingDispatcher] hold keeps the spine counted as busy
     // (so quiescence / migrate never read it as idle), and engine [cancel] — which cancels the run scope's Job
     // — interrupts the elastic worker thread, surfaced back as CancellationException so the node settles
-    // Cancelled like any other.
+    // Cancelled like any other. I/O reports that interrupt in its own terms (InterruptedIOException,
+    // ClosedByInterruptException) rather than as InterruptedException, so once the spine is cancelled, whatever
+    // the region threw is the cancel's doing.
     private suspend fun <R> blocking(block: () -> R): R {
         val hold = dispatcher.enterBlocking()
         try {
             return runInterruptible(elasticDispatcher) { block() }
+        }
+        catch (e: Throwable) {
+            if (e !is CancellationException && !currentCoroutineContext().isActive) {
+                throw CancellationException("Run cancelled", e)
+            }
+            throw e
         }
         finally {
             dispatcher.exitBlocking(hold)
