@@ -17,6 +17,7 @@ import tech.kzen.lib.common.exec.data.type.DataType
 import tech.kzen.lib.common.exec.data.type.DataTypeAlgebra
 import tech.kzen.lib.common.exec.data.type.DataTypePath
 import tech.kzen.lib.common.exec.data.type.DataVariant
+import tech.kzen.lib.common.exec.data.type.DefinitionId
 import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.VariantId
@@ -43,7 +44,7 @@ object LiteralDataValues {
                 expected
             }
             else {
-                inferredContract(target, expected?.constraintsByPath.orEmpty())
+                inferredContract(target, expected?.constraintsByPath.orEmpty(), expected?.definitions.orEmpty())
             }
         val access = LiteralValueAccess()
         val root = access.build(value, targetContract, emptyList())
@@ -435,9 +436,10 @@ object LiteralDataValues {
 
     private fun inferredContract(
         type: DataType,
-        constraints: Map<DataTypePath, List<DataConstraint>> = emptyMap()
+        constraints: Map<DataTypePath, List<DataConstraint>> = emptyMap(),
+        definitions: Map<DefinitionId, DataType> = emptyMap()
     ): DataContract =
-        DataContract(type, opaqueMetadata(type), constraintsByPath = constraints)
+        DataContract(type, opaqueMetadata(type), definitions, constraintsByPath = constraints)
 
 
     private fun opaqueMetadata(

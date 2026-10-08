@@ -7,9 +7,15 @@ import tech.kzen.lib.common.exec.data.type.DataPathSegment
 import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.NativeTypeToken
 import tech.kzen.lib.common.exec.data.type.VariantId
+import java.util.concurrent.ConcurrentHashMap
 
 
-/** Adds an explicit expected-union tag without copying or changing the selected backing. */
+/**
+ * Adds an explicit expected-union tag without copying or changing the selected backing.
+ *
+ * Safe for concurrent readers ([ValueAccess]): a delegate node seen before maps to its token without a lock; a new
+ * one takes this view's lock to get a token, so readers of one delegate node share one token.
+ */
 internal class TaggedUnionValueAccess private constructor(
     private val unionContract: DataContract,
     private val variant: VariantId,
@@ -23,8 +29,15 @@ internal class TaggedUnionValueAccess private constructor(
     }
 
 
-    private val delegateByToken = mutableListOf<DataNode?>(null, selected.root)
-    private val tokenByDelegate = mutableMapOf(selected.root to DataNode(1))
+    // Index 0 is the union itself. Written under the lock, and replaced by a larger copy when full, so a reader that
+    // holds a token finds its delegate in whichever table it sees.
+    @Volatile
+    private var delegateByToken = arrayOf<DataNode?>(null, selected.root)
+    private val tokenByDelegate = ConcurrentHashMap<DataNode, DataNode>().also { it[selected.root] = DataNode(1) }
+
+    // Guarded by this view's lock
+    private var count = 2
+
     private val selectedContract = unionContract.child(DataPathSegment.Variant(variant))
 
     override fun contract(node: DataNode): DataContract =
@@ -71,20 +84,28 @@ internal class TaggedUnionValueAccess private constructor(
         (selected.access as? JvmNativeValueAccess)?.nativeType(delegate(node))
 
 
-    private fun wrap(delegate: DataNode): DataNode =
-        tokenByDelegate.getOrPut(delegate) {
-            delegateByToken += delegate
-            DataNode((delegateByToken.size - 1).toLong())
+    private fun wrap(delegate: DataNode): DataNode {
+        tokenByDelegate[delegate]?.let { return it }
+        synchronized(this) {
+            tokenByDelegate[delegate]?.let { return it }
+            var table = delegateByToken
+            if (count == table.size) {
+                table = table.copyOf(count * 2)
+                delegateByToken = table
+            }
+            table[count] = delegate
+            val token = DataNode(count.toLong())
+            count++
+            tokenByDelegate[delegate] = token
+            return token
         }
+    }
 
     private fun delegate(node: DataNode): DataNode {
-        if (isRoot(node) || node.token < 0 || node.token > Int.MAX_VALUE ||
-            node.token.toInt() !in delegateByToken.indices
-        ) {
-            invalid(node, "Operation requires the selected union node")
-        }
-        return delegateByToken[node.token.toInt()]
-            ?: invalid(node, "Union node has no selected backing position")
+        val table = delegateByToken
+        val token = node.token
+        return (if (token < 0 || token >= table.size) null else table[token.toInt()])
+            ?: invalid(node, "Operation requires the selected union node")
     }
 
     private fun requireRoot(node: DataNode, operation: String) {

@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.data.type
 
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
+import tech.kzen.lib.common.exec.data.value.DefaultDataAdapterRegistry
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.platform.ClassName
 import java.io.File
@@ -45,6 +46,27 @@ class DefaultNativeTypeResolverTest {
     class OpaqueBox<T>
 
     class Adapted(val value: String)
+
+    // Inner recurs in Outer's description through itself, so Outer's unrolling of Inner is not Inner's own
+    data class Outer(val inner: Inner?)
+    data class Inner(val outer: Outer?, val self: Inner?)
+
+    // Each recurs in the other's own description
+    data class Ping(val pong: Pong?, val ping: Ping?)
+    data class Pong(val ping: Ping?, val pong: Pong?)
+
+    data class Holder(val outer: Outer, val inner: Inner)
+
+    data class Box(val items: List<String>)
+    data class Grouped(val groups: List<List<String>>)
+    data class Indexed(val byKey: Map<String, List<Int>>)
+    data class Maybe(val items: List<String>?)
+    data class Tokens(val tokens: Set<Token>)
+    open class Token
+    class SubToken: Token()
+    class OtherToken
+    @Suppress("ArrayInDataClass")
+    data class Coded(val codes: Array<String>)
 
 
     @Test
@@ -105,6 +127,49 @@ class DefaultNativeTypeResolverTest {
 
 
     @Test
+    fun aRecursiveClassHasOneDefinitionWhicheverTypeIsDescribedFirst() {
+        val outerId = DefinitionId(Outer::class.qualifiedName!!)
+        val innerId = DefinitionId(Inner::class.qualifiedName!!)
+        val outerFirst = NativeTypeResolutionScope().use { scope ->
+            val outer = scope.resolver.describe(typeOf<Outer>()).contract
+            outer to scope.resolver.describe(typeOf<Inner>()).contract
+        }
+        val innerFirst = NativeTypeResolutionScope().use { scope ->
+            val inner = scope.resolver.describe(typeOf<Inner>()).contract
+            scope.resolver.describe(typeOf<Outer>()).contract to inner
+        }
+        assertEquals(outerFirst, innerFirst)
+
+        val (outer, inner) = outerFirst
+        assertEquals(
+            DataType.Record(listOf(DataField(FieldId("inner"), DataType.Record(listOf(
+                DataField(FieldId("outer"), DataType.Reference(outerId, nullable = true)),
+                DataField(FieldId("self"), DataType.Reference(innerId, nullable = true))), nullable = true)))),
+            outer.structural,
+            "the root unrolls each class once, up to its first recurrence")
+        assertEquals(setOf(outerId, innerId), outer.definitions.keys)
+        assertEquals(setOf(innerId), inner.definitions.keys, "Outer does not recur in Inner's description")
+        assertEquals(inner.definitions.getValue(innerId), outer.definitions.getValue(innerId))
+        assertEquals(inner.definitionNatives.getValue(innerId), outer.definitionNatives.getValue(innerId))
+        assertEquals(outer.structural, outer.definitions.getValue(outerId), "a definition is its class's own description")
+        assertEquals(inner.structural, inner.definitions.getValue(innerId))
+        assertTrue(outer.unresolvedReferences().isEmpty())
+
+        NativeTypeResolutionScope().use { scope ->
+            val ping = scope.resolver.describe(typeOf<Ping>()).contract
+            val pong = scope.resolver.describe(typeOf<Pong>()).contract
+            assertEquals(2, ping.definitions.size)
+            assertEquals(ping.definitions, pong.definitions)
+            assertEquals(ping.definitionNatives, pong.definitionNatives)
+
+            val holder = scope.resolver.describe(typeOf<Holder>()).contract
+            assertEquals(outer.definitions + inner.definitions, holder.definitions, "a non-recursive root carries them too")
+            assertEquals(outer.definitionNatives + inner.definitionNatives, holder.definitionNatives)
+        }
+    }
+
+
+    @Test
     fun exactDescriberOverridesTheDataClassBaseline() {
         val describer = object: NativeTypeDescriber {
             override val nativeClass: KClass<*> = Adapted::class
@@ -147,7 +212,7 @@ class DefaultNativeTypeResolverTest {
             DataTypeAlgebra.isAssignable(contract.structural, contract.structural))
 
         NativeTypeResolutionScope().use { scope ->
-            val resolved = scope.resolver.resolve(contract, javaClass.classLoader)
+            val resolved = scope.resolver.resolve(contract, javaClass)
             assertEquals(typeOf<OpaqueBox<String>>(), resolved.tokenByPath[DataTypePath.root]?.type)
         }
     }
@@ -184,6 +249,216 @@ class DefaultNativeTypeResolverTest {
                 scope.resolver.describe(typeOf<List<String>>()),
                 tokenlessActual))
             assertEquals(DataProblem.nativeTypeMissing, missing.problem.code)
+        }
+    }
+
+
+    @Test
+    fun aRunTimeValueIsCheckedThroughItsGenericCollectionsByTheirContents() {
+        DefaultDataAdapterRegistry().use { registry ->
+            NativeTypeResolutionScope().use { scope ->
+                val resolver = scope.resolver
+                val accepted = listOf(
+                    typeOf<Box>() to Box(listOf("a", "b")),
+                    typeOf<Grouped>() to Grouped(listOf(listOf("a"), listOf("b", "c"))),
+                    typeOf<Indexed>() to Indexed(mapOf("a" to listOf(1, 2))),
+                    typeOf<Maybe>() to Maybe(listOf("a")),
+                    typeOf<Tokens>() to Tokens(setOf(Token())),
+                    typeOf<List<String>>() to listOf("a"),
+                    typeOf<Map<String, List<Int>>>() to mapOf("a" to listOf(1)),
+                    typeOf<List<Token>>() to listOf(Token()))
+                for ((type, value) in accepted) {
+                    assertEquals(
+                        TypeAcceptance.Accepted,
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type")
+                }
+
+                // The JVM erases a run-time list's type argument, so what it holds decides; a declared type keeps it
+                val heldStrings: List<Any> = listOf("a", "b")
+                assertEquals(
+                    TypeAcceptance.Accepted,
+                    resolver.isAssignable(resolver.describe(typeOf<List<String>>()), registry.lift(heldStrings)))
+                assertIs<TypeAcceptance.Rejected>(resolver.isAssignable(
+                    resolver.describe(typeOf<List<String>>()), resolver.describe(typeOf<List<Any>>())))
+
+                val producer = resolver.describe(typeOf<MutableList<out Token>>())
+                assertEquals(
+                    TypeAcceptance.Accepted,
+                    resolver.isAssignable(producer, registry.lift(mutableListOf(SubToken()), producer.contract)))
+            }
+        }
+    }
+
+
+    @Test
+    fun emptyCollectionsAndNullsHoldNothingToCheck() {
+        DefaultDataAdapterRegistry().use { registry ->
+            NativeTypeResolutionScope().use { scope ->
+                val resolver = scope.resolver
+                val accepted = listOf(
+                    typeOf<Box>() to Box(emptyList()),
+                    typeOf<Grouped>() to Grouped(emptyList()),
+                    typeOf<Grouped>() to Grouped(listOf(emptyList())),
+                    typeOf<Indexed>() to Indexed(emptyMap()),
+                    typeOf<Indexed>() to Indexed(mapOf("a" to emptyList())),
+                    typeOf<Maybe>() to Maybe(null),
+                    typeOf<Tokens>() to Tokens(emptySet()))
+                for ((type, value) in accepted) {
+                    assertEquals(
+                        TypeAcceptance.Accepted,
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type $value")
+                }
+
+                val nullableList = resolver.describe(typeOf<List<Token>?>())
+                assertEquals(
+                    TypeAcceptance.Accepted,
+                    resolver.isAssignable(nullableList, registry.lift(null, nullableList.contract)))
+
+                // A Java record component carries no nullability, so its contract is non-null while the value holds null
+                val missingSensor = assertIs<TypeAcceptance.Rejected>(resolver.isAssignable(
+                    resolver.describe(typeOf<JavaReading>()), registry.lift(JavaReading(null, 1.0))))
+                assertEquals(DataProblem.invalidState, missingSensor.problem.code)
+            }
+        }
+    }
+
+
+    @Test
+    fun anEmptyCollectionLiftedUntypedIsAcceptedByAnyCollectionOfItsKind() {
+        DefaultDataAdapterRegistry().use { registry ->
+            NativeTypeResolutionScope().use { scope ->
+                val resolver = scope.resolver
+                val accepted = listOf(
+                    typeOf<List<String>>() to emptyList<String>(),
+                    typeOf<List<String>>() to ArrayList<String>(),
+                    typeOf<List<String>?>() to emptyList<String>(),
+                    typeOf<Set<Token>>() to emptySet<Token>(),
+                    typeOf<Set<Token>>() to HashSet<Token>(),
+                    typeOf<Map<String, List<Int>>>() to emptyMap<String, List<Int>>(),
+                    typeOf<Map<String, List<Int>>>() to LinkedHashMap<String, List<Int>>(),
+                    typeOf<Map<String, List<Int>>>() to mapOf("a" to emptyList(), "b" to listOf(1)),
+                    typeOf<List<List<String>>>() to listOf(emptyList(), listOf("a")))
+                for ((type, value) in accepted) {
+                    assertEquals(
+                        TypeAcceptance.Accepted,
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type $value")
+                }
+
+                val rejected = listOf(
+                    typeOf<List<String>>() to emptySet<String>(),
+                    typeOf<Map<String, List<Int>>>() to emptyList<String>(),
+                    typeOf<List<String>>() to emptyMap<String, String>(),
+                    typeOf<Map<String, List<Int>>>() to mapOf("a" to emptyList(), "b" to listOf("x")),
+                    typeOf<List<List<String>>>() to listOf(emptyList(), listOf(1)))
+                for ((type, value) in rejected) {
+                    assertIs<TypeAcceptance.Rejected>(
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type $value")
+                }
+
+                // Between contracts, an unknown element is still not a typed one
+                val strings = resolver.describe(typeOf<List<String>>())
+                assertIs<TypeAcceptance.Rejected>(
+                    DataTypeAlgebra.isAssignable(strings.contract, registry.lift(emptyList<String>()).contract))
+                assertIs<TypeAcceptance.Rejected>(
+                    resolver.isAssignable(strings, resolver.describe(typeOf<List<Any?>>())))
+            }
+        }
+    }
+
+
+    @Test
+    fun aMismatchedElementIsStillRejected() {
+        DefaultDataAdapterRegistry().use { registry ->
+            NativeTypeResolutionScope().use { scope ->
+                val resolver = scope.resolver
+                val rejected = listOf(
+                    typeOf<List<String>>() to listOf(1, 2),
+                    typeOf<List<String>>() to listOf("a", 1),
+                    typeOf<List<Token>>() to listOf(OtherToken()),
+                    typeOf<Set<Token>>() to setOf(OtherToken()),
+                    typeOf<Map<String, List<Int>>>() to mapOf("a" to listOf("x")),
+                    typeOf<Map<String, List<Token>>>() to mapOf("a" to listOf(OtherToken())),
+                    typeOf<List<List<String>>>() to listOf(listOf(1)))
+                for ((type, value) in rejected) {
+                    assertIs<TypeAcceptance.Rejected>(
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type $value")
+                }
+
+                @Suppress("UNCHECKED_CAST")
+                val polluted = Box(listOf<Any>("a", 1) as List<String>)
+                assertIs<TypeAcceptance.Rejected>(
+                    resolver.isAssignable(resolver.describe(typeOf<Box>()), registry.lift(polluted)))
+            }
+        }
+    }
+
+
+    @Test
+    fun aRunTimeArrayIsCheckedByItsComponentClassAndWhatItHolds() {
+        DefaultDataAdapterRegistry().use { registry ->
+            NativeTypeResolutionScope().use { scope ->
+                val resolver = scope.resolver
+                val accepted = listOf(
+                    typeOf<Coded>() to Coded(arrayOf("a", "b")),
+                    typeOf<Coded>() to Coded(emptyArray()),
+                    typeOf<Array<String>>() to arrayOf("a"),
+                    typeOf<Array<String?>>() to arrayOf("a", null),
+                    typeOf<Array<Array<String>>>() to arrayOf(arrayOf("a"), emptyArray()),
+                    typeOf<Array<Token>>() to arrayOf(SubToken()))
+                for ((type, value) in accepted) {
+                    assertEquals(
+                        TypeAcceptance.Accepted,
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type")
+                }
+
+                // Unlike a collection's type argument, an array's component class is reified: Object[] is no String[]
+                val rejected = listOf(
+                    typeOf<Array<String>>() to arrayOf<Any>("a"),
+                    typeOf<Array<String>>() to arrayOf("a", null),
+                    typeOf<Array<Int>>() to arrayOf("a"),
+                    typeOf<Array<Token>>() to arrayOf(OtherToken()))
+                for ((type, value) in rejected) {
+                    assertIs<TypeAcceptance.Rejected>(
+                        resolver.isAssignable(resolver.describe(type), registry.lift(value)),
+                        "$type")
+                }
+            }
+        }
+    }
+
+
+    @Test
+    fun nativeUnionSelectionAmongGenericCollectionsFollowsTheirContents() {
+        DefaultDataAdapterRegistry().use { registry ->
+            NativeTypeResolutionScope().use { scope ->
+                val resolver = scope.resolver
+                val texts = resolver.describe(typeOf<List<String>>())
+                val tokens = resolver.describe(typeOf<List<Token>>())
+                val unionType = DataType.Union(listOf(
+                    DataVariant(VariantId("texts"), texts.contract.structural),
+                    DataVariant(VariantId("tokens"), tokens.contract.structural)))
+                val union = ResolvedDataContract(
+                    DataContract(
+                        unionType,
+                        texts.contract.nativeByPath.prefixedForTest(DataPathSegment.Variant(VariantId("texts"))) +
+                                tokens.contract.nativeByPath.prefixedForTest(
+                                    DataPathSegment.Variant(VariantId("tokens")))),
+                    texts.tokenByPath.prefixedForTest(DataPathSegment.Variant(VariantId("texts"))) +
+                            tokens.tokenByPath.prefixedForTest(DataPathSegment.Variant(VariantId("tokens"))))
+
+                val heldTokens = resolver.describe(registry.lift(listOf(Token()), tokens.contract))
+                assertEquals(VariantSelection.Selected(VariantId("tokens")), resolver.selectVariant(union, heldTokens))
+                assertEquals(
+                    TypeAcceptance.Accepted,
+                    resolver.validateVariant(union, VariantId("tokens"), heldTokens))
+                assertIs<TypeAcceptance.Rejected>(resolver.validateVariant(union, VariantId("texts"), heldTokens))
+            }
         }
     }
 
@@ -266,14 +541,15 @@ class DefaultNativeTypeResolverTest {
 
     private fun resolveThenRelease(compiled: File): WeakReference<ClassLoader> {
         val loader = URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader)
+        val owner = loader.loadClass("fixture.GenerationValue")
         val scope = NativeTypeResolutionScope()
         val metadata = TypeMetadata(ClassName("fixture.GenerationValue"), emptyList(), false)
-        scope.resolver.resolve(metadata.toDataContract(), loader)
+        scope.resolver.resolve(metadata.toDataContract(), owner)
         scope.close()
         assertEquals(
             DataProblem.nativeResolverReleased,
             assertFailsWith<DataException> {
-                scope.resolver.resolve(metadata.toDataContract(), loader)
+                scope.resolver.resolve(metadata.toDataContract(), owner)
             }.problem.code)
         loader.close()
         return WeakReference(loader)

@@ -332,8 +332,28 @@ class DataContract @JvmOverloads constructor(
                     DataProblem.invalidContract,
                     "Definition '$id' must not be a bare reference (to '${type.id}')"))
             }
+            if (type is DataType.Union && reachesThroughVariants(id, type, mutableSetOf())) {
+                throw DataException(DataProblem(
+                    DataProblem.invalidContract,
+                    "Definition '$id' must not reach itself through union variants alone"))
+            }
         }
     }
+
+
+    // A definition is a record, listing or mapping that contains its recursion, or a union of those; one that
+    // reaches itself through variants alone (Loop = Loop | Text) describes no value, and assignability's
+    // coinductive rule would accept anything for it
+    private fun reachesThroughVariants(target: DefinitionId, union: DataType.Union, visited: MutableSet<DefinitionId>): Boolean =
+        union.variants.any { variant ->
+            val reference = variant.type as? DataType.Reference
+                ?: return@any false
+            if (reference.id == target) {
+                return@any true
+            }
+            val next = definitions[reference.id] as? DataType.Union
+            next != null && visited.add(reference.id) && reachesThroughVariants(target, next, visited)
+        }
 
     private fun validateNativeMetadata() {
         for ((path, metadata) in nativeByPath) {
@@ -461,7 +481,7 @@ internal fun DataType.references(): Set<DefinitionId> =
     }
 
 
-private fun DataType.typeAt(path: DataTypePath): DataType? {
+internal fun DataType.typeAt(path: DataTypePath): DataType? {
     var current = this
     for (segment in path.segments) {
         current = current.childType(segment) ?: return null

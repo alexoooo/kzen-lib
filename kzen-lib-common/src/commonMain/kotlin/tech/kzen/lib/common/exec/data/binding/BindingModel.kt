@@ -6,6 +6,7 @@ import tech.kzen.lib.common.exec.data.type.DataContract
 import tech.kzen.lib.common.exec.data.type.DataTypeAlgebra
 import tech.kzen.lib.common.exec.data.type.TypeAcceptance
 import tech.kzen.lib.common.exec.data.value.DataSnapshot
+import tech.kzen.lib.common.exec.data.value.DataValueAlgebra
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
 import kotlin.jvm.JvmInline
@@ -143,9 +144,12 @@ internal fun validateBindingValue(
         when (val acceptance = DataTypeAlgebra.isAssignable(
             definition.contract.structural, value.contract.structural)) {
             TypeAcceptance.Accepted -> {}
-            is TypeAcceptance.Rejected -> invalid(
-                acceptance.problem.code,
-                "Binding '${definition.name}' is incompatible: ${acceptance.problem.message}")
+            is TypeAcceptance.Rejected ->
+                if (!DataValueAlgebra.holdsStructurally(definition.contract, value)) {
+                    invalid(
+                        acceptance.problem.code,
+                        "Binding '${definition.name}' is incompatible: ${acceptance.problem.message}")
+                }
         }
     }
 

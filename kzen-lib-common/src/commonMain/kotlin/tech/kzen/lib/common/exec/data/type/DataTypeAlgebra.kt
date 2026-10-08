@@ -6,7 +6,7 @@ import tech.kzen.lib.common.exec.data.problem.DataProblem
 object DataTypeAlgebra {
     /** Structural assignability; a [DataType.Reference] on either side is nominal here (see the contract overload). */
     fun isAssignable(expected: DataType, actual: DataType): TypeAcceptance =
-        if (accepts(expected, actual, Definitions.none, mutableSetOf())) {
+        if (accepts(expected, actual, Definitions.none, Assumptions())) {
             TypeAcceptance.Accepted
         }
         else {
@@ -18,16 +18,15 @@ object DataTypeAlgebra {
 
     /**
      * Assignability between contracts: a reference on either side is expanded through its own contract's
-     * definitions, and a pair of references already under comparison is assumed compatible (the coinductive
-     * rule that keeps recursive shapes finite), so a run-time value whose element is a full record satisfies a
-     * design-time contract whose element is the reference to that record.
+     * definitions (see [Assumptions] for how recursive shapes stay finite), so a run-time value whose element is
+     * a full record satisfies a design-time contract whose element is the reference to that record.
      *
      * Metadata is checked only where [expected] declares some: a payload-only expectation accepts any metadata,
      * and a value without metadata offers none.
      */
     fun isAssignable(expected: DataContract, actual: DataContract): TypeAcceptance {
         if (!accepts(expected.structural, actual.structural,
-                Definitions(expected.definitions, actual.definitions, opaqueForOpaque = true), mutableSetOf())) {
+                Definitions(expected.definitions, actual.definitions, opaqueForOpaque = true), Assumptions())) {
             return TypeAcceptance.Rejected(DataProblem(
                 DataProblem.incompatibleType,
                 "Actual type ${actual.structural} is not assignable to expected type ${expected.structural}"))
@@ -58,6 +57,48 @@ object DataTypeAlgebra {
         }
     }
 
+
+    /**
+     * The coinductive rule that keeps recursive shapes finite: an (expected, actual) pair with a reference on
+     * either side is assumed accepted while it is under comparison, so a cycle back to it closes, and stays
+     * accepted once its comparison succeeds. Every unbounded walk expands a reference infinitely often, and
+     * contracts hold finitely many such pairs (a definition cannot reach itself through union variants alone, see
+     * [DataContract]), so some pair repeats and the walk ends.
+     *
+     * A pair's comparison can succeed only through assumptions recorded since it started (pairs that were still
+     * under comparison, or accepted through one), so when it fails, everything recorded since then is dropped:
+     * a union branch that failed leaves nothing assumed behind for the next branch to rely on.
+     *
+     * Pairs are compared by value, as acceptance depends only on the two types and the definitions, which are
+     * fixed for one comparison.
+     */
+    private class Assumptions {
+        private class Log {
+            val assumed = mutableSetOf<Pair<DataType, DataType>>()
+            val order = mutableListOf<Pair<DataType, DataType>>()
+        }
+
+        // Created at the first reference: most comparisons meet none
+        private var log: Log? = null
+
+        /** The mark to [forgetSince] if [pair] fails, or null when [pair] is already assumed. */
+        fun assume(pair: Pair<DataType, DataType>): Int? {
+            val log = log ?: Log().also { log = it }
+            if (!log.assumed.add(pair)) {
+                return null
+            }
+            log.order += pair
+            return log.order.lastIndex
+        }
+
+        fun forgetSince(mark: Int) {
+            val log = checkNotNull(log) { "Nothing was assumed" }
+            while (log.order.size > mark) {
+                log.assumed.remove(log.order.removeAt(log.order.lastIndex))
+            }
+        }
+    }
+
     fun join(left: DataType, right: DataType): DataType {
         if (left == right) {
             return left
@@ -80,7 +121,7 @@ object DataTypeAlgebra {
         }
 
         val candidates = union.variants
-            .filter { accepts(it.type, actual, Definitions.none, mutableSetOf()) }
+            .filter { accepts(it.type, actual, Definitions.none, Assumptions()) }
             .map { it.id }
 
         return when (candidates.size) {
@@ -107,7 +148,7 @@ object DataTypeAlgebra {
         expected: DataType,
         actual: DataType,
         definitions: Definitions,
-        assumed: MutableSet<Pair<DefinitionId, DefinitionId>>
+        assumed: Assumptions
     ): Boolean {
         if (!expected.nullable && actual.nullable) {
             return false
@@ -125,26 +166,8 @@ object DataTypeAlgebra {
             return definitions.opaqueForOpaque && actual is DataType.Opaque
         }
 
-        if (expected is DataType.Reference && actual is DataType.Reference) {
-            if (expected.id to actual.id in assumed) {
-                return true
-            }
-            val expectedDefinition = definitions.expected[expected.id]
-            val actualDefinition = definitions.actual[actual.id]
-            if (expectedDefinition == null || actualDefinition == null) {
-                // Without both definitions the comparison is nominal
-                return expected.id == actual.id
-            }
-            assumed += expected.id to actual.id
-            return accepts(expectedDefinition, actualDefinition, definitions, assumed)
-        }
-        if (expected is DataType.Reference) {
-            val definition = definitions.expected[expected.id] ?: return false
-            return accepts(definition, actual, definitions, assumed)
-        }
-        if (actual is DataType.Reference) {
-            val definition = definitions.actual[actual.id] ?: return false
-            return accepts(expected, definition, definitions, assumed)
+        if (expected is DataType.Reference || actual is DataType.Reference) {
+            return acceptsReference(expected, actual, definitions, assumed)
         }
 
         if (expected is DataType.Union) {
@@ -180,11 +203,42 @@ object DataTypeAlgebra {
         }
     }
 
+    // Each side expands through its own contract's definitions: the same id may name different types in each
+    private fun acceptsReference(
+        expected: DataType,
+        actual: DataType,
+        definitions: Definitions,
+        assumed: Assumptions
+    ): Boolean {
+        val expectedDefinition = (expected as? DataType.Reference)?.let { definitions.expected[it.id] }
+        val actualDefinition = (actual as? DataType.Reference)?.let { definitions.actual[it.id] }
+        if (expected is DataType.Reference && actual is DataType.Reference &&
+            (expectedDefinition == null || actualDefinition == null)
+        ) {
+            // Without both definitions the comparison is nominal
+            return expected.id == actual.id
+        }
+        if (expected is DataType.Reference && expectedDefinition == null ||
+            actual is DataType.Reference && actualDefinition == null
+        ) {
+            return false
+        }
+
+        val mark = assumed.assume(expected to actual)
+            ?: return true
+        val accepted = accepts(expectedDefinition ?: expected, actualDefinition ?: actual, definitions, assumed)
+        if (!accepted) {
+            assumed.forgetSince(mark)
+        }
+        return accepted
+    }
+
+
     private fun acceptsRecord(
         expected: DataType.Record,
         actual: DataType.Record,
         definitions: Definitions,
-        assumed: MutableSet<Pair<DefinitionId, DefinitionId>>
+        assumed: Assumptions
     ): Boolean {
         var actualIndex = 0
         for (expectedField in expected.fields) {

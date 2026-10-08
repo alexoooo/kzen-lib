@@ -33,6 +33,15 @@ class DefaultDataAdapterRegistryTest {
     private data class Overridden(val raw: Int)
     private class CapabilityValue(val text: String)
 
+    @Suppress("ArrayInDataClass")
+    private data class Coded(val codes: Array<String>)
+    @Suppress("ArrayInDataClass")
+    private data class Grid(val cells: Array<Array<String>>)
+    @Suppress("ArrayInDataClass")
+    private data class Sparse(val codes: Array<String?>)
+    @Suppress("ArrayInDataClass")
+    private data class Tree(val name: String, val children: Array<Tree>)
+
 
     @Test
     fun nativeDataClassRetainsIdentityAndUsesCachedStructuralPlan() {
@@ -84,6 +93,151 @@ class DefaultDataAdapterRegistryTest {
     }
 
 
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun anArrayFieldLiftsValidatesAndNavigatesAsDescribed() {
+        val codesField = DataPathSegment.Field(FieldId("codes"))
+        DefaultDataAdapterRegistry().use { registry ->
+            val described = registry.describe(typeOf<Coded>())
+            for (codes in listOf(arrayOf("a", "b"), emptyArray())) {
+                val value = registry.lift(Coded(codes))
+                val node = value.access.field(value.root, codesField.id)
+                assertEquals(described.child(codesField), value.access.contract(node))
+                assertEquals(codes.toList(), (0 until value.access.size(node)).map { index ->
+                    value.access.readText(value.access.element(node, index))
+                })
+                assertEquals(emptyList(), DataValueAlgebra.validate(described, value))
+                assertEquals(emptyList(), DataValueAlgebra.validate(value.contract, value))
+                assertIs<SnapshotResult.Complete>(DataSnapshot.capture(value))
+            }
+
+            val javaDescribed = registry.describe(typeOf<JavaCoded>())
+            val javaCoded = registry.lift(JavaCoded(arrayOf("a"), arrayOf(JavaReading("north", 1.0))))
+            for (field in listOf("codes", "readings")) {
+                val segment = DataPathSegment.Field(FieldId(field))
+                assertEquals(
+                    javaDescribed.child(segment),
+                    javaCoded.access.contract(javaCoded.access.field(javaCoded.root, segment.id)))
+            }
+            assertEquals(emptyList(), DataValueAlgebra.validate(javaDescribed, javaCoded))
+            assertIs<SnapshotResult.Complete>(DataSnapshot.capture(javaCoded))
+
+            val array = registry.describe(typeOf<Array<String>>())
+            assertEquals(array, registry.lift(arrayOf("a", "b")).contract)
+            assertEquals(array, registry.lift(arrayOf("a", "b"), array).contract)
+            assertEquals(array, registry.lift(emptyArray<String>()).contract)
+
+            val texts = VariantId("texts")
+            val union = DataContract(DataType.Union(listOf(
+                DataVariant(texts, DataType.Listing(DataType.Scalar(ScalarKind.Text))),
+                DataVariant(VariantId("number"), DataType.Scalar(ScalarKind.Integer(32))))))
+            val selected = registry.lift(arrayOf("a"), union)
+            assertEquals(texts, selected.access.activeVariant(selected.root))
+        }
+    }
+
+
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun nestedArraysAndArraysHoldingNullsAreTypedLevelByLevel() {
+        DefaultDataAdapterRegistry().use { registry ->
+            val grid = registry.lift(Grid(arrayOf(arrayOf("a"), arrayOf("b", "c"))))
+            val cells = grid.access.field(grid.root, FieldId("cells"))
+            assertEquals(registry.describe(typeOf<Array<Array<String>>>()), grid.access.contract(cells))
+            assertEquals("c", grid.access.readText(grid.access.element(grid.access.element(cells, 1), 1)))
+            assertEquals(emptyList(), DataValueAlgebra.validate(registry.describe(typeOf<Grid>()), grid))
+            assertEquals(
+                registry.describe(typeOf<Array<Array<String>>>()),
+                registry.lift(arrayOf(emptyArray<String>())).contract)
+
+            // The JVM lets any element be null, so a level is nullable where it holds a null
+            val sparse = registry.lift(arrayOf("a", null))
+            assertEquals(registry.describe(typeOf<Array<String?>>()), sparse.contract)
+            assertEquals(DataState.Null, sparse.access.state(sparse.access.element(sparse.root, 1)))
+            assertEquals(
+                registry.describe(typeOf<Array<Array<String?>?>>()),
+                registry.lift(arrayOf(arrayOf("a", null), null)).contract)
+            assertEquals(
+                registry.describe(typeOf<Array<Array<String>?>>()),
+                registry.lift(arrayOf(arrayOf("a"), null)).contract)
+
+            val sparseField = registry.lift(Sparse(arrayOf("a", null)))
+            assertEquals(emptyList(), DataValueAlgebra.validate(registry.describe(typeOf<Sparse>()), sparseField))
+            val error = assertFailsWith<DataException> {
+                registry.lift(arrayOf("a", null), registry.describe(typeOf<Array<String>>()))
+            }
+            assertEquals(DataProblem.incompatibleType, error.problem.code)
+        }
+    }
+
+
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun anArrayOfARecursiveClassLiftsValidatesAndNavigates() {
+        val children = FieldId("children")
+        DefaultDataAdapterRegistry().use { registry ->
+            val tree = Tree("a", arrayOf(Tree("b", arrayOf(Tree("c", emptyArray()))), Tree("d", emptyArray())))
+            for ((native, expected) in listOf(
+                tree to registry.describe(typeOf<Tree>()),
+                arrayOf(tree) to registry.describe(typeOf<Array<Tree>>()))
+            ) {
+                val value = registry.lift(native, expected)
+                assertEquals(expected, value.contract)
+                assertEquals(emptyList(), DataValueAlgebra.validate(expected, value))
+                assertIs<SnapshotResult.Complete>(DataSnapshot.capture(value))
+
+                val access = value.access
+                val root = if (native is Tree) value.root else access.element(value.root, 0)
+                val b = access.element(access.field(root, children), 0)
+                val c = access.element(access.field(b, children), 0)
+                assertEquals("c", access.readText(access.field(c, FieldId("name"))))
+                assertEquals(0, access.size(access.field(c, children)))
+                assertIs<DataType.Listing>(access.contract(access.field(c, children)).structural)
+            }
+        }
+    }
+
+
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun anArrayIsTypedByItsComponentClassNotByWhatItHolds() {
+        DefaultDataAdapterRegistry().use { registry ->
+            val held = registry.lift(arrayOf<Any>("a", "b"))
+            assertEquals(registry.describe(typeOf<Array<Any>>()), held.contract)
+            assertEquals(DataType.Listing(DataType.Dynamic(false)), held.type)
+            assertEquals("b", held.access.readText(held.access.element(held.root, 1)))
+
+            // What it holds still satisfies a typed listing at run time, without narrowing its contract
+            val texts = registry.describe(typeOf<Array<String>>())
+            assertEquals(held.contract, registry.lift(arrayOf<Any>("a", "b"), texts).contract)
+            assertFailsWith<DataException> { registry.lift(arrayOf<Any>("a", 1), texts) }
+
+            assertEquals(
+                registry.describe(typeOf<Array<CharSequence>>()),
+                registry.lift(arrayOf<CharSequence>("a")).contract)
+        }
+    }
+
+
+    @OptIn(ExperimentalStdlibApi::class)
+    @Test
+    fun primitiveArraysKeepTheirScalarAndOpaqueRules() {
+        DefaultDataAdapterRegistry().use { registry ->
+            assertEquals(registry.describe(typeOf<IntArray>()), registry.lift(intArrayOf(1, 2)).contract)
+            assertEquals(registry.describe(typeOf<Array<Int>>()), registry.lift(arrayOf(1, 2)).contract)
+            assertEquals(DataType.Scalar(ScalarKind.Binary), registry.lift(byteArrayOf(1)).type)
+            assertIs<DataType.Opaque>(registry.lift(charArrayOf('a')).type)
+
+            val nested = registry.lift(arrayOf(intArrayOf(1), intArrayOf(2, 3)))
+            assertEquals(registry.describe(typeOf<Array<IntArray>>()), nested.contract)
+            assertEquals(
+                DataType.Listing(DataType.Listing(DataType.Scalar(ScalarKind.Integer(32)))),
+                nested.type)
+            assertEquals(3L, nested.access.readLong(nested.access.element(nested.access.element(nested.root, 1), 1)))
+        }
+    }
+
+
     @Test
     fun decimalLiftIsExactAndExpectedDecimalAcceptsCanonicalText() {
         val text = "12345678901234567890.1234567890123456789"
@@ -129,6 +283,12 @@ class DefaultDataAdapterRegistryTest {
             val expectedMap = registry.describe(typeOf<Map<String, Reading>>())
             val mapping = registry.lift(mapOf("reading" to Reading("south", 8.25)), expectedMap)
             assertEquals(expectedMap.nativeByPath, mapping.contract.nativeByPath)
+
+            // An empty collection keeps the metadata its opaque elements or values require
+            val expectedOpaqueList = registry.describe(typeOf<List<java.util.concurrent.atomic.AtomicInteger>>())
+            assertEquals(expectedOpaqueList, registry.lift(emptyList<Any>(), expectedOpaqueList).contract)
+            val expectedOpaqueMap = registry.describe(typeOf<Map<String, java.util.concurrent.atomic.AtomicInteger>>())
+            assertEquals(expectedOpaqueMap, registry.lift(emptyMap<String, Any>(), expectedOpaqueMap).contract)
         }
     }
 
@@ -153,6 +313,20 @@ class DefaultDataAdapterRegistryTest {
             val list = registry.lift(listOf(1, 2, 3), nullableList)
             assertEquals(false, list.type.nullable)
             assertEquals(false, list.contract.nativeByPath.values.single().nullable)
+        }
+    }
+
+
+    @Test
+    fun aLiftedEmptyCollectionConformsToATypedCollectionOfItsKind() {
+        DefaultDataAdapterRegistry().use { registry ->
+            val texts = DataContract(DataType.Listing(DataType.Scalar(ScalarKind.Text)))
+            val empty = registry.lift(emptyList<String>())
+            assertSame(empty, registry.lift(empty, texts))
+
+            val error = assertFailsWith<DataException> { registry.lift(registry.lift(listOf(1)), texts) }
+            assertEquals(DataProblem.incompatibleType, error.problem.code)
+            assertFailsWith<DataException> { registry.lift(registry.lift(emptyMap<String, String>()), texts) }
         }
     }
 

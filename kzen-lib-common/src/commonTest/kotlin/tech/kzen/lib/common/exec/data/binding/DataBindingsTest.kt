@@ -113,6 +113,22 @@ class DataBindingsTest {
     }
 
     @Test
+    fun anEmptyCollectionBindsToATypedCollection() {
+        val name = BindingName("values")
+        val schema = BindingSchema.of(definition(name.value, DataType.Listing(textType)))
+        val empty = LiteralDataValues.lift(emptyList<Any>())
+
+        assertSame(empty, DataBindings.bind(schema, name to empty).requireValue(name))
+        assertProblem(DataProblem.incompatibleType) {
+            DataBindings.bind(schema, name to LiteralDataValues.lift(listOf(1)))
+        }
+
+        val produced = ProducedBindingsBuilder(schema)
+        produced.set(name, empty)
+        assertSame(empty, produced.settle().requireValue(name))
+    }
+
+    @Test
     fun defaultsCannotPromiseNativeValuesAndBindingChecksNativePresenceShallowly() {
         val snapshot = DataSnapshot.of(textType, TextExecutionValue("literal"))
         val nativeContract = DataContract(

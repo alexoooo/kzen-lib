@@ -73,10 +73,8 @@ class DefaultDataAdapterRegistry(
             return NativeObjectValueAccess.value(null, contract, this)
         }
         if (expected?.structural is DataType.Opaque) {
-            val owner = value::class.java.classLoader
-                ?: DefaultDataAdapterRegistry::class.java.classLoader
             val acceptance = nativeTypeResolver.isAssignable(
-                nativeTypeResolver.resolve(expected, owner),
+                nativeTypeResolver.resolve(expected, value.javaClass),
                 nativeTypeResolver.describe(NativeClasses.starProjectedType(value)))
             if (acceptance is TypeAcceptance.Rejected) {
                 throw DataException(acceptance.problem)
@@ -157,19 +155,22 @@ class DefaultDataAdapterRegistry(
                     native +
                             requiredNativeMetadata(element).prefixed(DataPathSegment.ListingElement),
                     element.definitions + expected?.definitions.orEmpty(),
+                    element.definitionNatives + expected?.definitionNatives.orEmpty(),
                     constraintsByPath = element.constraintsByPath.prefixed(DataPathSegment.ListingElement))
             }
             is Map<*, *> -> runtimeMappingContract(value, expected)
-            else -> nativeTypeResolver.describe(NativeClasses.starProjectedType(value)).contract
+            else -> nativeTypeResolver.describe(NativeClasses.heldType(value)).contract
         }
 
 
     private fun runtimeMappingContract(value: Map<*, *>, expected: DataContract?): DataContract {
         val expectedMapping = expected?.structural as? DataType.Mapping
         if (value.isEmpty()) {
-            return DataContract(expectedMapping ?: DataType.Mapping(
-                DataType.Dynamic(false),
-                DataType.Dynamic()))
+            // The expected shape keeps the native metadata its opaque members require and the definitions its
+            // references name, as a non-empty mapping's does
+            return expectedMapping
+                ?.let { DataContract(it, expected.nativeByPath, expected.definitions, expected.definitionNatives) }
+                ?: DataContract(DataType.Mapping(DataType.Dynamic(false), DataType.Dynamic()))
         }
         val keyTypes = value.keys.map { key ->
             // An enum key is text, as the design-time Map<E, V> describes it
@@ -214,6 +215,7 @@ class DefaultDataAdapterRegistry(
             native +
                     requiredNativeMetadata(valueContract).prefixed(DataPathSegment.MappingValue),
             valueContract.definitions + expected?.definitions.orEmpty(),
+            valueContract.definitionNatives + expected?.definitionNatives.orEmpty(),
             constraintsByPath =
                 keyConstraints.singleOrNull().orEmpty().prefixed(DataPathSegment.MappingKey) +
                     valueContract.constraintsByPath.prefixed(DataPathSegment.MappingValue))
@@ -347,7 +349,7 @@ class DefaultDataAdapterRegistry(
                     "Value ${actual.type} matches multiple expected variants: ${selection.candidates}"))
             }
         }
-        val acceptance = DataTypeAlgebra.isAssignable(expected, actual.contract)
+        val acceptance = DataValueAlgebra.isAssignable(expected, actual)
         if (acceptance is TypeAcceptance.Rejected) {
             throw DataException(acceptance.problem)
         }

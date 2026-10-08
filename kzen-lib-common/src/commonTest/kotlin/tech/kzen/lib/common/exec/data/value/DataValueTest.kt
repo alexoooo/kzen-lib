@@ -8,6 +8,7 @@ import tech.kzen.lib.common.exec.data.type.DataField
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
 import tech.kzen.lib.common.exec.data.type.DataType
 import tech.kzen.lib.common.exec.data.type.DataVariant
+import tech.kzen.lib.common.exec.data.type.DefinitionId
 import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.VariantId
@@ -121,6 +122,34 @@ class DataValueTest {
         val shallow = DataValue(hostile, value.root)
         val problem = DataValueAlgebra.validate(value.contract, shallow).single()
         assertEquals(listOf(DataPathSegment.Field(FieldId("name"))), problem.path)
+    }
+
+
+    @Test
+    fun aLiteralLiftedAgainstARecursiveContractNavigatesAsDeepAsTheData() {
+        val nodeId = DefinitionId("test.Node")
+        val node = DataType.Record(listOf(
+            DataField(FieldId("name"), DataType.Scalar(ScalarKind.Text)),
+            DataField(FieldId("parent"), DataType.Reference(nodeId, nullable = true))))
+        val contract = DataContract(
+            DataType.Record(listOf(DataField(FieldId("node"), DataType.Reference(nodeId)))),
+            definitions = mapOf(nodeId to node))
+
+        val value = LiteralDataValues.lift(
+            recordOf("node" to recordOf(
+                "name" to "c",
+                "parent" to recordOf("name" to "b", "parent" to recordOf("name" to "a", "parent" to null)))),
+            contract)
+
+        assertEquals(contract, value.contract)
+        assertEquals(emptyList(), DataValueAlgebra.validate(contract, value))
+        val parent = FieldId("parent")
+        val a = value.access.field(value.access.field(value.access.field(value.root, FieldId("node")), parent), parent)
+        assertEquals("a", value.access.readText(value.access.field(a, FieldId("name"))))
+        assertEquals(DataState.Null, value.access.state(value.access.field(a, parent)))
+        assertFailsWith<DataAccessException> {
+            LiteralDataValues.lift(recordOf("node" to recordOf("name" to "c", "parent" to "b")), contract)
+        }
     }
 
 

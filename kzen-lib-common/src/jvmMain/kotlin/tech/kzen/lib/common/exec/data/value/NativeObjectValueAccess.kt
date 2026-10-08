@@ -24,6 +24,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
@@ -31,7 +32,13 @@ import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
 
 
-/** Lazy, identity-preserving JVM view. Reflection plans and first-resolved child positions are cached. */
+/**
+ * Lazy, identity-preserving JVM view. Reflection plans and first-resolved child positions are cached.
+ *
+ * Safe for concurrent readers ([ValueAccess]): a known child is found without a lock. A first navigation reads the
+ * native outside any lock, then takes this view's lock only to store the child, unless another reader stored it
+ * first — every reader of one child gets the node stored first.
+ */
 internal class NativeObjectValueAccess private constructor(
     rootValue: Any?,
     rootContract: DataContract,
@@ -49,11 +56,17 @@ internal class NativeObjectValueAccess private constructor(
     }
 
 
-    private val nodes = mutableListOf(NodeEntry(
+    // A node's token is its index. Written under the lock, and replaced by a larger copy when full, so a reader that
+    // holds a token finds its entry in whichever table it sees.
+    @Volatile
+    private var nodes: Array<NodeEntry?> = arrayOf(NodeEntry(
         rootContract,
         rootValue,
         emptyList(),
         rootValue?.let(NativeClasses::token)))
+
+    // Guarded by this view's lock
+    private var count = 1
 
 
     override fun contract(node: DataNode): DataContract = get(node).contract
@@ -75,25 +88,24 @@ internal class NativeObjectValueAccess private constructor(
             ?: invalid(node, "field is valid only for record nodes")
         type.fields.firstOrNull { it.id == field }
             ?: invalid(node, "Unknown record field '$field'")
-        return entry.fields.getOrPut(field) {
-            val reader = NativePropertyPlans.reader(entry.value!!::class, field)
-            val childValue = try {
-                reader(entry.value)
-            }
-            catch (e: DataAccessException) {
-                throw DataAccessException(DataProblem(
-                    e.problem.code, e.problem.message, entry.path + DataPathSegment.Field(field)))
-            }
-            catch (e: ReflectiveOperationException) {
-                throw DataAccessException(DataProblem(
-                    DataProblem.invalidValue,
-                    "Unable to read native field '$field': ${e.message}",
-                    entry.path + DataPathSegment.Field(field)))
-            }
-            val expected = entry.contract.child(DataPathSegment.Field(field))
-            add(childValue, actualChildContract(childValue, expected),
-                entry.path + DataPathSegment.Field(field))
+        entry.child(field)?.let { return it }
+        val reader = NativePropertyPlans.reader(entry.value!!::class, field)
+        val childValue = try {
+            reader(entry.value)
         }
+        catch (e: DataAccessException) {
+            throw DataAccessException(DataProblem(
+                e.problem.code, e.problem.message, entry.path + DataPathSegment.Field(field)))
+        }
+        catch (e: ReflectiveOperationException) {
+            throw DataAccessException(DataProblem(
+                DataProblem.invalidValue,
+                "Unable to read native field '$field': ${e.message}",
+                entry.path + DataPathSegment.Field(field)))
+        }
+        val expected = entry.contract.child(DataPathSegment.Field(field))
+        return intern(entry, field, childValue, actualChildContract(childValue, expected),
+            entry.path + DataPathSegment.Field(field))
     }
 
 
@@ -106,11 +118,10 @@ internal class NativeObjectValueAccess private constructor(
         val found = map.entries.firstOrNull { (candidate, _) ->
             candidate != null && scalarValue(candidate, type.key as DataType.Scalar) == key
         } ?: invalid(node, "Unknown mapping key '$key'")
-        return parent.entries.getOrPut(key) {
-            val expected = parent.contract.child(DataPathSegment.MappingValue)
-            add(found.value, actualChildContract(found.value, expected),
-                parent.path + DataPathSegment.Entry((type.key as DataType.Scalar).kind, key))
-        }
+        parent.child(key)?.let { return it }
+        val expected = parent.contract.child(DataPathSegment.MappingValue)
+        return intern(parent, key, found.value, actualChildContract(found.value, expected),
+            parent.path + DataPathSegment.Entry((type.key as DataType.Scalar).kind, key))
     }
 
 
@@ -120,12 +131,11 @@ internal class NativeObjectValueAccess private constructor(
             ?: invalid(node, "element is valid only for listing nodes")
         val size = sequenceSize(parent.value!!)
         if (index !in 0 until size) invalid(node, "Listing index out of bounds: $index")
-        return parent.elements.getOrPut(index) {
-            val childValue = sequenceElement(parent.orderedValue(), index)
-            val expected = parent.contract.child(DataPathSegment.ListingElement)
-            add(childValue, actualChildContract(childValue, expected),
-                parent.path + DataPathSegment.Element(index))
-        }
+        parent.child(index)?.let { return it }
+        val childValue = sequenceElement(parent.orderedValue(), index)
+        val expected = parent.contract.child(DataPathSegment.ListingElement)
+        return intern(parent, index, childValue, actualChildContract(childValue, expected),
+            parent.path + DataPathSegment.Element(index))
     }
 
 
@@ -240,19 +250,38 @@ internal class NativeObjectValueAccess private constructor(
         }
 
 
-    private fun add(value: Any?, contract: DataContract, path: List<DataPathSegment>): DataNode {
-        nodes += NodeEntry(contract, value, path, value?.let(NativeClasses::token))
-        return DataNode(nodes.lastIndex.toLong())
+    /** The child at [key] of [parent]: a new node, or the one another reader stored while this one read the native. */
+    private fun intern(
+        parent: NodeEntry,
+        key: Any,
+        value: Any?,
+        contract: DataContract,
+        path: List<DataPathSegment>
+    ): DataNode {
+        val entry = NodeEntry(contract, value, path, value?.let(NativeClasses::token))
+        synchronized(this) {
+            parent.child(key)?.let { return it }
+            var table = nodes
+            if (count == table.size) {
+                table = table.copyOf(count * 2)
+                nodes = table
+            }
+            table[count] = entry
+            val node = DataNode(count.toLong())
+            count++
+            parent.putChild(key, node)
+            return node
+        }
     }
 
 
     private fun get(node: DataNode): NodeEntry {
-        if (node.token < 0 || node.token > Int.MAX_VALUE || node.token.toInt() !in nodes.indices) {
-            throw DataAccessException(DataProblem(
+        val table = nodes
+        val token = node.token
+        return (if (token < 0 || token >= table.size) null else table[token.toInt()])
+            ?: throw DataAccessException(DataProblem(
                 DataProblem.invalidValue,
-                "Data node ${node.token} does not belong to this native backing"))
-        }
-        return nodes[node.token.toInt()]
+                "Data node $token does not belong to this native backing"))
     }
 
 
@@ -283,9 +312,20 @@ private class NodeEntry(
     val path: List<DataPathSegment>,
     val nativeType: NativeTypeToken?
 ) {
-    val fields = mutableMapOf<FieldId, DataNode>()
-    val elements = mutableMapOf<Int, DataNode>()
-    val entries = mutableMapOf<ScalarExecutionValue, DataNode>()
+    // Keyed by field id, index or mapping key: a node is a record, a listing or a mapping, never two of them
+    private val children: ConcurrentHashMap<Any, DataNode>? =
+        when (contract.structural) {
+            is DataType.Record, is DataType.Listing, is DataType.Mapping ->
+                if (value == null) null else ConcurrentHashMap()
+            else -> null
+        }
+
+    fun child(key: Any): DataNode? =
+        checkNotNull(children)[key]
+
+    fun putChild(key: Any, child: DataNode) {
+        checkNotNull(children)[key] = child
+    }
 
     // A Set's iteration order is unstable across instances; one snapshot per node keeps indexes consistent
     private val setSnapshot: List<Any?>? by lazy { (value as? Set<*>)?.toList() }

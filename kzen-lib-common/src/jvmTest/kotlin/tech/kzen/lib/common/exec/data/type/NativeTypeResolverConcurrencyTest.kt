@@ -70,7 +70,10 @@ class NativeTypeResolverConcurrencyTest {
     data class Loaded(val label: String, val count: Int)
 
 
-    /** Loads [Loaded] (from its parent) only once [arrivals] callers are loading it at the same time. */
+    /**
+     * Loads [Loaded] (from its parent) only once [arrivals] callers are loading it at the same time, and defines its
+     * own copy of [Gated] as an owner to resolve through it.
+     */
     private class GatedLoader(arrivals: Int): ClassLoader(NativeTypeResolverConcurrencyTest::class.java.classLoader) {
         companion object {
             init {
@@ -80,6 +83,13 @@ class NativeTypeResolverConcurrencyTest {
         }
 
         val arrived = CountDownLatch(arrivals)
+
+        val owner: Class<*> = Gated::class.java.let { gated ->
+            val bytes = gated.getResourceAsStream(gated.name.substringAfterLast('.') + ".class")
+                ?.use { it.readBytes() }
+                ?: error("No class file for $gated")
+            defineClass(gated.name, bytes, 0, bytes.size)
+        }
 
         override fun loadClass(name: String, resolve: Boolean): Class<*> {
             if (name == Loaded::class.java.name) {
@@ -95,7 +105,7 @@ class NativeTypeResolverConcurrencyTest {
     fun concurrentResolutionsInOneNewLoaderShareOneResult() {
         DefaultNativeTypeResolver().use { resolver ->
             val contract = resolver.describe(typeOf<Loaded>()).contract
-            val owner = GatedLoader(racers)
+            val owner = GatedLoader(racers).owner
 
             val results = inParallel(racers) { resolver.resolve(contract, owner) }
 
@@ -153,7 +163,7 @@ class NativeTypeResolverConcurrencyTest {
     ): Outcome {
         val type = loader.loadClass(name)
         val described = registry.describe(type.kotlin.createType())
-        val resolved = resolver.resolve(described, loader)
+        val resolved = resolver.resolve(described, type)
         val sample = type.methods.firstOrNull { it.name == "sample" }
             ?: return Outcome(described, resolved, null)
         val value = registry.lift(sample.invoke(null))
@@ -231,9 +241,10 @@ class NativeTypeResolverConcurrencyTest {
                     "${seen.size}: ${divergent.keys.take(5)}")
         for ((key, results) in seen) {
             val loader = loaders[key.first]
-            val described = registry.describe(loader.loadClass(key.second).kotlin.createType())
+            val type = loader.loadClass(key.second)
+            val described = registry.describe(type.kotlin.createType())
             assertTrue(results.any { it === described }, "$key still cached after the round")
-            assertTrue(results.any { it === resolver.resolve(described, loader) }, "$key resolution still cached")
+            assertTrue(results.any { it === resolver.resolve(described, type) }, "$key resolution still cached")
         }
         assertEquals(loaders.size * fixtureNames.size, seen.size)
     }
@@ -285,10 +296,10 @@ class NativeTypeResolverConcurrencyTest {
                 "fixture.Node" to "package fixture; public record Node(String name, java.util.List<Node> children) { " +
                         "public static Node sample() { return new Node(\"root\", " +
                         "java.util.List.of(new Node(\"leaf\", new java.util.ArrayList<>()))); } }",
-                // Described and resolved only: lifting reads a nested Left through the contract of its enclosing
-                // Right, which DataTypeAlgebra.accepts cannot compare yet (it recurses without end, single-threaded)
                 "fixture.Left" to "package fixture; public record Left(String name, java.util.List<Right> rights) {}",
-                "fixture.Right" to "package fixture; public record Right(String name, java.util.List<Left> lefts) {}",
+                "fixture.Right" to "package fixture; public record Right(String name, java.util.List<Left> lefts) { " +
+                        "public static Right sample() { return new Right(\"r\", java.util.List.of(new Left(\"l\", " +
+                        "java.util.List.of(new Right(\"leaf\", new java.util.ArrayList<>()))))); } }",
                 "fixture.Level0" to "package fixture; public record Level0(int id, Color color, Node tree) { " +
                         "public static Level0 sample() { return new Level0(0, Color.RED, Node.sample()); } }")
             for (level in 1 until levels) {

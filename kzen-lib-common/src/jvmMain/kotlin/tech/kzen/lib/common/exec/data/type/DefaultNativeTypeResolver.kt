@@ -7,6 +7,7 @@ import tech.kzen.lib.common.exec.data.value.DataAccessException
 import tech.kzen.lib.common.exec.data.value.DataNode
 import tech.kzen.lib.common.exec.data.value.DataState
 import tech.kzen.lib.common.exec.data.value.DataValue
+import tech.kzen.lib.common.exec.data.value.DataValueAlgebra
 import tech.kzen.lib.common.exec.data.value.LiteralDataValues
 import tech.kzen.lib.common.exec.data.value.JvmNativeValueAccess
 import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
@@ -18,7 +19,6 @@ import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import java.util.IdentityHashMap
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
@@ -28,6 +28,7 @@ import kotlin.reflect.full.createType
 import kotlin.reflect.full.isSubtypeOf
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.full.primaryConstructor
+import kotlin.reflect.full.starProjectedType
 import kotlin.reflect.jvm.kotlinFunction
 
 
@@ -36,18 +37,30 @@ import kotlin.reflect.jvm.kotlinFunction
  * outside any lock and stores with `putIfAbsent`, so a describer or class loader that calls back into this resolver
  * can neither deadlock nor trip `computeIfAbsent`'s recursive-update check; threads missing at once may each
  * compute, but all of them return the first result stored.
+ *
+ * A cache entry never keeps a class loader alive. An entry whose key names only classes of a lasting loader (this
+ * class's own loader, its parents, the bootstrap) lives in this resolver's maps, which [close] clears. Any other
+ * entry lives in a [ClassValue] of its anchor: the class its key names from the youngest other loader (see
+ * [anchor]), or for a resolution the owner class. Everything an entry holds was reached through the anchor's loader
+ * or that loader's parents, which the anchor keeps alive anyway, so the entry is collected with the anchor's loader —
+ * a compiled expression's loader stays releasable while plugin and application classes still hit the cache.
  */
 class DefaultNativeTypeResolver(
     describers: List<NativeTypeDescriber> = emptyList()
 ): NativeTypeResolver {
     private val describerByClass: Map<KClass<*>, NativeTypeDescriber>
-    private val descriptionCache = ConcurrentHashMap<KType, ResolvedDataContract>()
 
-    // Copy-on-write, keyed by loader identity: a new loader is rare, a lookup happens per lift
-    @Volatile
-    private var resolutionCache: Map<ClassLoader, ConcurrentHashMap<DataContract, ResolvedDataContract>> =
-        IdentityHashMap()
-    private val resolutionOwnersLock = Any()
+    private val ownLoader: ClassLoader = DefaultNativeTypeResolver::class.java.classLoader
+    private val lastingLoaders: Array<ClassLoader> = generateSequence(ownLoader) { it.parent }.toList().toTypedArray()
+
+    private val lastingDescriptions = ConcurrentHashMap<KType, ResolvedDataContract>()
+    private val anchoredDescriptions = cacheByClass<KType>()
+
+    // Positional with lastingLoaders
+    private val lastingResolutions = Array(lastingLoaders.size) {
+        ConcurrentHashMap<DataContract, ResolvedDataContract>()
+    }
+    private val anchoredResolutions = cacheByClass<DataContract>()
 
     @Volatile
     private var released = false
@@ -64,10 +77,16 @@ class DefaultNativeTypeResolver(
 
     override fun describe(native: KType): ResolvedDataContract {
         ensureOpen()
-        descriptionCache[native]?.let { return it }
+        val cache = when (val anchor = anchor(native, null)) {
+            null -> lastingDescriptions
+            is Class<*> -> anchoredDescriptions.get(anchor)
+            else -> null
+        }
+        cache?.get(native)?.let { return it }
         val described = ReadPreparation.prepare {
             val session = DescribeSession()
             val described = describe(native, emptySet(), session)
+            defineReferenced(session)
             if (session.definitions.isEmpty()) {
                 described
             }
@@ -80,13 +99,86 @@ class DefaultNativeTypeResolver(
             }
         }
         // Not computeIfAbsent (see the class comment)
-        return descriptionCache.putIfAbsent(native, described) ?: described
+        return cache?.putIfAbsent(native, described) ?: described
     }
 
 
     /**
-     * One top-level description: the classes a recursive occurrence referenced, and the definition each such
-     * class resolved to once its own description closed — the root contract carries them (E7 item 5).
+     * Where an entry keyed by [native] lives: null for [lastingDescriptions] when [native] names only classes of
+     * lasting loaders; otherwise the class it names from the youngest other loader, every other such class coming
+     * from that loader or one of its parents. [Unanchored] (not cached) when two such classes come from loaders on
+     * different parent chains, so that neither is known to keep the other alive, or when [native] names a type
+     * parameter. [youngest] is the anchor of the types already visited.
+     */
+    private fun anchor(native: KType, youngest: Any?): Any? {
+        val classifier = native.classifier as? KClass<*>
+            ?: return Unanchored
+        var anchor = younger(youngest, classifier.java)
+        val arguments = native.arguments
+        for (i in arguments.indices) {
+            if (anchor === Unanchored) {
+                break
+            }
+            val argument = arguments[i].type ?: continue
+            anchor = anchor(argument, anchor)
+        }
+        return anchor
+    }
+
+
+    private fun younger(youngest: Any?, candidate: Class<*>): Any? {
+        val loader = candidate.classLoader
+        if (youngest === Unanchored || lastingIndex(loader) >= 0) {
+            return youngest
+        }
+        if (youngest == null) {
+            return candidate
+        }
+        val current = (youngest as Class<*>).classLoader
+        return when {
+            current === loader || isParent(loader, current) -> youngest
+            isParent(current, loader) -> candidate
+            else -> Unanchored
+        }
+    }
+
+
+    /** Whether [ancestor] is on [loader]'s parent chain, so that [loader] keeps it alive. */
+    private fun isParent(ancestor: ClassLoader, loader: ClassLoader): Boolean {
+        var parent = loader.parent
+        while (parent != null) {
+            if (parent === ancestor) {
+                return true
+            }
+            parent = parent.parent
+        }
+        return false
+    }
+
+
+    /** [loader]'s position in [lastingLoaders], 0 (this class's own) for the bootstrap, or -1 when not lasting. */
+    private fun lastingIndex(loader: ClassLoader?): Int {
+        if (loader == null) {
+            return 0
+        }
+        for (i in lastingLoaders.indices) {
+            if (lastingLoaders[i] === loader) {
+                return i
+            }
+        }
+        return -1
+    }
+
+
+    private object Unanchored
+
+
+    /**
+     * One top-level description: the classes a recursive occurrence referenced, and each such class's
+     * definition — the root contract carries them (E7 item 5). A definition is its class's own description,
+     * unrolled from that class alone, so it is the same whichever root reaches it and any two contracts carrying
+     * it agree. An unrolling inside another class's description is not: it stops early at every class open
+     * around it, so only one with no class open around it is recorded ([defineReferenced] describes the rest).
      */
     private class DescribeSession {
         val referenced = mutableSetOf<KClass<*>>()
@@ -105,10 +197,9 @@ class DefaultNativeTypeResolver(
                 DataProblem.nativeTypeMissing,
                 "Value contract carries native metadata but its backing supplies no JVM native tokens"))
         val tokens = value.contract.nativeByPath.keys.associateWith { path ->
-            val node = nodeAt(value, path)
-            access.nativeType(node) ?: throw DataException(DataProblem(
+            heldNode(value, path)?.let(access::nativeType) ?: throw DataException(DataProblem(
                 DataProblem.nativeTypeMissing,
-                "Value backing supplies no native token at $path",
+                "Value holds no native object at $path",
                 path.segments))
         }
         return ResolvedDataContract(value.contract, tokens)
@@ -116,30 +207,21 @@ class DefaultNativeTypeResolver(
 
     override fun resolve(
         contract: DataContract,
-        owner: ClassLoader
+        owner: Class<*>
     ): ResolvedDataContract {
         ensureOpen()
-        val ownerCache = ownerCache(owner)
+        val loader = owner.classLoader ?: ownLoader
+        val lasting = lastingIndex(loader)
+        val ownerCache =
+            if (lasting >= 0) lastingResolutions[lasting]
+            else anchoredResolutions.get(owner)
         ownerCache[contract]?.let { return it }
         // Not computeIfAbsent (see the class comment)
         val tokens = contract.nativeByPath.mapValues { (_, metadata) ->
-            NativeTypeToken(resolveMetadata(metadata, owner))
+            NativeTypeToken(resolveMetadata(metadata, loader))
         }
         val resolved = ResolvedDataContract(contract, tokens)
         return ownerCache.putIfAbsent(contract, resolved) ?: resolved
-    }
-
-
-    private fun ownerCache(owner: ClassLoader): ConcurrentHashMap<DataContract, ResolvedDataContract> {
-        resolutionCache[owner]?.let { return it }
-        // Held only to copy the map; never while resolving
-        synchronized(resolutionOwnersLock) {
-            val current = resolutionCache
-            current[owner]?.let { return it }
-            val created = ConcurrentHashMap<DataContract, ResolvedDataContract>()
-            resolutionCache = IdentityHashMap(current).also { it[owner] = created }
-            return created
-        }
     }
 
     override fun isAssignable(
@@ -155,7 +237,7 @@ class DefaultNativeTypeResolver(
         actual: DataValue
     ): TypeAcceptance {
         ensureOpen()
-        val structural = DataTypeAlgebra.isAssignable(expected.contract, actual.contract)
+        val structural = DataValueAlgebra.isAssignable(expected.contract, actual)
         if (structural is TypeAcceptance.Rejected) {
             return structural
         }
@@ -163,7 +245,7 @@ class DefaultNativeTypeResolver(
             return TypeAcceptance.Accepted
         }
         if (actual.access is JvmNativeValueAccess) {
-            return resolvedAcceptance(expected, describe(actual))
+            return heldAcceptance(expected, actual, actual.access)
         }
         if (expected.tokenByPath.keys == setOf(DataTypePath.root) &&
             actual.type is DataType.Scalar
@@ -222,11 +304,12 @@ class DefaultNativeTypeResolver(
         return resolvedAcceptance(union.child(DataPathSegment.Variant(variant)), actual)
     }
 
+    // Anchored entries go with their classes' loaders
     override fun close() {
         released = true
-        descriptionCache.clear()
-        synchronized(resolutionOwnersLock) {
-            resolutionCache = IdentityHashMap()
+        lastingDescriptions.clear()
+        for (resolutions in lastingResolutions) {
+            resolutions.clear()
         }
     }
 
@@ -318,13 +401,31 @@ class DefaultNativeTypeResolver(
             }
             else -> null
         } ?: return opaque(native)
-        if (classifier in session.referenced) {
+        // Only the class's own unrolling defines it (see DescribeSession)
+        if (openClasses.isEmpty() && classifier in session.referenced) {
             val id = definitionId(classifier)
             session.definitions.putIfAbsent(id, described.contract.structural.withNullability(false))
             session.definitionNatives.putIfAbsent(
                 id, described.contract.nativeByPath.filterKeys { it != DataTypePath.root })
         }
         return described
+    }
+
+
+    /**
+     * Describes each referenced class that has no definition yet from itself, until every reference (including
+     * those the new definitions make) is defined. A definition depends only on its class's declared members,
+     * never on the type arguments it was reached with, so any type of the class will do.
+     */
+    private fun defineReferenced(session: DescribeSession) {
+        while (true) {
+            val undefined = session.referenced.firstOrNull { definitionId(it) !in session.definitions }
+                ?: return
+            describe(undefined.starProjectedType, emptySet(), session)
+            check(definitionId(undefined) in session.definitions) {
+                "Recursive class ${undefined.qualifiedName} does not recur in its own description"
+            }
+        }
     }
 
 
@@ -406,8 +507,7 @@ class DefaultNativeTypeResolver(
             metadata[DataTypePath.root] = native.toMetadata()
         }
         val contract = DataContract(described.structural, metadata, constraintsByPath = described.constraintsByPath)
-        val owner = classifier.java.classLoader ?: DefaultNativeTypeResolver::class.java.classLoader
-        val resolved = resolve(contract, owner)
+        val resolved = resolve(contract, classifier.java)
         if (DataTypePath.root !in resolved.tokenByPath) {
             return resolved
         }
@@ -509,15 +609,103 @@ class DefaultNativeTypeResolver(
                     "Actual contract has no native type at required path $path",
                     path.segments))
             }
-            if (!nativeAssignable(expectedToken, actualToken)) {
-                return TypeAcceptance.Rejected(DataProblem(
-                    DataProblem.nativeTypeIncompatible,
-                    "Native type ${actualToken.type} is not assignable to ${expectedToken.type} at $path",
-                    path.segments))
+            if (!nativeAssignable(expectedToken.type, actualToken.type) &&
+                    !(isStarProjected(actualToken.type) &&
+                            erasedCollectionAssignable(expected, path, expectedToken, actualToken))
+            ) {
+                return incompatibleToken(expectedToken, actualToken, path)
             }
         }
         return TypeAcceptance.Accepted
     }
+
+    /**
+     * [expected]'s tokens against the objects [actual] holds at their paths, whatever native metadata [actual]'s
+     * own contract carries: a held collection's class is erased (`ArrayList<*>`), so its type arguments are shown
+     * by what it holds. Each collection is sampled at its first element or entry; nothing is held to check below a
+     * null, in an empty collection, or in an inactive variant.
+     */
+    private fun heldAcceptance(
+        expected: ResolvedDataContract,
+        actual: DataValue,
+        access: JvmNativeValueAccess
+    ): TypeAcceptance {
+        val expectedType = expected.contract.structural
+        if (expectedType is DataType.Union && actual.type !is DataType.Union) {
+            val accepted = expectedType.variants.any { variant ->
+                val expectedVariant = expected.child(DataPathSegment.Variant(variant.id))
+                DataValueAlgebra.isAssignable(expectedVariant.contract, actual) == TypeAcceptance.Accepted &&
+                        heldAcceptance(expectedVariant, actual, access) == TypeAcceptance.Accepted
+            }
+            return if (accepted) TypeAcceptance.Accepted else rejected(expectedType, actual.type)
+        }
+
+        for ((path, expectedToken) in expected.tokenByPath) {
+            val node =
+                try {
+                    heldNode(actual, path)
+                }
+                catch (e: DataAccessException) {
+                    // An object that does not conform to its declared contract (a polluted element, a null Java
+                    // record component) fails as its parent lifts it
+                    return TypeAcceptance.Rejected(e.problem)
+                }
+                ?: continue
+            val actualToken = access.nativeType(node)
+            if (actualToken == null) {
+                if (access.state(node) == DataState.Null && expectedToken.type.isMarkedNullable) {
+                    continue
+                }
+                return TypeAcceptance.Rejected(DataProblem(
+                    DataProblem.nativeTypeMissing,
+                    "Actual value holds no native object at $path",
+                    path.segments))
+            }
+            if (!nativeAssignable(expectedToken.type, actualToken.type) &&
+                    !(erasedCollectionAssignable(expected, path, expectedToken, actualToken) &&
+                            (isStarProjected(actualToken.type) || access.size(node) == 0))
+            ) {
+                return incompatibleToken(expectedToken, actualToken, path)
+            }
+        }
+        return TypeAcceptance.Accepted
+    }
+
+    /**
+     * Whether [actual]'s class is assignable to the class of [expected], a built-in collection at a collection
+     * node of [expected]'s contract. For a run-time collection, whose type arguments are erased or (when empty)
+     * shown by nothing, this is all there is to compare: its elements have their own paths, checked there.
+     */
+    private fun erasedCollectionAssignable(
+        expected: ResolvedDataContract,
+        path: DataTypePath,
+        expectedToken: NativeTypeToken,
+        actualToken: NativeTypeToken
+    ): Boolean {
+        val node = expected.contract.structural.typeAt(path)
+        if (node !is DataType.Listing && node !is DataType.Mapping) {
+            return false
+        }
+        val expectedClass = expectedToken.type.classifier as? KClass<*>
+            ?: return false
+        if (!isListOrArray(expectedClass) && !isSet(expectedClass) && !isMap(expectedClass)) {
+            return false
+        }
+        return nativeAssignable(expectedClass.starProjectedType, actualToken.type)
+    }
+
+    private fun isStarProjected(type: KType): Boolean =
+        type.arguments.isNotEmpty() && type.arguments.all { it == KTypeProjection.STAR }
+
+    private fun incompatibleToken(
+        expected: NativeTypeToken,
+        actual: NativeTypeToken,
+        path: DataTypePath
+    ): TypeAcceptance.Rejected =
+        TypeAcceptance.Rejected(DataProblem(
+            DataProblem.nativeTypeIncompatible,
+            "Native type ${actual.type} is not assignable to ${expected.type} at $path",
+            path.segments))
 
     private fun replaceOpaque(expected: DataType, actual: DataType): DataType? {
         if (expected is DataType.Reference || actual is DataType.Reference) {
@@ -561,7 +749,7 @@ class DefaultNativeTypeResolver(
             val ancestor = DataTypePath(path.segments.take(size))
             val expectedAncestor = expected.tokenByPath[ancestor] ?: continue
             val actualAncestor = actual.tokenByPath[ancestor] ?: continue
-            if (nativeAssignable(expectedAncestor, actualAncestor)) {
+            if (nativeAssignable(expectedAncestor.type, actualAncestor.type)) {
                 return true
             }
         }
@@ -569,16 +757,17 @@ class DefaultNativeTypeResolver(
     }
 
     private fun nativeAssignable(
-        expected: NativeTypeToken,
-        actual: NativeTypeToken
+        expected: KType,
+        actual: KType
     ): Boolean {
-        val expectedClass = expected.type.classifier as? KClass<*> ?: return false
-        val actualClass = actual.type.classifier as? KClass<*> ?: return false
-        if (!expectedClass.java.isAssignableFrom(actualClass.java)) {
+        val expectedClass = expected.classifier as? KClass<*> ?: return false
+        val actualClass = actual.classifier as? KClass<*> ?: return false
+        // A held number's class is the box (`Integer`) of the declared primitive (`int`)
+        if (!expectedClass.javaObjectType.isAssignableFrom(actualClass.javaObjectType)) {
             return false
         }
         return try {
-            actual.type.isSubtypeOf(expected.type)
+            actual.isSubtypeOf(expected)
         }
         catch (_: IllegalArgumentException) {
             false
@@ -624,38 +813,22 @@ class DefaultNativeTypeResolver(
         }
     }
 
-    private fun nodeAt(value: DataValue, path: DataTypePath): DataNode {
+    /** The node [value] holds at [path], or null when nothing is held there (see [heldAcceptance]). */
+    private fun heldNode(value: DataValue, path: DataTypePath): DataNode? {
+        val access = value.access
         var node = value.root
         for (segment in path.segments) {
+            if (access.state(node) == DataState.Null) {
+                return null
+            }
             node = when (segment) {
-                is DataPathSegment.Field -> value.access.field(node, segment.id)
-                is DataPathSegment.Variant -> {
-                    if (value.access.activeVariant(node) != segment.id) {
-                        throw DataException(DataProblem(
-                            DataProblem.nativeTypeMissing,
-                            "Inactive union variant has no runtime token at $path",
-                            path.segments))
-                    }
-                    value.access.selected(node)
-                }
-                DataPathSegment.ListingElement -> {
-                    if (value.access.size(node) == 0) {
-                        throw DataException(DataProblem(
-                            DataProblem.nativeTypeMissing,
-                            "Empty listing has no runtime element token at $path",
-                            path.segments))
-                    }
-                    value.access.element(node, 0)
-                }
-                DataPathSegment.MappingValue -> {
-                    if (value.access.size(node) == 0) {
-                        throw DataException(DataProblem(
-                            DataProblem.nativeTypeMissing,
-                            "Empty mapping has no runtime value token at $path",
-                            path.segments))
-                    }
-                    value.access.entry(node, value.access.keyAt(node, 0))
-                }
+                is DataPathSegment.Field -> access.field(node, segment.id)
+                is DataPathSegment.Variant ->
+                    if (access.activeVariant(node) == segment.id) access.selected(node) else return null
+                DataPathSegment.ListingElement ->
+                    if (access.size(node) == 0) return null else access.element(node, 0)
+                DataPathSegment.MappingValue ->
+                    if (access.size(node) == 0) return null else access.entry(node, access.keyAt(node, 0))
                 DataPathSegment.MappingKey,
                 is DataPathSegment.Entry,
                 is DataPathSegment.Element -> throw DataException(DataProblem(
@@ -732,6 +905,13 @@ class DefaultNativeTypeResolver(
             DataProblem.unionVariantNoMatch,
             "No native union variant in $union accepts actual type $actual"))
 }
+
+
+/** One map per class, created on first use and collected with the class. */
+private fun <K> cacheByClass(): ClassValue<ConcurrentHashMap<K, ResolvedDataContract>> =
+    object: ClassValue<ConcurrentHashMap<K, ResolvedDataContract>>() {
+        override fun computeValue(type: Class<*>) = ConcurrentHashMap<K, ResolvedDataContract>()
+    }
 
 
 private fun KType.toMetadata(): TypeMetadata {

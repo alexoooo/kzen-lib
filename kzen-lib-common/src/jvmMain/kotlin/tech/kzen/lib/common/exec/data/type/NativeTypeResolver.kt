@@ -9,7 +9,11 @@ interface NativeTypeResolver: AutoCloseable {
 
     fun describe(value: DataValue): ResolvedDataContract
 
-    fun resolve(contract: DataContract, owner: ClassLoader): ResolvedDataContract
+    /**
+     * [contract] with each native name resolved as [owner]'s defining loader sees it (this resolver's own loader for
+     * a bootstrap class); a cached result lives no longer than [owner].
+     */
+    fun resolve(contract: DataContract, owner: Class<*>): ResolvedDataContract
 
     fun isAssignable(
         expected: ResolvedDataContract,

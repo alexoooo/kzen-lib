@@ -96,6 +96,35 @@ class DataContractReferenceTest {
 
 
     @Test
+    fun aDefinitionMustNotReachItselfThroughUnionVariantsAlone() {
+        // Loop = Loop | Text says nothing about a Loop value, yet assuming a pair under comparison would accept it
+        val loopId = DefinitionId("fixture.Loop")
+        val viaId = DefinitionId("fixture.Via")
+        val text = DataType.Scalar(ScalarKind.Text)
+        fun union(vararg variants: Pair<String, DataType>) =
+            DataType.Union(variants.map { DataVariant(VariantId(it.first), it.second) })
+
+        val direct = assertFailsWith<DataException> {
+            DataContract(text, definitions = mapOf(
+                loopId to union("self" to DataType.Reference(loopId, nullable = true), "text" to text)))
+        }
+        assertEquals(DataProblem.invalidContract, direct.problem.code)
+        assertTrue(direct.problem.message.contains("fixture.Loop"), direct.problem.message)
+
+        val indirect = assertFailsWith<DataException> {
+            DataContract(text, definitions = mapOf(
+                loopId to union("via" to DataType.Reference(viaId), "text" to text),
+                viaId to union("loop" to DataType.Reference(loopId), "flag" to DataType.Scalar(ScalarKind.Boolean))))
+        }
+        assertEquals(DataProblem.invalidContract, indirect.problem.code)
+
+        // Beneath a record, listing or mapping the recursion is guarded
+        DataContract(text, definitions = mapOf(
+            loopId to union("many" to DataType.Listing(DataType.Reference(loopId)), "text" to text)))
+    }
+
+
+    @Test
     fun referencesAreNominalInAssignabilityAndJoin() {
         val same = DataType.Reference(nodeId)
         assertEquals(TypeAcceptance.Accepted, DataTypeAlgebra.isAssignable(same, DataType.Reference(nodeId)))
