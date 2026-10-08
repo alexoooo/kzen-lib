@@ -15,6 +15,7 @@ import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.NativeTypeToken
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.VariantId
+import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
 import java.lang.reflect.Array as ReflectArray
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -27,7 +28,6 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.primaryConstructor
-import kotlin.reflect.full.starProjectedType
 import kotlin.reflect.jvm.isAccessible
 
 
@@ -53,7 +53,7 @@ internal class NativeObjectValueAccess private constructor(
         rootContract,
         rootValue,
         emptyList(),
-        NativeTypeTokens.of(rootValue)))
+        rootValue?.let(NativeClasses::token)))
 
 
     override fun contract(node: DataNode): DataContract = get(node).contract
@@ -241,7 +241,7 @@ internal class NativeObjectValueAccess private constructor(
 
 
     private fun add(value: Any?, contract: DataContract, path: List<DataPathSegment>): DataNode {
-        nodes += NodeEntry(contract, value, path, NativeTypeTokens.of(value))
+        nodes += NodeEntry(contract, value, path, value?.let(NativeClasses::token))
         return DataNode(nodes.lastIndex.toLong())
     }
 
@@ -297,7 +297,8 @@ private class NodeEntry(
 /** Field readers per class identity: records and data classes by component, ordinary classes by [BeanShape]. */
 private object NativePropertyPlans {
     private val plans = object: ClassValue<Map<FieldId, (Any) -> Any?>>() {
-        override fun computeValue(type: Class<*>): Map<FieldId, (Any) -> Any?> = create(type.kotlin)
+        override fun computeValue(type: Class<*>): Map<FieldId, (Any) -> Any?> =
+            ReadPreparation.prepare { create(type.kotlin) }
     }
 
     fun reader(type: KClass<*>, field: FieldId): (Any) -> Any? =
@@ -335,16 +336,6 @@ private object NativePropertyPlans {
             FieldId(property.name) to { instance: Any -> property.read(instance) }
         }
     }
-}
-
-
-/** Native type tokens cached per `Class` identity (E7 item 4): loader-local, computed once per class. */
-private object NativeTypeTokens {
-    private val byClass = object: ClassValue<NativeTypeToken>() {
-        override fun computeValue(type: Class<*>): NativeTypeToken = NativeTypeToken(type.kotlin.starProjectedType)
-    }
-
-    fun of(value: Any?): NativeTypeToken? = value?.let { byClass.get(it.javaClass) }
 }
 
 

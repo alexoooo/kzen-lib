@@ -15,7 +15,6 @@ import tech.kzen.lib.common.exec.data.type.VariantSelection
 import java.math.BigDecimal
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
-import kotlin.reflect.full.starProjectedType
 
 
 class DefaultDataAdapterRegistry(
@@ -78,7 +77,7 @@ class DefaultDataAdapterRegistry(
                 ?: DefaultDataAdapterRegistry::class.java.classLoader
             val acceptance = nativeTypeResolver.isAssignable(
                 nativeTypeResolver.resolve(expected, owner),
-                nativeTypeResolver.describe(value::class.starProjectedType))
+                nativeTypeResolver.describe(NativeClasses.starProjectedType(value)))
             if (acceptance is TypeAcceptance.Rejected) {
                 throw DataException(acceptance.problem)
             }
@@ -87,7 +86,7 @@ class DefaultDataAdapterRegistry(
 
         val classifier = value::class
         exactByClass[classifier]?.let { adapter ->
-            return validateAdapterResult(adapter, classifier.starProjectedType, value, expected)
+            return validateAdapterResult(adapter, NativeClasses.starProjectedType(value), value, expected)
         }
         if (isRefusedAutomaticValue(value)) {
             throw refused(classifier)
@@ -99,10 +98,10 @@ class DefaultDataAdapterRegistry(
             return conformExpected(expected, lifted)
         }
         fallback(classifier)?.let { adapter ->
-            return validateAdapterResult(adapter, classifier.starProjectedType, value, expected)
+            return validateAdapterResult(adapter, NativeClasses.starProjectedType(value), value, expected)
         }
 
-        val contract = nativeTypeResolver.describe(classifier.starProjectedType).contract
+        val contract = nativeTypeResolver.describe(NativeClasses.starProjectedType(value)).contract
         val lifted = NativeObjectValueAccess.value(value, contract, this)
         return conformExpected(expected, lifted)
     }
@@ -161,7 +160,7 @@ class DefaultDataAdapterRegistry(
                     constraintsByPath = element.constraintsByPath.prefixed(DataPathSegment.ListingElement))
             }
             is Map<*, *> -> runtimeMappingContract(value, expected)
-            else -> nativeTypeResolver.describe(value::class.starProjectedType).contract
+            else -> nativeTypeResolver.describe(NativeClasses.starProjectedType(value)).contract
         }
 
 
@@ -175,13 +174,13 @@ class DefaultDataAdapterRegistry(
         val keyTypes = value.keys.map { key ->
             // An enum key is text, as the design-time Map<E, V> describes it
             if (key == null || !isScalarValue(key) && key !is Enum<*>) {
-                return nativeTypeResolver.describe(value::class.starProjectedType).contract
+                return nativeTypeResolver.describe(NativeClasses.starProjectedType(value)).contract
             }
             structuralOf(key, null)
         }
         val keyType = keyTypes.reduce(DataTypeAlgebra::join)
         if (keyType !is DataType.Scalar || keyType.nullable) {
-            return nativeTypeResolver.describe(value::class.starProjectedType).contract
+            return nativeTypeResolver.describe(NativeClasses.starProjectedType(value)).contract
         }
         val canonicalKeys = mutableSetOf<String>()
         val keyConstraints = mutableSetOf<Map<DataTypePath, List<DataConstraint>>>()
@@ -388,7 +387,7 @@ private fun isBuiltIn(classifier: KClass<*>): Boolean =
 
 private fun isBuiltInValue(value: Any): Boolean =
     isScalarValue(value) || value is List<*> || value is Set<*> || value.javaClass.isArray ||
-            value is Map<*, *> || value::class.isData || value.javaClass.isRecord || value is Enum<*>
+            value is Map<*, *> || NativeClasses.isData(value) || value.javaClass.isRecord || value is Enum<*>
 
 
 // Set is an unordered Listing (E7 item 3); Sequence, Iterator and other Iterables stay streaming-only

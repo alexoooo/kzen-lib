@@ -9,6 +9,7 @@ import tech.kzen.lib.common.exec.data.value.DataState
 import tech.kzen.lib.common.exec.data.value.DataValue
 import tech.kzen.lib.common.exec.data.value.LiteralDataValues
 import tech.kzen.lib.common.exec.data.value.JvmNativeValueAccess
+import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.platform.ClassName
 import java.math.BigDecimal
@@ -19,6 +20,7 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.util.IdentityHashMap
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
@@ -29,12 +31,25 @@ import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.kotlinFunction
 
 
+/**
+ * Safe for concurrent use: a process-wide registry's resolver serves every Worker thread. A cache miss computes
+ * outside any lock and stores with `putIfAbsent`, so a describer or class loader that calls back into this resolver
+ * can neither deadlock nor trip `computeIfAbsent`'s recursive-update check; threads missing at once may each
+ * compute, but all of them return the first result stored.
+ */
 class DefaultNativeTypeResolver(
     describers: List<NativeTypeDescriber> = emptyList()
 ): NativeTypeResolver {
     private val describerByClass: Map<KClass<*>, NativeTypeDescriber>
-    private val descriptionCache = mutableMapOf<KType, ResolvedDataContract>()
-    private val resolutionCache = IdentityHashMap<ClassLoader, MutableMap<DataContract, ResolvedDataContract>>()
+    private val descriptionCache = ConcurrentHashMap<KType, ResolvedDataContract>()
+
+    // Copy-on-write, keyed by loader identity: a new loader is rare, a lookup happens per lift
+    @Volatile
+    private var resolutionCache: Map<ClassLoader, ConcurrentHashMap<DataContract, ResolvedDataContract>> =
+        IdentityHashMap()
+    private val resolutionOwnersLock = Any()
+
+    @Volatile
     private var released = false
 
     init {
@@ -49,7 +64,8 @@ class DefaultNativeTypeResolver(
 
     override fun describe(native: KType): ResolvedDataContract {
         ensureOpen()
-        return descriptionCache.getOrPut(native) {
+        descriptionCache[native]?.let { return it }
+        val described = ReadPreparation.prepare {
             val session = DescribeSession()
             val described = describe(native, emptySet(), session)
             if (session.definitions.isEmpty()) {
@@ -63,6 +79,8 @@ class DefaultNativeTypeResolver(
                     described.tokenByPath)
             }
         }
+        // Not computeIfAbsent (see the class comment)
+        return descriptionCache.putIfAbsent(native, described) ?: described
     }
 
 
@@ -101,12 +119,26 @@ class DefaultNativeTypeResolver(
         owner: ClassLoader
     ): ResolvedDataContract {
         ensureOpen()
-        val ownerCache = resolutionCache.getOrPut(owner) { mutableMapOf() }
-        return ownerCache.getOrPut(contract) {
-            val tokens = contract.nativeByPath.mapValues { (_, metadata) ->
-                NativeTypeToken(resolveMetadata(metadata, owner))
-            }
-            ResolvedDataContract(contract, tokens)
+        val ownerCache = ownerCache(owner)
+        ownerCache[contract]?.let { return it }
+        // Not computeIfAbsent (see the class comment)
+        val tokens = contract.nativeByPath.mapValues { (_, metadata) ->
+            NativeTypeToken(resolveMetadata(metadata, owner))
+        }
+        val resolved = ResolvedDataContract(contract, tokens)
+        return ownerCache.putIfAbsent(contract, resolved) ?: resolved
+    }
+
+
+    private fun ownerCache(owner: ClassLoader): ConcurrentHashMap<DataContract, ResolvedDataContract> {
+        resolutionCache[owner]?.let { return it }
+        // Held only to copy the map; never while resolving
+        synchronized(resolutionOwnersLock) {
+            val current = resolutionCache
+            current[owner]?.let { return it }
+            val created = ConcurrentHashMap<DataContract, ResolvedDataContract>()
+            resolutionCache = IdentityHashMap(current).also { it[owner] = created }
+            return created
         }
     }
 
@@ -191,9 +223,11 @@ class DefaultNativeTypeResolver(
     }
 
     override fun close() {
-        descriptionCache.clear()
-        resolutionCache.clear()
         released = true
+        descriptionCache.clear()
+        synchronized(resolutionOwnersLock) {
+            resolutionCache = IdentityHashMap()
+        }
     }
 
     private fun describe(

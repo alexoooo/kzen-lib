@@ -13,6 +13,8 @@ import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.DataTypePath
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
+import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
+import tech.kzen.lib.common.exec.data.value.budget.busyWait
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,6 +22,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 
 class DataSnapshotTest {
@@ -101,6 +104,21 @@ class DataSnapshotTest {
 
 
     @Test
+    fun durationLimitChargesReadingButNotTypePreparation() {
+        val policy = SnapshotPolicy(maximumDurationMillis = 50)
+        val overBudget = 150.milliseconds
+
+        val prepared = slowFirstFieldValue { ReadPreparation.prepare { busyWait(overBudget) } }
+        val complete = assertIs<SnapshotResult.Complete>(DataSnapshot.capture(prepared, policy))
+        assertEquals(TextExecutionValue("y"), assertIs<MapExecutionValue>(complete.snapshot.value).values["b"])
+
+        val slow = slowFirstFieldValue { busyWait(overBudget) }
+        val rejected = assertIs<SnapshotResult.Rejected>(DataSnapshot.capture(slow, policy))
+        assertEquals(DataProblem.snapshotLimit, rejected.problems.single().code)
+    }
+
+
+    @Test
     fun typedFactoryRejectsUntypedOrMismatchedTrees() {
         assertFailsWith<DataException> {
             DataSnapshot.of(DataType.Scalar(ScalarKind.Boolean), TextExecutionValue("true"))
@@ -145,6 +163,22 @@ class DataSnapshotTest {
         val result = assertIs<SnapshotResult.Rejected>(
             DataSnapshot.capture(DataValue(access, DataNode(0))))
         assertEquals(DataProblem.snapshotCycle, result.problems.single().code)
+    }
+
+
+    private fun slowFirstFieldValue(firstRead: () -> Unit): DataValue {
+        val original = LiteralDataValues.lift(recordOf("a" to "x", "b" to "y"))
+        var read = false
+        val access = object: ValueAccess by original.access {
+            override fun field(node: DataNode, field: FieldId): DataNode {
+                if (!read) {
+                    read = true
+                    firstRead()
+                }
+                return original.access.field(node, field)
+            }
+        }
+        return DataValue(access, original.root)
     }
 
 

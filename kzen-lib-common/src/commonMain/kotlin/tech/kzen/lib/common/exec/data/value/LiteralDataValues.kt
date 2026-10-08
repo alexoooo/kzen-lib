@@ -34,8 +34,17 @@ object LiteralDataValues {
         }
         val inferred = inferType(value, mutableListOf())
         val target = expected?.structural ?: inferred
-        // Constraints are declared on the structure the literal adopts, so they travel with it
-        val targetContract = inferredContract(target, expected?.constraintsByPath.orEmpty())
+        // Constraints are declared on the structure the literal adopts, so they travel with it. An expected
+        // contract with nothing beyond structure and constraints is that contract already (without native
+        // metadata it holds no opaque member), and reusing it keeps one contract object across literals.
+        val targetContract =
+            if (expected != null && expected.nativeByPath.isEmpty() && expected.definitions.isEmpty() &&
+                    expected.definitionNatives.isEmpty() && expected.metadata == null) {
+                expected
+            }
+            else {
+                inferredContract(target, expected?.constraintsByPath.orEmpty())
+            }
         val access = LiteralValueAccess()
         val root = access.build(value, targetContract, emptyList())
         return DataValue(access, root)

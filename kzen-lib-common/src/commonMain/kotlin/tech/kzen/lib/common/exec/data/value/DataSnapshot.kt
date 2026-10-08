@@ -16,9 +16,10 @@ import tech.kzen.lib.common.exec.data.problem.DataProblem
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
 import tech.kzen.lib.common.exec.data.type.DataType
 import tech.kzen.lib.common.exec.data.type.ScalarKind
+import tech.kzen.lib.common.exec.data.value.budget.ReadBudget
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
-import kotlin.time.TimeSource
+import kotlin.time.Duration.Companion.milliseconds
 
 
 /**
@@ -119,7 +120,7 @@ private class SnapshotWriter(
     private val policy: SnapshotPolicy
 ) {
     val problems = mutableListOf<DataProblem>()
-    private val started = TimeSource.Monotonic.markNow()
+    private val budget = ReadBudget(policy.maximumDurationMillis.milliseconds)
     private var elements = 0
     private val openIdentities = mutableListOf<Any>()
     private val seenIdentities = mutableListOf<Any>()
@@ -346,7 +347,7 @@ private class SnapshotWriter(
             reject(DataProblem.snapshotLimit, "Snapshot exceeds maximum depth", path)
             return false
         }
-        if (started.elapsedNow().inWholeMilliseconds > policy.maximumDurationMillis) {
+        if (budget.exhausted()) {
             reject(DataProblem.snapshotLimit, "Snapshot exceeds maximum duration", path)
             return false
         }
