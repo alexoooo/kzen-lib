@@ -268,20 +268,25 @@ class RecursiveContractTest {
     fun sameNameClassesInSeparateLoadersShareTheReferenceButNotTheNativeIdentity() {
         val compiled = compileClasses(mapOf(
             "fixture.Link" to "package fixture; public class Link { public String getLabel() { return \"l\"; } public Link getNext() { return null; } }"))
-        URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { first ->
-            URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { second ->
-                val resolver = DefaultNativeTypeResolver()
-                resolver.use {
-                    val a = resolver.describe(first.loadClass("fixture.Link").kotlin.createType())
-                    val b = resolver.describe(second.loadClass("fixture.Link").kotlin.createType())
-                    assertEquals(a.contract, b.contract, "structural identity is the name")
-                    assertEquals(setOf(DefinitionId("fixture.Link")), a.contract.definitions.keys)
-                    val acceptance = resolver.isAssignable(a, b)
-                    val rejected = assertIs<TypeAcceptance.Rejected>(acceptance, "native identity is the loader's")
-                    assertEquals(DataProblem.nativeTypeIncompatible, rejected.problem.code)
-                    assertEquals(TypeAcceptance.Accepted, resolver.isAssignable(a, a))
+        try {
+            URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { first ->
+                URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { second ->
+                    val resolver = DefaultNativeTypeResolver()
+                    resolver.use {
+                        val a = resolver.describe(first.loadClass("fixture.Link").kotlin.createType())
+                        val b = resolver.describe(second.loadClass("fixture.Link").kotlin.createType())
+                        assertEquals(a.contract, b.contract, "structural identity is the name")
+                        assertEquals(setOf(DefinitionId("fixture.Link")), a.contract.definitions.keys)
+                        val acceptance = resolver.isAssignable(a, b)
+                        val rejected = assertIs<TypeAcceptance.Rejected>(acceptance, "native identity is the loader's")
+                        assertEquals(DataProblem.nativeTypeIncompatible, rejected.problem.code)
+                        assertEquals(TypeAcceptance.Accepted, resolver.isAssignable(a, a))
+                    }
                 }
             }
+        }
+        finally {
+            compiled.deleteRecursively()
         }
     }
 

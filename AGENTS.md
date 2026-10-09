@@ -61,6 +61,8 @@ Tests mirror the package of the code under test (CC-13), and a test that only ne
 
 `kotlin.test` is the only assertion API — no JUnit4 annotations or `org.junit.Assert`. Suspend entry points use `runTest` (kotlinx-coroutines-test, a `commonTest` dependency), never `runBlocking`, which would pin the test to the JVM.
 
+A test deletes the temp files it creates (`@AfterTest` with Guava `MoreFiles.deleteRecursively`, or `finally`), closing any class loader over them first: on Windows an open jar blocks the delete. Read a `jar:` URL with `useCaches = false` (see `OriginNotationMedia`) — a cached connection keeps the jar open in the JDK's process-wide jar cache for good.
+
 ## Gotchas
 
 - **Variant-suffix coords route through mavenLocal.** Bump the version → `publishToMavenLocal` (all four subprojects) → consumer can compile; skip the publish and any non-umbrella consumer build breaks. Mechanics: [`../kzen/AGENTS.md`](../kzen/AGENTS.md) KMP variant-suffix gotcha.

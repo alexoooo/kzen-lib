@@ -1,11 +1,14 @@
 package tech.kzen.lib.server.notation
 
+import com.google.common.io.MoreFiles
+import com.google.common.io.RecursiveDeleteOption
 import kotlinx.coroutines.runBlocking
 import tech.kzen.lib.common.model.document.DocumentPath
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -15,6 +18,14 @@ import kotlin.test.assertTrue
 class OriginNotationMediaTest {
     private val alphaBody = "Alpha:\n  is: Thing\n"
     private val betaBody = "Beta:\n  is: Thing\n"
+
+    private val jarRoot = Files.createTempDirectory("origin")
+
+
+    @AfterTest
+    fun deleteJars() {
+        MoreFiles.deleteRecursively(jarRoot, RecursiveDeleteOption.ALLOW_INSECURE)
+    }
 
 
     @Test
@@ -57,7 +68,7 @@ class OriginNotationMediaTest {
 
 
     private fun jar(name: String, entries: Map<String, String>): Path {
-        val path = Files.createTempDirectory("origin").resolve("$name.jar")
+        val path = jarRoot.resolve("$name.jar")
         JarOutputStream(Files.newOutputStream(path)).use { out ->
             for ((entry, body) in entries) {
                 out.putNextEntry(JarEntry(entry))

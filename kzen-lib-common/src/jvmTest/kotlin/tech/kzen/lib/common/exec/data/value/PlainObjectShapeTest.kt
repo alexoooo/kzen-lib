@@ -213,21 +213,26 @@ class PlainObjectShapeTest {
     fun nativeTokensAreCachedPerClassIdentityAndStayLoaderLocal() {
         val compiled = compileClasses(mapOf(
             "fixture.Twin" to "package fixture; public class Twin { public String getLabel() { return \"twin\"; } }"))
-        URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { first ->
-            URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { second ->
-                DefaultDataAdapterRegistry().use { registry ->
-                    val a = first.loadClass("fixture.Twin").getDeclaredConstructor().newInstance()
-                    val b = second.loadClass("fixture.Twin").getDeclaredConstructor().newInstance()
-                    val liftedA = registry.lift(a)
-                    val liftedB = registry.lift(b)
-                    val tokenA = (liftedA.access as JvmNativeValueAccess).nativeType(liftedA.root)!!
-                    val tokenB = (liftedB.access as JvmNativeValueAccess).nativeType(liftedB.root)!!
-                    assertEquals(tokenA.type.classifier, (registry.lift(a).access as JvmNativeValueAccess).nativeType(liftedA.root)!!.type.classifier)
-                    assertNotEquals(tokenA.type.classifier, tokenB.type.classifier, "same name, different loader")
-                    assertEquals("twin", readText(liftedA, "label"))
-                    assertEquals("twin", readText(liftedB, "label"))
+        try {
+            URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { first ->
+                URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { second ->
+                    DefaultDataAdapterRegistry().use { registry ->
+                        val a = first.loadClass("fixture.Twin").getDeclaredConstructor().newInstance()
+                        val b = second.loadClass("fixture.Twin").getDeclaredConstructor().newInstance()
+                        val liftedA = registry.lift(a)
+                        val liftedB = registry.lift(b)
+                        val tokenA = (liftedA.access as JvmNativeValueAccess).nativeType(liftedA.root)!!
+                        val tokenB = (liftedB.access as JvmNativeValueAccess).nativeType(liftedB.root)!!
+                        assertEquals(tokenA.type.classifier, (registry.lift(a).access as JvmNativeValueAccess).nativeType(liftedA.root)!!.type.classifier)
+                        assertNotEquals(tokenA.type.classifier, tokenB.type.classifier, "same name, different loader")
+                        assertEquals("twin", readText(liftedA, "label"))
+                        assertEquals("twin", readText(liftedB, "label"))
+                    }
                 }
             }
+        }
+        finally {
+            compiled.deleteRecursively()
         }
     }
 

@@ -1,5 +1,7 @@
 package tech.kzen.lib.server.reflect
 
+import com.google.common.io.MoreFiles
+import com.google.common.io.RecursiveDeleteOption
 import tech.kzen.lib.platform.ClassName
 import java.io.ByteArrayOutputStream
 import java.net.URI
@@ -11,6 +13,7 @@ import java.util.jar.JarOutputStream
 import javax.tools.JavaFileObject
 import javax.tools.SimpleJavaFileObject
 import javax.tools.ToolProvider
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -27,6 +30,18 @@ class AggregateClassLoaderTest {
     }
 
 
+    private val jarRoot = Files.createTempDirectory("aggregate")
+    private val loaders = mutableListOf<URLClassLoader>()
+
+
+    // The loaders hold their jars open, which would block the delete on Windows
+    @AfterTest
+    fun deleteJars() {
+        loaders.forEach { it.close() }
+        MoreFiles.deleteRecursively(jarRoot, RecursiveDeleteOption.ALLOW_INSECURE)
+    }
+
+
     @Test
     fun parentWinsUniqueScopeClassIsServedByItsScopeAndDuplicatesAreAmbiguous() {
         val appJar = jar("app", mapOf("fixture.Shared" to javaClass("fixture", "Shared", "app")))
@@ -36,9 +51,9 @@ class AggregateClassLoaderTest {
             "fixture.Twice" to javaClass("fixture", "Twice", "alpha")))
         val betaJar = jar("beta", mapOf("fixture.Twice" to javaClass("fixture", "Twice", "beta")))
 
-        val parent = URLClassLoader(arrayOf(appJar.toUri().toURL()), AggregateClassLoaderTest::class.java.classLoader)
-        val alpha = URLClassLoader(arrayOf(alphaJar.toUri().toURL()), parent)
-        val beta = URLClassLoader(arrayOf(betaJar.toUri().toURL()), parent)
+        val parent = loader(appJar, AggregateClassLoaderTest::class.java.classLoader)
+        val alpha = loader(alphaJar, parent)
+        val beta = loader(betaJar, parent)
         val diagnostics = Recording()
         val aggregate = AggregateClassLoader(parent, listOf(
             AggregateClassLoader.Scope("alpha", alpha), AggregateClassLoader.Scope("beta", beta)), diagnostics)
@@ -80,9 +95,14 @@ class AggregateClassLoaderTest {
     }
 
 
+    private fun loader(jar: Path, parent: ClassLoader): URLClassLoader {
+        return URLClassLoader(arrayOf(jar.toUri().toURL()), parent).also { loaders.add(it) }
+    }
+
+
     private fun jar(name: String, sources: Map<String, String>): Path {
         val classes = compile(sources)
-        val path = Files.createTempDirectory("aggregate").resolve("$name.jar")
+        val path = jarRoot.resolve("$name.jar")
         JarOutputStream(Files.newOutputStream(path)).use { out ->
             for ((className, bytes) in classes) {
                 out.putNextEntry(JarEntry(className.replace('.', '/') + ".class"))

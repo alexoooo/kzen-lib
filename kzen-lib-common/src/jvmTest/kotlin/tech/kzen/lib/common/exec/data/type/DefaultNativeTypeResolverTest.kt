@@ -501,23 +501,28 @@ class DefaultNativeTypeResolverTest {
             "fixture.ChildRunnable" to
                     "package fixture; public class ChildRunnable implements java.lang.Runnable { " +
                             "public void run() {} }"))
-        URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { firstLoader ->
-            URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { secondLoader ->
-                val firstClass = firstLoader.loadClass("fixture.SameName").kotlin
-                val secondClass = secondLoader.loadClass("fixture.SameName").kotlin
-                NativeTypeResolutionScope().use { scope ->
-                    assertIs<TypeAcceptance.Rejected>(scope.resolver.isAssignable(
-                        scope.resolver.describe(firstClass.createType()),
-                        scope.resolver.describe(secondClass.createType())))
+        try {
+            URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { firstLoader ->
+                URLClassLoader(arrayOf(compiled.toURI().toURL()), javaClass.classLoader).use { secondLoader ->
+                    val firstClass = firstLoader.loadClass("fixture.SameName").kotlin
+                    val secondClass = secondLoader.loadClass("fixture.SameName").kotlin
+                    NativeTypeResolutionScope().use { scope ->
+                        assertIs<TypeAcceptance.Rejected>(scope.resolver.isAssignable(
+                            scope.resolver.describe(firstClass.createType()),
+                            scope.resolver.describe(secondClass.createType())))
 
-                    val child = firstLoader.loadClass("fixture.ChildRunnable").kotlin
-                    assertEquals(
-                        TypeAcceptance.Accepted,
-                        scope.resolver.isAssignable(
-                            scope.resolver.describe(typeOf<Runnable>()),
-                            scope.resolver.describe(child.createType())))
+                        val child = firstLoader.loadClass("fixture.ChildRunnable").kotlin
+                        assertEquals(
+                            TypeAcceptance.Accepted,
+                            scope.resolver.isAssignable(
+                                scope.resolver.describe(typeOf<Runnable>()),
+                                scope.resolver.describe(child.createType())))
+                    }
                 }
             }
+        }
+        finally {
+            compiled.deleteRecursively()
         }
     }
 
@@ -526,16 +531,21 @@ class DefaultNativeTypeResolverTest {
     fun releasingGenerationDropsLoaderAndRejectsFurtherUse() {
         val compiled = compileClasses(mapOf(
             "fixture.GenerationValue" to "package fixture; public class GenerationValue {}"))
-        val weakLoader = resolveThenRelease(compiled)
+        try {
+            val weakLoader = resolveThenRelease(compiled)
 
-        repeat(80) {
-            if (weakLoader.get() == null) {
-                return
+            repeat(80) {
+                if (weakLoader.get() == null) {
+                    return
+                }
+                System.gc()
+                Thread.sleep(10)
             }
-            System.gc()
-            Thread.sleep(10)
+            assertNull(weakLoader.get(), "released resolver retained its owner class loader")
         }
-        assertNull(weakLoader.get(), "released resolver retained its owner class loader")
+        finally {
+            compiled.deleteRecursively()
+        }
     }
 
 
@@ -567,7 +577,6 @@ class DefaultNativeTypeResolverTest {
         val compiler = ToolProvider.getSystemJavaCompiler()
         assertTrue(compiler.run(null, null, null, "-d", root.absolutePath,
             *sourceFiles.map { it.absolutePath }.toTypedArray()) == 0)
-        root.deleteOnExit()
         return root
     }
 }

@@ -61,10 +61,19 @@ class OriginNotationMedia(
             }
         }
         origins = found
-        bodies = found.mapValues { (_, url) -> url.readText() }
+        bodies = found.mapValues { (_, url) -> readUncached(url) }
         scan = NotationScan(DocumentPathMap(bodies.mapValues { (_, body) ->
             DocumentScan(Digest.ofUtf8(body), null)
         }.toPersistentMap()))
+    }
+
+
+    // A cached `jar:` connection leaves the jar open in the JDK's process-wide jar file cache for good, which on
+    // Windows blocks deleting or replacing the jar after its loaders are closed
+    private fun readUncached(url: URL): String {
+        val connection = url.openConnection()
+        connection.useCaches = false
+        return connection.getInputStream().use { it.readBytes().toString(Charsets.UTF_8) }
     }
 
 
