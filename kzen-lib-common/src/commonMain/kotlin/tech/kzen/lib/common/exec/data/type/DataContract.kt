@@ -303,19 +303,58 @@ class DataContract @JvmOverloads constructor(
         asExecutionValue().digest(sink)
     }
 
+    // Contracts key caches looked up per row, so comparing and hashing allocate nothing for the parts most contracts
+    // leave empty, and the hash of this immutable contract is computed once
     override fun equals(other: Any?): Boolean =
         this === other || other is DataContract &&
-                structural == other.structural && nativeByPath == other.nativeByPath &&
-                definitions == other.definitions && definitionNatives == other.definitionNatives &&
-                constraintSets == other.constraintSets && metadata == other.metadata
+                structural == other.structural && sameEntries(nativeByPath, other.nativeByPath) &&
+                sameEntries(definitions, other.definitions) &&
+                sameEntries(definitionNatives, other.definitionNatives) &&
+                sameConstraints(other.constraintsByPath) && metadata == other.metadata
 
-    override fun hashCode(): Int =
-        31 * (31 * (31 * (31 * (31 * structural.hashCode() + nativeByPath.hashCode()) + definitions.hashCode()) +
-                definitionNatives.hashCode()) + constraintSets.hashCode()) + (metadata?.hashCode() ?: 0)
+    override fun hashCode(): Int {
+        var hash = cachedHash
+        if (hash == 0 && !hashIsZero) {
+            hash = 31 * (31 * (31 * (31 * (31 * structural.hashCode() + entriesHash(nativeByPath)) +
+                    entriesHash(definitions)) + entriesHash(definitionNatives)) + constraintsHash()) +
+                    (metadata?.hashCode() ?: 0)
+            if (hash == 0) hashIsZero = true else cachedHash = hash
+        }
+        return hash
+    }
 
-    // Constraints at a path are unordered for identity, as in the encoding
-    private val constraintSets: Map<DataTypePath, Set<DataConstraint>>
-        get() = constraintsByPath.mapValues { it.value.toSet() }
+    // Unsynchronized, as String.hashCode: each field is written alone and is right whenever it reads as set
+    private var cachedHash = 0
+    private var hashIsZero = false
+
+    // Constraints at a path are unordered for identity, as in the encoding; one per kind, so a list never repeats
+    private fun sameConstraints(other: Map<DataTypePath, List<DataConstraint>>): Boolean {
+        if (constraintsByPath.size != other.size) {
+            return false
+        }
+        if (constraintsByPath.isEmpty()) {
+            return true
+        }
+        for ((path, constraints) in constraintsByPath) {
+            val others = other[path]
+            if (others == null || others.size != constraints.size || !others.containsAll(constraints)) {
+                return false
+            }
+        }
+        return true
+    }
+
+    // The hash of the constraints as a map of sets
+    private fun constraintsHash(): Int {
+        if (constraintsByPath.isEmpty()) {
+            return 0
+        }
+        var hash = 0
+        for ((path, constraints) in constraintsByPath) {
+            hash += path.hashCode() xor constraints.sumOf { it.hashCode() }
+        }
+        return hash
+    }
 
     override fun toString(): String = buildString {
         append("DataContract(structural=$structural, nativeByPath=$nativeByPath")
@@ -419,6 +458,15 @@ class DataContract @JvmOverloads constructor(
             "Native metadata path does not exist in the structural type: $path",
             path.segments))
 }
+
+
+// Comparing or hashing a JVM map iterates it, which allocates even when it is empty
+private fun sameEntries(left: Map<*, *>, right: Map<*, *>): Boolean =
+    if (left.isEmpty()) right.isEmpty() else left == right
+
+
+private fun entriesHash(map: Map<*, *>): Int =
+    if (map.isEmpty()) 0 else map.hashCode()
 
 
 private fun <T> Map<DataTypePath, T>.rebased(prefix: DataTypePath): Map<DataTypePath, T> =

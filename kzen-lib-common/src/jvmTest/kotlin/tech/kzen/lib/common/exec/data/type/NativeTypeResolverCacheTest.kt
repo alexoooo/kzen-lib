@@ -11,7 +11,6 @@ import java.lang.management.ManagementFactory
 import java.lang.ref.WeakReference
 import java.net.URLClassLoader
 import java.nio.file.Files
-import java.util.concurrent.ConcurrentHashMap
 import javax.tools.ToolProvider
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.createType
@@ -123,12 +122,9 @@ class NativeTypeResolverCacheTest {
                     assertTrue(allocated < measuredHits, "describing $type: $allocated bytes over $measuredHits hits")
                 }
 
-                // A resolution is keyed by its contract, whose hash allocates; finding the owner's map must add nothing
                 val resolveHits = listOf(itemContract to item, applicationContract to ApplicationRecord::class.java)
                 for ((contract, owner) in resolveHits) {
-                    val contractKeyed = ConcurrentHashMap(mapOf(contract to resolver.resolve(contract, owner)))
-                    val allocated = allocatedBy(bean) { resolver.resolve(contract, owner) } -
-                            allocatedBy(bean) { contractKeyed[contract] }
+                    val allocated = allocatedBy(bean) { resolver.resolve(contract, owner) }
                     assertTrue(allocated < measuredHits,
                         "resolving in $owner: $allocated bytes over $measuredHits hits")
                 }
