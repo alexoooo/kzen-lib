@@ -1,10 +1,13 @@
 package tech.kzen.lib.common.exec.logic.trace
 
+import tech.kzen.lib.common.exec.logic.run.model.LogicExecutionId
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionId
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunExecutionInfo
 import tech.kzen.lib.common.exec.logic.run.model.LogicRunId
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceEvent
+import tech.kzen.lib.common.exec.logic.trace.model.LogicTracePath
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceQuery
+import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceRange
 import tech.kzen.lib.common.exec.logic.trace.model.LogicTraceSnapshot
 import tech.kzen.lib.common.model.location.ObjectLocation
 
@@ -42,6 +45,18 @@ interface LogicTrace {
         logicRunId: LogicRunId,
         logicTraceQuery: LogicTraceQuery
     ): LogicTraceSnapshot?
+
+
+    // A range of the list traced at [path] (Execution.emitList): [count] entries from [offset], or to the end when
+    // [count] is null. Reads [executionId]'s buffer, or, when it is null, the latest buffer of the run that holds
+    // the path (the lookupRun merge rule). Null when no such list exists.
+    fun lookupRange(
+        logicRunId: LogicRunId,
+        executionId: LogicExecutionId?,
+        path: LogicTracePath,
+        offset: Int,
+        count: Int?
+    ): LogicTraceRange?
 
 
     // The run's append-only event history (across all its executions), ordered by sequence, returning

@@ -16,10 +16,8 @@ import tech.kzen.lib.common.exec.data.problem.DataProblem
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
 import tech.kzen.lib.common.exec.data.type.DataType
 import tech.kzen.lib.common.exec.data.type.ScalarKind
-import tech.kzen.lib.common.exec.data.value.budget.ReadBudget
 import tech.kzen.lib.common.util.digest.Digest
 import tech.kzen.lib.common.util.digest.Digestible
-import kotlin.time.Duration.Companion.milliseconds
 
 
 /**
@@ -78,26 +76,21 @@ class DataSnapshot internal constructor(
         }
 
 
+        /** A detached copy of the whole of [value]; a [sensitive] value is redacted rather than copied. */
         fun capture(
             value: DataValue,
-            policy: SnapshotPolicy = SnapshotPolicy(),
             sensitive: Boolean = false
         ): SnapshotResult {
             if (sensitive) {
-                return when (policy.sensitive) {
-                    SensitiveSnapshotPolicy.Redact -> SnapshotResult.Redacted
-                    SensitiveSnapshotPolicy.Reject -> SnapshotResult.Rejected(listOf(DataProblem(
-                        DataProblem.snapshotRejected,
-                        "Sensitive value snapshot is forbidden")))
-                }
+                return SnapshotResult.Redacted
             }
             val metadata = value.metadata?.let { metadataValue ->
-                when (val captured = capture(metadataValue.value, policy)) {
+                when (val captured = capture(metadataValue.value)) {
                     is SnapshotResult.Complete -> MetadataSnapshot.of(captured.snapshot)
                     else -> return captured
                 }
             }
-            val writer = SnapshotWriter(value, policy)
+            val writer = SnapshotWriter(value)
             val executionValue = writer.write()
             if (writer.problems.isNotEmpty() || executionValue == null) {
                 return SnapshotResult.Rejected(writer.problems)
@@ -116,24 +109,19 @@ class DataSnapshot internal constructor(
 
 
 private class SnapshotWriter(
-    private val value: DataValue,
-    private val policy: SnapshotPolicy
+    private val value: DataValue
 ) {
     val problems = mutableListOf<DataProblem>()
-    private val budget = ReadBudget(policy.maximumDurationMillis.milliseconds)
-    private var elements = 0
     private val openIdentities = mutableListOf<Any>()
     private val seenIdentities = mutableListOf<Any>()
 
-    fun write(): ExecutionValue? = writeNode(value.root, value.type, emptyList(), 1)
+    fun write(): ExecutionValue? = writeNode(value.root, value.type, emptyList())
 
     private fun writeNode(
         node: DataNode,
         type: DataType,
-        path: List<DataPathSegment>,
-        depth: Int
+        path: List<DataPathSegment>
     ): ExecutionValue? {
-        if (!checkBounds(path, depth)) return null
         return try {
             when (value.access.state(node)) {
                 DataState.Absent -> null
@@ -142,7 +130,7 @@ private class SnapshotWriter(
                         DataProblem.invalidState, "Null is not allowed by $type", path)
                     else NullExecutionValue
                 }
-                DataState.Present -> writePresent(node, type, path, depth)
+                DataState.Present -> writePresent(node, type, path)
             }
         }
         catch (e: DataAccessException) {
@@ -157,8 +145,7 @@ private class SnapshotWriter(
     private fun writePresent(
         node: DataNode,
         type: DataType,
-        path: List<DataPathSegment>,
-        depth: Int
+        path: List<DataPathSegment>
     ): ExecutionValue? {
         if (type is DataType.Opaque) {
             return reject(DataProblem.snapshotOpaque, "Opaque value cannot be snapshotted", path)
@@ -170,7 +157,7 @@ private class SnapshotWriter(
                 reject(DataProblem.unresolvedReference, "Type reference '${type.id}' was not expanded", path)
             }
             else {
-                writePresent(node, expanded, path, depth)
+                writePresent(node, expanded, path)
             }
         }
         val identity = containerIdentity(node, type)
@@ -184,10 +171,10 @@ private class SnapshotWriter(
         try {
             return when (type) {
                 is DataType.Scalar -> writeScalar(value.access.scalar(node), type.kind, path)
-                is DataType.Record -> writeRecord(node, type, path, depth)
-                is DataType.Listing -> writeListing(node, type, path, depth)
-                is DataType.Mapping -> writeMapping(node, type, path, depth)
-                is DataType.Union -> writeUnion(node, type, path, depth)
+                is DataType.Record -> writeRecord(node, type, path)
+                is DataType.Listing -> writeListing(node, type, path)
+                is DataType.Mapping -> writeMapping(node, type, path)
+                is DataType.Union -> writeUnion(node, type, path)
                 is DataType.Dynamic -> reject(
                     DataProblem.snapshotRejected,
                     "A Dynamic live node must expose a concrete runtime contract before snapshot",
@@ -204,8 +191,7 @@ private class SnapshotWriter(
     private fun writeRecord(
         node: DataNode,
         type: DataType.Record,
-        path: List<DataPathSegment>,
-        depth: Int
+        path: List<DataPathSegment>
     ): ExecutionValue? {
         if (type.fields.any { it.id.occurrence != 0 }) {
             return reject(
@@ -215,7 +201,6 @@ private class SnapshotWriter(
         }
         val fields = linkedMapOf<String, ExecutionValue>()
         for (field in type.fields) {
-            if (!count(path)) return null
             val segment = DataPathSegment.Field(field.id)
             val child = value.access.field(node, field.id)
             if (value.access.state(child) == DataState.Absent) {
@@ -223,7 +208,7 @@ private class SnapshotWriter(
                     DataProblem.missingValue, "Required field '${field.id}' is absent", path + segment)
                 continue
             }
-            fields[field.id.name] = writeNode(child, field.type, path + segment, depth + 1) ?: return null
+            fields[field.id.name] = writeNode(child, field.type, path + segment) ?: return null
         }
         return MapExecutionValue(fields.toMap())
     }
@@ -231,17 +216,15 @@ private class SnapshotWriter(
     private fun writeListing(
         node: DataNode,
         type: DataType.Listing,
-        path: List<DataPathSegment>,
-        depth: Int
+        path: List<DataPathSegment>
     ): ExecutionValue? {
         val size = value.access.size(node)
         val values = ArrayList<ExecutionValue>(size)
         for (index in 0 until size) {
-            if (!count(path)) return null
             val segment = DataPathSegment.Element(index)
             values += writeNode(
                 value.access.element(node, index), type.element,
-                path + segment, depth + 1) ?: return null
+                path + segment) ?: return null
         }
         return ListExecutionValue(values.toList())
     }
@@ -249,8 +232,7 @@ private class SnapshotWriter(
     private fun writeMapping(
         node: DataNode,
         type: DataType.Mapping,
-        path: List<DataPathSegment>,
-        depth: Int
+        path: List<DataPathSegment>
     ): ExecutionValue? {
         val size = value.access.size(node)
         val keyType = type.key as? DataType.Scalar
@@ -261,25 +243,23 @@ private class SnapshotWriter(
         if (keyType.kind == ScalarKind.Text) {
             val mapped = linkedMapOf<String, ExecutionValue>()
             for (index in 0 until size) {
-                if (!count(path)) return null
                 val key = value.access.keyAt(node, index)
                 val text = (key as? TextExecutionValue)?.value
                     ?: return reject(DataProblem.invalidMappingKey, "Text mapping key required", path)
                 val segment = DataPathSegment.Entry(keyType.kind, key)
                 mapped[text] = writeNode(
                     value.access.entry(node, key), type.value,
-                    path + segment, depth + 1) ?: return null
+                    path + segment) ?: return null
             }
             return MapExecutionValue(mapped.toMap())
         }
         val entries = mutableListOf<ExecutionValue>()
         for (index in 0 until size) {
-            if (!count(path)) return null
             val key = value.access.keyAt(node, index)
             val segment = DataPathSegment.Entry(keyType.kind, key)
             val child = writeNode(
                 value.access.entry(node, key), type.value,
-                path + segment, depth + 1) ?: return null
+                path + segment) ?: return null
             entries += MapExecutionValue(mapOf("key" to key.deepCopy(), "value" to child))
         }
         return ListExecutionValue(entries.toList())
@@ -288,16 +268,14 @@ private class SnapshotWriter(
     private fun writeUnion(
         node: DataNode,
         type: DataType.Union,
-        path: List<DataPathSegment>,
-        depth: Int
+        path: List<DataPathSegment>
     ): ExecutionValue? {
-        if (!count(path)) return null
         val active = value.access.activeVariant(node)
         val variant = type.variants.firstOrNull { it.id == active }
             ?: return reject(DataProblem.unionVariantUnknown, "Union has no variant '$active'", path)
         val segment = DataPathSegment.Variant(active)
         val selected = writeNode(
-            value.access.selected(node), variant.type, path + segment, depth + 1) ?: return null
+            value.access.selected(node), variant.type, path + segment) ?: return null
         return MapExecutionValue(mapOf(
             "variant" to TextExecutionValue(active.value),
             "value" to selected))
@@ -315,16 +293,8 @@ private class SnapshotWriter(
                 path)
         }
         return when (scalar) {
-            is TextExecutionValue -> {
-                if (scalar.value.length > policy.maximumTextLength) reject(
-                    DataProblem.snapshotLimit, "Text exceeds maximum length", path)
-                else scalar
-            }
-            is BinaryExecutionValue -> {
-                if (scalar.value.size > policy.maximumBinaryBytes) reject(
-                    DataProblem.snapshotLimit, "Binary exceeds maximum bytes", path)
-                else BinaryExecutionValue(scalar.value.copyOf())
-            }
+            is TextExecutionValue -> scalar
+            is BinaryExecutionValue -> BinaryExecutionValue(scalar.value.copyOf())
             is BooleanExecutionValue -> scalar
             is NumberExecutionValue -> scalar
             is LongExecutionValue -> when (kind) {
@@ -340,27 +310,6 @@ private class SnapshotWriter(
         if (type !is DataType.Record && type !is DataType.Listing && type !is DataType.Mapping) return null
         if (value.access.contract(node).nativeByPath.isEmpty()) return null
         return value.access.native(node)
-    }
-
-    private fun checkBounds(path: List<DataPathSegment>, depth: Int): Boolean {
-        if (depth > policy.maximumDepth) {
-            reject(DataProblem.snapshotLimit, "Snapshot exceeds maximum depth", path)
-            return false
-        }
-        if (budget.exhausted()) {
-            reject(DataProblem.snapshotLimit, "Snapshot exceeds maximum duration", path)
-            return false
-        }
-        return true
-    }
-
-    private fun count(path: List<DataPathSegment>): Boolean {
-        elements += 1
-        if (elements > policy.maximumElements) {
-            reject(DataProblem.snapshotLimit, "Snapshot exceeds cumulative element limit", path)
-            return false
-        }
-        return true
     }
 
     private fun reject(code: String, message: String, path: List<DataPathSegment>): Nothing? {

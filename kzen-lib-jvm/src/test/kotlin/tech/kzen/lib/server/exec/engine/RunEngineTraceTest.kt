@@ -13,6 +13,7 @@ import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import tech.kzen.lib.platform.collect.PersistentList
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.test.Test
@@ -189,6 +190,83 @@ class RunEngineTraceTest {
                 listOf(Address.of("q")),
                 engine.history(0).map { it.address },
                 "only the retained emit is appended to history; the transient one is absent")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    //------------------------------------------------------------------------------------------- lists (emitList)
+    @Test
+    fun aSnapshotKeepsTheListVersionItSaw() = runBlocking {
+        // A list is immutable, so a snapshot taken mid-run still reads the version it saw after later emits; a list
+        // sits beside the live value at the same address, and never reaches history.
+        lateinit var engine: RunEngine
+        var mid: Node? = null
+        engine = RunEngine(
+            logicOf { execution ->
+                val first = PersistentList<ExecutionValue>()
+                    .add(ExecutionValue.of("a"))
+                    .add(ExecutionValue.of("b"))
+                execution.emit(Address.of("loop"), ExecutionValue.of(2L), retain = false)
+                execution.emitList(Address.of("loop"), first)
+                mid = engine.snapshot().root
+                execution.emitList(Address.of("loop"), first.add(ExecutionValue.of("c")))
+                bindingsOfMain("ok")
+            },
+            rootId)
+        try {
+            engine.resume()
+            engine.await()
+
+            assertEquals(
+                listOf(ExecutionValue.of("a"), ExecutionValue.of("b")),
+                mid!!.lists.getValue(Address.of("loop")).toList(),
+                "the earlier snapshot holds the version it saw")
+
+            val root = engine.snapshot().root
+            assertEquals(3, root.lists.getValue(Address.of("loop")).size, "the latest snapshot holds the latest")
+            assertEquals(ExecutionValue.of(2L), root.live[Address.of("loop")], "the live value is beside it")
+            assertTrue(
+                root.listSequence.getValue(Address.of("loop")) > root.liveSequence.getValue(Address.of("loop")),
+                "the list carries its own write sequence")
+            assertTrue(engine.history(0).isEmpty(), "a list never reaches history")
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun resetEmittedClearsLists() = runBlocking {
+        // A list resets with the live value at its address, own or in a superseded hosted child.
+        val site = ObjectStableId("site")
+        val engine = RunEngine(
+            logicOf { execution ->
+                val one = PersistentList<ExecutionValue>().add(ExecutionValue.of(1L))
+                execution.emitList(Address.of("a"), one)
+                execution.emitList(Address.of("b"), one)
+                execution.host(
+                    ObjectStableId("child"),
+                    logicOf { child ->
+                        child.emitList(Address.of("c"), one)
+                        bindingsOfMain("child")
+                    },
+                    callerStableId = site)
+                execution.resetEmitted(listOf(Address.of("a")), listOf(site))
+                bindingsOfMain("ok")
+            },
+            rootId)
+        try {
+            engine.resume()
+            engine.await()
+
+            val root = engine.snapshot().root
+            assertEquals(setOf(Address.of("b")), root.lists.keys, "the reset address's list is removed")
+            assertEquals(setOf(Address.of("b")), root.listSequence.keys, "with its sequence")
+            assertTrue(root.children.single().lists.isEmpty(), "a superseded child's lists are cleared")
         }
         finally {
             engine.close()

@@ -2,7 +2,6 @@ package tech.kzen.lib.common.exec.data.value
 
 import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
-import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
 import java.beans.Introspector
 import java.lang.reflect.Field
 import java.lang.reflect.InvocationTargetException
@@ -70,7 +69,7 @@ internal class BeanShape private constructor(
 
     companion object {
         private val shapes = object: ClassValue<BeanShape>() {
-            override fun computeValue(type: Class<*>): BeanShape = ReadPreparation.prepare { analyze(type) }
+            override fun computeValue(type: Class<*>): BeanShape = analyze(type)
         }
 
         private val empty = BeanShape(emptyList())

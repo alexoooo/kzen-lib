@@ -15,7 +15,6 @@ import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.NativeTypeToken
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.VariantId
-import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
 import java.lang.reflect.Array as ReflectArray
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -338,7 +337,7 @@ private class NodeEntry(
 private object NativePropertyPlans {
     private val plans = object: ClassValue<Map<FieldId, (Any) -> Any?>>() {
         override fun computeValue(type: Class<*>): Map<FieldId, (Any) -> Any?> =
-            ReadPreparation.prepare { create(type.kotlin) }
+            create(type.kotlin)
     }
 
     fun reader(type: KClass<*>, field: FieldId): (Any) -> Any? =

@@ -13,8 +13,6 @@ import tech.kzen.lib.common.exec.data.type.FieldId
 import tech.kzen.lib.common.exec.data.type.ScalarKind
 import tech.kzen.lib.common.exec.data.type.DataTypePath
 import tech.kzen.lib.common.exec.data.type.DataPathSegment
-import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
-import tech.kzen.lib.common.exec.data.value.budget.busyWait
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,7 +20,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
 
 
 class DataSnapshotTest {
@@ -73,10 +70,8 @@ class DataSnapshotTest {
 
 
     @Test
-    fun policiesRejectLimitsOpaqueDuplicatesAndSensitiveValues() {
+    fun opaqueDuplicatesAndSensitiveValuesAreNotCopied() {
         val text = LiteralDataValues.lift("abcdef")
-        val limited = DataSnapshot.capture(text, SnapshotPolicy(maximumTextLength = 3))
-        assertEquals(DataProblem.snapshotLimit, assertIs<SnapshotResult.Rejected>(limited).problems.single().code)
 
         val opaque = LiteralDataValues.lift(Any())
         assertEquals(
@@ -85,13 +80,7 @@ class DataSnapshotTest {
 
         assertEquals(
             SnapshotResult.Redacted,
-            DataSnapshot.capture(text, SnapshotPolicy(), sensitive = true))
-        assertEquals(
-            DataProblem.snapshotRejected,
-            assertIs<SnapshotResult.Rejected>(DataSnapshot.capture(
-                text,
-                SnapshotPolicy(sensitive = SensitiveSnapshotPolicy.Reject),
-                sensitive = true)).problems.single().code)
+            DataSnapshot.capture(text, sensitive = true))
 
         val duplicateType = DataType.Record(listOf(
             DataField(FieldId("a", 0), DataType.Scalar(ScalarKind.Text)),
@@ -104,17 +93,13 @@ class DataSnapshotTest {
 
 
     @Test
-    fun durationLimitChargesReadingButNotTypePreparation() {
-        val policy = SnapshotPolicy(maximumDurationMillis = 50)
-        val overBudget = 150.milliseconds
-
-        val prepared = slowFirstFieldValue { ReadPreparation.prepare { busyWait(overBudget) } }
-        val complete = assertIs<SnapshotResult.Complete>(DataSnapshot.capture(prepared, policy))
-        assertEquals(TextExecutionValue("y"), assertIs<MapExecutionValue>(complete.snapshot.value).values["b"])
-
-        val slow = slowFirstFieldValue { busyWait(overBudget) }
-        val rejected = assertIs<SnapshotResult.Rejected>(DataSnapshot.capture(slow, policy))
-        assertEquals(DataProblem.snapshotLimit, rejected.problems.single().code)
+    fun aLargeValueIsCopiedInFull() {
+        val text = "x".repeat(2_000_000)
+        val snapshot = assertIs<SnapshotResult.Complete>(DataSnapshot.capture(
+            LiteralDataValues.lift(List(200_000) { "v$it" } + listOf(text))))
+        val values = assertIs<ListExecutionValue>(snapshot.snapshot.value).values
+        assertEquals(200_001, values.size)
+        assertEquals(TextExecutionValue(text), values.last())
     }
 
 
@@ -166,20 +151,6 @@ class DataSnapshotTest {
     }
 
 
-    private fun slowFirstFieldValue(firstRead: () -> Unit): DataValue {
-        val original = LiteralDataValues.lift(recordOf("a" to "x", "b" to "y"))
-        var read = false
-        val access = object: ValueAccess by original.access {
-            override fun field(node: DataNode, field: FieldId): DataNode {
-                if (!read) {
-                    read = true
-                    firstRead()
-                }
-                return original.access.field(node, field)
-            }
-        }
-        return DataValue(access, original.root)
-    }
 
 
     private fun duplicateRecordValue(type: DataType.Record): DataValue {

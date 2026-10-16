@@ -48,6 +48,7 @@ import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.engine.TraceEvent
 import tech.kzen.lib.common.exec.engine.TraceReset
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.common.util.ExceptionUtils
 
 
@@ -178,6 +179,9 @@ class RunEngine(
         val live = LinkedHashMap<Address, ExecutionValue>()
         // Parallel to [live], carried to [Node.liveSequence]: the write sequence of each live entry.
         val liveSequence = LinkedHashMap<Address, Long>()
+        // [Execution.emitList]'s lists and their write sequences, carried to [Node.lists] / [Node.listSequence].
+        val lists = LinkedHashMap<Address, PersistentList<ExecutionValue>>()
+        val listSequence = LinkedHashMap<Address, Long>()
         val children = ArrayList<NodeId>()
         val bindings = LinkedHashMap<ContextKey, Binding>()
         // Anonymous teardown registered against THIS frame ([Execution.onSettle]) — no key, no lookup, and it
@@ -1360,6 +1364,18 @@ class RunEngine(
     }
 
 
+    // No history event: a list is live state only (see [Execution.emitList]).
+    private fun emitList(nodeId: NodeId, address: Address, entries: PersistentList<ExecutionValue>) {
+        synchronized(lock) {
+            sequence += 1
+            val runtime = nodes.getValue(nodeId)
+            runtime.lists[address] = entries
+            runtime.listSequence[address] = sequence
+        }
+        publish()
+    }
+
+
     private fun log(nodeId: NodeId, value: ExecutionValue) {
         synchronized(lock) {
             sequence += 1
@@ -1381,7 +1397,12 @@ class RunEngine(
         }
         val (reset, listeners) = synchronized(lock) {
             val runtime = nodes.getValue(nodeId)
-            addresses.forEach { runtime.live.remove(it); runtime.liveSequence.remove(it) }
+            addresses.forEach {
+                runtime.live.remove(it)
+                runtime.liveSequence.remove(it)
+                runtime.lists.remove(it)
+                runtime.listSequence.remove(it)
+            }
             // Nullable-element set so `in` accepts the nullable callerStableId (null is never a member).
             val sites = HashSet<ObjectStableId?>(callSites)
             for (childId in runtime.children) {
@@ -1406,6 +1427,8 @@ class RunEngine(
             ?: return
         runtime.live.clear()
         runtime.liveSequence.clear()
+        runtime.lists.clear()
+        runtime.listSequence.clear()
         runtime.children.forEach { clearLiveSubtree(it) }
     }
 
@@ -1763,7 +1786,9 @@ class RunEngine(
             runtime.callerStableId,
             runtime.retainTrace,
             runtime.position,
-            LinkedHashMap(runtime.liveSequence)
+            LinkedHashMap(runtime.liveSequence),
+            LinkedHashMap(runtime.lists),
+            LinkedHashMap(runtime.listSequence)
         )
     }
 
@@ -1782,6 +1807,9 @@ class RunEngine(
 
         override fun emit(address: Address, value: ExecutionValue, retain: Boolean) =
             this@RunEngine.emit(nodeId, address, value, retain)
+
+        override fun emitList(address: Address, entries: PersistentList<ExecutionValue>) =
+            this@RunEngine.emitList(nodeId, address, entries)
 
         override fun log(value: ExecutionValue) =
             this@RunEngine.log(nodeId, value)

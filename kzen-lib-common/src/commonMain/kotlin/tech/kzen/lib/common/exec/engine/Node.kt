@@ -2,6 +2,7 @@ package tech.kzen.lib.common.exec.engine
 
 import tech.kzen.lib.common.exec.ExecutionValue
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import tech.kzen.lib.platform.collect.PersistentList
 
 
 /**
@@ -41,5 +42,11 @@ data class Node(
     // A trace consumer projecting the live view to the wire needs each value's sequence (for a whole-run
     // merge's latest-wins tiebreak, and the client's screenshot ordering). Kept beside [live] rather than in
     // it so [live]'s existing value-typed readers are unaffected. Empty for nodes with no live values.
-    val liveSequence: Map<Address, Long> = emptyMap()
+    val liveSequence: Map<Address, Long> = emptyMap(),
+
+    // The lists recorded with [Execution.emitList], by address, and the sequence of each one's latest write.
+    // Separate from [live] so an address can carry a value and a list, and so a projection of [live] never
+    // ships a list by accident. Each list is immutable: the snapshot holds the version it saw.
+    val lists: Map<Address, PersistentList<ExecutionValue>> = emptyMap(),
+    val listSequence: Map<Address, Long> = emptyMap()
 )

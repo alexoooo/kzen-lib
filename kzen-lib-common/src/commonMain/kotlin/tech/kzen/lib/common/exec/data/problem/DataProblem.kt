@@ -44,7 +44,6 @@ class DataProblem(
         const val invalidMappingKey = "data.invalid-mapping-key"
         const val mappingKeyCollision = "data.mapping-key-collision"
         const val snapshotRejected = "data.snapshot-rejected"
-        const val snapshotLimit = "data.snapshot-limit"
         const val snapshotCycle = "data.snapshot-cycle"
         const val snapshotOpaque = "data.snapshot-opaque"
         const val snapshotDuplicateField = "data.snapshot-duplicate-field"

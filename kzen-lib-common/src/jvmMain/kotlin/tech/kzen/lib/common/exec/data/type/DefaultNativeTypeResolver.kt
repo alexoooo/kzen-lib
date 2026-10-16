@@ -10,7 +10,6 @@ import tech.kzen.lib.common.exec.data.value.DataValue
 import tech.kzen.lib.common.exec.data.value.DataValueAlgebra
 import tech.kzen.lib.common.exec.data.value.LiteralDataValues
 import tech.kzen.lib.common.exec.data.value.JvmNativeValueAccess
-import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
 import tech.kzen.lib.common.model.structure.metadata.TypeMetadata
 import tech.kzen.lib.platform.ClassName
 import java.math.BigDecimal
@@ -83,21 +82,20 @@ class DefaultNativeTypeResolver(
             else -> null
         }
         cache?.get(native)?.let { return it }
-        val described = ReadPreparation.prepare {
-            val session = DescribeSession()
-            val described = describe(native, emptySet(), session)
-            defineReferenced(session)
+        val session = DescribeSession()
+        val root = describe(native, emptySet(), session)
+        defineReferenced(session)
+        val described =
             if (session.definitions.isEmpty()) {
-                described
+                root
             }
             else {
                 ResolvedDataContract(
                     DataContract(
-                        described.contract.structural, described.contract.nativeByPath,
-                        session.definitions, session.definitionNatives, described.contract.constraintsByPath),
-                    described.tokenByPath)
+                        root.contract.structural, root.contract.nativeByPath,
+                        session.definitions, session.definitionNatives, root.contract.constraintsByPath),
+                    root.tokenByPath)
             }
-        }
         // Not computeIfAbsent (see the class comment)
         return cache?.putIfAbsent(native, described) ?: described
     }

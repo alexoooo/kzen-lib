@@ -4,7 +4,6 @@ import tech.kzen.lib.common.exec.data.problem.DataException
 import tech.kzen.lib.common.exec.data.problem.DataProblem
 import tech.kzen.lib.common.exec.data.value.DataSnapshot
 import tech.kzen.lib.common.exec.data.value.DataValue
-import tech.kzen.lib.common.exec.data.value.SnapshotPolicy
 import tech.kzen.lib.common.exec.data.value.SnapshotResult
 
 
@@ -120,8 +119,7 @@ class DataBindings private constructor(
 
     /** Whole-binding display policy only; sensitivity is deliberately not propagated to another binding. */
     fun snapshot(
-        name: BindingName,
-        policy: SnapshotPolicy = SnapshotPolicy()
+        name: BindingName
     ): SnapshotResult {
         val definition = schema[name]
         val value = when (val state = get(name)) {
@@ -130,7 +128,7 @@ class DataBindings private constructor(
                 "Binding '$name' is unbound")))
             is BindingState.Bound -> state.value
         }
-        return DataSnapshot.capture(value, policy, definition.sensitive)
+        return DataSnapshot.capture(value, definition.sensitive)
     }
 
     private fun fail(code: String, message: String): Nothing =

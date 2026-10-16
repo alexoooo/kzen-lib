@@ -1,7 +1,6 @@
 package tech.kzen.lib.common.exec.data.value
 
 import tech.kzen.lib.common.exec.data.type.NativeTypeToken
-import tech.kzen.lib.common.exec.data.value.budget.ReadPreparation
 import kotlin.reflect.KType
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.createType
@@ -11,7 +10,7 @@ import kotlin.reflect.full.withNullability
 
 /**
  * The kotlin-reflect facts the native value path asks of a value's runtime class, computed once per `Class`
- * identity (loader-local) as [ReadPreparation]: a class's first kotlin-reflect use loads its metadata.
+ * identity (loader-local): a class's first kotlin-reflect use loads its metadata.
  */
 internal object NativeClasses {
     private class Facts(type: Class<*>) {
@@ -30,7 +29,7 @@ internal object NativeClasses {
     }
 
     private val byClass = object: ClassValue<Facts>() {
-        override fun computeValue(type: Class<*>): Facts = ReadPreparation.prepare { Facts(type) }
+        override fun computeValue(type: Class<*>): Facts = Facts(type)
     }
 
 

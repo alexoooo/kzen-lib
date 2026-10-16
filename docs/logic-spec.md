@@ -127,11 +127,9 @@ re-inventing it.
   and break pause / step / migrate outright.
 
   > *As built:* a core engine watchdog was tried and retired — its topology heuristic sat in the
-  > use-case-agnostic core and still missed a lone sink on an orphan channel. Its replacement,
-  > `JobDeadlockMonitor`, is Job-scoped, polls the run's channels' blocked-endpoint counts against the live
-  > non-terminal Worker count on its own daemon thread, requires the verdict to hold across a grace window,
-  > and is suppressed entirely while an external duplex channel is open (a Worker idling on a serve port
-  > awaits a UI request, not a peer).
+  > use-case-agnostic core and still missed a lone sink on an orphan channel. Its Job-scoped replacement was
+  > retired too (2026-10-15): it was off for every Job serving an external channel, which is most Jobs. No
+  > flavour detects a deadlock today; a stuck run waits until it is cancelled.
 
 - **No global singletons (explicit anti-goal).** The model must **not** depend on process-global state.
   Concretely: there must be no requirement that *at most one run is active*, no single shared run
@@ -823,6 +821,17 @@ it is doing**, and the recording is part of the Logic contract — not an option
   > *As built:* one call writes each — `Execution.emit(address, value)` (live, and by default also
   > appended) and `Execution.log(value)` (history only) — and one call resets the live view:
   > `Execution.resetEmitted(addresses, callSites)`, the explicit signal a re-running scope raises (below).
+
+- **Live lists of any length, read by range.** Some live state is an append-only list that grows without
+  bound — a loop's journal, one entry per iteration — and the user must be able to see all of it. Putting it
+  in the live value would re-send the whole list on every refresh and rebuild it on every iteration, so the
+  cost of one iteration would grow with the loop. A list is therefore its own kind of live state: recorded as
+  an immutable version that shares structure with the previous one (so recording costs the same at any
+  length), kept beside the live value and reset with it, out of the snapshot, and read **a range at a time**.
+
+  > *As built:* `Execution.emitList(address, PersistentList)` writes it (`Node.lists`, with its write
+  > sequence in `Node.listSequence`), and `LogicTrace.lookupRange(runId, executionId?, path, offset, count?)`
+  > reads a `LogicTraceRange` of it — the latest list at the path when no execution is named.
 
 - **Typed trace values, including large binary.** Trace values are typed (text, number, boolean, list, map,
   **binary**, …) — binary because real consumers record screenshots and other blobs. Arbitrary values must

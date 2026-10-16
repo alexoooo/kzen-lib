@@ -12,6 +12,7 @@ import tech.kzen.lib.common.exec.engine.context.ExportSelector
 import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
+import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
 
@@ -51,6 +52,16 @@ interface Execution {
      * whole-run-merged views; only the append-only history / film-strip omits it.
      */
     fun emit(address: Address, value: ExecutionValue, retain: Boolean = true)
+
+    /**
+     * Record the current version of the list at [address], beside (not in) the live value there: an append-only
+     * record such as a loop's journal, which can grow without bound. The caller keeps the list and emits each
+     * new version; [entries] is immutable and shares structure with the last, so the emit and the snapshot that
+     * carries it cost the same however long it is. A reader gets a range of it ([Node.lists]); a trace query
+     * never ships it whole. Live state only, like a transient [emit]: never in history, cleared by
+     * [resetEmitted] with the live value at the same address.
+     */
+    fun emitList(address: Address, entries: PersistentList<ExecutionValue>)
 
     /**
      * Append an immutable event to the run's history timeline (survives loop / iteration resets) — the

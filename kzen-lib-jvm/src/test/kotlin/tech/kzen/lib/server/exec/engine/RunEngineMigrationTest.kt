@@ -15,6 +15,7 @@ import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
+import tech.kzen.lib.platform.collect.PersistentList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.test.Test
@@ -118,6 +119,33 @@ class RunEngineMigrationTest {
 
             assertEquals(5L, assertIs<Outcome.Success>(outcome).value.mainComponentValue())
             assertEquals(ExecutionValue.of(5L), engine.snapshot().root.live[Address.of("count")])
+        }
+        finally {
+            engine.close()
+        }
+    }
+
+
+    @Test
+    fun migrateStartsTheRebuiltRootWithNoLists() = runBlocking {
+        // Like live values, lists do not cross the barrier: the rebuilt run re-emits what it carries.
+        val engine = RunEngine(
+            logicOf { execution ->
+                execution.emitList(Address.of("journal"), PersistentList<ExecutionValue>().add(ExecutionValue.of(1L)))
+                parkForever(execution)
+            },
+            rootId)
+        try {
+            engine.step()
+            engine.awaitQuiescent()
+            engine.step()
+            engine.awaitQuiescent()
+            assertEquals(1, engine.snapshot().root.lists.getValue(Address.of("journal")).size)
+
+            engine.migrate(logicOf { execution -> parkForever(execution) }, paused = true)
+            engine.awaitQuiescent()
+
+            assertTrue(engine.snapshot().root.lists.isEmpty(), "the rebuilt root starts with no lists")
         }
         finally {
             engine.close()
