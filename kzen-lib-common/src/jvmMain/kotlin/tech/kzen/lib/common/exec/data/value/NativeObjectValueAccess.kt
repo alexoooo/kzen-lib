@@ -292,8 +292,6 @@ internal class NativeObjectValueAccess private constructor(
                 "$operation requires a present value",
                 entry.path))
         }
-        // A closed native fails by name here, on the next read, rather than being read silently
-        registry.checkLive(entry.value)
         return entry
     }
 

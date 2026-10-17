@@ -5,6 +5,7 @@ import tech.kzen.lib.common.exec.ExecutionResult
 import tech.kzen.lib.common.exec.ExecutionValue
 import tech.kzen.lib.common.exec.data.binding.DataBindings
 import tech.kzen.lib.common.exec.data.binding.BindingSchema
+import tech.kzen.lib.common.exec.data.value.DataValue
 import tech.kzen.lib.common.exec.engine.context.BindingLookup
 import tech.kzen.lib.common.exec.engine.context.ContextFamily
 import tech.kzen.lib.common.exec.engine.context.ContextKey
@@ -12,6 +13,8 @@ import tech.kzen.lib.common.exec.engine.context.ExportSelector
 import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
+import tech.kzen.lib.common.exec.engine.resource.Held
+import tech.kzen.lib.common.exec.engine.resource.ResourceRegistry
 import tech.kzen.lib.platform.collect.PersistentList
 import tech.kzen.lib.common.service.store.normal.ObjectStableId
 
@@ -242,6 +245,23 @@ interface Execution {
      * wants a managed binding.
      */
     fun onSettle(policy: SettleDisposalPolicy, closer: () -> Unit)
+
+    /**
+     * A frame hold on [value]'s resources, released at this frame's settle unless released earlier through
+     * [Held.hold]. A root native that is an `AutoCloseable` the run does not know yet is adopted here (closed by
+     * `close` when its last hold is released); one it knows is attached. Null when the value owns nothing. The
+     * caller stores and passes on [Held.value], which carries the owners — so a later reader of what this frame
+     * recorded sees the value that knows what it depends on, and a value this frame returns is held by the
+     * receiving frame before this one settles (logic-spec §6).
+     */
+    fun hold(value: DataValue): Held?
+
+    /**
+     * The run's resource registry: every entry adopted in this run, by native identity, with its holds by holder.
+     * For a holder that has a name of its own (a channel, a Worker callback) and takes holds that are not tied to
+     * this frame's settle; a frame-scoped hold is [hold].
+     */
+    val resources: ResourceRegistry
 
     /**
      * Is SOME member of [family] live on this node's ancestor chain — the bare family key or any qualifier of

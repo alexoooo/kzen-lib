@@ -20,8 +20,7 @@ import kotlin.reflect.KType
 class DefaultDataAdapterRegistry(
     exact: List<ExactDataAdapter> = emptyList(),
     private val fallbacks: List<CapabilityDataAdapter> = emptyList(),
-    private val nativeTypeResolver: DefaultNativeTypeResolver = DefaultNativeTypeResolver(),
-    private val livenessGuard: NativeLivenessGuard = NativeLivenessGuard.none
+    private val nativeTypeResolver: DefaultNativeTypeResolver = DefaultNativeTypeResolver()
 ): DataAdapterRegistry, AutoCloseable {
     private val exactByClass: Map<KClass<*>, DataAdapter>
 
@@ -111,12 +110,6 @@ class DefaultDataAdapterRegistry(
                 if (value is String) BigDecimal(value) else value
             else -> value
         }
-
-
-    /** The host's liveness check for a present native object a value view is about to read through. */
-    internal fun checkLive(native: Any) {
-        livenessGuard.checkLive(native)
-    }
 
 
     internal fun childValue(value: Any?, expected: DataContract?): Pair<Any?, DataContract> {

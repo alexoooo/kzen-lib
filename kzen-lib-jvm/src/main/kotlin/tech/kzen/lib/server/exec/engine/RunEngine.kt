@@ -34,6 +34,12 @@ import tech.kzen.lib.common.exec.engine.context.InitialBinding
 import tech.kzen.lib.common.exec.engine.context.RetainedBinding
 import tech.kzen.lib.common.exec.engine.disposal.FrameDisposal
 import tech.kzen.lib.common.exec.engine.disposal.SettleDisposalPolicy
+import tech.kzen.lib.common.exec.engine.resource.Held
+import tech.kzen.lib.common.exec.engine.resource.Hold
+import tech.kzen.lib.common.exec.engine.resource.Holder
+import tech.kzen.lib.common.exec.engine.resource.Resource
+import tech.kzen.lib.common.exec.engine.resource.ResourceRegistry
+import tech.kzen.lib.common.exec.data.value.DataValue
 import tech.kzen.lib.common.exec.engine.Logic
 import tech.kzen.lib.common.exec.engine.LogicFailure
 import tech.kzen.lib.common.exec.engine.MoveTarget
@@ -43,6 +49,7 @@ import tech.kzen.lib.common.exec.engine.NodeStatus
 import tech.kzen.lib.common.exec.engine.Outcome
 import tech.kzen.lib.common.exec.engine.PauseReason
 import tech.kzen.lib.common.exec.engine.Run
+import tech.kzen.lib.common.exec.engine.ResourceState
 import tech.kzen.lib.common.exec.engine.RunState
 import tech.kzen.lib.common.exec.engine.StepMode
 import tech.kzen.lib.common.exec.engine.TraceEvent
@@ -94,13 +101,25 @@ class RunEngine(
     )
 
 
+    // A frame's hold on a resource and what the frame's settle does with it (logic-spec §6). A hold is never
+    // dropped: every path out of a frame releases it, hands it to the parent, moves it to [retained] or detaches
+    // the resource — under a count a vanished hold would keep the entry in the live view forever and stop a
+    // co-holder's last release from closing. [resource] is the single entry a binding or anonymous teardown
+    // stands for; null for a value hold ([Execution.hold]), which may cover several.
+    private class FrameHold(
+        val policy: ClosePolicy,
+        val resource: Resource?,
+        val hold: Hold
+    )
+
+
     // An ambient binding: a value in scope under a key, plus — only when the value really is a resource — the
-    // teardown that travels with it. The two are separate features composed here (logic-spec §6): a plain
-    // ambient value carries no disposal, and a teardown with nothing to name is registered anonymously in
-    // [NodeRuntime.settleDisposals] instead.
+    // frame hold that travels with it. The two are separate features composed here (logic-spec §6): a plain
+    // ambient value carries no hold, and a teardown with nothing to name is registered anonymously in
+    // [NodeRuntime.frameHolds] instead.
     private class Binding(
         val value: Any?,
-        val disposal: FrameDisposal?,
+        val hold: FrameHold?,
         // Installed by a call site as [InitialBinding] rather than bound by the frame itself — a BORROW, which
         // the [migrate] barrier must not lift: the rebuilt caller re-supplies it from whatever its sources hold
         // now, and carrying the old one would pin the callee to a subject the edited caller no longer names.
@@ -114,19 +133,20 @@ class RunEngine(
 
 
     // What one torn-down node's stable id carries across the [migrate] barrier: both registries, so an
-    // anonymous cleanup survives an edit exactly as a named binding does.
+    // anonymous cleanup or value hold survives an edit exactly as a named binding does.
     private class LiftedRegistrations(
         val bindings: LinkedHashMap<ContextKey, Binding>,
-        val settleDisposals: List<FrameDisposal>
+        val frameHolds: List<FrameHold>
     )
 
 
-    // A managed binding a settled frame kept rather than disposed, held so it stays findable and closeable
-    // (see [retainedBindings]).
+    // A hold a settled frame kept rather than released, so it stays findable and closeable (see
+    // [retainedBindings]); [key] is null for an anonymous `keepOnFailure` registration.
     private class Retained(
         val nodeId: NodeId,
-        val key: ContextKey,
-        val binding: Binding
+        val key: ContextKey?,
+        val value: Any?,
+        val hold: Hold
     )
 
 
@@ -184,9 +204,22 @@ class RunEngine(
         val listSequence = LinkedHashMap<Address, Long>()
         val children = ArrayList<NodeId>()
         val bindings = LinkedHashMap<ContextKey, Binding>()
-        // Anonymous teardown registered against THIS frame ([Execution.onSettle]) — no key, no lookup, and it
-        // never climbs an export chain, because handing upward something nobody can name is meaningless.
-        val settleDisposals = ArrayList<FrameDisposal>()
+        // Holds registered against THIS frame with no key: anonymous teardown ([Execution.onSettle]) and value
+        // holds ([Execution.hold], the host boundary). No lookup, and never climbs an export chain, because
+        // handing upward something nobody can name is meaningless. A value hold released early stays in the
+        // list as an inactive entry until the next prune, so a loop re-recording one slot walks what is live.
+        val frameHolds = ArrayList<FrameHold>()
+        private var frameHoldPruneAt = 16
+        // The name this frame holds resources under in the live view.
+        val holder = Holder("${stableId.value}@${id.value}")
+
+        fun addFrameHold(frameHold: FrameHold) {
+            if (frameHolds.size >= frameHoldPruneAt) {
+                frameHolds.removeAll { !it.hold.isActive }
+                frameHoldPruneAt = maxOf(16, frameHolds.size * 2)
+            }
+            frameHolds.add(frameHold)
+        }
         // Contexts this node EXPORTS to its host ([Execution.declareExport]): a registration under a key one
         // of these selectors covers climbs PAST this node to its parent, and keeps climbing while each frame
         // in turn exports it. A key no selector covers makes this node the resting frame, so an un-exported
@@ -213,6 +246,10 @@ class RunEngine(
     private var scope = CoroutineScope(dispatcher + SupervisorJob())
 
     private val nodes = HashMap<NodeId, NodeRuntime>()
+    // The run's resources (logic-spec §6): run state, not node state — it outlives every frame and survives
+    // [migrate]. Behind its own lock; a hold or release never takes [lock]. A change only marks the snapshot
+    // stale, so the live view is rebuilt on the next read like any other tree-visible state.
+    private val registry = ResourceRegistry { dirty = true }
     // Each hosted child's compiled Logic; the root's is [liveRootLogic], which [migrate] can replace.
     private val childLogic = HashMap<NodeId, Logic>()
     private val parked = HashMap<NodeId, Parked>()
@@ -327,7 +364,7 @@ class RunEngine(
     init {
         nodeCounter = 1
         nodes[rootId] = NodeRuntime(rootId, rootStableId, depth = 0, parentId = null, inputs = rootInputs)
-        published = RunState(buildNode(rootId), sequence)
+        published = RunState(buildNode(rootId), sequence, resourceStates())
     }
 
 
@@ -338,7 +375,7 @@ class RunEngine(
         }
         return synchronized(lock) {
             if (dirty) {
-                published = RunState(buildNode(rootId), sequence)
+                published = RunState(buildNode(rootId), sequence, resourceStates())
                 dirty = false
             }
             published
@@ -559,6 +596,18 @@ class RunEngine(
      */
     fun dispose() {
         sweepOrphans()
+        // A run torn down mid-flight never settles its live frames, so whatever they still hold is released
+        // here; [retained] is deliberately untouched — it outlives the run until [releaseRetained].
+        val leftover = synchronized(lock) {
+            nodes.values.flatMap { runtime ->
+                val holds = runtime.frameHolds.map { it.hold }.asReversed() +
+                        runtime.bindings.values.mapNotNull { it.hold?.hold }.asReversed()
+                runtime.frameHolds.clear()
+                runtime.bindings.clear()
+                holds
+            }
+        }
+        leftover.forEach { releaseLogged(it) }
         dispatcher.close()
         elasticDispatcher.close()
         closeDataAdapters()
@@ -672,12 +721,12 @@ class RunEngine(
             for (runtime in nodes.values) {
                 // Borrows are dropped rather than lifted — see [Binding.bootstrap].
                 val owned = LinkedHashMap(runtime.bindings.filterValues { !it.bootstrap })
-                if (owned.isNotEmpty() || runtime.settleDisposals.isNotEmpty()) {
+                if (owned.isNotEmpty() || runtime.frameHolds.isNotEmpty()) {
                     migrationResources[runtime.stableId] =
-                        LiftedRegistrations(owned, ArrayList(runtime.settleDisposals))
+                        LiftedRegistrations(owned, ArrayList(runtime.frameHolds))
                 }
                 runtime.bindings.clear()
-                runtime.settleDisposals.clear()
+                runtime.frameHolds.clear()
             }
             scope.coroutineContext[Job]!!
         }
@@ -729,14 +778,24 @@ class RunEngine(
     }
 
 
-    // Closers and captured-state teardowns are third-party code, run off-lock: a failure must not break the
-    // settle / supersede / sweep walk that claimed them, but it must not vanish either.
-    private fun runCloserLogged(closer: () -> Unit) {
+    // A release may run a closer — third-party code — so it runs off-lock, and a failure must not break the
+    // settle / supersede / sweep walk that collected it, but it must not vanish either.
+    private fun releaseLogged(hold: Hold) {
         try {
-            closer()
+            hold.release()
         }
         catch (e: Throwable) {
-            logger.warn("Resource closer failed", e)
+            logger.warn("Resource release failed", e)
+        }
+    }
+
+
+    private fun closeLogged(closeable: AutoCloseable) {
+        try {
+            closeable.close()
+        }
+        catch (e: Throwable) {
+            logger.warn("Captured state close failed", e)
         }
     }
 
@@ -744,8 +803,9 @@ class RunEngine(
     // Dispose any captured state no node of the rebuilt definition adopted (a removed element), and reset the
     // migration registers. Run at the next [migrate] and at [close]: within a run's life an orphaned detached
     // resource lingers at most one edit cycle (deliberate: no eager sweep on every edit). Unadopted lifted
-    // resources are disposed regardless of [ClosePolicy] — the owner frame was removed by the edit, so no
-    // explicit close (Manual) or failure inspection (KeepOnFailure) can ever reach them.
+    // holds are released regardless of [ClosePolicy] — the owner frame was removed by the edit, so no
+    // explicit close (Manual) or failure inspection (KeepOnFailure) can ever reach them; the close itself is
+    // still the resource's at-most-once, reached through the count.
     private fun sweepOrphans() {
         val orphans = synchronized(lock) {
             val result = migrationCaptured
@@ -763,18 +823,18 @@ class RunEngine(
             result
         }
         orphans.forEach { captured ->
-            (captured.state as? AutoCloseable)?.let { runCloserLogged { it.close() } }
+            (captured.state as? AutoCloseable)?.let { closeLogged(it) }
         }
 
-        val orphanedClosers = synchronized(lock) {
+        val orphanedHolds = synchronized(lock) {
             val result = migrationResources.values.flatMap { lifted ->
-                lifted.settleDisposals.asReversed().mapNotNull { it.claim() } +
-                        lifted.bindings.values.toList().asReversed().mapNotNull { it.disposal?.claim() }
+                lifted.frameHolds.asReversed().map { it.hold } +
+                        lifted.bindings.values.toList().asReversed().mapNotNull { it.hold?.hold }
             }
             migrationResources.clear()
             result
         }
-        orphanedClosers.forEach { runCloserLogged(it) }
+        orphanedHolds.forEach { releaseLogged(it) }
     }
 
 
@@ -786,7 +846,7 @@ class RunEngine(
         }
         migrationResources.remove(runtime.stableId)?.let {
             runtime.bindings.putAll(it.bindings)
-            runtime.settleDisposals.addAll(it.settleDisposals)
+            it.frameHolds.forEach(runtime::addFrameHold)
         }
     }
 
@@ -913,14 +973,21 @@ class RunEngine(
     private suspend fun runNode(nodeId: NodeId): NodeRunResult {
         val execution = ExecutionImpl(nodeId)
         // Immutable per node; captured once so a failure catch can stamp [Outcome.Failed.at] with this node's id.
-        val stableId = synchronized(lock) { nodes.getValue(nodeId).stableId }
+        val (stableId, receiver) = synchronized(lock) {
+            val runtime = nodes.getValue(nodeId)
+            runtime.stableId to runtime.parentId
+        }
         val result =
             try {
                 val logic = rootOrChildLogic(nodeId)
                 val signature = logic.signature()
                 val outputSchema = signature.outputs
                 val returned = logic.run(execution)
-                NodeRunResult.Success(settleOutputs(outputSchema, returned))
+                // The host boundary (logic-spec §6): the PARENT frame holds every returned value's resources
+                // before this frame settles below, so the count never touches zero between the child's last
+                // hold and the parent's first — a result is handed over live. The root has no receiver, so its
+                // returned owned values close at its own settle: nothing is left in the run to hold them.
+                NodeRunResult.Success(settleOutputs(outputSchema, returned, receiver))
             }
             catch (_: CancellationException) {
                 // Engine-driven cooperative cancel surfaced from a checkpoint.
@@ -976,14 +1043,17 @@ class RunEngine(
     }
 
 
-    private fun settleOutputs(schema: BindingSchema, returned: DataBindings): DataBindings {
+    private fun settleOutputs(schema: BindingSchema, returned: DataBindings, receiver: NodeId?): DataBindings {
         val produced = ProducedBindingsBuilder(schema)
         for ((definition, state) in returned.entries()) {
             if (schema.find(definition.name) == null) {
                 throw LogicFailure("Unknown produced binding: '${definition.name}'")
             }
             val bound = state as? BindingState.Bound ?: continue
-            produced.set(definition.name, bound.value)
+            val value =
+                if (receiver == null) bound.value
+                else holdFor(receiver, bound.value)?.value ?: bound.value
+            produced.set(definition.name, value)
         }
         return produced.settle()
     }
@@ -1279,72 +1349,77 @@ class RunEngine(
 
 
     /**
-     * Settle one frame's two registries (logic-spec §6). Named bindings and anonymous disposals follow the
-     * same rules with one exception: `manual` is a PROMOTION — it hands a binding one frame up so something
-     * running later can still find and close it — and an anonymous registration has no name for anything to
-     * find it by, which is why [SettleDisposalPolicy] has no such value.
+     * Settle one frame's two registries (logic-spec §6): what the frame's settle does with each of its holds.
+     * Named bindings and anonymous registrations follow the same rules with one exception: `manual` is a
+     * PROMOTION — it hands a binding one frame up so something running later can still find and close it — and
+     * an anonymous registration has no name for anything to find it by, which is why [SettleDisposalPolicy]
+     * has no such value.
      *
-     * A binding with no disposal is a plain ambient value: its name goes out of scope and nothing is torn
-     * down. Every disposal that does run is claimed under the lock (so exactly one caller wins across
-     * supersession, explicit release and settle alike) and invoked OFF it — a closer is third-party code.
+     * A binding with no hold is a plain ambient value: its name goes out of scope and nothing is torn down.
+     * Every hold leaves by exactly one of release, hand-up or [retained] (see [FrameHold]). The decision is
+     * taken under the lock and the releases run OFF it — a release may run a closer, third-party code.
      */
     private fun settleFrame(nodeId: NodeId, error: Boolean) {
-        val toDispose = synchronized(lock) {
+        val toRelease = synchronized(lock) {
             val runtime = nodes[nodeId] ?: return
 
             // A parent's own live binding under the same key wins over a hand-up (putIfAbsent): Auto's
-            // disposal guarantee must not be displaced by an orphaned handle.
+            // release guarantee must not be displaced by an orphaned handle. The displaced hand-up is then
+            // retained rather than lost — its hold would otherwise keep the resource open with nobody to ask.
             val parent = runtime.parentId?.let { nodes[it] }
-            val bindingClosers = ArrayList<() -> Unit>()
+            val bindingHolds = ArrayList<Hold>()
             val entries = runtime.bindings.entries.toList()
             runtime.bindings.clear()
 
             for ((key, binding) in entries) {
-                val disposal = binding.disposal
+                val frameHold = binding.hold
                     ?: continue
 
-                when (disposal.policy) {
+                when (frameHold.policy) {
                     ClosePolicy.Auto ->
-                        disposal.claim()?.let { bindingClosers.add(it) }
+                        bindingHolds.add(frameHold.hold)
 
                     ClosePolicy.Manual ->
                         // A barrier frame retains instead of handing up, exactly like the root — see
                         // [NodeRuntime.contextBarrier].
                         if (parent != null && !runtime.contextBarrier) {
-                            parent.bindings.putIfAbsent(key, binding)
+                            if (parent.bindings.putIfAbsent(key, binding) != null) {
+                                retained.add(Retained(nodeId, key, binding.value, frameHold.hold))
+                            }
                         }
                         else {
-                            retained.add(Retained(nodeId, key, binding))
+                            retained.add(Retained(nodeId, key, binding.value, frameHold.hold))
                         }
 
                     ClosePolicy.KeepOnFailure ->
                         if (error) {
-                            retained.add(Retained(nodeId, key, binding))
+                            retained.add(Retained(nodeId, key, binding.value, frameHold.hold))
                         }
                         else {
-                            disposal.claim()?.let { bindingClosers.add(it) }
+                            bindingHolds.add(frameHold.hold)
                         }
                 }
             }
 
-            val settleClosers = ArrayList<() -> Unit>()
-            val anonymous = runtime.settleDisposals.toList()
-            runtime.settleDisposals.clear()
-            for (disposal in anonymous) {
-                // KeepOnFailure on a failed frame leaves the side effect UNDONE, and there is no handle to
-                // retain — the temp file simply stays for inspection — so the closer is never claimed.
-                if (disposal.policy == ClosePolicy.KeepOnFailure && error) {
+            val anonymousHolds = ArrayList<Hold>()
+            val anonymous = runtime.frameHolds.toList()
+            runtime.frameHolds.clear()
+            for (frameHold in anonymous) {
+                // KeepOnFailure on a failed frame leaves the side effect UNDONE — the temp file simply stays
+                // for inspection — and the hold is retained so it stays findable and closeable there.
+                if (frameHold.policy == ClosePolicy.KeepOnFailure && error) {
+                    retained.add(Retained(nodeId, null, frameHold.resource?.native, frameHold.hold))
                     continue
                 }
-                disposal.claim()?.let { settleClosers.add(it) }
+                anonymousHolds.add(frameHold.hold)
             }
 
-            // LIFO within each registry, and anonymous cleanups ahead of binding disposals: an `onSettle`
+            // LIFO within each registry, and anonymous releases ahead of binding releases: an `onSettle`
             // typically tidies something produced USING a bound resource, so it has to run while that resource
             // is still open.
-            settleClosers.asReversed() + bindingClosers.asReversed()
+            anonymousHolds.asReversed() + bindingHolds.asReversed()
         }
-        toDispose.forEach { runCloserLogged(it) }
+        toRelease.forEach { releaseLogged(it) }
     }
 
 
@@ -1490,26 +1565,56 @@ class RunEngine(
 
 
     private fun bind(nodeId: NodeId, key: ContextKey, value: Any?, disposal: FrameDisposal?) {
-        // A same-key re-bind SUPERSEDES: the displaced binding's disposal runs, because nothing else can ever
-        // reach it once the map entry is gone — the settle walk and [releaseBinding] all resolve a key to
+        // A same-key re-bind SUPERSEDES: the displaced binding's hold is released, because nothing else can
+        // ever reach it once the map entry is gone — the settle walk and [releaseBinding] all resolve a key to
         // exactly one binding. Without this a loop that re-binds the same browser each iteration leaks every
-        // iteration but the last. Claiming happens under the lock (so exactly one caller wins) while the
-        // closer runs OFF it, AFTER the replacement is registered — the ordering a closer has to tolerate, and
-        // why it must dispose the handle it captured rather than re-resolve by name.
+        // iteration but the last. The map swap happens under the lock while the release runs OFF it, AFTER
+        // the replacement is registered — the ordering a closer has to tolerate, and why it must dispose the
+        // handle it captured rather than re-resolve by name. Adopting takes only the registry's lock and runs
+        // no third-party code, so it can happen under [lock].
         val displaced = synchronized(lock) {
-            // A binding is disposed on its OWNING node's settle; ownership rests at the end of the export chain.
+            // A binding is released on its OWNING node's settle; ownership rests at the end of the export chain.
             val ownerId = exportOwnerOf(nodeId, key)
             supersedeBorrowsBelowOwner(nodeId, ownerId, key)
-            nodes.getValue(ownerId).bindings.put(key, Binding(value, disposal))?.disposal?.claim()
+            val owner = nodes.getValue(ownerId)
+            val frameHold = disposal?.let {
+                val adoption = registry.adopt(value, it.closer, owner.holder)
+                FrameHold(it.policy, adoption.resource, adoption.hold)
+            }
+            owner.bindings.put(key, Binding(value, frameHold))?.hold?.hold
         }
-        displaced?.let { runCloserLogged(it) }
+        displaced?.let { releaseLogged(it) }
     }
 
 
     private fun onSettle(nodeId: NodeId, policy: SettleDisposalPolicy, closer: () -> Unit) {
         synchronized(lock) {
-            nodes.getValue(nodeId).settleDisposals.add(FrameDisposal(policy.toClosePolicy(), closer))
+            val runtime = nodes.getValue(nodeId)
+            val adoption = registry.register(closer, runtime.holder)
+            runtime.addFrameHold(FrameHold(policy.toClosePolicy(), adoption.resource, adoption.hold))
         }
+    }
+
+
+    // A frame hold on [value]'s resources for the frame [nodeId] ([Execution.hold] and the host boundary in
+    // [settleOutputs]). The hold is taken off [lock] — it is the owned hot path — and recorded under it; a
+    // frame that is already gone (a race with its own teardown) releases at once rather than dropping the hold.
+    private fun holdFor(nodeId: NodeId, value: DataValue): Held? {
+        val holder = synchronized(lock) { nodes[nodeId]?.holder }
+            ?: return null
+        val held = registry.hold(value, holder)
+            ?: return null
+        val recorded = synchronized(lock) {
+            val runtime = nodes[nodeId]
+                ?: return@synchronized false
+            runtime.addFrameHold(FrameHold(ClosePolicy.Auto, null, held.hold))
+            true
+        }
+        if (!recorded) {
+            releaseLogged(held.hold)
+            return null
+        }
+        return held
     }
 
 
@@ -1587,10 +1692,10 @@ class RunEngine(
 
 
     private fun releaseBinding(nodeId: NodeId, key: ContextKey) {
-        val closer = synchronized(lock) {
-            removeNearestBinding(nodeId, key)?.disposal?.claim()
+        val hold = synchronized(lock) {
+            removeNearestBinding(nodeId, key)?.hold?.hold
         }
-        closer?.let { runCloserLogged(it) }
+        hold?.let { releaseLogged(it) }
     }
 
 
@@ -1620,14 +1725,15 @@ class RunEngine(
 
 
     private fun releaseResource(nodeId: NodeId, key: String) {
-        // Removes WITHOUT claiming the disposal — this entry point exists for a caller that already tore the
-        // resource down itself, so the auto-disposer must not fire afterwards. [releaseBinding] is the one
-        // that disposes.
+        // Removes and DETACHES rather than releasing — this entry point exists for a caller that already tore
+        // the resource down itself, so no closer may ever run for it: the entry reads closed, a co-holder's
+        // read fails by name and its later release is a no-op. [releaseBinding] is the one that releases.
         val contextKey = ContextKey.parseOrNull(key)
             ?: return
-        synchronized(lock) {
-            removeNearestBinding(nodeId, contextKey)
+        val resource = synchronized(lock) {
+            removeNearestBinding(nodeId, contextKey)?.hold?.resource
         }
+        resource?.detach()
     }
 
 
@@ -1642,7 +1748,7 @@ class RunEngine(
      */
     fun retainedBindings(): List<RetainedBinding> {
         return synchronized(lock) {
-            retained.map { RetainedBinding(it.nodeId, it.key, it.binding.value) }
+            retained.map { RetainedBinding(it.nodeId, it.key, it.value) }
         }
     }
 
@@ -1655,16 +1761,31 @@ class RunEngine(
      * Spec-led, deliberately unconsumed (like [retainedBindings]): awaiting a run-inspection consumer;
      * exercised by tests only.
      */
-    fun releaseRetained(node: NodeId, key: ContextKey): Boolean {
-        val closer = synchronized(lock) {
+    fun releaseRetained(node: NodeId, key: ContextKey?): Boolean {
+        val hold = synchronized(lock) {
             val index = retained.indexOfFirst { it.nodeId == node && it.key == key }
             if (index == -1) {
                 return false
             }
-            retained.removeAt(index).binding.disposal?.claim()
+            retained.removeAt(index).hold
         }
-        closer?.let { runCloserLogged(it) }
+        releaseLogged(hold)
         return true
+    }
+
+
+    /** The run's open resources with their holds by holder, as [RunState.resources] shows them. */
+    fun liveResources(): List<Resource> =
+        registry.live()
+
+
+    private fun resourceStates(): List<ResourceState> {
+        return registry.live().map { resource ->
+            ResourceState(
+                resource.native?.let { it.javaClass.name } ?: "anonymous",
+                resource.isBorrowed,
+                resource.holds().entries.associate { (holder, count) -> holder.name to count })
+        }
     }
 
 
@@ -1743,7 +1864,7 @@ class RunEngine(
             unclaimed
         }
         unclaimedRemoved.forEach { state ->
-            (state as? AutoCloseable)?.let { runCloserLogged { it.close() } }
+            (state as? AutoCloseable)?.let { closeLogged(it) }
         }
     }
 
@@ -1864,6 +1985,12 @@ class RunEngine(
 
         override fun onSettle(policy: SettleDisposalPolicy, closer: () -> Unit) =
             this@RunEngine.onSettle(nodeId, policy, closer)
+
+        override fun hold(value: DataValue): Held? =
+            this@RunEngine.holdFor(nodeId, value)
+
+        override val resources: ResourceRegistry
+            get() = registry
 
         // The raw string interop layer routes into exactly the same engine operations as the typed API — one
         // registry, one lookup — which is what makes a raw caller and a typed one address one registration.

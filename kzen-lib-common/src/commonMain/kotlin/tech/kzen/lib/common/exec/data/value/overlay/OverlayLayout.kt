@@ -49,8 +49,15 @@ internal class OverlayLayout(
 
     /**
      * The record [base] with [values] set, in the order of the fields this layout was made for; [base]'s own
-     * metadata is kept. The caller vouches that their contracts are this layout's.
+     * metadata is kept, and the result depends on every resource [base] or any of [values] depends on. The
+     * caller vouches that their contracts are this layout's.
      */
-    fun record(base: DataValue?, values: List<DataValue>): DataValue =
-        DataValue(OverlayAccess(this, base, values), OverlayAccess.root, base?.metadata)
+    fun record(base: DataValue?, values: List<DataValue>): DataValue {
+        var owners = base?.owners
+        for (value in values) {
+            val valueOwners = value.owners ?: continue
+            owners = owners?.plus(valueOwners) ?: valueOwners
+        }
+        return DataValue(OverlayAccess(this, base, values), OverlayAccess.root, base?.metadata, owners)
+    }
 }

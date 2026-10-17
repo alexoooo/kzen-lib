@@ -1430,8 +1430,8 @@ class RunEngineContextTest {
 
     @Test
     fun anAnonymousKeepOnFailureLeavesItsSideEffectUndone() = runBlocking {
-        // There is no handle to retain here — retention means the temp file simply stays for inspection — so
-        // the closer is never claimed rather than parked somewhere.
+        // The temp file simply stays for inspection, and the hold that would have removed it is retained
+        // without a key — findable and closeable, never dropped.
         val ran = ArrayList<String>()
 
         val logic = logicOf { execution ->
@@ -1445,7 +1445,10 @@ class RunEngineContextTest {
             engine.resume()
             assertIs<Outcome.Failed>(engine.await())
             assertEquals(listOf("auto"), ran)
-            assertTrue(engine.retainedBindings().isEmpty(), "an anonymous registration has no key to retain it by")
+            val retained = engine.retainedBindings().single()
+            assertNull(retained.key, "an anonymous registration is retained without a key")
+            assertTrue(engine.releaseRetained(retained.node, null))
+            assertEquals(listOf("auto", "keep"), ran)
         }
         finally {
             engine.close()
